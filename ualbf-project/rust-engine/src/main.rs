@@ -225,6 +225,81 @@ mod tests {
             "prasad_sunitha_bound must be > 0"
         );
     }
+
+    #[test]
+    fn test_validate_suffix_bounds_valid() {
+        let expected_k0 = 1u128 << 64;
+        let expected_k1 = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
+        let valid_seq = vec![expected_k0, expected_k1, expected_k1 + 10, expected_k1 + 20];
+        assert!(validate_suffix_bounds_sequence(&valid_seq).is_ok());
+    }
+
+    #[test]
+    fn test_validate_suffix_bounds_invalid_k0() {
+        let invalid_seq = vec![0, 100];
+        assert!(validate_suffix_bounds_sequence(&invalid_seq).is_err());
+    }
+
+    #[test]
+    fn test_validate_suffix_bounds_invalid_k1() {
+        let expected_k0 = 1u128 << 64;
+        let invalid_seq = vec![expected_k0, 100];
+        assert!(validate_suffix_bounds_sequence(&invalid_seq).is_err());
+    }
+
+    #[test]
+    fn test_validate_suffix_bounds_non_monotonic() {
+        let expected_k0 = 1u128 << 64;
+        let expected_k1 = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
+        let invalid_seq = vec![expected_k0, expected_k1, expected_k1 - 1];
+        assert!(validate_suffix_bounds_sequence(&invalid_seq).is_err());
+    }
+
+    #[test]
+    fn test_validate_suffix_bounds_empty() {
+        let invalid_seq = vec![];
+        assert!(validate_suffix_bounds_sequence(&invalid_seq).is_err());
+    }
+}
+
+pub fn validate_suffix_bounds_sequence(suffix_abundance: &[u128]) -> Result<(), String> {
+    let expected_k0 = 1u128 << 64;
+    if suffix_abundance.is_empty() {
+        return Err("FATAL: Loaded bounds sequence is empty! Boundary value verification cannot proceed.".to_string());
+    }
+    
+    if suffix_abundance[0] != expected_k0 {
+        return Err(format!(
+            "FATAL: Initial boundary value does not match the expected core model fixed-point limit!\n\
+             Expected (expected_k0): {}\n\
+             Actual: {}",
+            expected_k0, suffix_abundance[0]
+        ));
+    }
+    
+    if suffix_abundance.len() > 1 {
+        let expected_k1 = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
+        if suffix_abundance[1] != expected_k1 {
+            return Err(format!(
+                "FATAL: Boundary value suffix_abundance[1] does not match the expected core model fixed-point limit!\n\
+                 Expected (expected_k1): {}\n\
+                 Actual: {}",
+                expected_k1, suffix_abundance[1]
+            ));
+        }
+    }
+    
+    for k in 1..suffix_abundance.len() {
+        if suffix_abundance[k] < suffix_abundance[k - 1] {
+            return Err(format!(
+                "FATAL: Monotonicity violation detected in FFI bounds sequence!\n\
+                 suffix_abundance[{}] ({}) is less than suffix_abundance[{}] ({})",
+                k, suffix_abundance[k], k - 1, suffix_abundance[k - 1]
+            ));
+        }
+    }
+    
+    Ok(())
 }
 
 /// Program entry point that runs the full UALBF engine, performs the verified search,
@@ -534,6 +609,13 @@ fn main() {
     for k in 0..=max_factors {
         suffix_abundance[k] = lean_ffi::get_static_suffix_bound(k as u32);
     }
+
+    println!("Executing Startup Invariant Validation checks on FFI bounds sequence...");
+    if let Err(err_msg) = validate_suffix_bounds_sequence(&suffix_abundance) {
+        eprintln!("{}", err_msg);
+        std::process::exit(1);
+    }
+    println!("Startup Invariant Validation Successful: Monotonicity and fixed-point boundary limits are verified.");
 
     // Precompute illegal valuations once to pass into the parallel pipeline
     let illegal_z_valuations =
