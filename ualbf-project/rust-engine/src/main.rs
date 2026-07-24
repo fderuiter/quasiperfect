@@ -265,9 +265,12 @@ mod tests {
 pub fn validate_suffix_bounds_sequence(suffix_abundance: &[u128]) -> Result<(), String> {
     let expected_k0 = 1u128 << 64;
     if suffix_abundance.is_empty() {
-        return Err("FATAL: Loaded bounds sequence is empty! Boundary value verification cannot proceed.".to_string());
+        return Err(
+            "FATAL: Loaded bounds sequence is empty! Boundary value verification cannot proceed."
+                .to_string(),
+        );
     }
-    
+
     if suffix_abundance[0] != expected_k0 {
         return Err(format!(
             "FATAL: Initial boundary value does not match the expected core model fixed-point limit!\n\
@@ -276,7 +279,7 @@ pub fn validate_suffix_bounds_sequence(suffix_abundance: &[u128]) -> Result<(), 
             expected_k0, suffix_abundance[0]
         ));
     }
-    
+
     if suffix_abundance.len() > 1 {
         let expected_k1 = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
         if suffix_abundance[1] != expected_k1 {
@@ -288,17 +291,20 @@ pub fn validate_suffix_bounds_sequence(suffix_abundance: &[u128]) -> Result<(), 
             ));
         }
     }
-    
+
     for k in 1..suffix_abundance.len() {
         if suffix_abundance[k] < suffix_abundance[k - 1] {
             return Err(format!(
                 "FATAL: Monotonicity violation detected in FFI bounds sequence!\n\
                  suffix_abundance[{}] ({}) is less than suffix_abundance[{}] ({})",
-                k, suffix_abundance[k], k - 1, suffix_abundance[k - 1]
+                k,
+                suffix_abundance[k],
+                k - 1,
+                suffix_abundance[k - 1]
             ));
         }
     }
-    
+
     Ok(())
 }
 
