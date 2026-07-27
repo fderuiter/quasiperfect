@@ -162,10 +162,7 @@ pub fn format_payload(
         );
     }
     if let Some(cond) = is_conditional {
-        map.insert(
-            "is_conditional",
-            serde_json::Value::Bool(cond),
-        );
+        map.insert("is_conditional", serde_json::Value::Bool(cond));
     }
     if let Some(conj) = conjecture_name {
         map.insert(
@@ -282,7 +279,8 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
     };
 
     let is_conditional = obj.get("is_conditional").and_then(|v| v.as_bool());
-    let conjecture_name = obj.get("conjecture")
+    let conjecture_name = obj
+        .get("conjecture")
         .and_then(|v| v.as_object())
         .and_then(|o| o.get("conjecture_name"))
         .and_then(|v| v.as_str());
@@ -476,7 +474,8 @@ pub extern "C" fn verify_certificate(
     };
 
     let is_conditional = obj.get("is_conditional").and_then(|v| v.as_bool());
-    let conjecture_name = obj.get("conjecture")
+    let conjecture_name = obj
+        .get("conjecture")
         .and_then(|v| v.as_object())
         .and_then(|o| o.get("conjecture_name"))
         .and_then(|v| v.as_str());
