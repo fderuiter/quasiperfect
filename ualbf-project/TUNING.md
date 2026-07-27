@@ -33,6 +33,67 @@ The engine expects a `rust-engine/profile.json.template` file in the execution d
   - **Description**: The update frequency for the curses GUI dashboard interface.
   - **Tuning Strategy**: Decreasing the interval leads to smoother UI frame rates (e.g., `50` ms yields 20 FPS). However, updating too frequently steals rendering cycles from the main Python thread. `250` ms is recommended for standard monitoring.
 
+### Mathematical Bounds and Parameter Configurations
+
+In addition to user-tunable performance configurations, the engine depends on verified mathematical limits defined in `bounds_manifest.json`:
+
+- **omega_bounds.prasad_sunitha.proof_bound**
+  - **Description**: The mathematical lower bound on the number of prime factors of quasiperfect numbers proven by Prasad & Sunitha.
+
+- **omega_bounds.prasad_sunitha.engine_justified_gap**
+  - **Description**: The gap between the Prasad-Sunitha proved bound and the engine's capability.
+
+- **omega_bounds.hagis1982.proof_bound**
+  - **Description**: The baseline minimum number of prime factors proven by Hagis (1982).
+
+- **omega_bounds.hagis1982.engine_justified_gap**
+  - **Description**: The gap between the Hagis baseline bound and the engine.
+
+- **search_bounds.target_max_log10.value**
+  - **Description**: Upper log10 bound constraint for candidate searches.
+
+- **search_bounds.sieve_limit.value**
+  - **Description**: Sieve limit size used to find small prime factors during preprocessing.
+
+- **search_bounds.max_exponent.value**
+  - **Description**: Maximum allowable prime exponent checked during factor search.
+
+- **search_bounds.prefix_stop_threshold.value**
+  - **Description**: The numeric value threshold at which the prefix search stops checking deeper branches.
+
+- **search_bounds.target_min_log10.value**
+  - **Description**: Lower log10 bound constraint for candidate searches.
+
+- **search_bounds.pollard_rho.iteration_limit**
+  - **Description**: Maximum number of iteration steps performed by the Pollard-rho fallback algorithm.
+
+- **search_bounds.pollard_rho.batch_size**
+  - **Description**: Batch size for checking GCDs during Pollard-rho factorization.
+
+- **search_bounds.raycast.gpu_threshold**
+  - **Description**: Threshold for offloading raycast calculations to GPU buffers.
+
+- **search_bounds.raycast.chunk_size**
+  - **Description**: Chunk processing size for GPU offloading of raycasts.
+
+- **euler_ceiling.num**
+  - **Description**: Numerator of the Euler ceiling quotient bound.
+
+- **euler_ceiling.den**
+  - **Description**: Denominator of the Euler ceiling quotient bound.
+
+- **overflow_threshold.num**
+  - **Description**: Numerator of the overflow safety threshold ratio.
+
+- **overflow_threshold.den**
+  - **Description**: Denominator of the overflow safety threshold ratio.
+
+- **prime_factor_list**
+  - **Description**: Array of pre-loaded small prime numbers used during sieving operations.
+
+- **static_suffix_bounds**
+  - **Description**: Array of static limits mapping factors to their pre-calculated mathematical suffixes.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128
