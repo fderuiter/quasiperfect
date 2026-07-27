@@ -99,12 +99,22 @@ struct CertificateCitations {
     euler_ceiling: Option<Citation>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ConjectureMetadata {
+    pub conditional: bool,
+    pub conjecture_name: String,
+    pub conjectural_max_log10_ceiling: u32,
+}
+
 #[derive(Serialize, Debug)]
 struct Certificate {
     manifest_hash: String,
     verified_logic_hash: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     verified_extension_hash: Option<String>,
+    pub is_conditional: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conjecture: Option<ConjectureMetadata>,
     telemetry: SearchTelemetry,
     citations: CertificateCitations,
     signature: String,
@@ -738,6 +748,8 @@ fn main() {
             crate::lean_ffi::get_pollard_rho_iteration_limit(),
             config.sampling_rate,
             config.deterministic_seed,
+            Some(crate::manifest_constants::CONJECTURAL_ACTIVE),
+            Some(crate::manifest_constants::CONJECTURE_NAME),
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (
@@ -808,10 +820,23 @@ fn main() {
             .unwrap_or(None),
     };
 
+    let is_cond = crate::manifest_constants::CONJECTURAL_ACTIVE;
+    let conjecture_meta = if is_cond {
+        Some(ConjectureMetadata {
+            conditional: true,
+            conjecture_name: crate::manifest_constants::CONJECTURE_NAME.to_string(),
+            conjectural_max_log10_ceiling: crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING,
+        })
+    } else {
+        None
+    };
+
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
         verified_extension_hash,
+        is_conditional: is_cond,
+        conjecture: conjecture_meta,
         telemetry,
         citations: cert_citations,
         signature: signature_hex,

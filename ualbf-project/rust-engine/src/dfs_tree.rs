@@ -738,6 +738,14 @@ pub fn check_and_evaluate_node(
                 )
                 .is_ok()
             {
+                if crate::manifest_constants::CONJECTURAL_ACTIVE {
+                    let ceiling = crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING as f64;
+                    let bits = 512 - curr.n_l.leading_zeros();
+                    let curr_log = (bits as f64) * 0.3010299956639812;
+                    let remaining = if ceiling > curr_log { ceiling - curr_log } else { 0.0 };
+                    let pct_remaining = if ceiling > 0.0 { (remaining / ceiling) * 100.0 } else { 0.0 };
+                    println!("PROGRESS|CONJECTURAL_DISTANCE|remaining_distance={:.4}|percentage_remaining={:.2}%", remaining, pct_remaining);
+                }
                 if let Some(r) = reporter {
                     let pr = pruned_count.load(Ordering::Relaxed);
                     let comp = completed_weight_scaled.load(Ordering::Relaxed);
@@ -1133,6 +1141,12 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
         dfs_ctx.curr.s_l.checked_mul(comp.sigma),
     ) {
         if next_n_l <= *dfs_ctx.target_bound {
+            if crate::manifest_constants::CONJECTURAL_ACTIVE {
+                let conjectural_limit = get_conjectural_limit();
+                if next_n_l > conjectural_limit {
+                    return false;
+                }
+            }
             dfs_ctx.saved_states.push(dfs_ctx.curr.capture_state());
             dfs_ctx.curr.n_l = next_n_l;
             dfs_ctx.curr.s_l = next_s_l;
@@ -1947,5 +1961,43 @@ mod tests {
         let res3 = resolve_lazy_factors(&comp3, &slot3);
         assert!(res3.is_err());
     }
+
+    #[test]
+    fn test_try_push_fails_exceeds_conjectural_limit() {
+        if crate::manifest_constants::CONJECTURAL_ACTIVE {
+            let mut curr = make_prefix(1, 1, 0);
+            let p_large = PrimePower {
+                p: 11,
+                two_e: 2,
+                val: Uint::from_u64(10).pow(31),
+                sigma: Uint::from_u64(1),
+                sigma_factors: vec![],
+                needs_rho: vec![],
+                abundance_fp: 0,
+            };
+            let comps2 = vec![p_large];
+            let tb = Uint::from_u64(10).pow(43); // standard target bound
+            with_dfs_ctx!(
+                curr = curr,
+                components = &comps2,
+                target_bound = tb,
+                max_idx_3 = 0,
+                max_idx_5 = 0,
+                saved_states = vec![],
+                |ptr| unsafe {
+                    let pushed = __rust_dfs_try_push(ptr, 0);
+                    assert!(!pushed, "should fail: 10^31 exceeds conjectural limit 10^30");
+                    assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be unchanged");
+                }
+            );
+        }
+    }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static CONJECTURAL_LIMIT: std::sync::OnceLock<Uint> = std::sync::OnceLock::new();
+
+pub fn get_conjectural_limit() -> Uint {
+    *CONJECTURAL_LIMIT.get_or_init(|| {
+        Uint::from_u64(10).pow(crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING)
+    })
+}
