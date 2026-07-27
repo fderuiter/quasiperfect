@@ -741,9 +741,17 @@ pub fn check_and_evaluate_node(
                 if crate::manifest_constants::CONJECTURAL_ACTIVE {
                     let ceiling = crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING as f64;
                     let bits = 512 - curr.n_l.leading_zeros();
-                    let curr_log = (bits as f64) * 0.3010299956639812;
-                    let remaining = if ceiling > curr_log { ceiling - curr_log } else { 0.0 };
-                    let pct_remaining = if ceiling > 0.0 { (remaining / ceiling) * 100.0 } else { 0.0 };
+                    let curr_log = (bits as f64) * std::f64::consts::LOG10_2;
+                    let remaining = if ceiling > curr_log {
+                        ceiling - curr_log
+                    } else {
+                        0.0
+                    };
+                    let pct_remaining = if ceiling > 0.0 {
+                        (remaining / ceiling) * 100.0
+                    } else {
+                        0.0
+                    };
                     println!("PROGRESS|CONJECTURAL_DISTANCE|remaining_distance={:.4}|percentage_remaining={:.2}%", remaining, pct_remaining);
                 }
                 if let Some(r) = reporter {
@@ -1986,7 +1994,10 @@ mod tests {
                 saved_states = vec![],
                 |ptr| unsafe {
                     let pushed = __rust_dfs_try_push(ptr, 0);
-                    assert!(!pushed, "should fail: 10^31 exceeds conjectural limit 10^30");
+                    assert!(
+                        !pushed,
+                        "should fail: 10^31 exceeds conjectural limit 10^30"
+                    );
                     assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be unchanged");
                 }
             );
