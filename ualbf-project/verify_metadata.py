@@ -15,6 +15,59 @@ def get_nested_value(d, path):
     return d
 
 
+def find_leaf_parameters(data, current_path=""):
+    paths = []
+    if isinstance(data, dict):
+        for k, v in data.items():
+            sub_path = f"{current_path}.{k}" if current_path else k
+            if k in ("justification", "description", "is_axiomatic") or "citation" in sub_path.split("."):
+                continue
+            paths.extend(find_leaf_parameters(v, sub_path))
+    elif isinstance(data, list):
+        paths.append(current_path)
+    elif isinstance(data, (int, float, bool)):
+        paths.append(current_path)
+    return paths
+
+
+def get_parameter_candidates(path: str):
+    parts = path.split(".")
+    candidates = set()
+    candidates.add(path)
+    candidates.add(path.replace(".", "_"))
+    for i in range(len(parts)):
+        candidates.add("_".join(parts[i:]))
+    all_candidates = list(candidates)
+    for c in all_candidates:
+        candidates.add(c.upper())
+        candidates.add(c.lower())
+    return sorted(list(candidates))
+
+
+def is_parameter_documented(doc_content: str, candidates: list[str]) -> bool:
+    for cand in candidates:
+        if f"**{cand}**" in doc_content:
+            return True
+        if f"__{cand}__" in doc_content:
+            return True
+        if f"*{cand}*" in doc_content:
+            return True
+        if f"_{cand}_" in doc_content:
+            return True
+        if f"`{cand}`" in doc_content:
+            return True
+        
+        escaped_cand = re.escape(cand)
+        if re.search(rf"^\s*#+\s+.*?\b{escaped_cand}\b", doc_content, re.IGNORECASE | re.MULTILINE):
+            return True
+            
+        bullet_pattern = rf"^\s*[-*+]\s+(?:\*\*|`|_)?{escaped_cand}(?:\*\*|`|_)?\b"
+        if re.search(bullet_pattern, doc_content, re.IGNORECASE | re.MULTILINE):
+            return True
+    return False
+
+
+
 def strip_comments(text: str, filename: str) -> str:
     _, ext = os.path.splitext(filename)
     is_rust = ext == ".rs"
@@ -257,6 +310,46 @@ def main():
                             f"Error in {metric['file']}:{line_no}: Hardcoded metric '{actual_val}' conflicts with manifest value '{expected_val}'."
                         )
                         errors += 1
+
+    # 3. Check bounds manifest configuration parameters documentation
+    bounds_manifest_path = os.path.join(base_dir, "bounds_manifest.json")
+    if not os.path.exists(bounds_manifest_path):
+        print(f"Error: {bounds_manifest_path} not found.")
+        errors += 1
+    else:
+        with open(bounds_manifest_path, "r", encoding="utf-8") as f:
+            bounds_data = json.load(f)
+        
+        leaf_params = find_leaf_parameters(bounds_data)
+        parameter_mappings = manifest.get("parameter_mappings", {})
+        
+        # Cache for read markdown files
+        doc_contents = {}
+
+        for param_path in leaf_params:
+            if param_path not in parameter_mappings:
+                print(f"Error: Parameter '{param_path}' from bounds manifest has no mapping in metadata_manifest.json's 'parameter_mappings'.")
+                errors += 1
+                continue
+            
+            doc_file_rel = parameter_mappings[param_path]
+            doc_file_abs = os.path.join(base_dir, doc_file_rel)
+            
+            if not os.path.exists(doc_file_abs):
+                print(f"Error: Document '{doc_file_rel}' mapped for parameter '{param_path}' does not exist.")
+                errors += 1
+                continue
+            
+            if doc_file_rel not in doc_contents:
+                with open(doc_file_abs, "r", encoding="utf-8") as df:
+                    doc_contents[doc_file_rel] = df.read()
+                    
+            doc_content = doc_contents[doc_file_rel]
+            candidates = get_parameter_candidates(param_path)
+            
+            if not is_parameter_documented(doc_content, candidates):
+                print(f"Error: Parameter '{param_path}' (expected as one of {candidates}) is missing from its expected documentation path '{doc_file_rel}'.")
+                errors += 1
 
     if errors > 0:
         sys.exit(1)

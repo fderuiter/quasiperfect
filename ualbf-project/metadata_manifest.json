@@ -45,5 +45,26 @@
         }
       ]
     }
-  ]
+  ],
+  "parameter_mappings": {
+    "omega_bounds.prasad_sunitha.proof_bound": "TUNING.md",
+    "omega_bounds.prasad_sunitha.engine_justified_gap": "TUNING.md",
+    "omega_bounds.hagis1982.proof_bound": "TUNING.md",
+    "omega_bounds.hagis1982.engine_justified_gap": "TUNING.md",
+    "search_bounds.target_max_log10.value": "TUNING.md",
+    "search_bounds.sieve_limit.value": "TUNING.md",
+    "search_bounds.max_exponent.value": "TUNING.md",
+    "search_bounds.prefix_stop_threshold.value": "TUNING.md",
+    "search_bounds.target_min_log10.value": "TUNING.md",
+    "search_bounds.pollard_rho.iteration_limit": "TUNING.md",
+    "search_bounds.pollard_rho.batch_size": "TUNING.md",
+    "search_bounds.raycast.gpu_threshold": "TUNING.md",
+    "search_bounds.raycast.chunk_size": "TUNING.md",
+    "euler_ceiling.num": "TUNING.md",
+    "euler_ceiling.den": "TUNING.md",
+    "overflow_threshold.num": "TUNING.md",
+    "overflow_threshold.den": "TUNING.md",
+    "prime_factor_list": "TUNING.md",
+    "static_suffix_bounds": "TUNING.md"
+  }
 }

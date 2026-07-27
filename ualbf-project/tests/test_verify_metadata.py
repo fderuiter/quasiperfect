@@ -1,4 +1,10 @@
-from verify_metadata import strip_comments, find_construct
+from verify_metadata import (
+    strip_comments,
+    find_construct,
+    find_leaf_parameters,
+    get_parameter_candidates,
+    is_parameter_documented,
+)
 
 
 def test_strip_comments_rust():
@@ -137,3 +143,61 @@ def test_find_construct_commented_out_ignored():
     assert find_construct(stripped_rs, "CommentedStruct", "test.rs") is False
     assert find_construct(stripped_lean, "commented_out_lean", "test.lean") is False
     assert find_construct(stripped_lean, "commented_theorem", "test.lean") is False
+
+
+def test_find_leaf_parameters():
+    mock_data = {
+        "top_param": 42,
+        "nested": {
+            "justification": "This should be ignored",
+            "is_axiomatic": True,
+            "citation": {
+                "author": "Someone"
+            },
+            "valid_leaf": 3.14,
+            "nested_again": {
+                "inner_list": [1, 2, 3]
+            }
+        },
+        "description": "Ignore this"
+    }
+    extracted = find_leaf_parameters(mock_data)
+    assert "top_param" in extracted
+    assert "nested.valid_leaf" in extracted
+    assert "nested.nested_again.inner_list" in extracted
+    assert "nested.justification" not in extracted
+    assert "nested.is_axiomatic" not in extracted
+    assert "nested.citation.author" not in extracted
+    assert "description" not in extracted
+
+
+def test_get_parameter_candidates():
+    candidates = get_parameter_candidates("search_bounds.pollard_rho.batch_size")
+    assert "search_bounds.pollard_rho.batch_size" in candidates
+    assert "search_bounds_pollard_rho_batch_size" in candidates
+    assert "pollard_rho_batch_size" in candidates
+    assert "batch_size" in candidates
+    assert "POLLARD_RHO_BATCH_SIZE" in candidates
+    assert "BATCH_SIZE" in candidates
+
+
+def test_is_parameter_documented():
+    import textwrap
+    doc_content = textwrap.dedent("""
+        # Document
+        We can document standard configurations here.
+        
+        ### POLLARD_RHO_BATCH_SIZE
+        Description of batch size.
+        
+        Other parameter: `sieve_limit`.
+        Some bold param: **max_exponent**.
+        
+        - active_prime_slots: a telemetry option.
+    """)
+    assert is_parameter_documented(doc_content, ["POLLARD_RHO_BATCH_SIZE"]) is True
+    assert is_parameter_documented(doc_content, ["sieve_limit"]) is True
+    assert is_parameter_documented(doc_content, ["max_exponent"]) is True
+    assert is_parameter_documented(doc_content, ["active_prime_slots"]) is True
+    assert is_parameter_documented(doc_content, ["missing_param"]) is False
+
