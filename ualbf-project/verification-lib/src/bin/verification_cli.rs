@@ -78,6 +78,8 @@ fn main() {
                 args[9].parse().unwrap(),
                 sampling_rate,
                 deterministic_seed,
+                None,
+                None,
             );
             println!("{}", payload);
         }

@@ -120,11 +120,19 @@ struct OverflowThreshold {
 }
 
 #[derive(Deserialize)]
+struct ConjecturalBounds {
+    active: bool,
+    conjecture_name: String,
+    target_max_log10_ceiling: u32,
+}
+
+#[derive(Deserialize)]
 struct BoundsManifest {
     omega_bounds: OmegaBounds,
     search_bounds: SearchBounds,
     euler_ceiling: EulerCeiling,
     overflow_threshold: OverflowThreshold,
+    conjectural_bounds: Option<ConjecturalBounds>,
 }
 
 /// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static

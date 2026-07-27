@@ -206,6 +206,8 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         mr_20_base_axiomatic = bounds.get("miller_rabin_20_base_sufficiency", {}).get(
             "is_axiomatic", False
         )
+        conjectural_active = bounds.get("conjectural_bounds", {}).get("active", False)
+        conjectural_max_log10_ceiling = bounds.get("conjectural_bounds", {}).get("target_max_log10_ceiling", 0)
 
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
@@ -226,6 +228,9 @@ verus! {{
     pub open spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
     
     pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
+
+    pub open spec fn lean_conjectural_active() -> bool {{ {str(conjectural_active).lower()} }}
+    pub open spec fn lean_conjectural_max_log10_ceiling() -> nat {{ {conjectural_max_log10_ceiling} }}
 
     pub proof fn prove_combined_bounds() {{
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
@@ -371,6 +376,10 @@ def main():
         raycast_gpu_threshold = bounds["search_bounds"]["raycast"]["gpu_threshold"]
         raycast_chunk_size = bounds["search_bounds"]["raycast"]["chunk_size"]
 
+        conjectural_active = bounds.get("conjectural_bounds", {}).get("active", False)
+        conjecture_name = bounds.get("conjectural_bounds", {}).get("conjecture_name", "None")
+        conjectural_max_log10 = bounds.get("conjectural_bounds", {}).get("target_max_log10_ceiling", 0)
+
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {prasad_bound};
@@ -388,6 +397,9 @@ pub const OVERFLOW_THRESHOLD_NUM: u64 = {overflow_num};
 pub const OVERFLOW_THRESHOLD_DEN: u64 = {overflow_den};
 pub const RAYCAST_GPU_THRESHOLD: usize = {raycast_gpu_threshold};
 pub const RAYCAST_CHUNK_SIZE: usize = {raycast_chunk_size};
+pub const CONJECTURAL_ACTIVE: bool = {str(conjectural_active).lower()};
+pub const CONJECTURE_NAME: &str = "{conjecture_name}";
+pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = {conjectural_max_log10};
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 """
         with open(
@@ -411,6 +423,9 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
 #define OVERFLOW_THRESHOLD_DEN {overflow_den}
 #define RAYCAST_GPU_THRESHOLD {raycast_gpu_threshold}
 #define RAYCAST_CHUNK_SIZE {raycast_chunk_size}
+#define CONJECTURAL_ACTIVE {1 if conjectural_active else 0}
+#define CONJECTURE_NAME "{conjecture_name}"
+#define CONJECTURAL_MAX_LOG10_CEILING {conjectural_max_log10}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"
@@ -437,6 +452,10 @@ def OVERFLOW_THRESHOLD_NUM : Nat := {overflow_num}
 def OVERFLOW_THRESHOLD_DEN : Nat := {overflow_den}
 def RAYCAST_GPU_THRESHOLD : Nat := {raycast_gpu_threshold}
 def RAYCAST_CHUNK_SIZE : Nat := {raycast_chunk_size}
+
+def CONJECTURAL_ACTIVE : Bool := {'true' if conjectural_active else 'false'}
+def CONJECTURE_NAME : String := "{conjecture_name}"
+def CONJECTURAL_MAX_LOG10_CEILING : Nat := {conjectural_max_log10}
 
 def PRIME_FACTOR_LIST : Array Nat := #[{', '.join(map(str, bounds.get('prime_factor_list', [])))}]
 def STATIC_SUFFIX_BOUNDS : Array Nat := #[{', '.join(map(str, bounds.get('static_suffix_bounds', [])))}]

@@ -774,3 +774,54 @@ class TestManifestSecurityValidation:
             assert "Manifest hash mismatch" in str(exc_info.value)
         finally:
             os.environ.pop("UALBF_PROOF_MANIFEST", None)
+
+
+class TestConditionalCertificates:
+    def test_conditional_cert_success(self, tmp_path):
+        """A certificate with conditional metadata verifies successfully."""
+        manifest = make_manifest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
+        
+        cert = build_cert(manifest_hash)
+        cert["is_conditional"] = True
+        cert["conjecture"] = {
+            "conditional": True,
+            "conjecture_name": "ABC Conjecture",
+            "conjectural_max_log10_ceiling": 30
+        }
+        
+        # We need to manually format the payload for signing inside the test
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 35),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+            "is_conditional": True,
+            "conjecture_name": "ABC Conjecture"
+        }
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+        
+        cert_path = os.path.join(str(tmp_path), "formal_certificate.json")
+        manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
+        with open(cert_path, "w") as f:
+            json.dump(cert, f)
+        with open(manifest_path, "w") as f:
+            f.write(manifest_content)
+            
+        os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+        try:
+            # Should not raise any error
+            meta = load_and_validate_cert(cert_path)
+            assert meta["is_conditional"] is True
+            assert meta["conjecture"]["conjecture_name"] == "ABC Conjecture"
+        finally:
+            os.environ.pop("UALBF_PROOF_MANIFEST", None)
+

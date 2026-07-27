@@ -110,6 +110,8 @@ pub fn format_payload(
     factorization_depth: u32,
     sampling_rate: Option<f64>,
     deterministic_seed: Option<u64>,
+    is_conditional: Option<bool>,
+    conjecture_name: Option<&str>,
 ) -> String {
     let mut map = std::collections::BTreeMap::new();
     map.insert(
@@ -157,6 +159,18 @@ pub fn format_payload(
         map.insert(
             "deterministic_seed",
             serde_json::Value::Number(serde_json::Number::from(seed)),
+        );
+    }
+    if let Some(cond) = is_conditional {
+        map.insert(
+            "is_conditional",
+            serde_json::Value::Bool(cond),
+        );
+    }
+    if let Some(conj) = conjecture_name {
+        map.insert(
+            "conjecture_name",
+            serde_json::Value::String(conj.to_string()),
         );
     }
 
@@ -267,6 +281,12 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         (None, None)
     };
 
+    let is_conditional = obj.get("is_conditional").and_then(|v| v.as_bool());
+    let conjecture_name = obj.get("conjecture")
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("conjecture_name"))
+        .and_then(|v| v.as_str());
+
     // Reconstruct payload
     let payload = format_payload(
         manifest_hash,
@@ -279,6 +299,8 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         factorization_depth,
         sampling_rate,
         deterministic_seed,
+        is_conditional,
+        conjecture_name,
     );
 
     // Verify signature
@@ -453,6 +475,12 @@ pub extern "C" fn verify_certificate(
         (None, None)
     };
 
+    let is_conditional = obj.get("is_conditional").and_then(|v| v.as_bool());
+    let conjecture_name = obj.get("conjecture")
+        .and_then(|v| v.as_object())
+        .and_then(|o| o.get("conjecture_name"))
+        .and_then(|v| v.as_str());
+
     let payload = format_payload(
         manifest_hash,
         verified_logic_hash,
@@ -464,6 +492,8 @@ pub extern "C" fn verify_certificate(
         factorization_depth,
         sampling_rate,
         deterministic_seed,
+        is_conditional,
+        conjecture_name,
     );
 
     let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);
