@@ -49,6 +49,42 @@
           '';
         };
 
+        rustToolchain = let
+          systemMap = {
+            "x86_64-linux" = {
+              url = "https://static.rust-lang.org/dist/rust-1.96.0-x86_64-unknown-linux-gnu.tar.xz";
+              sha256 = "c295047583a56238ea06b43f849f4b877fa12bfd4c7103f8d9a74c94c9c4e108";
+            };
+            "x86_64-darwin" = {
+              url = "https://static.rust-lang.org/dist/rust-1.96.0-x86_64-apple-darwin.tar.xz";
+              sha256 = "63a6d717a5e5392ac43f0a1593e7aabe6128c8685d318cb890603b1688cb3339";
+            };
+            "aarch64-darwin" = {
+              url = "https://static.rust-lang.org/dist/rust-1.96.0-aarch64-apple-darwin.tar.xz";
+              sha256 = "f04a974f3579d3524f6b9bc6490a27c9fb358050e7cd8a641945f30bf24c1dce";
+            };
+          };
+          systemInfo = systemMap.${system} or systemMap."x86_64-linux";
+        in pkgs.stdenv.mkDerivation {
+          pname = "rust-toolchain";
+          version = "1.96.0";
+          src = pkgs.fetchurl {
+            url = systemInfo.url;
+            sha256 = systemInfo.sha256;
+          };
+          nativeBuildInputs = pkgs.lib.optional pkgs.stdenv.isLinux pkgs.autoPatchelfHook;
+          buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.zlib
+            pkgs.curl
+            pkgs.openssl
+            pkgs.stdenv.cc.cc.lib
+          ];
+          dontStrip = true;
+          installPhase = ''
+            ./install.sh --prefix=$out --disable-ldconfig
+          '';
+        };
+
         lakeManifest = builtins.fromJSON (builtins.readFile ./ualbf-project/lean4-proofs/lake-manifest.json);
         
         linkPackages = pkgs.lib.concatStringsSep "\n" (map (pkg: ''
@@ -426,7 +462,11 @@ with open("dummy_cert.json", "w") as f:
             version = "0.1.0";
             src = ./.;
 
-            nativeBuildInputs = [ verusPkg ];
+            nativeBuildInputs = [ verusPkg rustToolchain ];
+
+            VERUS_USE_RUSTUP = "0";
+            LD_LIBRARY_PATH = "${rustToolchain}/lib";
+            DYLD_LIBRARY_PATH = "${rustToolchain}/lib";
 
             buildPhase = ''
               echo "Running Verus semantic proof verification..."
