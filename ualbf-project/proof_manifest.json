@@ -4,142 +4,142 @@
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
-      "checksum": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+      "checksum": "d5a171fc07dfebbfd1d4d668e8745d6085040da5924b1666bf24cb2069edf45d"
     },
     {
       "name": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "e2e9e21553e2eeb9afcb7494aff485cabeee9a5811e6325135667fa37c1ab362"
     },
     {
       "name": "UALBF.Engine.Bipartition.ambs_suffix_target",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "30b53fd285b7f5504c52a7955ea7e7432c04e6d81562cb9ecbc19f252c20f94e"
     },
     {
       "name": "UALBF.Engine.Bipartition.no_solution_no_qpn",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "661864cac1bf5826d9395deea2b1bc346e3f1d582c1db8cb27bffad64dc5a85f"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "3110c855ed22afef7adee051351196e7c5aa09e2b5d51b04840dd6dcf59e07f4"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "bbcab2796ca97795e78bc47d64a37f6eee8b28b4327a412b8b02adee02a0ff89"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "f5339578d089d08d20e1ce32f8097d897de256ebe5acda36281d625edbf94bd7"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
       "file": "UALBF/QPN/Obstruction.lean",
       "status": "proven",
-      "checksum": "8596f059f212a26c67db54bc0ce6463beca46b1df6a2050903c27942f8ec6ef5"
+      "checksum": "7bb51973254cb8d395f55b19b5b53159a7fc10c789433ee02082cccef49388a2"
     },
     {
       "name": "UALBF.QPN.BasicProperties.qpn_is_odd_square",
       "file": "UALBF/QPN/BasicProperties.lean",
       "status": "proven",
-      "checksum": "8992defd0cff60fce435d433d20749c86bdc42ca822648993c86c1487a29abb6"
+      "checksum": "8bc73adfa89aad64265aee76ad048acc15678f0a9cda0a22e5a2296c9aa049c4"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
       "status": "proven",
-      "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
+      "checksum": "f6bfb336333ecb2712a99e2afa0239bdf049ae92a67f17ec9d051301ab8039f4"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
       "file": "UALBF/Engine/Obstruction.lean",
       "status": "proven",
-      "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7"
+      "checksum": "5f1994ad865a9f288b6444668a335db865a4870342f0bd31997377a69e8eede8"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
       "file": "UALBF/Engine/Obstruction.lean",
       "status": "proven",
-      "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7"
+      "checksum": "c5eb373387a5f879187048cf077e5bd469925cce2e0535bdf1c8f05df0b0bbf9"
     },
     {
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "8010d73ea357f8437dd02be39e02ac3f76daf3f16f72bffb4f660ce8dc7743cf"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "e3aa916c2f6b60b55b84831212ff741b771d1fe58188c9f42af7bfb1dccadfa9"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "cbe5f2ffef54180c8e819b3229d275af867e438d2e13ff31e7da5b485295b367"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "a684dd194a525bbd854cfa32063ed22c31e11bf4ce28a6c82b78d711c72dfc47"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "356d24c0d83eeb65d9a15e7a844b8660e543ca5dbeb725c09ce499a6488f9006"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "896a4fd0866e7feaffd8fa5109bb4d30d8a550721e037caeecda54fddeb12942"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "557d2cb0684408544966fd5e903066c754fabb5006e83e536510dd905c1fe0aa"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "100903532386854c2f27b64a260b1a382a270103020f9e6e000f86deb63e5cac"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "bbb30a52a3d636a36cae809b34bfd805282b05b19cdd9cb9041952bb2babc2ec"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "4e8225ca330b62c5b04645c5b8e8ff653f9a6b67f56481ae3b5ac05da6c12d8c"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "bd062f026a2936ce04aebdea3ad5519441b93431ddeab5ed1f0bce637de6478a"
     }
   ],
-  "verified_logic_hash": "d8ccf760400a10f3afb8e022d69490c8b1c361d5559bd632ec8259f2218405e5",
+  "verified_logic_hash": "035fa22ea409edf033d24ae2600abb30a86f48b0281f058c9dc29d61a6cec415",
   "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
