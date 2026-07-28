@@ -16,7 +16,6 @@ import UALBF.Pure.Arithmetic
 import UALBF.Pure.Cyclotomic
 
 set_option exponentiation.threshold 1024
-set_option compiler.ignoreBorrowAnnotation true
 
 namespace UALBF.FFI
 
@@ -682,14 +681,14 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : IO Unit := do
           pushed := true
           break
         else
-          rust_dfs_pop ctx
+          ← rust_dfs_pop ctx
 
     -- Backtracking Invariant: If no child was pushed (exploration exhausted or pruned),
     -- we restore the parent state iff there is more work on the stack.
     -- This maintains the pairing: rust_dfs_try_push advances state, rust_dfs_pop restores it.
     if not pushed then
       if stack.size > 0 then
-        rust_dfs_pop ctx
+        ← rust_dfs_pop ctx
 
 @[export ualbf_evaluate_baseline_min_ffi]
 def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
