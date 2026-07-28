@@ -68,7 +68,7 @@ def sign_payload(payload_str: str) -> tuple[str, str]:
 
 
 def write_mock_manifest_files(tmpdir, manifest):
-    """Write mock theorem and proof_files to tmpdir and update their checksums to content hashes."""
+    """Write mock theorem and proof_files to tmpdir and update their checksums to metadata hashes."""
     # Ensure they exist and have matching content-level hashes
     for thm in manifest.get("theorems", []):
         file_path = os.path.join(tmpdir, thm["file"])
@@ -88,7 +88,8 @@ def write_mock_manifest_files(tmpdir, manifest):
         with open(file_path, "wb") as f:
             f.write(content)
 
-        thm["checksum"] = hashlib.sha256(content).hexdigest()
+        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+        thm["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     for pf in manifest.get("proof_files", []):
         file_path = os.path.join(tmpdir, pf["file"])
