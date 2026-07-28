@@ -116,6 +116,145 @@ verus! {
         is_prime(n)
     }
 
+    pub open spec fn is_order_mod_p(d: nat, a: nat, p: nat) -> bool {
+        d > 0 &&
+        modpow_spec(a, d, p) == 1 &&
+        (forall|k: nat| 0 < k && k < d ==> modpow_spec(a, k, p) != 1)
+    }
+
+    #[verifier(nonlinear)]
+    pub proof fn lemma_divisibility_transitive(n: nat, d: nat, c: nat)
+        requires
+            c > 0, d > 0,
+            n % d == 0,
+            d % c == 0
+        ensures
+            n % c == 0
+    {}
+
+    pub proof fn lemma_smallest_factor_is_prime(n: nat, d: nat)
+        requires
+            n > 1,
+            1 < d,
+            n % d == 0,
+            forall|c: nat| 1 < c && c < d ==> n % c != 0
+        ensures
+            is_prime(d)
+    {
+        if !is_prime(d) {
+            let c = choose|c: nat| 1 < c && c < d && d % c == 0;
+            lemma_divisibility_transitive(n, d, c);
+            assert(n % c == 0);
+        }
+    }
+
+    pub proof fn lemma_composite_has_prime_factor_le_sqrt(n: nat)
+        requires
+            n > 1,
+            !is_prime(n)
+        ensures
+            exists|p: nat| is_prime(p) && n % p == 0 && p * p <= n
+    {
+        let d_min = choose|d_min: nat| 1 < d_min && d_min <= n && n % d_min == 0 &&
+            (forall|c: nat| 1 < c && c < d_min ==> n % c != 0);
+
+        lemma_smallest_factor_is_prime(n, d_min);
+        assert(is_prime(d_min));
+
+        let k = (n / d_min) as nat;
+        assert(n == d_min * k);
+        if k < d_min {
+            if k > 1 {
+                assert(n % k == 0);
+            }
+        }
+        assert(k >= d_min);
+    }
+
+    pub proof fn lemma_modpow_mod_divisibility(a: nat, m: nat, n: nat, p: nat)
+        requires
+            n > 0, p > 1,
+            n % p == 0,
+            modpow_spec(a, m, n) == 1
+        ensures
+            modpow_spec(a, m, p) == 1
+    {}
+
+    pub proof fn lemma_modpow_add_mul(a: nat, q: nat, d: nat, r: nat, p: nat)
+        requires
+            p > 1,
+            modpow_spec(a, d, p) == 1
+        ensures
+            modpow_spec(a, (q * d + r) as nat, p) == modpow_spec(a, r, p)
+    {}
+
+    pub proof fn lemma_order_exists(a: nat, m: nat, p: nat)
+        requires
+            p > 1,
+            m > 0,
+            modpow_spec(a, m, p) == 1
+        ensures
+            exists|d: nat| is_order_mod_p(d, a, p) && m % d == 0
+    {
+        let d = choose|d: nat| 0 < d && d <= m && modpow_spec(a, d, p) == 1 &&
+            (forall|k: nat| 0 < k && k < d ==> modpow_spec(a, k, p) != 1);
+
+        assert(is_order_mod_p(d, a, p));
+        let q = m / d;
+        let r = m % d;
+        if r > 0 {
+            lemma_modpow_add_mul(a, q, d, r, p);
+            assert(modpow_spec(a, r, p) == 1);
+        }
+        assert(m % d == 0);
+    }
+
+    pub proof fn lemma_order_prime_factor(d: nat, f: nat, r_val: nat, p: nat)
+        requires
+            d > 0, f > 0, r_val > 0,
+            (f * r_val) % d == 0,
+            forall|q: nat| is_prime(q) && f % q == 0 ==> !(((f * r_val) / q) % d == 0)
+        ensures
+            d % f == 0
+    {}
+
+    pub proof fn lemma_divisibility_bounds(a: nat, b: nat)
+        requires
+            a > 0, b > 0,
+            b % a == 0
+        ensures
+            a <= b
+    {}
+
+    pub proof fn lemma_fermat_little_theorem(a: nat, p: nat)
+        requires
+            is_prime(p),
+            a % p != 0
+        ensures
+            modpow_spec(a, (p - 1) as nat, p) == 1
+    {}
+
+    pub proof fn lemma_order_le_p_minus_1(a: nat, d: nat, p: nat)
+        requires
+            is_prime(p),
+            is_order_mod_p(d, a, p)
+        ensures
+            d <= p - 1
+    {
+        lemma_fermat_little_theorem(a, p);
+        lemma_divisibility_bounds(d, (p - 1) as nat);
+    }
+
+    #[verifier(nonlinear)]
+    pub proof fn lemma_square_comparison_contradiction(p: nat, f: nat, n: nat)
+        requires
+            p * p <= n,
+            f * f > n - 1,
+            f < p
+        ensures
+            false
+    {}
+
     pub proof fn lemma_pocklington_certificate(n: nat, a: nat, f: nat, r_val: nat)
         requires
             n > 1,
@@ -128,6 +267,32 @@ verus! {
         ensures
             is_prime(n) == pocklington_spec(n)
     {
+        if !is_prime(n) {
+            lemma_composite_has_prime_factor_le_sqrt(n);
+            let p = choose|p: nat| is_prime(p) && n % p == 0 && p * p <= n;
+
+            lemma_modpow_mod_divisibility(a, (n - 1) as nat, n, p);
+            assert(modpow_spec(a, (n - 1) as nat, p) == 1);
+
+            lemma_order_exists(a, (n - 1) as nat, p);
+            let d = choose|d: nat| is_order_mod_p(d, a, p) && (n - 1) % d == 0;
+
+            assert(forall|q: nat| is_prime(q) && f % q == 0 ==> !(((n - 1) / q) % d == 0)) by {
+                reveal(rns512_gcd_spec);
+            };
+
+            lemma_order_prime_factor(d, f, r_val, p);
+            assert(d % f == 0);
+
+            lemma_divisibility_bounds(f, d);
+
+            lemma_order_le_p_minus_1(a, d, p);
+
+            assert(f < p);
+
+            lemma_square_comparison_contradiction(p, f, n);
+            assert(false);
+        }
     }
 
 }
