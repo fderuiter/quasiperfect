@@ -11,6 +11,40 @@
       let
         pkgs = import nixpkgs { inherit system; };
 
+        verusPkg = let
+          systemMap = {
+            "x86_64-linux" = {
+              name = "verus-0.2026.07.18.3a4d30b-x86-linux.zip";
+              sha256 = "7097a91ea4bf5896a418d90743626cbe5c085ce5ef8a64ed8d84c0aa5e49ac55";
+            };
+            "x86_64-darwin" = {
+              name = "verus-0.2026.07.18.3a4d30b-x86-macos.zip";
+              sha256 = "7eebd809babe59ef72fd619411c3b89f8becd2d6500bf01abad88d0595828f35";
+            };
+            "aarch64-darwin" = {
+              name = "verus-0.2026.07.18.3a4d30b-arm64-macos.zip";
+              sha256 = "74958a303e97ea7a267caead7ff8a51321af83855be6e33e6d4135a5e9c9b475";
+            };
+          };
+          systemInfo = systemMap.${system} or systemMap."x86_64-linux";
+        in pkgs.stdenv.mkDerivation {
+          pname = "verus";
+          version = "0.2026.07.18.3a4d30b";
+          src = pkgs.fetchurl {
+            url = "https://github.com/verus-lang/verus/releases/download/release/0.2026.07.18.3a4d30b/${systemInfo.name}";
+            sha256 = "${systemInfo.sha256}";
+          };
+          nativeBuildInputs = [ pkgs.unzip ] ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.autoPatchelfHook;
+          buildInputs = pkgs.lib.optional pkgs.stdenv.isLinux pkgs.stdenv.cc.cc.lib;
+          unpackCmd = "unzip $curSrc";
+          installPhase = ''
+            mkdir -p $out/bin
+            VERUS_DIR=$(dirname $(find . -type f -name verus | head -n 1))
+            cp -r $VERUS_DIR/* $out/bin/
+            chmod +x $out/bin/verus $out/bin/z3 || true
+          '';
+        };
+
         lakeManifest = builtins.fromJSON (builtins.readFile ./ualbf-project/lean4-proofs/lake-manifest.json);
         
         linkPackages = pkgs.lib.concatStringsSep "\n" (map (pkg: ''
@@ -224,6 +258,7 @@
           engine = ualbfEngine;
           leanDeps = leanDeps;
           lean = leanPkg;
+          verus = verusPkg;
         };
 
         checks = {
@@ -374,6 +409,25 @@ with open("dummy_cert.json", "w") as f:
             chmod -R +w .lake
             ${rewriteManifest}
               lake build -- -DwarningAsError=true
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              touch $out/success
+            '';
+          };
+
+          verus-proofs = pkgs.stdenv.mkDerivation {
+            pname = "verus-proofs-check";
+            version = "0.1.0";
+            src = ./.;
+
+            nativeBuildInputs = [ verusPkg ];
+
+            buildPhase = ''
+              echo "Running Verus semantic proof verification..."
+              cd ualbf-project/rust-engine/src
+              verus --crate-type=lib verus_proofs.rs
             '';
 
             installPhase = ''
