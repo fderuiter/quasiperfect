@@ -35,7 +35,11 @@
             sha256 = "${systemInfo.sha256}";
           };
           nativeBuildInputs = [ pkgs.unzip ] ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.autoPatchelfHook;
-          buildInputs = pkgs.lib.optional pkgs.stdenv.isLinux pkgs.stdenv.cc.cc.lib;
+          buildInputs = pkgs.lib.optional pkgs.stdenv.isLinux (with pkgs; [
+            stdenv.cc.cc.lib
+            zlib
+            gmp
+          ]);
           unpackCmd = "unzip $curSrc";
           installPhase = ''
             mkdir -p $out/bin
