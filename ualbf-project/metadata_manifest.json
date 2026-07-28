@@ -65,6 +65,9 @@
     "overflow_threshold.num": "TUNING.md",
     "overflow_threshold.den": "TUNING.md",
     "prime_factor_list": "TUNING.md",
-    "static_suffix_bounds": "TUNING.md"
+    "static_suffix_bounds": "TUNING.md",
+    "search_bounds.prime_split_threshold.value": "TUNING.md",
+    "conjectural_bounds.active": "TUNING.md",
+    "conjectural_bounds.target_max_log10_ceiling": "TUNING.md"
   }
 }
