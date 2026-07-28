@@ -116,7 +116,10 @@ def check_lean_environment():
         sys.exit(1)
 
     if not lean_found:
-        print("Warning: Lean 4 toolchain not found, running in fallback mode.", file=sys.stderr)
+        print(
+            "Warning: Lean 4 toolchain not found, running in fallback mode.",
+            file=sys.stderr,
+        )
         return False
 
     return True

@@ -94,6 +94,12 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **static_suffix_bounds**
   - **Description**: Array of static limits mapping factors to their pre-calculated mathematical suffixes.
 
+- **conjectural_bounds.active**
+  - **Description**: Flag to enable or disable the use of conjectural bounds (e.g. from the ABC Conjecture).
+
+- **conjectural_bounds.target_max_log10_ceiling**
+  - **Description**: Ceiling for the maximum log10 of target numbers when conjectural bounds are active.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128
