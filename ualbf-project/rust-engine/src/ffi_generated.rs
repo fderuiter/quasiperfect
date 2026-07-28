@@ -34,6 +34,7 @@ extern "C" {
     pub static ualbf_euler_ceiling_den: u64;
     pub static ualbf_baseline_min_prime_factors: u64;
     pub static ualbf_prasad_sunitha_bound: u64;
+    pub static ualbf_div_5_coprime_3_bound: u64;
     pub static ualbf_target_abundance_num: u64;
     pub static ualbf_target_abundance_den: u64;
     pub static ualbf_pollard_rho_iteration_limit: u32;

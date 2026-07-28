@@ -73,6 +73,7 @@ use std::sync::OnceLock;
 
 static MIN_PRIME_FACTORS: OnceLock<usize> = OnceLock::new();
 static PRASAD_SUNITHA_BOUND: OnceLock<usize> = OnceLock::new();
+static DIV_5_COPRIME_3_BOUND: OnceLock<usize> = OnceLock::new();
 static TARGET_ABUNDANCE_NUM: OnceLock<u64> = OnceLock::new();
 static TARGET_ABUNDANCE_DEN: OnceLock<u64> = OnceLock::new();
 
@@ -88,6 +89,12 @@ pub fn init_bounds() {
         panic!("Failed to resolve Prasad & Sunitha bound from proof bridge");
     }
     PRASAD_SUNITHA_BOUND.set(ps_bound).unwrap();
+
+    let div_5_bound = crate::lean_ffi::get_div_5_coprime_3_bound();
+    if div_5_bound == 0 {
+        panic!("Failed to resolve div 5 coprime 3 bound from proof bridge");
+    }
+    DIV_5_COPRIME_3_BOUND.set(div_5_bound).unwrap();
 
     let num = crate::lean_ffi::get_target_abundance_num();
     let den = crate::lean_ffi::get_target_abundance_den();
@@ -113,6 +120,16 @@ pub fn get_prasad_sunitha_bound() -> usize {
         let v = crate::lean_ffi::get_prasad_sunitha_bound();
         if v == 0 {
             panic!("Failed to resolve Prasad & Sunitha bound from proof bridge");
+        }
+        v
+    })
+}
+
+pub fn get_div_5_coprime_3_bound() -> usize {
+    *DIV_5_COPRIME_3_BOUND.get_or_init(|| {
+        let v = crate::lean_ffi::get_div_5_coprime_3_bound();
+        if v == 0 {
+            panic!("Failed to resolve div 5 coprime 3 bound from proof bridge");
         }
         v
     })
@@ -668,6 +685,7 @@ pub fn check_and_evaluate_node(
 
     let prasad_sunitha_bound = get_prasad_sunitha_bound();
     let baseline_min_val = get_min_prime_factors();
+    let div_5_coprime_3_bound = get_div_5_coprime_3_bound();
     let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
     let remaining_components = components.len().saturating_sub(curr.last_idx);
 
@@ -684,6 +702,8 @@ pub fn check_and_evaluate_node(
     }
     let baseline_min = if (info_mask & 3) == 0 && (info_mask & 12) == 12 {
         prasad_sunitha_bound
+    } else if (info_mask & 1) == 0 && (info_mask & 2) == 2 && (info_mask & 4) == 4 {
+        div_5_coprime_3_bound
     } else {
         baseline_min_val
     };
@@ -707,6 +727,8 @@ pub fn check_and_evaluate_node(
                 reason: crate::trace::PruneReason::MinFactors {
                     dynamic_min_factors: if (info_mask & 3) == 0 && (info_mask & 12) == 12 {
                         prasad_sunitha_bound
+                    } else if (info_mask & 1) == 0 && (info_mask & 2) == 2 && (info_mask & 4) == 4 {
+                        div_5_coprime_3_bound
                     } else {
                         baseline_min_val
                     },
@@ -1873,6 +1895,15 @@ mod tests {
         assert_eq!(a, b, "get_prasad_sunitha_bound must be idempotent");
     }
 
+    /// Repeated calls to get_div_5_coprime_3_bound must return the same value.
+    #[test]
+    fn test_get_div_5_coprime_3_bound_consistent_across_calls() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let a = get_div_5_coprime_3_bound();
+        let b = get_div_5_coprime_3_bound();
+        assert_eq!(a, b, "get_div_5_coprime_3_bound must be idempotent");
+    }
+
     /// The dummy FFI stubs (dummy_ffi.c) export 7 for the baseline minimum prime
     /// factors.  This test verifies the value propagates correctly through the
     /// OnceLock layer.
@@ -1898,6 +1929,20 @@ mod tests {
         assert_eq!(
             value, ffi_value,
             "dfs_tree::get_prasad_sunitha_bound ({}) must equal lean_ffi::get_prasad_sunitha_bound ({})",
+            value, ffi_value
+        );
+    }
+
+    /// The dummy FFI stubs (dummy_ffi.c) export 11 for the div-5-coprime-3 bound.
+    /// This test verifies the value propagates correctly through the OnceLock layer.
+    #[test]
+    fn test_get_div_5_coprime_3_bound_matches_ffi_value() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let value = get_div_5_coprime_3_bound();
+        let ffi_value = crate::lean_ffi::get_div_5_coprime_3_bound();
+        assert_eq!(
+            value, ffi_value,
+            "dfs_tree::get_div_5_coprime_3_bound ({}) must equal lean_ffi::get_div_5_coprime_3_bound ({})",
             value, ffi_value
         );
     }

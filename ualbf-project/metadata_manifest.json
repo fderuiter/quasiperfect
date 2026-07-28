@@ -49,6 +49,8 @@
   "parameter_mappings": {
     "omega_bounds.prasad_sunitha.proof_bound": "TUNING.md",
     "omega_bounds.prasad_sunitha.engine_justified_gap": "TUNING.md",
+    "omega_bounds.div_5_coprime_3.proof_bound": "TUNING.md",
+    "omega_bounds.div_5_coprime_3.engine_justified_gap": "TUNING.md",
     "omega_bounds.hagis1982.proof_bound": "TUNING.md",
     "omega_bounds.hagis1982.engine_justified_gap": "TUNING.md",
     "search_bounds.target_max_log10.value": "TUNING.md",
@@ -65,6 +67,8 @@
     "overflow_threshold.num": "TUNING.md",
     "overflow_threshold.den": "TUNING.md",
     "prime_factor_list": "TUNING.md",
-    "static_suffix_bounds": "TUNING.md"
+    "static_suffix_bounds": "TUNING.md",
+    "conjectural_bounds.active": "TUNING.md",
+    "conjectural_bounds.target_max_log10_ceiling": "TUNING.md"
   }
 }

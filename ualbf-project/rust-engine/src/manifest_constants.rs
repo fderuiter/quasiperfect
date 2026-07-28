@@ -1,6 +1,8 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = 15;
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = 15;
+pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = 11;
+pub const DIV_5_COPRIME_3_BOUND: u64 = 11;
 pub const BASELINE_MIN_PRIME_FACTORS: u64 = 7;
 pub const EULER_CEILING_NUM: u64 = 20442;
 pub const EULER_CEILING_DEN: u64 = 10000;
@@ -18,4 +20,4 @@ pub const RAYCAST_CHUNK_SIZE: usize = 10000000;
 pub const CONJECTURAL_ACTIVE: bool = true;
 pub const CONJECTURE_NAME: &str = "ABC Conjecture";
 pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
-pub const MANIFEST_HASH: &str = "84412b0f6e56a6fd15203c105603a6c64fdc15ebdef55a95da381a9fe6e9ce89";
+pub const MANIFEST_HASH: &str = "5bb23907e6f27af1a035947ecfddd57e3ccfedda1c0d14f4d42b3855224abf57";
