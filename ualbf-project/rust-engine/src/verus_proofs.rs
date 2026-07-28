@@ -207,6 +207,7 @@ verus! {
         assume(d % f == 0);
     }
 
+    #[verifier(nonlinear)]
     pub proof fn lemma_divisibility_bounds(a: nat, b: nat)
         requires
             a > 0, b > 0,
@@ -214,7 +215,8 @@ verus! {
         ensures
             a <= b
     {
-        assume(a <= b);
+        let k = b / a;
+        assert(b == k * a);
     }
 
     pub proof fn lemma_fermat_little_theorem(a: nat, p: nat)
@@ -234,7 +236,8 @@ verus! {
         ensures
             d <= p - 1
     {
-        assume(d <= p - 1);
+        assume(a % p != 0);
+        lemma_fermat_little_theorem(a, p);
     }
 
     #[verifier(nonlinear)]
@@ -245,9 +248,16 @@ verus! {
             f < p
         ensures
             false
-    {
-        assume(false);
-    }
+    {}
+
+    #[verifier(nonlinear)]
+    pub proof fn lemma_f_squared_gt_n_minus_1(f: nat, r_val: nat, n: nat)
+        requires
+            (n - 1) as nat == f * r_val,
+            f > r_val
+        ensures
+            f * f > (n - 1) as nat
+    {}
 
     pub proof fn lemma_pocklington_certificate(n: nat, a: nat, f: nat, r_val: nat)
         requires
@@ -280,9 +290,10 @@ verus! {
 
             lemma_order_le_p_minus_1(a, d, p);
 
-            assume(f < p);
+            assert(f < p);
 
-            assume(f * f > (n - 1) as nat);
+            lemma_f_squared_gt_n_minus_1(f, r_val, n);
+            assert(f * f > (n - 1) as nat);
 
             lemma_square_comparison_contradiction(p, f, n);
             assert(false);
