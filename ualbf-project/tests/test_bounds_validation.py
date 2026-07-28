@@ -19,6 +19,10 @@ def test_specification_parity():
     hagis_gap = bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
     hagis_combined = hagis_proof + hagis_gap
 
+    div_5_proof = bounds["omega_bounds"]["div_5_coprime_3"]["proof_bound"]
+    div_5_gap = bounds["omega_bounds"]["div_5_coprime_3"]["engine_justified_gap"]
+    div_5_combined = div_5_proof + div_5_gap
+
     # 2. Parse manifest_constants.rs (active engine constants)
     constants_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -45,6 +49,12 @@ def test_specification_parity():
     assert (
         engine_constants.get("PRASAD_SUNITHA_BOUND_NO_3_5") == ps_combined
     ), "Active constant mismatch for PS combined bound"
+    assert (
+        engine_constants.get("DIV_5_COPRIME_3_PROOF_BOUND") == div_5_proof
+    ), "Active constant mismatch for div 5 coprime 3 proof bound"
+    assert (
+        engine_constants.get("DIV_5_COPRIME_3_BOUND") == div_5_combined
+    ), "Active constant mismatch for div 5 coprime 3 combined bound"
     # BASELINE_MIN_PRIME_FACTORS is defined as baseline_proof + baseline_gap in build.rs
     assert (
         engine_constants.get("BASELINE_MIN_PRIME_FACTORS") == hagis_combined
@@ -79,6 +89,15 @@ def test_specification_parity():
     assert (
         spec_constants.get("lean_prasad_sunitha_combined") == ps_combined
     ), "Spec mismatch for PS combined bound"
+    assert (
+        spec_constants.get("lean_div_5_coprime_3_bound") == div_5_proof
+    ), "Spec mismatch for div 5 coprime 3 proof bound"
+    assert (
+        spec_constants.get("lean_div_5_coprime_3_offset") == div_5_gap
+    ), "Spec mismatch for div 5 coprime 3 gap/offset"
+    assert (
+        spec_constants.get("lean_div_5_coprime_3_combined") == div_5_combined
+    ), "Spec mismatch for div 5 coprime 3 combined bound"
 
     assert (
         spec_constants.get("lean_hagis1982_min_prime_factors") == hagis_proof

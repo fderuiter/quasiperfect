@@ -28,19 +28,19 @@
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "83a5bd20baf50414e4049f38f2f644fea2dc688dbebdc2c6c59719bd85bfea95"
+      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "83a5bd20baf50414e4049f38f2f644fea2dc688dbebdc2c6c59719bd85bfea95"
+      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "83a5bd20baf50414e4049f38f2f644fea2dc688dbebdc2c6c59719bd85bfea95"
+      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
@@ -58,7 +58,7 @@
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
       "status": "proven",
-      "checksum": "d51731e88f93d47fbdf61fef9e0804203ea457d1e003391020395827eb3716d4"
+      "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
@@ -76,70 +76,70 @@
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     }
   ],
-  "verified_logic_hash": "df6516dd848394ca9666f7944af96469a75e6bd465d5da9da41cf6ebdb895b0c",
+  "verified_logic_hash": "d8ccf760400a10f3afb8e022d69490c8b1c361d5559bd632ec8259f2218405e5",
   "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -215,11 +215,11 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "fc3c0f511bd5f792277b045d3d8e709b725173aa44e61fc7b4447d68ca6d48c6"
+      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "dea7e1d7fe76b1cdffe46f3bd1d5aa63e3e557d310c08ab6c90fcd368ef79bec"
+      "checksum": "49bd127846e0890b2c9f8a8237cc35337281c493eabc9f2617b8d4b00ed8ba82"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",
@@ -243,7 +243,7 @@
     },
     {
       "file": "UALBF/Pure/RationalBounds.lean",
-      "checksum": "dcab126060842f10f690d20bc24190e76ac92f05277c619f65436c4e49250866"
+      "checksum": "812002c3049b5a4fda645318684873f50f5ccdd263be781094bb14e88028f413"
     },
     {
       "file": "UALBF/Pure/Zsigmondy.lean",
@@ -251,7 +251,7 @@
     },
     {
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "checksum": "83a5bd20baf50414e4049f38f2f644fea2dc688dbebdc2c6c59719bd85bfea95"
+      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
     },
     {
       "file": "UALBF/QPN/BasicProperties.lean",
@@ -263,12 +263,12 @@
     },
     {
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "checksum": "d51731e88f93d47fbdf61fef9e0804203ea457d1e003391020395827eb3716d4"
+      "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
     },
     {
       "file": "Validator.lean",
-      "checksum": "b9f0dffcf40f61d36c42994b4a4834937bf895468198089baf1acb0ec37c36df"
+      "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "b7d17beb40c782e4ed72be2172e36aeb26d0ee1c1ae780742948c2705467ea08"
+  "bounds_manifest_hash": "3134da64b48db96a0e5aa0ea13fa9984b25600dad70a04c9a0992a07562380d7"
 }

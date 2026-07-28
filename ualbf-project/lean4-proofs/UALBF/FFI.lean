@@ -655,6 +655,8 @@ def evaluate_baseline_min (ctx : UInt64) : IO UInt32 := do
   let skipped_5  := (info &&& 8) != 0
   if not contains_3 && not contains_5 then
     return if skipped_3 && skipped_5 then UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
+  else if not contains_3 && contains_5 then
+    return if skipped_3 then UALBF.Manifest.DIV_5_COPRIME_3_BOUND.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
   else return UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
 
 @[export ualbf_dfs_loop]
@@ -694,6 +696,8 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : IO Unit := do
 def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
   if contains_3 == 0 && contains_5 == 0 then
     if skipped_3 != 0 && skipped_5 != 0 then UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
+  else if contains_3 == 0 && contains_5 != 0 then
+    if skipped_3 != 0 then UALBF.Manifest.DIV_5_COPRIME_3_BOUND.toUInt32 else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
   else UALBF.Manifest.BASELINE_MIN_PRIME_FACTORS.toUInt32
 
 /-! ### Unified Euler Ceiling Bound Export -/
@@ -711,6 +715,9 @@ def ualbf_baseline_min_prime_factors_impl : UInt64 := ((1 : UInt64) <<< 63) ||| 
 
 @[export ualbf_prasad_sunitha_bound]
 def ualbf_prasad_sunitha_bound_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.PRASAD_SUNITHA_BOUND_NO_3_5.toUInt64
+
+@[export ualbf_div_5_coprime_3_bound]
+def ualbf_div_5_coprime_3_bound_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.DIV_5_COPRIME_3_BOUND.toUInt64
 
 /-! ### Soundness Bound Export -/
 

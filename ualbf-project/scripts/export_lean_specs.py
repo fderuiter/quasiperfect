@@ -203,6 +203,9 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         ps_bound = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
         ps_offset = bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
         ps_combined = ps_bound + ps_offset
+        div_5_bound = bounds["omega_bounds"]["div_5_coprime_3"]["proof_bound"]
+        div_5_offset = bounds["omega_bounds"]["div_5_coprime_3"]["engine_justified_gap"]
+        div_5_combined = div_5_bound + div_5_offset
         mr_20_base_axiomatic = bounds.get("miller_rabin_20_base_sufficiency", {}).get(
             "is_axiomatic", False
         )
@@ -227,6 +230,10 @@ verus! {{
     pub open spec fn lean_prasad_sunitha_offset() -> nat {{ {ps_offset} }}
     pub open spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
     
+    pub open spec fn lean_div_5_coprime_3_bound() -> nat {{ {div_5_bound} }}
+    pub open spec fn lean_div_5_coprime_3_offset() -> nat {{ {div_5_offset} }}
+    pub open spec fn lean_div_5_coprime_3_combined() -> nat {{ {div_5_combined} }}
+    
     pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
 
     pub open spec fn lean_conjectural_active() -> bool {{ {str(conjectural_active).lower()} }}
@@ -235,6 +242,7 @@ verus! {{
     pub proof fn prove_combined_bounds() {{
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
         assert(lean_prasad_sunitha_combined() == lean_prasad_sunitha_bound() + lean_prasad_sunitha_offset());
+        assert(lean_div_5_coprime_3_combined() == lean_div_5_coprime_3_bound() + lean_div_5_coprime_3_offset());
     }}
 }}
 """)
@@ -354,6 +362,11 @@ def main():
             prasad_proof
             + bounds["omega_bounds"]["prasad_sunitha"]["engine_justified_gap"]
         )
+        div_5_coprime_3_proof = bounds["omega_bounds"]["div_5_coprime_3"]["proof_bound"]
+        div_5_coprime_3_bound = (
+            div_5_coprime_3_proof
+            + bounds["omega_bounds"]["div_5_coprime_3"]["engine_justified_gap"]
+        )
         baseline_min = (
             bounds["omega_bounds"]["hagis1982"]["proof_bound"]
             + bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
@@ -392,6 +405,8 @@ def main():
 pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {prasad_bound};
+pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = {div_5_coprime_3_proof};
+pub const DIV_5_COPRIME_3_BOUND: u64 = {div_5_coprime_3_bound};
 pub const BASELINE_MIN_PRIME_FACTORS: u64 = {baseline_min};
 pub const EULER_CEILING_NUM: u64 = {euler_num};
 pub const EULER_CEILING_DEN: u64 = {euler_den};
@@ -419,6 +434,8 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
         c_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 #define PRIME_SPLIT_THRESHOLD {prime_split_threshold}
 #define PRASAD_SUNITHA_PROOF_BOUND {prasad_proof}
+#define DIV_5_COPRIME_3_PROOF_BOUND {div_5_coprime_3_proof}
+#define DIV_5_COPRIME_3_BOUND {div_5_coprime_3_bound}
 #define BASELINE_MIN_PRIME_FACTORS {baseline_min}
 #define EULER_CEILING_NUM {euler_num}
 #define EULER_CEILING_DEN {euler_den}
@@ -449,6 +466,8 @@ namespace UALBF.Manifest
 def PRIME_SPLIT_THRESHOLD : Nat := {prime_split_threshold}
 def PRASAD_SUNITHA_PROOF_BOUND : Nat := {prasad_proof}
 def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {prasad_bound}
+def DIV_5_COPRIME_3_PROOF_BOUND : Nat := {div_5_coprime_3_proof}
+def DIV_5_COPRIME_3_BOUND : Nat := {div_5_coprime_3_bound}
 def BASELINE_MIN_PRIME_FACTORS : Nat := {baseline_min}
 def EULER_CEILING_NUM : Nat := {euler_num}
 def EULER_CEILING_DEN : Nat := {euler_den}
