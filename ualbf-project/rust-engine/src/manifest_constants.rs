@@ -1,4 +1,5 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+pub const PRIME_SPLIT_THRESHOLD: u64 = 61;
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = 15;
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = 15;
 pub const BASELINE_MIN_PRIME_FACTORS: u64 = 7;
@@ -18,4 +19,4 @@ pub const RAYCAST_CHUNK_SIZE: usize = 10000000;
 pub const CONJECTURAL_ACTIVE: bool = true;
 pub const CONJECTURE_NAME: &str = "ABC Conjecture";
 pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
-pub const MANIFEST_HASH: &str = "84412b0f6e56a6fd15203c105603a6c64fdc15ebdef55a95da381a9fe6e9ce89";
+pub const MANIFEST_HASH: &str = "b7d17beb40c782e4ed72be2172e36aeb26d0ee1c1ae780742948c2705467ea08";

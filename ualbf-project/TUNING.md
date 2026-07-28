@@ -76,6 +76,9 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **search_bounds.raycast.chunk_size**
   - **Description**: Chunk processing size for GPU offloading of raycasts.
 
+- **search_bounds.prime_split_threshold.value**
+  - **Description**: The prime split threshold parameter used to decouple mathematical proofs of infinite tail products from hardcoded static prime threshold values.
+
 - **euler_ceiling.num**
   - **Description**: Numerator of the Euler ceiling quotient bound.
 
@@ -95,10 +98,10 @@ In addition to user-tunable performance configurations, the engine depends on ve
   - **Description**: Array of static limits mapping factors to their pre-calculated mathematical suffixes.
 
 - **conjectural_bounds.active**
-  - **Description**: Flag to enable or disable the use of conjectural bounds (e.g. from the ABC Conjecture).
+  - **Description**: Flag to enable or disable the use of conjectural bounds (e.g. from the ABC Conjecture) during target search.
 
 - **conjectural_bounds.target_max_log10_ceiling**
-  - **Description**: Ceiling for the maximum log10 of target numbers when conjectural bounds are active.
+  - **Description**: The maximum upper log10 bound ceiling applied when conjectural bounds are active.
 
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
