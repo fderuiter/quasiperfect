@@ -380,6 +380,14 @@ def main():
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
             "value"
         ]
+        prime_split_threshold = bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
+        
+        # Validation checks on configuration parameters
+        if prime_split_threshold < 7:
+            raise ValueError(f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be at least 7 to satisfy mathematical safety invariants.")
+        if prime_split_threshold % 2 == 0:
+            raise ValueError(f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be an odd prime.")
+            
         pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"][
             "iteration_limit"
         ]
@@ -394,6 +402,7 @@ def main():
         conjectural_max_log10 = bounds.get("conjectural_bounds", {}).get("target_max_log10_ceiling", 0)
 
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {prasad_bound};
 pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = {div_5_coprime_3_proof};
@@ -423,6 +432,7 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
             f.write(rust_code)
 
         c_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+#define PRIME_SPLIT_THRESHOLD {prime_split_threshold}
 #define PRASAD_SUNITHA_PROOF_BOUND {prasad_proof}
 #define DIV_5_COPRIME_3_PROOF_BOUND {div_5_coprime_3_proof}
 #define DIV_5_COPRIME_3_BOUND {div_5_coprime_3_bound}
@@ -453,6 +463,7 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
 set_option linter.all false
 namespace UALBF.Manifest
 
+def PRIME_SPLIT_THRESHOLD : Nat := {prime_split_threshold}
 def PRASAD_SUNITHA_PROOF_BOUND : Nat := {prasad_proof}
 def PRASAD_SUNITHA_BOUND_NO_3_5 : Nat := {prasad_bound}
 def DIV_5_COPRIME_3_PROOF_BOUND : Nat := {div_5_coprime_3_proof}

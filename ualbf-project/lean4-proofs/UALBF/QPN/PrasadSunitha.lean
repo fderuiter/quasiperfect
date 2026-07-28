@@ -74,22 +74,54 @@ lemma p14_prod_lt_2 : ∏ p ∈ P14, ((p : ℚ) / ((p : ℚ) - 1)) < 2 := by
   rw [h_eq]
   norm_num
 
-lemma p_div_p_sub_one_ge_61_60 {p : ℕ} (hp : p ≤ 59) (hp2 : p ≥ 2) :
-    (61 : ℚ) / 60 ≤ (p : ℚ) / ((p : ℚ) - 1) := by
-  have : (p : ℚ) ≤ 59 := by exact_mod_cast hp
-  have : (p : ℚ) ≥ 2 := by exact_mod_cast hp2
-  have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by linarith
-  rw [le_div_iff₀ hp_pos]
-  linarith
+lemma p_div_p_sub_one_le_generic (T : ℕ) (hT : T ≥ 2) {p : ℕ} (hp : p ≥ T) :
+    (p : ℚ) / ((p : ℚ) - 1) ≤ (T : ℚ) / ((T : ℚ) - 1) := by
+  have : (p : ℚ) ≥ (T : ℚ) := by exact_mod_cast hp
+  have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by
+    have : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show p > 1 by omega)
+    linarith
+  have h_mul_pos : (0 : ℚ) < (T : ℚ) - 1 := by
+    have : (1 : ℚ) < (T : ℚ) := by exact_mod_cast (show T > 1 by omega)
+    linarith
+  rw [div_le_div_iff₀ hp_pos h_mul_pos]
+  calc (p : ℚ) * ((T : ℚ) - 1)
+    _ = (p : ℚ) * (T : ℚ) - (p : ℚ) := by ring
+    _ ≤ (p : ℚ) * (T : ℚ) - (T : ℚ) := by linarith
+    _ = (T : ℚ) * ((p : ℚ) - 1) := by ring
 
-lemma p_div_p_sub_one_le_61_60 {p : ℕ} (hp : p ≥ 61) :
-    (p : ℚ) / ((p : ℚ) - 1) ≤ 61 / 60 := by
-  have : (p : ℚ) ≥ 61 := by exact_mod_cast hp
-  have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by linarith
-  rw [div_le_iff₀ hp_pos]
-  linarith
+lemma p_div_p_sub_one_ge_generic (T : ℕ) (hT : T ≥ 2) {p : ℕ} (hp : p ≤ T - 2) (hp2 : p ≥ 2) :
+    (T : ℚ) / ((T : ℚ) - 1) ≤ (p : ℚ) / ((p : ℚ) - 1) := by
+  have : (p : ℚ) ≤ (T : ℚ) - 2 := by exact_mod_cast hp
+  have hp_pos : (0 : ℚ) < (p : ℚ) - 1 := by
+    have : (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show p > 1 by omega)
+    linarith
+  have hT_pos : (0 : ℚ) < (T : ℚ) - 1 := by
+    have : (1 : ℚ) < (T : ℚ) := by exact_mod_cast (show T > 1 by omega)
+    linarith
+  rw [div_le_div_iff₀ hT_pos hp_pos]
+  calc (T : ℚ) * ((p : ℚ) - 1)
+    _ = (T : ℚ) * (p : ℚ) - (T : ℚ) := by ring
+    _ ≤ (T : ℚ) * (p : ℚ) - ((p : ℚ) + 2) := by linarith
+    _ ≤ (p : ℚ) * (T : ℚ) - (p : ℚ) := by linarith
+    _ = (p : ℚ) * ((T : ℚ) - 1) := by ring
 
-lemma not_in_p14_ge_61_aux : ∀ p ∈ Finset.Icc 7 60, p.Prime → p ∈ P14 := by decide
+lemma p_div_p_sub_one_ge_split_threshold {p : ℕ} (hp : p ≤ 59) (hp2 : p ≥ 2) :
+    ((60 + 1 : ℕ) : ℚ) / 60 ≤ (p : ℚ) / ((p : ℚ) - 1) := by
+  have h_generic := p_div_p_sub_one_ge_generic (60 + 1) (by omega) hp hp2
+  have h_bound_eq : (((60 + 1 : ℕ) : ℕ) : ℚ) / ((((60 + 1 : ℕ) : ℕ) : ℚ) - 1) = ((60 + 1 : ℕ) : ℚ) / 60 := by norm_num
+  rw [h_bound_eq] at h_generic
+  exact h_generic
+
+lemma p_div_p_sub_one_le_split_threshold {p : ℕ} (hp : p ≥ (60 + 1)) :
+    (p : ℚ) / ((p : ℚ) - 1) ≤ ((60 + 1 : ℕ) : ℚ) / 60 := by
+  have h_generic := p_div_p_sub_one_le_generic (60 + 1) (by omega) hp
+  have h_bound_eq : (((60 + 1 : ℕ) : ℕ) : ℚ) / ((((60 + 1 : ℕ) : ℕ) : ℚ) - 1) = ((60 + 1 : ℕ) : ℚ) / 60 := by norm_num
+  rw [h_bound_eq] at h_generic
+  exact h_generic
+
+lemma not_in_p14_ge_split_aux (T : ℕ) (hT : T = (60 + 1)) : ∀ p ∈ Finset.Icc 7 (T - 1), p.Prime → p ∈ P14 := by
+  subst hT
+  decide
 
 
 theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
@@ -100,28 +132,31 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
   have h_ge7 : ∀ p ∈ N.primeFactors, p ≥ 7 := qpn_coprime_15_primes_ge_7 h_qpn h_coprime
   have h_prime : ∀ p ∈ N.primeFactors, p.Prime := fun p hp => (Nat.mem_primeFactors.mp hp).1
 
-  set head := N.primeFactors.filter (fun p => p ≤ 60)
-  set tail := N.primeFactors.filter (fun p => ¬ p ≤ 60)
+  let T := UALBF.Manifest.PRIME_SPLIT_THRESHOLD
+  have h_T_eq : T = (60 + 1) := rfl
+
+  set head := N.primeFactors.filter (fun p => p ≤ T - 1)
+  set tail := N.primeFactors.filter (fun p => ¬ p ≤ T - 1)
 
   have h_split : ∏ p ∈ N.primeFactors, ((p : ℚ) / ((p : ℚ) - 1)) =
       (∏ p ∈ head, ((p : ℚ) / ((p : ℚ) - 1))) * (∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1))) := by
-    rw [← Finset.prod_filter_mul_prod_filter_not N.primeFactors (fun p => p ≤ 60)]
+    rw [← Finset.prod_filter_mul_prod_filter_not N.primeFactors (fun p => p ≤ T - 1)]
 
   have h_head_sub : head ⊆ P14 := by
     intro p hp
     rw [Finset.mem_filter] at hp
     have hp_ge_7 := h_ge7 p hp.1
     have h_p := h_prime p hp.1
-    exact not_in_p14_ge_61_aux p (Finset.mem_Icc.mpr ⟨hp_ge_7, hp.2⟩) h_p
+    exact not_in_p14_ge_split_aux T h_T_eq p (Finset.mem_Icc.mpr ⟨hp_ge_7, hp.2⟩) h_p
 
   have _h_tail_card : tail.card = N.primeFactors.card - head.card := by
     have : head.card + tail.card = N.primeFactors.card := by
-      exact Finset.card_filter_add_card_filter_not (fun p => p ≤ 60)
+      exact Finset.card_filter_add_card_filter_not (fun p => p ≤ T - 1)
     omega
   have h_tail_le : tail.card ≤ 14 - head.card := by omega
 
-  have h_tail_bound : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤ (61 / 60 : ℚ) ^ tail.card := by
-    have h_eq : (61 / 60 : ℚ) ^ tail.card = ∏ _p ∈ tail, (61 / 60 : ℚ) := by rw [Finset.prod_const]
+  have h_tail_bound : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤ (T / (T - 1) : ℚ) ^ tail.card := by
+    have h_eq : (T / (T - 1) : ℚ) ^ tail.card = ∏ _p ∈ tail, (T / (T - 1) : ℚ) := by rw [Finset.prod_const]
     rw [h_eq]
     apply Finset.prod_le_prod
     · intro p hp
@@ -131,29 +166,34 @@ theorem qpn_coprime_15_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
         linarith
       exact le_of_lt (div_pos (by exact_mod_cast (show p > 0 by have := h_ge7 p (Finset.mem_filter.mp hp).1; omega)) hp_pos)
     · intro p hp
-      have _hp_not : ¬ p ≤ 60 := (Finset.mem_filter.mp hp).2
-      have hp_ge61 : p ≥ 61 := by omega
-      exact p_div_p_sub_one_le_61_60 hp_ge61
+      have _hp_not : ¬ p ≤ T - 1 := (Finset.mem_filter.mp hp).2
+      have hp_ge_T : p ≥ T := by omega
+      have h_ge : (p : ℚ) / ((p : ℚ) - 1) ≤ (T : ℚ) / ((T : ℚ) - 1) := by
+        apply p_div_p_sub_one_le_generic T (by decide) hp_ge_T
+      exact h_ge
 
-  have h_tail_bound2 : (61 / 60 : ℚ) ^ tail.card ≤ (61 / 60 : ℚ) ^ (14 - head.card) := by
-    apply pow_le_pow_right₀ (by norm_num) h_tail_le
+  have h_tail_bound2 : (T / (T - 1) : ℚ) ^ tail.card ≤ (T / (T - 1) : ℚ) ^ (14 - head.card) := by
+    apply pow_le_pow_right₀ (by norm_num [h_T_eq]) h_tail_le
 
-  have h_tail_bound3 : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤ (61 / 60 : ℚ) ^ (14 - head.card) :=
+  have h_tail_bound3 : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤ (T / (T - 1) : ℚ) ^ (14 - head.card) :=
     le_trans h_tail_bound h_tail_bound2
 
   have h_sdiff_card : (P14 \ head).card = 14 - head.card := by
     rw [Finset.card_sdiff_of_subset h_head_sub, p14_card]
-  have h_sdiff_bound : (61 / 60 : ℚ) ^ (14 - head.card) ≤ ∏ p ∈ P14 \ head, ((p : ℚ) / ((p : ℚ) - 1)) := by
+  have h_sdiff_bound : (T / (T - 1) : ℚ) ^ (14 - head.card) ≤ ∏ p ∈ P14 \ head, ((p : ℚ) / ((p : ℚ) - 1)) := by
     rw [← h_sdiff_card]
-    have h_eq : (61 / 60 : ℚ) ^ (P14 \ head).card = ∏ _p ∈ P14 \ head, (61 / 60 : ℚ) := by rw [Finset.prod_const]
+    have h_eq : (T / (T - 1) : ℚ) ^ (P14 \ head).card = ∏ _p ∈ P14 \ head, (T / (T - 1) : ℚ) := by rw [Finset.prod_const]
     rw [h_eq]
     apply Finset.prod_le_prod
-    · intro p hp; norm_num
+    · intro p hp; norm_num [h_T_eq]
     · intro p hp
       have hp_in : p ∈ P14 := (Finset.mem_sdiff.mp hp).1
       have hp_le59 : p ≤ 59 := p14_le_59 hp_in
       have hp_ge2 : p ≥ 2 := p14_ge_2 hp_in
-      exact p_div_p_sub_one_ge_61_60 hp_le59 hp_ge2
+      have hp_le_T_minus_2 : p ≤ T - 2 := by omega
+      have h_ge : (T : ℚ) / ((T : ℚ) - 1) ≤ (p : ℚ) / ((p : ℚ) - 1) := by
+        apply p_div_p_sub_one_ge_generic T (by decide) hp_le_T_minus_2 hp_ge2
+      exact h_ge
 
   have h_tail_bound4 : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤ ∏ p ∈ P14 \ head, ((p : ℚ) / ((p : ℚ) - 1)) :=
     le_trans h_tail_bound3 h_sdiff_bound
@@ -335,13 +375,21 @@ theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeF
     have h_le := (hp.pow_dvd_iff_le_factorization hN).mp h
     omega
   have h_exact : ExactValuation 13 (2 * 1) N := ⟨h_div, h_ndiv⟩
-  have hq : Nat.Prime 61 := by decide
-  have hq_odd : 61 ≠ 2 := by decide
-  have h_mod : 61 % 8 = 5 ∨ 61 % 8 = 7 := Or.inl (by decide)
+  let q := UALBF.Manifest.PRIME_SPLIT_THRESHOLD
+  have h_T_eq : q = (60 + 1) := rfl
+  have hq : Nat.Prime q := by
+    rw [h_T_eq]
+    decide
+  have hq_odd : q ≠ 2 := by
+    rw [h_T_eq]
+    decide
+  have h_mod : q % 8 = 5 ∨ q % 8 = 7 := by
+    rw [h_T_eq]
+    decide
   have h_sigma_eq : sigma (13 ^ 2) = sigma_prime_pow 13 1 := sigma_eq_sigma_prime_pow 13 1 hp
-  have h_div_sig : 61 ∣ sigma (13 ^ (2 * 1)) := by
-    change 61 ∣ sigma (13 ^ 2)
-    rw [h_sigma_eq]
+  have h_div_sig : q ∣ sigma (13 ^ (2 * 1)) := by
+    change q ∣ sigma (13 ^ 2)
+    rw [h_sigma_eq, h_T_eq]
     decide
   exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
 

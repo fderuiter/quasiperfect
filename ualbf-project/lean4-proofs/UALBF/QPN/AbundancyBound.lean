@@ -132,28 +132,26 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     · intro p hp
       exact correction_factor_le_cube_factor (h_ge7 p hp) (h_v_ge2 p hp)
 
-  -- Split into head (p ≤ 61) and tail (p > 61)
-  set head := N.primeFactors.filter (fun p => p ≤ 61)
-  set tail := N.primeFactors.filter (fun p => ¬ p ≤ 61)
+  let T := UALBF.Manifest.PRIME_SPLIT_THRESHOLD
+  -- Split into head (p ≤ T) and tail (p > T)
+  set head := N.primeFactors.filter (fun p => p ≤ T)
+  set tail := N.primeFactors.filter (fun p => ¬ p ≤ T)
 
   have h_split : ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) =
       (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) *
       (∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) := by
-    rw [← Finset.prod_filter_mul_prod_filter_not N.primeFactors (fun p => p ≤ 61)]
+    rw [← Finset.prod_filter_mul_prod_filter_not N.primeFactors (fun p => p ≤ T)]
 
-  -- Head product: subset of primes in [7,61], bounded by explicit computation
+  -- Head product: subset of primes in [7, T], bounded by explicit computation using VerifyHeadProduct
   have h_head_bound : ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := by
-    have h_head_sub : head ⊆ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61) := by
+    have h_head_sub : head ⊆ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T) := by
       intro p hp
       rw [Finset.mem_filter] at hp ⊢
       exact ⟨Finset.mem_Icc.mpr ⟨h_ge7 p hp.1, hp.2⟩, h_prime p hp.1⟩
-    have h_all_primes_761 : Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61) =
-        {7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61} := by
-      decide
     have h_head_le_full : ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤
-        ∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61),
+        ∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T),
           ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
-      set fullSet := Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 61)
+      set fullSet := Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T)
       have h_full_eq : ∏ p ∈ fullSet, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) =
           (∏ p ∈ fullSet \ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) *
           (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) :=
@@ -178,28 +176,31 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
             (∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) :=
           mul_le_mul_of_nonneg_right h_sdiff_ge1 (le_of_lt h_head_prod_pos)
         _ = ∏ p ∈ fullSet, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := h_full_eq.symm
-    rw [h_all_primes_761] at h_head_le_full
-    have h_explicit : ∏ p ∈ ({7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61} : Finset ℕ),
-        ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) =
-        (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
-        (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
-        (50653 / 50652) * (68921 / 68920) * (79507 / 79506) * (103823 / 103822) *
-        (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := by
-      repeat rw [Finset.prod_insert (by decide)]
-      rw [Finset.prod_singleton]
-      norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
-
-    rw [h_explicit] at h_head_le_full
-    calc ∏ p ∈ head, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))
-        ≤ (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
+    haveI : VerifyHeadProduct T := ⟨by
+      have h_T_eq : T = (60 + 1) := rfl
+      rw [h_T_eq]
+      have h_all_primes_761 : Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 (60 + 1)) =
+          {7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 60 + 1} := by
+        decide
+      rw [h_all_primes_761]
+      have h_explicit : ∏ p ∈ ({7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 60 + 1} : Finset ℕ),
+          ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) =
+          (343 : ℚ) / 342 * (1331 / 1330) * (2197 / 2196) * (4913 / 4912) *
           (6859 / 6858) * (12167 / 12166) * (24389 / 24388) * (29791 / 29790) *
           (50653 / 50652) * (68921 / 68920) * (79507 / 79506) * (103823 / 103822) *
-          (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := h_head_le_full
-      _ < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) := head_product_bound
+          (148877 / 148876) * (205379 / 205378) * (226981 / 226980) := by
+        repeat rw [Finset.prod_insert (by decide)]
+        rw [Finset.prod_singleton]
+        norm_num
+      rw [h_explicit]
+      norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
+    ⟩
+    have h_verified := VerifyHeadProduct.verified (T := T)
+    exact lt_of_le_of_lt h_head_le_full h_verified
 
-  -- Tail product: primes > 61, bounded by Weierstrass
-  have h_tail_bound : ∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 61 / 60 := by
-    apply tail_correction_bound
+  -- Tail product: primes > T, bounded by Weierstrass
+  have h_tail_bound : ∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ (T : ℚ) / ((T : ℚ) - 1) := by
+    apply tail_correction_bound_generic T (by decide)
     · intro p hp
       have hp_mem := Finset.mem_filter.mp hp
       have h_not_le := hp_mem.2
@@ -209,9 +210,9 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
       have hp_mem := Finset.mem_filter.mp hp
       exact h_prime p hp_mem.1
 
-  -- Combine: head < 10048/10000, tail ≤ 61/60, product < 1022/1000
+  -- Combine: head < 10048/10000, tail ≤ T/(T-1), product < 1022/1000
   have h_combined : ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) <
-      10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * (61 / 60) := by
+      10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * ((T : ℚ) / ((T : ℚ) - 1)) := by
     rw [h_split]
     have h_tail_pos : (0 : ℚ) < ∏ p ∈ tail, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := by
       apply Finset.prod_pos
@@ -219,12 +220,15 @@ lemma correction_factor_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
       exact cube_factor_pos p (h_prime p (Finset.mem_filter.mp hp).1)
     apply mul_lt_mul h_head_bound h_tail_bound h_tail_pos (by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN])
 
-  have h_arith : (10048 : ℚ) / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * (61 / 60) < 1022 / 1000 := by norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
+  have h_arith : (10048 : ℚ) / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * ((T : ℚ) / ((T : ℚ) - 1)) < 1022 / 1000 := by
+    have h_eq : T = (60 + 1) := rfl
+    rw [h_eq]
+    norm_num [UALBF.Manifest.EULER_CEILING_NUM, UALBF.Manifest.EULER_CEILING_DEN]
 
   calc ∏ p ∈ N.primeFactors,
         ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1))
       ≤ ∏ p ∈ N.primeFactors, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) := h_cube_bound
-    _ < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * (61 / 60) := h_combined
+    _ < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ) * ((T : ℚ) / ((T : ℚ) - 1)) := h_combined
     _ < 1022 / 1000 := h_arith
 
 /-! ### Totient Geometric Window -/
@@ -308,7 +312,7 @@ def getOddPrimesLoop (fuel : ℕ) (n : ℕ) (k : ℕ) (acc : List ℕ) : List �
   | 0 => acc.reverse
   | fuel' + 1 =>
     if acc.length ≥ k then acc.reverse
-    else if UALBF.Fixed64.isPrime n then
+    else if n.Prime then
       getOddPrimesLoop fuel' (n + 2) k (n :: acc)
     else
       getOddPrimesLoop fuel' (n + 2) k acc
