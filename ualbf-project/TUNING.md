@@ -43,6 +43,12 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **omega_bounds.prasad_sunitha.engine_justified_gap**
   - **Description**: The gap between the Prasad-Sunitha proved bound and the engine's capability.
 
+- **omega_bounds.div_5_coprime_3.proof_bound**
+  - **Description**: The mathematical lower bound on the number of prime factors of quasiperfect numbers divisible by 5 but coprime to 3 (Hagis & Cohen 1982).
+
+- **omega_bounds.div_5_coprime_3.engine_justified_gap**
+  - **Description**: The gap between the div_5_coprime_3 proved bound and the engine's capability.
+
 - **omega_bounds.hagis1982.proof_bound**
   - **Description**: The baseline minimum number of prime factors proven by Hagis (1982).
 

@@ -12,6 +12,18 @@
         "identifier": "Journal of Discrete Mathematical Sciences and Cryptography"
       }
     },
+    "div_5_coprime_3": {
+      "proof_bound": 11,
+      "engine_justified_gap": 0,
+      "justification": "Proven bound for QPNs divisible by 5 but coprime to 3.",
+      "is_axiomatic": false,
+      "citation": {
+        "author": "Hagis & Cohen",
+        "year": "1982",
+        "title": "Some results concerning quasiperfect numbers",
+        "identifier": "10.1017/S1446788700018401"
+      }
+    },
     "hagis1982": {
       "proof_bound": 7,
       "engine_justified_gap": 0,
