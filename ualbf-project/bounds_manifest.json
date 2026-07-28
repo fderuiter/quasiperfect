@@ -49,6 +49,10 @@
       "value": 37,
       "is_axiomatic": false
     },
+    "prime_split_threshold": {
+      "value": 61,
+      "is_axiomatic": false
+    },
     "pollard_rho": {
       "iteration_limit": 1000000,
       "batch_size": 128,
