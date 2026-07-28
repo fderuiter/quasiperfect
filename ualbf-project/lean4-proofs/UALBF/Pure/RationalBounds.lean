@@ -39,7 +39,7 @@ open Finset
 open Lean Elab Tactic
 
 macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
-  induction $m with
+  induction ($m) with
   | zero => simp
   | succ m ih =>
     rw [Finset.sum_range_succ, ih]
@@ -56,7 +56,7 @@ macro "telescope_sq" K:ident m:ident : tactic => `(tactic|
 )
 
 macro "telescope_inv" K:ident n:ident _hK:ident : tactic => `(tactic|
-  induction $n with
+  induction ($n) with
   | zero => simp
   | succ n ih =>
     rw [Finset.sum_range_succ, ih]
@@ -73,7 +73,7 @@ macro "telescope_inv" K:ident n:ident _hK:ident : tactic => `(tactic|
 )
 
 macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tactic|
-  induction $S using Finset.induction_on with
+  induction ($S) using Finset.induction_on with
   | empty => simp
   | insert a s' ha ih =>
     rw [Finset.prod_insert ha, Finset.sum_insert ha]
@@ -96,7 +96,7 @@ macro "weierstrass_bound" S:ident x:ident hx:ident hsum:ident : tactic => `(tact
 )
 
 macro "weierstrass_inv_bound" s:ident x:ident hx_pos:ident hx_lt:ident _h_sum:ident : tactic => `(tactic|
-  induction $s using Finset.induction_on with
+  induction ($s) using Finset.induction_on with
   | empty => simp
   | insert a s' ha ih =>
     rw [Finset.prod_insert ha, Finset.sum_insert ha]
@@ -551,15 +551,15 @@ lemma finite_sum_inv_cube_le (S : Finset ℕ) (K : ℕ) (_hK : K ≥ 2)
 /-- The correction factor over any finite set of primes ≥ 62
     is bounded by 61/60 ≈ 1.0167. Uses the Weierstrass inequality
     with sum 1/p^3 ≤ 1/61 (from finite_sum_inv_cube_le with K=62). -/
-lemma tail_correction_bound (S : Finset ℕ)
-    (hS : ∀ p ∈ S, p ≥ 62)
+lemma tail_correction_bound_generic (T : ℕ) (hT : T ≥ 60 + 1) (S : Finset ℕ)
+    (hS : ∀ p ∈ S, p ≥ T + 1)
     (_hS_prime : ∀ p ∈ S, Nat.Prime p) :
-    ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ 61 / 60 := by
+    ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ (T : ℚ) / ((T : ℚ) - 1) := by
   -- Step 0: Each p^3/(p^3-1) = 1/(1-1/p^3)
   have h_rewrite : ∀ p ∈ S, (p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1) = 1 / (1 - 1 / (p : ℚ) ^ 3) := by
     intro p hp
-    have _hp_ge : (62 : ℕ) ≤ p := hS p hp
-    have hp_pos : (0 : ℚ) < (p : ℚ) := by positivity
+    have _hp_ge : T + 1 ≤ p := hS p hp
+    have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast (show p > 0 by omega)
     have _hp3_pos : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
     have _hp3_ne : (p : ℚ) ^ 3 ≠ 0 := ne_of_gt _hp3_pos
     have _hp3_gt1 : (1 : ℚ) < (p : ℚ) ^ 3 := by
@@ -570,41 +570,87 @@ lemma tail_correction_bound (S : Finset ℕ)
     field_simp
   rw [Finset.prod_congr rfl h_rewrite]
   -- Step 1: Apply Weierstrass inequality prod_inv_one_sub_le with x_p = 1/p^3
-  -- Need: 0 < 1/p^3, 1/p^3 < 1, sum 1/p^3 < 1
   set x : ℕ → ℚ := fun p => 1 / (p : ℚ) ^ 3 with hx_def
   have hx_pos : ∀ p ∈ S, 0 < x p := by
     intro p hp
     simp only [hx_def]
-    have _hp_ge : p ≥ 62 := hS p hp
-    exact div_pos one_pos (pow_pos (by positivity) 3)
+    have _hp_ge : p ≥ T + 1 := hS p hp
+    have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast (show p > 0 by omega)
+    exact div_pos one_pos (pow_pos hp_pos 3)
   have hx_lt : ∀ p ∈ S, x p < 1 := by
     intro p hp
     simp only [hx_def]
-    have _hp_ge : p ≥ 62 := hS p hp
-    have hp_pos : (0 : ℚ) < (p : ℚ) := by positivity
+    have _hp_ge : p ≥ T + 1 := hS p hp
+    have hp_pos : (0 : ℚ) < (p : ℚ) := by exact_mod_cast (show p > 0 by omega)
     have _hp3_pos : (0 : ℚ) < (p : ℚ) ^ 3 := pow_pos hp_pos 3
     rw [div_lt_one₀ _hp3_pos]
     calc (1 : ℚ) < (2 : ℚ) ^ 3 := by norm_num
       _ ≤ (p : ℚ) ^ 3 := by
         apply pow_le_pow_left₀ (by norm_num : (0 : ℚ) ≤ 2)
         exact_mod_cast (by omega : 2 ≤ p)
-  -- Sum bound from finite_sum_inv_cube_le with K=62
-  have h_sum_bound : ∑ p ∈ S, x p ≤ 1 / (61 : ℚ) := by
-    have := finite_sum_inv_cube_le S 62 (by norm_num : (62 : ℕ) ≥ 2) hS
-    simp only [hx_def]
-    convert this using 1
-    norm_num
-  have h_sum_lt : ∑ p ∈ S, x p < 1 := by linarith [h_sum_bound]
+  -- Sum bound from finite_sum_inv_cube_le with K=T+1
+  have h_sum_bound : ∑ p ∈ S, x p ≤ 1 / (T : ℚ) := by
+    have h_le := finite_sum_inv_cube_le S (T + 1) (by omega : T + 1 ≥ 2) hS
+    simp only [hx_def] at *
+    have h_eq : ((T + 1 : ℕ) : ℚ) - 1 = (T : ℚ) := by
+      push_cast
+      ring
+    rw [h_eq] at h_le
+    exact h_le
+  have h_sum_lt : ∑ p ∈ S, x p < 1 := by
+    have hT_pos : (0 : ℚ) < (T : ℚ) := by exact_mod_cast (show T > 0 by omega)
+    have h_inv_lt : 1 / (T : ℚ) < 1 := by
+      rw [div_lt_one₀ hT_pos]
+      exact_mod_cast (by omega : 1 < T)
+    exact lt_of_le_of_lt h_sum_bound h_inv_lt
   -- Apply Weierstrass
   have h_weierstrass := prod_inv_one_sub_le S x hx_pos hx_lt h_sum_lt
-  -- h_weierstrass : ∏ p ∈ S, (1 / (1 - x p)) ≤ 1 / (1 - ∑ p ∈ S, x p)
-  -- Need: 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1/61) = 61/60
-  have h_denom_bound : 1 - 1 / (61 : ℚ) ≤ 1 - ∑ p ∈ S, x p := by linarith [h_sum_bound]
-  have h_denom_pos : (0 : ℚ) < 1 - 1 / 61 := by norm_num
+  have h_denom_bound : 1 - 1 / (T : ℚ) ≤ 1 - ∑ p ∈ S, x p := by linarith [h_sum_bound]
+  have h_denom_pos : (0 : ℚ) < 1 - 1 / (T : ℚ) := by
+    have : (1 : ℚ) < (T : ℚ) := by exact_mod_cast (by omega : 1 < T)
+    have : 1 / (T : ℚ) < 1 := by
+      rw [div_lt_one₀]
+      · exact this
+      · exact_mod_cast (by omega : T > 0)
+    linarith
   have _h_denom_pos2 : (0 : ℚ) < 1 - ∑ p ∈ S, x p := by linarith [h_sum_lt]
-  have h_final : 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1 / (61 : ℚ)) := by
+  have h_final : 1 / (1 - ∑ p ∈ S, x p) ≤ 1 / (1 - 1 / (T : ℚ)) := by
     exact div_le_div_of_nonneg_left one_pos.le h_denom_pos h_denom_bound
-  have h_eq : 1 / (1 - 1 / (61 : ℚ)) = 61 / 60 := by norm_num
+  have h_eq : 1 / (1 - 1 / (T : ℚ)) = (T : ℚ) / ((T : ℚ) - 1) := by
+    have hT1 : (T : ℚ) - 1 ≠ 0 := by
+      have : (1 : ℚ) < (T : ℚ) := by exact_mod_cast (by omega : 1 < T)
+      linarith
+    have hT0 : (T : ℚ) ≠ 0 := by exact_mod_cast (by omega : T ≠ 0)
+    field_simp
   linarith [h_weierstrass, h_final, h_eq]
+
+/--
+  The algebraic typeclass parameterizing the prime split threshold.
+-/
+class PrimeSplit (T : ℕ) where
+  hT_ge : T ≥ (60 + 1)
+
+instance (T : ℕ) [Fact (T ≥ (60 + 1))] : PrimeSplit T where
+  hT_ge := Fact.out
+
+/--
+  The decidable typeclass verifying head products at compile-time.
+-/
+class VerifyHeadProduct (T : ℕ) : Prop where
+  verified : (∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T), ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ)
+
+instance (T : ℕ) [Decidable ((∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T), ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ))] [h2 : Fact ((∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T), ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ))] : VerifyHeadProduct T where
+  verified := h2.out
+
+lemma tail_correction_bound (S : Finset ℕ)
+    (hS : ∀ p ∈ S, p ≥ 62)
+    (_hS_prime : ∀ p ∈ S, Nat.Prime p) :
+    ∏ p ∈ S, ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1)) ≤ (60 + 1 : ℚ) / 60 := by
+  have h_generic := tail_correction_bound_generic UALBF.Manifest.PRIME_SPLIT_THRESHOLD (by decide) S (by exact hS) _hS_prime
+  have h_eq : UALBF.Manifest.PRIME_SPLIT_THRESHOLD = (60 + 1) := rfl
+  have h_bound_eq : (((60 + 1 : ℕ) : ℕ) : ℚ) / ((((60 + 1 : ℕ) : ℕ) : ℚ) - 1) = (60 + 1 : ℚ) / 60 := by norm_num
+  rw [h_eq] at h_generic
+  rw [h_bound_eq] at h_generic
+  exact h_generic
 
 end UALBF.Pure.RationalBounds
