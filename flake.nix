@@ -82,6 +82,7 @@
           ];
           dontStrip = true;
           installPhase = ''
+            patchShebangs .
             ./install.sh --prefix=$out --disable-ldconfig
           '';
         };
@@ -473,7 +474,7 @@ with open("dummy_cert.json", "w") as f:
               echo "Running Verus semantic proof verification..."
               export HOME=$TMPDIR
               cd ualbf-project/rust-engine/src
-              verus --z3-path ${verusPkg}/bin/z3 --crate-type=lib verus_proofs.rs
+              verus --crate-type=lib verus_proofs.rs
             '';
 
             installPhase = ''
