@@ -55,38 +55,38 @@ fn power(base: Uint, exp: u32) -> Option<Uint> {
     Some(res)
 }
 
-fn kth_root(c: Uint, k: u32) -> Uint {
+fn kth_root(c: Uint, k: u32) -> Option<Uint> {
     let mut low = Uint::from_u32(1);
     let mut high = Uint::from_u32(1);
     while let Some(p) = power(high, k) {
         if p >= c {
             break;
         }
-        high = high * Uint::from_u32(2);
+        high = high.checked_mul(Uint::from_u32(2))?;
     }
     let mut ans = low;
     while low <= high {
-        let mid = low + (high - low) / Uint::from_u32(2);
+        let mid = low.checked_add(high.checked_sub(low)?.checked_div(Uint::from_u32(2))?)?;
         if let Some(p) = power(mid, k) {
             if p == c {
-                return mid;
+                return Some(mid);
             }
             if p < c {
                 ans = mid;
-                low = mid + Uint::from_u32(1);
+                low = mid.checked_add(Uint::from_u32(1))?;
             } else {
-                high = mid - Uint::from_u32(1);
+                high = mid.checked_sub(Uint::from_u32(1))?;
             }
         } else {
-            high = mid - Uint::from_u32(1);
+            high = mid.checked_sub(Uint::from_u32(1))?;
         }
     }
-    ans
+    Some(ans)
 }
 
 fn perfect_power(c: Uint) -> Option<(Uint, u32)> {
     for k in (2..=40).rev() {
-        let root = kth_root(c, k);
+        let root = kth_root(c, k)?;
         if let Some(p) = power(root, k) {
             if p == c {
                 return Some((root, k));
@@ -96,22 +96,26 @@ fn perfect_power(c: Uint) -> Option<(Uint, u32)> {
     None
 }
 
-fn sigma_power(base: Uint, two_e: u32) -> Uint {
+fn sigma_power(base: Uint, two_e: u32) -> Option<Uint> {
     let mut sum = Uint::from_u32(1);
     let mut current = Uint::from_u32(1);
     for _ in 1..=two_e {
-        current = current * base;
-        sum = sum + current;
+        current = current.checked_mul(base)?;
+        sum = sum.checked_add(current)?;
     }
-    sum
+    Some(sum)
 }
 
-fn cofactor_sigma_bounds(c: Uint) -> (Uint, Uint) {
-    let c2 = c * c;
+fn cofactor_sigma_bounds(c: Uint) -> Option<(Uint, Uint)> {
+    let c2 = c.checked_mul(c)?;
     let sqrt_c = isqrt_uint(c);
-    let min_bound = c2 + (Uint::from_u32(2) * c * sqrt_c);
-    let max_bound = c2 + (c2 / Uint::from_u32(100)); // safe loose upper bound
-    (min_bound, max_bound)
+    let two_c = Uint::from_u32(2).checked_mul(c)?;
+    let two_c_sqrt = two_c.checked_mul(sqrt_c)?;
+    let min_bound = c2.checked_add(two_c_sqrt)?;
+    let hundred = Uint::from_u32(100);
+    let c2_div_100 = c2.checked_div(hundred)?;
+    let max_bound = c2.checked_add(c2_div_100)?;
+    Some((min_bound, max_bound))
 }
 
 fn isqrt(n: Int) -> Option<Int> {
@@ -600,28 +604,38 @@ pub fn phase4_exact_ray_casting(
                         let required_cofactor_s_r = required_s_r / s_r;
 
                         if let Some((base, exp)) = perfect_power(cofactor) {
-                            let sig = sigma_power(base, 2 * exp);
-                            if sig != required_cofactor_s_r {
-                                return;
-                            }
-                            s_r = s_r * sig; // Update s_r to match required_s_r
-                        } else {
-                            let (min_bound, max_bound) = cofactor_sigma_bounds(cofactor);
-                            if required_cofactor_s_r < min_bound
-                                || required_cofactor_s_r > max_bound
-                            {
-                                return;
-                            }
-
-                            if (cofactor >> 256) > Uint::zero() {
-                                if !crate::math_utils::verified_is_prime(cofactor) {
+                            if let Some(sig) = sigma_power(base, 2 * exp) {
+                                if sig != required_cofactor_s_r {
                                     return;
                                 }
+                                if let Some(new_s_r) = s_r.checked_mul(sig) {
+                                    s_r = new_s_r;
+                                } else {
+                                    return;
+                                }
+                            } else {
+                                return;
                             }
+                        } else {
+                            if let Some((min_bound, max_bound)) = cofactor_sigma_bounds(cofactor) {
+                                if required_cofactor_s_r < min_bound
+                                    || required_cofactor_s_r > max_bound
+                                {
+                                    return;
+                                }
 
-                            // Bounds match the required divisor sum, valid candidate!
-                            // Proceed to emit the candidate for downstream proof.
-                            s_r = required_s_r; // Force match since analytical reductions passed.
+                                if (cofactor >> 256) > Uint::zero() {
+                                    if !crate::math_utils::verified_is_prime(cofactor) {
+                                        return;
+                                    }
+                                }
+
+                                // Bounds match the required divisor sum, valid candidate!
+                                // Proceed to emit the candidate for downstream proof.
+                                s_r = required_s_r; // Force match since analytical reductions passed.
+                            } else {
+                                return;
+                            }
                         }
                     }
 
@@ -723,5 +737,47 @@ mod additional_tests {
     fn test_isqrt_negative() {
         let neg = Int::from_str_radix("-1", 10).unwrap();
         assert_eq!(isqrt(neg), None);
+    }
+
+    #[test]
+    fn test_kth_root_overflow_boundary() {
+        // Since kth_root takes Uint c, if c is Uint::MAX and k is 1:
+        // high will double until it overflows 512-bit capacity.
+        // It should return None on overflow.
+        let max = Uint::MAX;
+        let res = kth_root(max, 1);
+        assert_eq!(res, None);
+    }
+
+    #[test]
+    fn test_sigma_power_overflow() {
+        let base = Uint::MAX;
+        let res = sigma_power(base, 2);
+        assert_eq!(res, None);
+    }
+
+    #[test]
+    fn test_cofactor_sigma_bounds_overflow() {
+        let max = Uint::MAX;
+        let res = cofactor_sigma_bounds(max);
+        assert_eq!(res, None);
+    }
+
+    #[test]
+    fn test_kth_root_normal() {
+        assert_eq!(kth_root(Uint::from_u32(16), 2), Some(Uint::from_u32(4)));
+        assert_eq!(kth_root(Uint::from_u32(27), 3), Some(Uint::from_u32(3)));
+    }
+
+    #[test]
+    fn test_sigma_power_normal() {
+        // sigma_power(3, 2) = 1 + 3 + 9 = 13
+        assert_eq!(sigma_power(Uint::from_u32(3), 2), Some(Uint::from_u32(13)));
+    }
+
+    #[test]
+    fn test_cofactor_sigma_bounds_normal() {
+        let bounds = cofactor_sigma_bounds(Uint::from_u32(5));
+        assert!(bounds.is_some());
     }
 }
