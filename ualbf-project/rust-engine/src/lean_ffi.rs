@@ -275,6 +275,7 @@ pub fn get_logic_hash() -> String {
 pub fn run_runtime_parity_check() {
     let baseline_val = get_baseline_min_prime_factors() as u32;
     let prasad_sunitha = get_prasad_sunitha_bound() as u32;
+    let div_5_coprime_3 = get_div_5_coprime_3_bound() as u32;
 
     for i in 0..16u32 {
         let c3 = (i & 1) as u8;
@@ -285,6 +286,8 @@ pub fn run_runtime_parity_check() {
         let ffi_res = unsafe { ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
         let native_res = if (i & 3) == 0 && (i & 12) == 12 {
             prasad_sunitha
+        } else if (i & 1) == 0 && (i & 2) != 0 && (i & 4) != 0 {
+            div_5_coprime_3
         } else {
             baseline_val
         };
@@ -487,6 +490,23 @@ pub fn get_prasad_sunitha_bound() -> usize {
     }
 }
 
+pub fn get_div_5_coprime_3_bound() -> usize {
+    unsafe {
+        let val = ualbf_div_5_coprime_3_bound;
+        if let Err(e) = check_verified_bit(val as u64, 63, "get_div_5_coprime_3_bound") {
+            handle_verified_bit_err(e);
+        }
+        let unmasked = val & !(1 << 63);
+        match check_platform_limit(unmasked as u64) {
+            Ok(v) => v,
+            Err(e) => {
+                handle_verified_bit_err(e);
+                usize::MAX
+            }
+        }
+    }
+}
+
 pub fn get_target_abundance_num() -> u64 {
     unsafe {
         let val = ualbf_target_abundance_num;
@@ -668,6 +688,14 @@ mod tests {
         assert_eq!(value, 15, "expected prasad_sunitha_bound to match 15");
     }
 
+    /// Verify the dummy stub value for div_5_coprime_3_bound.
+    #[test]
+    fn test_dummy_div_5_coprime_3_bound_value() {
+        setup();
+        let value = get_div_5_coprime_3_bound();
+        assert_eq!(value, 11, "expected div_5_coprime_3_bound to match 11");
+    }
+
     /// Repeated calls to get_baseline_min_prime_factors must return the same value,
     /// since the result comes from a constant C export (or a Lean proof constant).
     #[test]
@@ -690,6 +718,18 @@ mod tests {
         assert_eq!(
             first, second,
             "get_prasad_sunitha_bound must be deterministic"
+        );
+    }
+
+    /// Repeated calls to get_div_5_coprime_3_bound must return the same value.
+    #[test]
+    fn test_get_div_5_coprime_3_bound_idempotent() {
+        setup();
+        let first = get_div_5_coprime_3_bound();
+        let second = get_div_5_coprime_3_bound();
+        assert_eq!(
+            first, second,
+            "get_div_5_coprime_3_bound must be deterministic"
         );
     }
 

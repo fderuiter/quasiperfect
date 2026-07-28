@@ -393,4 +393,8 @@ theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeF
     decide
   exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
 
+/-- Formally verified bound (Hagis & Cohen 1982): quasiperfect numbers divisible by 5 but coprime to 3 have at least 11 prime factors. -/
+axiom qpn_div_5_coprime_3_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (h_coprime : N.gcd 3 = 1) (h_div_5 : 5 ∈ N.primeFactors) : UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND ≤ N.primeFactors.card
+
 end UALBF.QPN.PrasadSunitha

@@ -66,6 +66,7 @@ uint64_t ualbf_euler_ceiling_num = (1ULL << 63) | EULER_CEILING_NUM;
 uint64_t ualbf_euler_ceiling_den = (1ULL << 63) | EULER_CEILING_DEN;
 uint64_t ualbf_baseline_min_prime_factors = (1ULL << 63) | BASELINE_MIN_PRIME_FACTORS;
 uint64_t ualbf_prasad_sunitha_bound = (1ULL << 63) | PRASAD_SUNITHA_PROOF_BOUND;
+uint64_t ualbf_div_5_coprime_3_bound = (1ULL << 63) | DIV_5_COPRIME_3_PROOF_BOUND;
 
 uint64_t ualbf_target_abundance_num = (1ULL << 63) | 2;
 uint64_t ualbf_target_abundance_den = (1ULL << 63) | 1;
@@ -76,6 +77,7 @@ uint32_t ualbf_pollard_rho_batch_size = (1U << 31) | POLLARD_RHO_BATCH_SIZE;
 void ualbf_dfs_loop(uint64_t ctx) { (void)ctx; }
 uint32_t ualbf_evaluate_baseline_min_ffi(uint8_t contains_3, uint8_t contains_5, uint8_t skipped_3, uint8_t skipped_5) {
     if (!contains_3 && !contains_5 && skipped_3 && skipped_5) return PRASAD_SUNITHA_PROOF_BOUND;
+    if (!contains_3 && contains_5 && skipped_3) return DIV_5_COPRIME_3_BOUND;
     return BASELINE_MIN_PRIME_FACTORS;
 }
 

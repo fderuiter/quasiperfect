@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "b7d17beb40c782e4ed72be2172e36aeb26d0ee1c1ae780742948c2705467ea08";
+    "3134da64b48db96a0e5aa0ea13fa9984b25600dad70a04c9a0992a07562380d7";
 
 use vstd::prelude::*;
 
@@ -17,6 +17,10 @@ verus! {
     pub open spec fn lean_prasad_sunitha_offset() -> nat { 0 }
     pub open spec fn lean_prasad_sunitha_combined() -> nat { 15 }
 
+    pub open spec fn lean_div_5_coprime_3_bound() -> nat { 11 }
+    pub open spec fn lean_div_5_coprime_3_offset() -> nat { 0 }
+    pub open spec fn lean_div_5_coprime_3_combined() -> nat { 11 }
+
     pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool { true }
 
     pub open spec fn lean_conjectural_active() -> bool { true }
@@ -25,5 +29,6 @@ verus! {
     pub proof fn prove_combined_bounds() {
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
         assert(lean_prasad_sunitha_combined() == lean_prasad_sunitha_bound() + lean_prasad_sunitha_offset());
+        assert(lean_div_5_coprime_3_combined() == lean_div_5_coprime_3_bound() + lean_div_5_coprime_3_offset());
     }
 }

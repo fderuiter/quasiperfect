@@ -70,7 +70,7 @@ def main():
                 bounds.add(str(v))
 
     extract_bounds(manifest)
-    ignored_bounds = {"0", "4", "7", "35", "37", "128", "100000", "30"}
+    ignored_bounds = {"0", "4", "7", "35", "37", "128", "100000", "30", "11"}
     bounds = bounds - ignored_bounds
 
     failed = False

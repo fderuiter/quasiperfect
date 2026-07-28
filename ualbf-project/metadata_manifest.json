@@ -49,6 +49,8 @@
   "parameter_mappings": {
     "omega_bounds.prasad_sunitha.proof_bound": "TUNING.md",
     "omega_bounds.prasad_sunitha.engine_justified_gap": "TUNING.md",
+    "omega_bounds.div_5_coprime_3.proof_bound": "TUNING.md",
+    "omega_bounds.div_5_coprime_3.engine_justified_gap": "TUNING.md",
     "omega_bounds.hagis1982.proof_bound": "TUNING.md",
     "omega_bounds.hagis1982.engine_justified_gap": "TUNING.md",
     "search_bounds.target_max_log10.value": "TUNING.md",
