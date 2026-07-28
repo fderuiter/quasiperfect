@@ -35,17 +35,18 @@
             sha256 = "${systemInfo.sha256}";
           };
           nativeBuildInputs = [ pkgs.unzip ] ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.autoPatchelfHook;
-          buildInputs = pkgs.lib.optional pkgs.stdenv.isLinux (with pkgs; [
-            stdenv.cc.cc.lib
-            zlib
-            gmp
-          ]);
+          buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.stdenv.cc.cc.lib
+            pkgs.zlib
+            pkgs.gmp
+            rustToolchain
+          ];
           unpackCmd = "unzip $curSrc";
           installPhase = ''
             mkdir -p $out/bin
             VERUS_DIR=$(dirname $(find . -type f -name verus | head -n 1))
             cp -r $VERUS_DIR/* $out/bin/
-            chmod +x $out/bin/verus $out/bin/z3 || true
+            chmod +x $out/bin/verus $out/bin/rust_verify $out/bin/z3 || true
           '';
         };
 
