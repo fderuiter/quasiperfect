@@ -113,7 +113,10 @@ def check_lean_environment():
         sys.exit(1)
 
     if not lean_found:
-        print("Warning: Lean 4 toolchain not found! Falling back to existing statuses.", file=sys.stderr)
+        print(
+            "Warning: Lean 4 toolchain not found! Falling back to existing statuses.",
+            file=sys.stderr,
+        )
         return False
 
     return True
@@ -126,7 +129,9 @@ def generate_manifest():
     # Load existing manifest to preserve statuses if Lean is missing
     existing_statuses = {}
     try:
-        manifest_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "proof_manifest.json")
+        manifest_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "proof_manifest.json"
+        )
         if os.path.exists(manifest_path):
             with open(manifest_path, "r", encoding="utf-8") as f:
                 old_manifest = json.load(f)

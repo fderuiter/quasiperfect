@@ -216,7 +216,9 @@ def verify_certificate(cert_path, manifest_path):
             break
 
     if not has_physical_files:
-        print("INFO: Physical source files are missing; skipping physical proof file content checksum validation in production.")
+        print(
+            "INFO: Physical source files are missing; skipping physical proof file content checksum validation in production."
+        )
     else:
         for pf in proof_files:
             file_path = os.path.join(
