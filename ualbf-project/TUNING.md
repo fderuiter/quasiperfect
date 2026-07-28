@@ -104,7 +104,7 @@ In addition to user-tunable performance configurations, the engine depends on ve
   - **Description**: Array of static limits mapping factors to their pre-calculated mathematical suffixes.
 
 - **conjectural_bounds.active**
-  - **Description**: Flag to activate or deactivate conjectural bounds during target search.
+  - **Description**: Flag to enable or disable the use of conjectural bounds (e.g. from the ABC Conjecture) during target search.
 
 - **conjectural_bounds.target_max_log10_ceiling**
   - **Description**: The maximum upper log10 bound ceiling applied when conjectural bounds are active.
