@@ -53,6 +53,17 @@ uint8_t ualbf_check_mod_9(uint64_t p, uint32_t two_e) {
     return (sum % 3 == 0) ? 1 : 0;
 }
 
+uint8_t ualbf_check_touchard(uint64_t p, uint32_t two_e) {
+    uint64_t p_mod = p % 24;
+    uint64_t sum = 0;
+    uint64_t term = 1;
+    for (uint32_t i = 0; i <= two_e; i++) {
+        sum = (sum + term) % 24;
+        term = (term * p_mod) % 24;
+    }
+    return ((sum % 2 == 0) || (sum == 9)) ? 1 : 0;
+}
+
 void* ualbf_compute_sigma(uint64_t p, uint64_t pow) { (void)p; (void)pow; return (void*)1; }
 void* ualbf_cyclotomic_eval_pub(uint32_t d, void* p) { (void)d; (void)p; return (void*)1; }
 void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) { (void)a_obj; (void)a_neg; (void)m_obj; return (void*)1; }
