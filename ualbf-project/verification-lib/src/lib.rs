@@ -207,6 +207,7 @@ pub fn verify_signature(
 }
 
 #[allow(dead_code)]
+#[allow(clippy::manual_range_contains)]
 fn validate_telemetry_numbers(val: &serde_json::Value) -> Result<(), String> {
     match val {
         serde_json::Value::Number(n) => {
@@ -215,12 +216,18 @@ fn validate_telemetry_numbers(val: &serde_json::Value) -> Result<(), String> {
                     let fits_i64 = f >= i64::MIN as f64 && f <= i64::MAX as f64;
                     let fits_u64 = f >= 0.0 && f < 18446744073709551616.0;
                     if !fits_i64 && !fits_u64 {
-                        return Err(format!("Telemetry number {} exceeds 64-bit integer limits", n));
+                        return Err(format!(
+                            "Telemetry number {} exceeds 64-bit integer limits",
+                            n
+                        ));
                     }
                 }
             } else {
                 if n.as_i64().is_none() && n.as_u64().is_none() {
-                    return Err(format!("Telemetry number {} exceeds 64-bit integer limits", n));
+                    return Err(format!(
+                        "Telemetry number {} exceeds 64-bit integer limits",
+                        n
+                    ));
                 }
             }
         }
@@ -245,25 +252,38 @@ fn serde_to_py<'py>(py: Python<'py>, value: &serde_json::Value) -> PyResult<Boun
     match value {
         serde_json::Value::Null => Ok(py.None().into_bound(py)),
         serde_json::Value::Bool(b) => {
-            let py_val = (*b).into_pyobject(py).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+            let py_val = (*b)
+                .into_pyobject(py)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(py_val.as_any().clone())
         }
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                let py_val = i.into_pyobject(py).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                let py_val = i
+                    .into_pyobject(py)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
                 Ok(py_val.as_any().clone())
             } else if let Some(u) = n.as_u64() {
-                let py_val = u.into_pyobject(py).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                let py_val = u
+                    .into_pyobject(py)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
                 Ok(py_val.as_any().clone())
             } else if let Some(f) = n.as_f64() {
-                let py_val = f.into_pyobject(py).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                let py_val = f
+                    .into_pyobject(py)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
                 Ok(py_val.as_any().clone())
             } else {
-                Err(pyo3::exceptions::PyValueError::new_err("Invalid number value"))
+                Err(pyo3::exceptions::PyValueError::new_err(
+                    "Invalid number value",
+                ))
             }
         }
         serde_json::Value::String(s) => {
-            let py_val = s.as_str().into_pyobject(py).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+            let py_val = s
+                .as_str()
+                .into_pyobject(py)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
             Ok(py_val.as_any().clone())
         }
         serde_json::Value::Array(arr) => {
@@ -290,12 +310,17 @@ use pyo3::types::{PyDict, PyList};
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn validate_certificate<'py>(py: Python<'py>, cert_json_str: &str) -> PyResult<Bound<'py, PyAny>> {
+pub fn validate_certificate<'py>(
+    py: Python<'py>,
+    cert_json_str: &str,
+) -> PyResult<Bound<'py, PyAny>> {
     use pyo3::exceptions::{PyException, PyValueError};
 
     // Null-byte check before parsing
     if cert_json_str.contains('\0') {
-        return Err(PyValueError::new_err("Null byte detected in certificate content"));
+        return Err(PyValueError::new_err(
+            "Null byte detected in certificate content",
+        ));
     }
 
     // Parse the JSON string
@@ -311,9 +336,8 @@ pub fn validate_certificate<'py>(py: Python<'py>, cert_json_str: &str) -> PyResu
         .ok_or_else(|| PyValueError::new_err("Missing 'telemetry' object"))?;
 
     // Perform strict telemetry number validation
-    validate_telemetry_numbers(telemetry_val).map_err(|e| {
-        PyValueError::new_err(format!("Telemetry validation failed: {}", e))
-    })?;
+    validate_telemetry_numbers(telemetry_val)
+        .map_err(|e| PyValueError::new_err(format!("Telemetry validation failed: {}", e)))?;
 
     let telemetry = telemetry_val
         .as_object()
@@ -381,7 +405,8 @@ pub fn validate_certificate<'py>(py: Python<'py>, cert_json_str: &str) -> PyResu
         .and_then(|o| o.get("conjecture_name"))
         .and_then(|v| v.as_str());
 
-    let path_ranges = telemetry.get("path_ranges")
+    let path_ranges = telemetry
+        .get("path_ranges")
         .or_else(|| telemetry.get("inner_paths"))
         .or_else(|| telemetry.get("explored_ranges"))
         .cloned();
@@ -680,7 +705,8 @@ pub extern "C" fn verify_certificate(
         .and_then(|o| o.get("conjecture_name"))
         .and_then(|v| v.as_str());
 
-    let path_ranges = telemetry.get("path_ranges")
+    let path_ranges = telemetry
+        .get("path_ranges")
         .or_else(|| telemetry.get("inner_paths"))
         .or_else(|| telemetry.get("explored_ranges"))
         .cloned();
