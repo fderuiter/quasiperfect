@@ -56,12 +56,10 @@ def test_guarded_rebuild_success():
         )
 
         # The dummy file and directory should have been purged by build script
-        assert not dummy_file.exists(), (
-            "The intermediate C-IR dummy file was not purged!"
-        )
-        assert not ir_dir.exists(), (
-            "The intermediate C-IR directory was not purged!"
-        )
+        assert (
+            not dummy_file.exists()
+        ), "The intermediate C-IR dummy file was not purged!"
+        assert not ir_dir.exists(), "The intermediate C-IR directory was not purged!"
 
         # The custom panic should NOT be in the output
         assert "FATAL: Lean proof verification failed!" not in res.stderr
@@ -90,9 +88,7 @@ def test_guarded_rebuild_failure():
         # 2. Create a mock lake executable that fails
         mock_lake = tmp_path / "lake"
         mock_lake.write_text(
-            "#!/bin/sh\n"
-            "echo 'Mock lake: simulated build error' >&2\n"
-            "exit 1\n"
+            "#!/bin/sh\n" "echo 'Mock lake: simulated build error' >&2\n" "exit 1\n"
         )
         mock_lake.chmod(0o755)
 
@@ -116,9 +112,7 @@ def test_guarded_rebuild_failure():
         )
 
         # The build must fail
-        assert res.returncode != 0, (
-            "Cargo check succeeded when it should have failed!"
-        )
+        assert res.returncode != 0, "Cargo check succeeded when it should have failed!"
 
         # Verify detailed diagnostics and exact rerun command are in stderr
         assert "FATAL: Lean proof verification failed!" in res.stderr
