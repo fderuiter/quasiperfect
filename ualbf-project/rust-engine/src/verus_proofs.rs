@@ -408,8 +408,10 @@ verus! {
     #[verifier(external_body)]
     pub fn verified_ualbf_cyclotomic_eval(d: u32, p: &VerifiedLeanU512) -> (res: Option<VerifiedLeanU512>)
         ensures
-            res.is_Some() ==> u512_to_nat(res.unwrap()) == cyclotomic_eval_spec(d as nat, u512_to_nat(*p)) && rns512_valid_bounds(cyclotomic_eval_spec(d as nat, u512_to_nat(*p))),
-            res.is_None() ==> !rns512_valid_bounds(cyclotomic_eval_spec(d as nat, u512_to_nat(*p))) || d == 0
+            match res {
+                Some(r) => u512_to_nat(r) == cyclotomic_eval_spec(d as nat, u512_to_nat(*p)) && rns512_valid_bounds(cyclotomic_eval_spec(d as nat, u512_to_nat(*p))),
+                None => !rns512_valid_bounds(cyclotomic_eval_spec(d as nat, u512_to_nat(*p))) || d == 0,
+            }
     {
         #[cfg(verus_keep_ghost)]
         {
