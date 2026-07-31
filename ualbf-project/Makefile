@@ -28,6 +28,7 @@ check:
 	python3 scripts/validate_docs.py
 	pytest tests/test_bounds_validation.py
 	pytest tests/test_verify_metadata.py
+	pytest tests/test_guarded_rebuild.py
 
 verify-sync:
 	./scripts/export_lean_specs.py
