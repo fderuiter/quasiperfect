@@ -313,10 +313,10 @@ def verify_telemetry_paths(certs_list: list) -> None:
         sys.exit(1)
 
     try:
-        import verification_lib  # type: ignore[import-not-found]
-
         path_ranges_json = json.dumps(all_path_ranges)
-        result_json = verification_lib.check_path_continuity(path_ranges_json)
+        if cert_util.check_path_continuity is None:
+            raise ImportError("check_path_continuity is not available in cert_util")
+        result_json = cert_util.check_path_continuity(path_ranges_json)
         result = json.loads(result_json)
     except Exception as e:
         print(f"ERROR: Failed to verify path continuity via Rust core: {e}")
