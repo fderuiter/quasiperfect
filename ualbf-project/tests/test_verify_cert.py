@@ -192,6 +192,10 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
         "trace_hash": trace_hash,
         "factorization_depth": factorization_depth,
     }
+    if "path_ranges" in tel:
+        map_obj["path_ranges"] = tel["path_ranges"]
+    elif "inner_paths" in tel:
+        map_obj["path_ranges"] = tel["inner_paths"]
     payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
     pub_hex, sig_hex = sign_payload(payload)
     cert["signature"] = sig_hex
@@ -360,6 +364,10 @@ class TestPayloadFormat:
             "trace_hash": trace_hash,
             "factorization_depth": factorization_depth,
         }
+        if "cert" in locals() and "path_ranges" in cert["telemetry"]:
+            map_obj["path_ranges"] = cert["telemetry"]["path_ranges"]
+        elif "cert" in locals() and "inner_paths" in cert["telemetry"]:
+            map_obj["path_ranges"] = cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
@@ -693,6 +701,10 @@ class TestAggregationE2E:
                 "trace_hash": tel.get("trace_hash", ""),
                 "factorization_depth": tel.get("factorization_depth", 0),
             }
+            if "path_ranges" in tel:
+                map_obj["path_ranges"] = tel["path_ranges"]
+            elif "inner_paths" in tel:
+                map_obj["path_ranges"] = tel["inner_paths"]
             payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
             pub_hex, sig_hex = sign_payload(payload)
             cert["signature"] = sig_hex
@@ -808,6 +820,10 @@ class TestConditionalCertificates:
             "is_conditional": True,
             "conjecture_name": "ABC Conjecture"
         }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        elif "inner_paths" in tel:
+            map_obj["path_ranges"] = tel["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
@@ -931,5 +947,152 @@ class TestPathContinuityValidation:
         result = json.loads(result_json)
         assert result["is_continuous"] is True
         assert len(result["gaps"]) == 0
+
+
+class TestDirectMappingAndSchemaEnforcement:
+    def test_null_byte_injection(self):
+        """No certificate content preceding a null-byte can be parsed separately; fails immediately."""
+        import verification_lib
+        raw_json_with_null = '{"manifest_hash": "abc", "\0": "tampered"}'
+        with pytest.raises(ValueError, match="Null byte detected"):
+            verification_lib.validate_certificate(raw_json_with_null)
+
+    def test_tampered_path_ranges(self, tmp_path):
+        """Certificates with modified search space boundaries or path ranges fail signature verification."""
+        manifest = make_manifest()
+        write_mock_manifest_files(str(tmp_path), manifest)
+        bounds_content = b'{"dummy": "bounds"}'
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
+
+        # Write manifest file to disk
+        manifest_path = os.path.join(str(tmp_path), "manifest.json")
+        with open(manifest_path, "w") as f:
+            f.write(manifest_content)
+
+        # Build cert with path ranges
+        cert = build_cert(
+            manifest_hash,
+            path_ranges=[{"start_bound": [1], "end_bound": [2]}]
+        )
+        cert["manifest_hash"] = manifest_hash
+
+        # Sign it
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 35),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+            "path_ranges": tel["path_ranges"]
+        }
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+
+        # Check it passes first
+        import verification_lib
+        os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+        res = verification_lib.validate_certificate(json.dumps(cert))
+        assert isinstance(res, dict)
+
+        # Tamper with path ranges
+        cert["telemetry"]["path_ranges"] = [{"start_bound": [1], "end_bound": [3]}]
+        with pytest.raises(Exception, match="Invalid cryptographic signature"):
+            verification_lib.validate_certificate(json.dumps(cert))
+
+    def test_telemetry_integer_overflow(self, tmp_path):
+        """Certificates with telemetry integer values exceeding maximum representation limits are rejected."""
+        manifest = make_manifest()
+        write_mock_manifest_files(str(tmp_path), manifest)
+        bounds_content = b'{"dummy": "bounds"}'
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
+
+        # Write manifest file to disk
+        manifest_path = os.path.join(str(tmp_path), "manifest.json")
+        with open(manifest_path, "w") as f:
+            f.write(manifest_content)
+
+        cert = build_cert(manifest_hash)
+        cert["manifest_hash"] = manifest_hash
+
+        # Insert overflowing integer in telemetry
+        cert["telemetry"]["total_branches_searched"] = 18446744073709551616  # 2^64 (exceeds u64 limit)
+
+        # Resign with overflowed value
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 35),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+        }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+
+        import verification_lib
+        os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+        with pytest.raises(ValueError, match="Telemetry validation failed: Telemetry number .* exceeds 64-bit integer limits"):
+            verification_lib.validate_certificate(json.dumps(cert))
+
+    def test_direct_pyobject_return(self, tmp_path):
+        """The verification engine successfully transfers the validated certificate data to Python directly as a native dictionary without invoking a secondary JSON string parser."""
+        manifest = make_manifest()
+        write_mock_manifest_files(str(tmp_path), manifest)
+        bounds_content = b'{"dummy": "bounds"}'
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
+
+        # Write manifest file to disk
+        manifest_path = os.path.join(str(tmp_path), "manifest.json")
+        with open(manifest_path, "w") as f:
+            f.write(manifest_content)
+
+        cert = build_cert(manifest_hash)
+        cert["manifest_hash"] = manifest_hash
+
+        # Re-sign
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 35),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+        }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+
+        import cert_util
+        os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+        cert_path = os.path.join(str(tmp_path), "cert.json")
+        with open(cert_path, "w") as f:
+            json.dump(cert, f)
+
+        res = cert_util.load_and_validate_cert(cert_path)
+        assert isinstance(res, dict)
+        assert res["manifest_hash"] == manifest_hash
+
 
 

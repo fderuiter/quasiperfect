@@ -65,8 +65,7 @@ def load_and_validate_cert(cert_path):
             sys.exit(1)
 
         # The native library validates the signature and structure
-        validated_str = verification_lib.validate_certificate(cert_str)
-        cert = json.loads(validated_str)
+        cert = verification_lib.validate_certificate(cert_str)
     except Exception as e:
         raise CertificateValidationError(f"Validation failed: {e}")
 
