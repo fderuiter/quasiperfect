@@ -170,11 +170,11 @@ pub mod opencl_pipeline {
             max_idx_5: usize,
             components_len: usize,
             do_verify: bool,
-        ) -> (Vec<u32>, usize) {
+        ) -> (Vec<u32>, Vec<(u32, usize)>, usize) {
             unsafe {
                 let count = (c_max - c_min + 1) as usize;
                 if count == 0 {
-                    return (vec![], 0);
+                    return (vec![], vec![], 0);
                 }
 
                 #[repr(C)]
@@ -388,7 +388,24 @@ pub mod opencl_pipeline {
                 }
 
                 let pruned_count = count - fvc;
-                (valid_indices, pruned_count)
+                let mut witnesses = Vec::with_capacity(pruned_count);
+                let mut sorted_valid = valid_indices.clone();
+                sorted_valid.sort_unstable();
+                for rel_c in 0..count {
+                    let rel_c_u32 = rel_c as u32;
+                    if sorted_valid.binary_search(&rel_c_u32).is_err() {
+                        let c = c_min + rel_c as u64;
+                        let z = r_i + Uint::from_u64(c) * s_l;
+                        for (obs_idx, &(pe, pe1)) in illegal_z_valuations.iter().enumerate() {
+                            let rem = z % pe1;
+                            if rem % pe == Uint::zero() && rem != Uint::zero() {
+                                witnesses.push((rel_c_u32, obs_idx));
+                                break;
+                            }
+                        }
+                    }
+                }
+                (valid_indices, witnesses, pruned_count)
             }
         }
 
@@ -513,8 +530,12 @@ impl DummyGpuPipeline {
         _max_idx_5: usize,
         _components_len: usize,
         _do_verify: bool,
-    ) -> (Vec<u32>, usize) {
-        (vec![], 0)
+    ) -> (Vec<u32>, Vec<(u32, usize)>, usize) {
+        (vec![], vec![], 0)
+    }
+
+    pub fn factor_batch(&self, _nums: &[Uint]) -> Vec<Option<Uint>> {
+        vec![]
     }
 }
 
@@ -614,10 +635,10 @@ pub mod metal_pipeline {
             max_idx_5: usize,
             components_len: usize,
             do_verify: bool,
-        ) -> (Vec<u32>, usize) {
+        ) -> (Vec<u32>, Vec<(u32, usize)>, usize) {
             let count = (c_max - c_min + 1) as u64;
             if count == 0 {
-                return (vec![], 0);
+                return (vec![], vec![], 0);
             }
 
             let mut obs_vec = Vec::with_capacity(illegal_z_valuations.len());
@@ -854,8 +875,26 @@ pub mod metal_pipeline {
             // we return the valid indices for Raycast processing, and optionally calculate
             // the pruned count.
             let pruned_count = count as usize - final_valid_count as usize;
+            let valid_indices_vec = valid_indices_slice.to_vec();
+            let mut witnesses = Vec::with_capacity(pruned_count);
+            let mut sorted_valid = valid_indices_vec.clone();
+            sorted_valid.sort_unstable();
+            for rel_c in 0..count as usize {
+                let rel_c_u32 = rel_c as u32;
+                if sorted_valid.binary_search(&rel_c_u32).is_err() {
+                    let c = c_min + rel_c as u64;
+                    let z = r_i + Uint::from_u64(c) * s_l;
+                    for (obs_idx, &(pe, pe1)) in illegal_z_valuations.iter().enumerate() {
+                        let rem = z % pe1;
+                        if rem % pe == Uint::zero() && rem != Uint::zero() {
+                            witnesses.push((rel_c_u32, obs_idx));
+                            break;
+                        }
+                    }
+                }
+            }
 
-            (valid_indices_slice.to_vec(), pruned_count)
+            (valid_indices_vec, witnesses, pruned_count)
         }
 
         pub fn factor_batch(&self, nums: &[Uint]) -> Vec<Option<Uint>> {
