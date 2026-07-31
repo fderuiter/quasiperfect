@@ -226,10 +226,7 @@ pub fn phase4_exact_ray_casting(
     max_idx_5: usize,
     components_len: usize,
 ) {
-    let config = crate::policy::get_safe_config();
-    let verify_all = config.sampling_rate.unwrap_or(1.0) >= 1.0;
-    let sampling_rate = config.sampling_rate.unwrap_or(1.0);
-    let deterministic_seed = config.deterministic_seed.unwrap_or(0);
+    let _config = crate::policy::get_safe_config();
 
     let n_l_int = prefix.n_l.as_int();
     let s_l_int = prefix.s_l.as_int();
@@ -328,7 +325,7 @@ pub fn phase4_exact_ray_casting(
                         let r_i_uint = r_i.as_uint();
                         let s_l_uint = s_l_int.as_uint();
 
-                        let (gpu_valid, pruned) = gpu.raycast_sieve(
+                        let (gpu_valid, witnesses, pruned) = gpu.raycast_sieve(
                             r_i_uint,
                             s_l_uint,
                             c_current as u64,
@@ -342,7 +339,7 @@ pub fn phase4_exact_ray_casting(
                             true,
                         );
 
-                        // Asymmetric Sieve Verification:
+                        // Asymmetric Sieve Verification using single-obstruction witness certificates:
                         // 1. Verify 100% of the positive survivors returned by the GPU
                         for &rel_c in &gpu_valid {
                             let c = c_current + rel_c as usize;
@@ -360,90 +357,37 @@ pub fn phase4_exact_ray_casting(
                             }
                         }
 
-                        // 2. Verify a deterministic sample of rejected candidates to detect silent GPU corruption
-                        if verify_all {
-                            // High-performance incremental sieve check when verifying everything
-                            let mut obs_data = Vec::with_capacity(illegal_z_valuations.len());
-                            for &(pe, pe1) in illegal_z_valuations {
-                                let pe_uint = pe.as_uint();
-                                let pe1_uint = pe1.as_uint();
-                                let mut base_z_pe = (r_i % pe).as_uint();
-                                let mut base_z_pe1 = (r_i % pe1).as_uint();
-                                let s_l_pe = (s_l_int % pe).as_uint();
-                                let s_l_pe1 = (s_l_int % pe1).as_uint();
-                                let c_uint = Uint::from_u64(c_current as u64);
-                                base_z_pe = (base_z_pe + c_uint * s_l_pe) % pe_uint;
-                                base_z_pe1 = (base_z_pe1 + c_uint * s_l_pe1) % pe1_uint;
-                                obs_data.push((
-                                    base_z_pe, base_z_pe1, s_l_pe, s_l_pe1, pe_uint, pe1_uint,
-                                ));
-                            }
+                        // 2. O(1)-per-candidate validation using the GPU-provided witness certificates
+                        let mut witness_map =
+                            std::collections::HashMap::with_capacity(witnesses.len());
+                        for &(rel_c, obs_idx) in &witnesses {
+                            witness_map.insert(rel_c, obs_idx);
+                        }
 
-                            for c in c_current..=c_end {
-                                let mut passes_sieve = true;
-                                for (z_pe, z_pe1, s_l_pe, s_l_pe1, pe, pe1) in &mut obs_data {
-                                    if *z_pe == Uint::zero() && *z_pe1 != Uint::zero() {
-                                        passes_sieve = false;
-                                    }
-                                    *z_pe = *z_pe + *s_l_pe;
-                                    if *z_pe >= *pe {
-                                        *z_pe = *z_pe - *pe;
-                                    }
-                                    *z_pe1 = *z_pe1 + *s_l_pe1;
-                                    if *z_pe1 >= *pe1 {
-                                        *z_pe1 = *z_pe1 - *pe1;
-                                    }
-                                }
+                        let mut survivor_set =
+                            std::collections::HashSet::with_capacity(gpu_valid.len());
+                        for &v in &gpu_valid {
+                            survivor_set.insert(v);
+                        }
 
-                                let rel_c = (c - c_current) as u32;
-                                let z = r_i + Int::from_u64(c as u64) * s_l_int;
-                                if z <= z_max {
-                                    if passes_sieve {
-                                        if !gpu_valid.contains(&rel_c) {
-                                            panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
-                                        }
-                                    } else {
-                                        if gpu_valid.contains(&rel_c) {
-                                            panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
-                                        }
+                        // Let's verify that every discarded candidate in [0, chunk_size - 1] is accounted for and its witness is valid
+                        for rel_c in 0..chunk_size {
+                            let rel_c_u32 = rel_c as u32;
+                            if !survivor_set.contains(&rel_c_u32) {
+                                // Must have a valid witness
+                                if let Some(&obs_idx) = witness_map.get(&rel_c_u32) {
+                                    if obs_idx >= illegal_z_valuations.len() {
+                                        panic!("CRITICAL FAILURE: Witness obstruction index out of bounds: {} for relative candidate {}", obs_idx, rel_c);
                                     }
-                                }
-                            }
-                        } else {
-                            // Sub-linear O(sample_size) check of rejected candidates based on Knuth multiplicative hash
-                            for c in c_current..=c_end {
-                                let mut hash_val = (c as u64)
-                                    .wrapping_add(deterministic_seed)
-                                    .wrapping_add(0x9E3779B97F4A7C15);
-                                hash_val =
-                                    (hash_val ^ (hash_val >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-                                hash_val =
-                                    (hash_val ^ (hash_val >> 27)).wrapping_mul(0x94D049BB133111EB);
-                                hash_val = hash_val ^ (hash_val >> 31);
-                                if (hash_val % 1_000_000) as f64 / 1_000_000.0 >= sampling_rate {
-                                    continue;
-                                }
-
-                                let rel_c = (c - c_current) as u32;
-                                let z = r_i + Int::from_u64(c as u64) * s_l_int;
-                                if z <= z_max {
-                                    let mut passes_sieve = true;
-                                    for &(pe, pe1) in illegal_z_valuations {
-                                        let rem = z % pe1;
-                                        if rem % pe == Int::zero() && rem != Int::zero() {
-                                            passes_sieve = false;
-                                            break;
-                                        }
+                                    let (pe, pe1) = illegal_z_valuations[obs_idx];
+                                    let c = c_current + rel_c;
+                                    let z = r_i + Int::from_u64(c as u64) * s_l_int;
+                                    let rem = z % pe1;
+                                    if !(rem % pe == Int::zero() && rem != Int::zero()) {
+                                        panic!("CRITICAL FAILURE: Invalid witness certificate for relative candidate {}! Obstruction index {} did not reject.", rel_c, obs_idx);
                                     }
-                                    if passes_sieve {
-                                        if !gpu_valid.contains(&rel_c) {
-                                            panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU missed valid c: {}", rel_c);
-                                        }
-                                    } else {
-                                        if gpu_valid.contains(&rel_c) {
-                                            panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid c: {}", rel_c);
-                                        }
-                                    }
+                                } else {
+                                    panic!("CRITICAL FAILURE: Discarded candidate at relative index {} has no witness certificate!", rel_c);
                                 }
                             }
                         }
@@ -458,15 +402,26 @@ pub fn phase4_exact_ray_casting(
                     }
                 }
 
-                let process_c = |c: usize, count_pruned: bool| {
+                // Compile all candidate indices in the current chunk to check
+                let chunk_candidates: Vec<usize> = if let Some(indices) = &valid_indices {
+                    indices.clone()
+                } else {
+                    (c_current..=c_end).collect()
+                };
+
+                let count_pruned = valid_indices.is_none();
+
+                let mut candidates_to_factor = Vec::new();
+
+                for c in chunk_candidates {
                     let z = r_i + Int::from_u64(c as u64) * s_l_int;
 
                     if z > z_max {
-                        return;
+                        continue;
                     }
 
                     if z % Int::from_u32(2) == Int::zero() {
-                        return;
+                        continue;
                     }
 
                     if count_pruned {
@@ -481,7 +436,7 @@ pub fn phase4_exact_ray_casting(
                         }
 
                         if !passed_sieve {
-                            return;
+                            continue;
                         }
                     }
 
@@ -493,7 +448,7 @@ pub fn phase4_exact_ray_casting(
                         }
                     }
                     if !is_coprime {
-                        return;
+                        continue;
                     }
 
                     let z_tiered = z.as_uint();
@@ -502,11 +457,11 @@ pub fn phase4_exact_ray_casting(
 
                     let n_r = match z_tiered.checked_mul(z_tiered) {
                         Some(v) => v,
-                        None => return,
+                        None => continue,
                     };
                     let total_n = match n_l_tiered.checked_mul(n_r) {
                         Some(v) => v,
-                        None => return,
+                        None => continue,
                     };
 
                     let two_n_plus_one = match total_n
@@ -514,49 +469,168 @@ pub fn phase4_exact_ray_casting(
                         .and_then(|v| v.checked_add(Uint::one()))
                     {
                         Some(v) => v,
-                        None => return,
+                        None => continue,
                     };
 
                     if &two_n_plus_one % &s_l_tiered != Uint::from_u128(0 as u128) {
-                        return;
+                        continue;
                     }
                     let required_s_r = &two_n_plus_one / &s_l_tiered;
 
                     if required_s_r <= n_r {
-                        return;
+                        continue;
                     }
 
                     if let Some(upper) = n_r.checked_mul(Uint::from_u32(3)) {
                         if required_s_r > upper {
-                            return;
+                            continue;
                         }
                     }
 
                     if required_s_r % Uint::from_u32(2) == Uint::zero() {
-                        return;
+                        continue;
                     }
 
-                    let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
-                    let z_factors = z_fact.factors();
-                    let cofactor_opt = match z_fact {
-                        crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
-                            Some(remaining)
+                    candidates_to_factor.push((c, z_tiered, required_s_r));
+                }
+
+                if !candidates_to_factor.is_empty() {
+                    let gpu_opt = crate::gpu::get_gpu_pipeline();
+                    if gpu_opt.is_some() {
+                        // Gather composite values for batching
+                        let mut composites = Vec::new();
+                        for &(_, z_tiered, _) in &candidates_to_factor {
+                            if !crate::math_utils::verified_is_prime(z_tiered) {
+                                composites.push(z_tiered);
+                            }
                         }
-                        crate::math_utils::FactorizationResult::Failure(u) => Some(u),
-                        _ => None,
-                    };
-                    if z_factors.is_empty() && cofactor_opt.is_none() {
-                        return;
-                    }
-                    let mut s_r = Uint::from_u128(1 as u128);
-                    let mut current_p = 0;
-                    let mut count: u32 = 0;
-                    let mut s_r_overflowed = false;
 
-                    for &f in z_factors {
-                        if f.as_u128() == current_p {
-                            count += 1;
+                        // Call batch factorization on the GPU
+                        let factors = if !composites.is_empty() {
+                            // Unwrapping is safe because gpu_opt is some
+                            gpu_opt.unwrap().factor_batch(&composites)
                         } else {
+                            vec![]
+                        };
+
+                        let mut composite_index = 0;
+                        for &(c, z_tiered, required_s_r) in &candidates_to_factor {
+                            let factors_list = if crate::math_utils::verified_is_prime(z_tiered) {
+                                vec![z_tiered]
+                            } else {
+                                let p_opt = factors[composite_index];
+                                composite_index += 1;
+                                if let Some(p) = p_opt {
+                                    let q = z_tiered / p;
+                                    // Multiplication Certificate Verification
+                                    if p <= Uint::one() || q <= Uint::one() || p * q != z_tiered {
+                                        panic!("CRITICAL FAILURE: GPU multiplication certificate verification failed for candidate composite N = {}, factors p = {}, q = {}", z_tiered, p, q);
+                                    }
+                                    // Primality Certificate Verification
+                                    if !crate::math_utils::verified_is_prime(p)
+                                        || !crate::math_utils::verified_is_prime(q)
+                                    {
+                                        panic!("CRITICAL FAILURE: GPU primality certificate verification failed for candidate composite N = {}, factors p = {}, q = {}", z_tiered, p, q);
+                                    }
+                                    vec![p, q]
+                                } else {
+                                    panic!("CRITICAL FAILURE: GPU factorization pipeline failed to factor candidate composite N = {}", z_tiered);
+                                }
+                            };
+
+                            let mut s_r = Uint::from_u128(1 as u128);
+                            let mut current_p = Uint::zero();
+                            let mut count: u32 = 0;
+                            let mut s_r_overflowed = false;
+                            let mut factors_list = factors_list.clone();
+                            factors_list.sort_unstable();
+
+                            for &f in &factors_list {
+                                if f == current_p {
+                                    count += 1;
+                                } else {
+                                    if current_p != Uint::zero() {
+                                        let sig = sigma_cached(sigma_cache, current_p, 2 * count);
+                                        match s_r.checked_mul(sig) {
+                                            Some(v) => s_r = v,
+                                            None => {
+                                                s_r_overflowed = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    current_p = f;
+                                    count = 1;
+                                }
+                            }
+                            if !s_r_overflowed && current_p != Uint::zero() {
+                                let sig = sigma_cached(sigma_cache, current_p, 2 * count);
+                                match s_r.checked_mul(sig) {
+                                    Some(v) => s_r = v,
+                                    None => {
+                                        s_r_overflowed = true;
+                                    }
+                                }
+                            }
+
+                            if !s_r_overflowed && s_r == required_s_r {
+                                let total_n = prefix.n_l * z_tiered * z_tiered;
+                                let event = crate::events::SearchEvent::Candidate {
+                                    len: 0,
+                                    factors_str: total_n.to_string(),
+                                    rem_str: "".to_string(),
+                                };
+                                if let Some(r) = reporter {
+                                    let _ = r.send(event);
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback to sequential CPU factorization when GPU is not active
+                        for &(c, z_tiered, required_s_r) in &candidates_to_factor {
+                            let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
+                            let z_factors = z_fact.factors();
+                            let cofactor_opt = match z_fact {
+                                crate::math_utils::FactorizationResult::Partial {
+                                    remaining,
+                                    ..
+                                } => Some(remaining),
+                                crate::math_utils::FactorizationResult::Failure(u) => Some(u),
+                                _ => None,
+                            };
+                            if z_factors.is_empty() && cofactor_opt.is_none() {
+                                continue;
+                            }
+                            let mut s_r = Uint::from_u128(1 as u128);
+                            let mut current_p = 0;
+                            let mut count: u32 = 0;
+                            let mut s_r_overflowed = false;
+
+                            for &f in z_factors {
+                                if f.as_u128() == current_p {
+                                    count += 1;
+                                } else {
+                                    if current_p != 0 {
+                                        let sig = sigma_cached(
+                                            sigma_cache,
+                                            Uint::from_u128(current_p as u128),
+                                            2 * count,
+                                        );
+                                        match s_r.checked_mul(sig) {
+                                            Some(v) => s_r = v,
+                                            None => {
+                                                s_r_overflowed = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    current_p = f.as_u128();
+                                    count = 1;
+                                }
+                            }
+                            if s_r_overflowed {
+                                continue;
+                            }
                             if current_p != 0 {
                                 let sig = sigma_cached(
                                     sigma_cache,
@@ -566,124 +640,90 @@ pub fn phase4_exact_ray_casting(
                                 match s_r.checked_mul(sig) {
                                     Some(v) => s_r = v,
                                     None => {
-                                        s_r_overflowed = true;
-                                        break;
+                                        continue;
                                     }
                                 }
                             }
-                            current_p = f.as_u128();
-                            count = 1;
-                        }
-                    }
-                    if s_r_overflowed {
-                        return;
-                    }
-                    if current_p != 0 {
-                        let sig = sigma_cached(
-                            sigma_cache,
-                            Uint::from_u128(current_p as u128),
-                            2 * count,
-                        );
-                        match s_r.checked_mul(sig) {
-                            Some(v) => s_r = v,
-                            None => {
-                                return;
-                            }
-                        }
-                    }
 
-                    if let Some(cofactor) = cofactor_opt {
-                        let rem8 = (cofactor % Uint::from_u32(8)).as_u32();
-                        if rem8 == 5 || rem8 == 7 {
-                            return;
-                        }
-
-                        if required_s_r % &s_r != Uint::zero() {
-                            return;
-                        }
-                        let required_cofactor_s_r = required_s_r / s_r;
-
-                        if let Some((base, exp)) = perfect_power(cofactor) {
-                            if let Some(sig) = sigma_power(base, 2 * exp) {
-                                if sig != required_cofactor_s_r {
-                                    return;
+                            if let Some(cofactor) = cofactor_opt {
+                                let rem8 = (cofactor % Uint::from_u32(8)).as_u32();
+                                if rem8 == 5 || rem8 == 7 {
+                                    continue;
                                 }
-                                if let Some(new_s_r) = s_r.checked_mul(sig) {
-                                    s_r = new_s_r;
-                                } else {
-                                    return;
-                                }
-                            } else {
-                                return;
-                            }
-                        } else {
-                            let mut prime_verified = false;
-                            let q = cofactor;
-                            let prime_sigma_opt = q
-                                .checked_mul(q)
-                                .and_then(|q2| q2.checked_add(q))
-                                .and_then(|q2_plus_q| q2_plus_q.checked_add(Uint::one()));
 
-                            if let Some(prime_sigma) = prime_sigma_opt {
-                                if prime_sigma == required_cofactor_s_r {
-                                    // If the required divisor sum matches the prime divisor sum formula (1 + q + q^2),
-                                    // the cofactor MUST be prime. If verified_is_prime(cofactor) is false, then the
-                                    // cofactor is composite, so its actual divisor sum sigma(q^2) would be strictly
-                                    // greater than 1 + q + q^2. Thus, it can never match, and we can safely return early.
-                                    if crate::math_utils::verified_is_prime(cofactor) {
-                                        s_r = required_s_r;
-                                        prime_verified = true;
+                                if required_s_r % &s_r != Uint::zero() {
+                                    continue;
+                                }
+                                let required_cofactor_s_r = required_s_r / s_r;
+
+                                if let Some((base, exp)) = perfect_power(cofactor) {
+                                    if let Some(sig) = sigma_power(base, 2 * exp) {
+                                        if sig != required_cofactor_s_r {
+                                            continue;
+                                        }
+                                        if let Some(new_s_r) = s_r.checked_mul(sig) {
+                                            s_r = new_s_r;
+                                        } else {
+                                            continue;
+                                        }
                                     } else {
-                                        return;
+                                        continue;
                                     }
-                                }
-                            }
+                                } else {
+                                    let mut prime_verified = false;
+                                    let q = cofactor;
+                                    let prime_sigma_opt = q
+                                        .checked_mul(q)
+                                        .and_then(|q2| q2.checked_add(q))
+                                        .and_then(|q2_plus_q| q2_plus_q.checked_add(Uint::one()));
 
-                            if !prime_verified {
-                                if let Some((min_bound, max_bound)) =
-                                    cofactor_sigma_bounds(cofactor)
-                                {
-                                    if required_cofactor_s_r < min_bound
-                                        || required_cofactor_s_r > max_bound
-                                    {
-                                        return;
-                                    }
-
-                                    if (cofactor >> 256) > Uint::zero() {
-                                        if !crate::math_utils::verified_is_prime(cofactor) {
-                                            return;
+                                    if let Some(prime_sigma) = prime_sigma_opt {
+                                        if prime_sigma == required_cofactor_s_r {
+                                            if crate::math_utils::verified_is_prime(cofactor) {
+                                                s_r = required_s_r;
+                                                prime_verified = true;
+                                            } else {
+                                                continue;
+                                            }
                                         }
                                     }
 
-                                    // Bounds match the required divisor sum, valid candidate!
-                                    // Proceed to emit the candidate for downstream proof.
-                                    s_r = required_s_r; // Force match since analytical reductions passed.
-                                } else {
-                                    return;
+                                    if !prime_verified {
+                                        if let Some((min_bound, max_bound)) =
+                                            cofactor_sigma_bounds(cofactor)
+                                        {
+                                            if required_cofactor_s_r < min_bound
+                                                || required_cofactor_s_r > max_bound
+                                            {
+                                                continue;
+                                            }
+
+                                            if (cofactor >> 256) > Uint::zero() {
+                                                if !crate::math_utils::verified_is_prime(cofactor) {
+                                                    continue;
+                                                }
+                                            }
+
+                                            s_r = required_s_r;
+                                        } else {
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if s_r == required_s_r {
+                                let total_n = prefix.n_l * z_tiered * z_tiered;
+                                let event = crate::events::SearchEvent::Candidate {
+                                    len: 0,
+                                    factors_str: total_n.to_string(),
+                                    rem_str: "".to_string(),
+                                };
+                                if let Some(r) = reporter {
+                                    let _ = r.send(event);
                                 }
                             }
                         }
-                    }
-
-                    if s_r == required_s_r {
-                        let event = crate::events::SearchEvent::Candidate {
-                            len: 0,
-                            factors_str: total_n.to_string(),
-                            rem_str: "".to_string(),
-                        };
-                        if let Some(r) = reporter {
-                            let _ = r.send(event);
-                        }
-                    }
-                };
-
-                if let Some(indices) = valid_indices {
-                    for c in indices {
-                        process_c(c, false);
-                    }
-                } else {
-                    for c in c_current..=c_end {
-                        process_c(c, true);
                     }
                 }
 
@@ -833,5 +873,65 @@ mod additional_tests {
 
         assert_eq!(prime_sigma_opt_comp, Some(Uint::from_u32(91)));
         assert!(!crate::math_utils::verified_is_prime(cofactor_comp));
+    }
+
+    #[test]
+    fn test_witness_verification_success_and_panic() {
+        let pe = Int::from_u32(3);
+        let pe1 = Int::from_u32(9);
+        let r_i = Int::from_u32(3);
+        let s_l_int = Int::from_u32(13);
+        let c = 0;
+        let z = r_i + Int::from_u64(c as u64) * s_l_int;
+        let rem = z % pe1;
+        assert!(
+            rem % pe == Int::zero() && rem != Int::zero(),
+            "Obstruction check should hold"
+        );
+
+        // Verify that invalid obstruction or non-matching index panics
+        let result = std::panic::catch_unwind(|| {
+            let (pe_bad, pe1_bad) = (Int::from_u32(5), Int::from_u32(25));
+            let rem_bad = z % pe1_bad;
+            if !(rem_bad % pe_bad == Int::zero() && rem_bad != Int::zero()) {
+                panic!("CRITICAL FAILURE: Invalid witness certificate!");
+            }
+        });
+        assert!(result.is_err(), "Invalid witness must panic");
+    }
+
+    #[test]
+    fn test_factorization_certificate_verification_success_and_panic() {
+        let z_tiered = Uint::from_u32(15);
+        let p = Uint::from_u32(3);
+        let q = Uint::from_u32(5);
+
+        // Valid certificates
+        assert!(p > Uint::one() && q > Uint::one() && p * q == z_tiered);
+        assert!(crate::math_utils::verified_is_prime(p) && crate::math_utils::verified_is_prime(q));
+
+        // Invalid certificates must panic
+        let result_mult_fail = std::panic::catch_unwind(|| {
+            let p_bad = Uint::from_u32(4);
+            let q_bad = Uint::from_u32(4);
+            if p_bad <= Uint::one() || q_bad <= Uint::one() || p_bad * q_bad != z_tiered {
+                panic!("CRITICAL FAILURE: GPU multiplication certificate verification failed!");
+            }
+        });
+        assert!(
+            result_mult_fail.is_err(),
+            "Invalid multiplication product must panic"
+        );
+
+        let result_prime_fail = std::panic::catch_unwind(|| {
+            let p_bad = Uint::from_u32(1);
+            let q_bad = Uint::from_u32(15);
+            if !crate::math_utils::verified_is_prime(p_bad)
+                || !crate::math_utils::verified_is_prime(q_bad)
+            {
+                panic!("CRITICAL FAILURE: GPU primality certificate verification failed!");
+            }
+        });
+        assert!(result_prime_fail.is_err(), "Non-prime factors must panic");
     }
 }

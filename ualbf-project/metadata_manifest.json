@@ -70,6 +70,8 @@
     "static_suffix_bounds": "TUNING.md",
     "search_bounds.prime_split_threshold.value": "TUNING.md",
     "conjectural_bounds.active": "TUNING.md",
-    "conjectural_bounds.target_max_log10_ceiling": "TUNING.md"
+    "conjectural_bounds.target_max_log10_ceiling": "TUNING.md",
+    "touchard_mod_24.modulus": "TUNING.md",
+    "touchard_mod_24.residues": "TUNING.md"
   }
 }
