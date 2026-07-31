@@ -151,8 +151,8 @@
       "checksum": "bd062f026a2936ce04aebdea3ad5519441b93431ddeab5ed1f0bce637de6478a"
     }
   ],
-  "verified_logic_hash": "015d8da93114f339ecdb31edc087bb77420e700c6ea4b14a38790e562fb8cb34",
-  "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
+  "verified_logic_hash": "6302ddecfa2afc1f9646bf79c9db70589e1ed26d1a4079e98e84dd59a80bd7db",
+  "verified_extension_hash": "7bd7368cae12f582cfab7e738e4c38bbad5fa4957ed6f631fab9b857b1a57345",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
     "prasad_sunitha_bound_satisfied": "8e55cd49edcfc1f202b00f41b27d896612482209565483df7f3c239072849bbe",
@@ -248,7 +248,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "6fd0767c3166e6480b55328dc59b040184caf32fd386222bc795e42c52925a40"
+      "checksum": "512e9788e677b8375c82ce34eaf42fe0d43985366a97a0221202b01713028c2c"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",
@@ -303,5 +303,5 @@
       "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "2ced490e977a89e3a007d78ea283ba12e4d12fef36de585aa0f7473750ca5ac2"
+  "bounds_manifest_hash": "5451fb32e952c793c653a6f5dc31ec017868bb47e86db5761115b508b2fe2137"
 }

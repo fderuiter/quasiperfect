@@ -358,12 +358,14 @@ pub fn phase4_exact_ray_casting(
                         }
 
                         // 2. O(1)-per-candidate validation using the GPU-provided witness certificates
-                        let mut witness_map = std::collections::HashMap::with_capacity(witnesses.len());
+                        let mut witness_map =
+                            std::collections::HashMap::with_capacity(witnesses.len());
                         for &(rel_c, obs_idx) in &witnesses {
                             witness_map.insert(rel_c, obs_idx);
                         }
 
-                        let mut survivor_set = std::collections::HashSet::with_capacity(gpu_valid.len());
+                        let mut survivor_set =
+                            std::collections::HashSet::with_capacity(gpu_valid.len());
                         for &v in &gpu_valid {
                             survivor_set.insert(v);
                         }
@@ -525,7 +527,9 @@ pub fn phase4_exact_ray_casting(
                                         panic!("CRITICAL FAILURE: GPU multiplication certificate verification failed for candidate composite N = {}, factors p = {}, q = {}", z_tiered, p, q);
                                     }
                                     // Primality Certificate Verification
-                                    if !crate::math_utils::verified_is_prime(p) || !crate::math_utils::verified_is_prime(q) {
+                                    if !crate::math_utils::verified_is_prime(p)
+                                        || !crate::math_utils::verified_is_prime(q)
+                                    {
                                         panic!("CRITICAL FAILURE: GPU primality certificate verification failed for candidate composite N = {}, factors p = {}, q = {}", z_tiered, p, q);
                                     }
                                     vec![p, q]
@@ -546,11 +550,7 @@ pub fn phase4_exact_ray_casting(
                                     count += 1;
                                 } else {
                                     if current_p != Uint::zero() {
-                                        let sig = sigma_cached(
-                                            sigma_cache,
-                                            current_p,
-                                            2 * count,
-                                        );
+                                        let sig = sigma_cached(sigma_cache, current_p, 2 * count);
                                         match s_r.checked_mul(sig) {
                                             Some(v) => s_r = v,
                                             None => {
@@ -564,11 +564,7 @@ pub fn phase4_exact_ray_casting(
                                 }
                             }
                             if !s_r_overflowed && current_p != Uint::zero() {
-                                let sig = sigma_cached(
-                                    sigma_cache,
-                                    current_p,
-                                    2 * count,
-                                );
+                                let sig = sigma_cached(sigma_cache, current_p, 2 * count);
                                 match s_r.checked_mul(sig) {
                                     Some(v) => s_r = v,
                                     None => {
@@ -595,9 +591,10 @@ pub fn phase4_exact_ray_casting(
                             let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
                             let z_factors = z_fact.factors();
                             let cofactor_opt = match z_fact {
-                                crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
-                                    Some(remaining)
-                                }
+                                crate::math_utils::FactorizationResult::Partial {
+                                    remaining,
+                                    ..
+                                } => Some(remaining),
                                 crate::math_utils::FactorizationResult::Failure(u) => Some(u),
                                 _ => None,
                             };
@@ -887,7 +884,10 @@ mod additional_tests {
         let c = 0;
         let z = r_i + Int::from_u64(c as u64) * s_l_int;
         let rem = z % pe1;
-        assert!(rem % pe == Int::zero() && rem != Int::zero(), "Obstruction check should hold");
+        assert!(
+            rem % pe == Int::zero() && rem != Int::zero(),
+            "Obstruction check should hold"
+        );
 
         // Verify that invalid obstruction or non-matching index panics
         let result = std::panic::catch_unwind(|| {
@@ -918,12 +918,17 @@ mod additional_tests {
                 panic!("CRITICAL FAILURE: GPU multiplication certificate verification failed!");
             }
         });
-        assert!(result_mult_fail.is_err(), "Invalid multiplication product must panic");
+        assert!(
+            result_mult_fail.is_err(),
+            "Invalid multiplication product must panic"
+        );
 
         let result_prime_fail = std::panic::catch_unwind(|| {
             let p_bad = Uint::from_u32(1);
             let q_bad = Uint::from_u32(15);
-            if !crate::math_utils::verified_is_prime(p_bad) || !crate::math_utils::verified_is_prime(q_bad) {
+            if !crate::math_utils::verified_is_prime(p_bad)
+                || !crate::math_utils::verified_is_prime(q_bad)
+            {
                 panic!("CRITICAL FAILURE: GPU primality certificate verification failed!");
             }
         });

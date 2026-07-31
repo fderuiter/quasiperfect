@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "2ced490e977a89e3a007d78ea283ba12e4d12fef36de585aa0f7473750ca5ac2";
+    "5451fb32e952c793c653a6f5dc31ec017868bb47e86db5761115b508b2fe2137";
 
 use vstd::prelude::*;
 
@@ -32,7 +32,7 @@ verus! {
     pub open spec fn lean_hagis1982_offset() -> nat { 0 }
     pub open spec fn lean_prasad_sunitha_offset() -> nat { 0 }
     pub open spec fn lean_div_5_coprime_3_offset() -> nat { 0 }
-    pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool { true }
+    pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool { false }
 
     pub proof fn prove_prime_split_threshold_equivalence()
         ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) == lean_prime_split_threshold()

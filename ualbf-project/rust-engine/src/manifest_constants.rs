@@ -23,4 +23,4 @@ pub const CONJECTURE_NAME: &str = "ABC Conjecture";
 pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
 pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
 pub const TOUCHARD_MOD_24_RESIDUES: [u32; 2] = [3, 19];
-pub const MANIFEST_HASH: &str = "2ced490e977a89e3a007d78ea283ba12e4d12fef36de585aa0f7473750ca5ac2";
+pub const MANIFEST_HASH: &str = "5451fb32e952c793c653a6f5dc31ec017868bb47e86db5761115b508b2fe2137";

@@ -215,9 +215,11 @@ fn main() {
         }
 
         // --- Verus Constant-to-Specification Equivalence Validation ---
-        let manifest_constants_path = PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
+        let manifest_constants_path =
+            PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
         if manifest_constants_path.exists() {
-            let manifest_constants_content = fs::read_to_string(&manifest_constants_path).expect("Failed to read manifest_constants.rs");
+            let manifest_constants_content = fs::read_to_string(&manifest_constants_path)
+                .expect("Failed to read manifest_constants.rs");
             let mut constants_map = HashMap::new();
             for line in manifest_constants_content.lines() {
                 let trimmed = line.trim();
@@ -257,7 +259,10 @@ fn main() {
             let mut mapping = Vec::new();
             mapping.push(("PRIME_SPLIT_THRESHOLD", "lean_prime_split_threshold"));
             mapping.push(("PRASAD_SUNITHA_PROOF_BOUND", "lean_prasad_sunitha_bound"));
-            mapping.push(("PRASAD_SUNITHA_BOUND_NO_3_5", "lean_prasad_sunitha_combined"));
+            mapping.push((
+                "PRASAD_SUNITHA_BOUND_NO_3_5",
+                "lean_prasad_sunitha_combined",
+            ));
             mapping.push(("DIV_5_COPRIME_3_PROOF_BOUND", "lean_div_5_coprime_3_bound"));
             mapping.push(("DIV_5_COPRIME_3_BOUND", "lean_div_5_coprime_3_combined"));
             mapping.push(("BASELINE_MIN_PRIME_FACTORS", "lean_hagis1982_combined"));
@@ -268,18 +273,30 @@ fn main() {
             mapping.push(("SIEVE_LIMIT", "lean_sieve_limit"));
             mapping.push(("MAX_EXPONENT", "lean_max_exponent"));
             mapping.push(("PREFIX_STOP_THRESHOLD", "lean_prefix_stop_threshold"));
-            mapping.push(("POLLARD_RHO_ITERATION_LIMIT", "lean_pollard_rho_iteration_limit"));
+            mapping.push((
+                "POLLARD_RHO_ITERATION_LIMIT",
+                "lean_pollard_rho_iteration_limit",
+            ));
             mapping.push(("POLLARD_RHO_BATCH_SIZE", "lean_pollard_rho_batch_size"));
             mapping.push(("OVERFLOW_THRESHOLD_NUM", "lean_overflow_threshold_num"));
             mapping.push(("OVERFLOW_THRESHOLD_DEN", "lean_overflow_threshold_den"));
             mapping.push(("RAYCAST_GPU_THRESHOLD", "lean_raycast_gpu_threshold"));
             mapping.push(("RAYCAST_CHUNK_SIZE", "lean_raycast_chunk_size"));
             mapping.push(("CONJECTURAL_ACTIVE", "lean_conjectural_active"));
-            mapping.push(("CONJECTURAL_MAX_LOG10_CEILING", "lean_conjectural_max_log10_ceiling"));
+            mapping.push((
+                "CONJECTURAL_MAX_LOG10_CEILING",
+                "lean_conjectural_max_log10_ceiling",
+            ));
 
             for (const_name, spec_name) in &mapping {
-                let const_val = constants_map.get(*const_name).expect(&format!("Constant {} not found in manifest_constants.rs", const_name));
-                let spec_val = specs_map.get(*spec_name).expect(&format!("Specification function {} not found in lean_export.rs", spec_name));
+                let const_val = constants_map.get(*const_name).expect(&format!(
+                    "Constant {} not found in manifest_constants.rs",
+                    const_name
+                ));
+                let spec_val = specs_map.get(*spec_name).expect(&format!(
+                    "Specification function {} not found in lean_export.rs",
+                    spec_name
+                ));
                 if const_val != spec_val {
                     panic!(
                         "FATAL: Mathematical Bound Desynchronization!\n\
