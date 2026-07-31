@@ -626,6 +626,10 @@ pub fn phase4_exact_ray_casting(
 
                             if let Some(prime_sigma) = prime_sigma_opt {
                                 if prime_sigma == required_cofactor_s_r {
+                                    // If the required divisor sum matches the prime divisor sum formula (1 + q + q^2),
+                                    // the cofactor MUST be prime. If verified_is_prime(cofactor) is false, then the
+                                    // cofactor is composite, so its actual divisor sum sigma(q^2) would be strictly
+                                    // greater than 1 + q + q^2. Thus, it can never match, and we can safely return early.
                                     if crate::math_utils::verified_is_prime(cofactor) {
                                         s_r = required_s_r;
                                         prime_verified = true;
