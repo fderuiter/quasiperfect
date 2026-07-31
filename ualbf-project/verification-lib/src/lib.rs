@@ -342,12 +342,97 @@ pub fn hash_extension_tcb(repo_root: &str) -> PyResult<String> {
         .map_err(|e| PyException::new_err(format!("Failed to hash extension TCB: {}", e)))
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct RangeWorkUnit {
+    pub start_bound: Vec<u64>,
+    pub end_bound: Vec<u64>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ContinuityResult {
+    pub is_continuous: bool,
+    pub gaps: Vec<RangeWorkUnit>,
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn check_path_continuity(path_ranges_json: &str) -> PyResult<String> {
+    use pyo3::exceptions::PyValueError;
+
+    let mut ranges: Vec<RangeWorkUnit> = serde_json::from_str(path_ranges_json)
+        .map_err(|e| PyValueError::new_err(format!("Failed to parse path ranges JSON: {}", e)))?;
+
+    // Sort ranges lexicographically by start_bound, then by end_bound
+    ranges.sort_by(|a, b| match a.start_bound.cmp(&b.start_bound) {
+        std::cmp::Ordering::Equal => a.end_bound.cmp(&b.end_bound),
+        other => other,
+    });
+
+    let mut gaps: Vec<RangeWorkUnit> = Vec::new();
+    let mut is_continuous = true;
+
+    if ranges.is_empty() {
+        is_continuous = false;
+        // Entire space is missing
+        gaps.push(RangeWorkUnit {
+            start_bound: vec![],
+            end_bound: vec![],
+        });
+    } else {
+        // Check gap at the beginning
+        if !ranges[0].start_bound.is_empty() {
+            is_continuous = false;
+            gaps.push(RangeWorkUnit {
+                start_bound: vec![],
+                end_bound: ranges[0].start_bound.clone(),
+            });
+        }
+
+        // Check gaps between adjacent ranges
+        for i in 0..ranges.len() - 1 {
+            let current_end = &ranges[i].end_bound;
+            let next_start = &ranges[i + 1].start_bound;
+            if current_end != next_start {
+                is_continuous = false;
+                if current_end < next_start {
+                    gaps.push(RangeWorkUnit {
+                        start_bound: current_end.clone(),
+                        end_bound: next_start.clone(),
+                    });
+                }
+            }
+        }
+
+        // Check gap at the end
+        if let Some(last_range) = ranges.last() {
+            if !last_range.end_bound.is_empty() {
+                is_continuous = false;
+                gaps.push(RangeWorkUnit {
+                    start_bound: last_range.end_bound.clone(),
+                    end_bound: vec![],
+                });
+            }
+        }
+    }
+
+    let result = ContinuityResult {
+        is_continuous,
+        gaps,
+    };
+
+    let gaps_json = serde_json::to_string(&result)
+        .map_err(|e| PyValueError::new_err(format!("Failed to serialize gaps JSON: {}", e)))?;
+
+    Ok(gaps_json)
+}
+
 #[cfg(feature = "python")]
 #[pymodule]
 fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate_certificate, m)?)?;
     m.add_function(wrap_pyfunction!(hash_tcb, m)?)?;
     m.add_function(wrap_pyfunction!(hash_extension_tcb, m)?)?;
+    m.add_function(wrap_pyfunction!(check_path_continuity, m)?)?;
     Ok(())
 }
 
