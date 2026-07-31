@@ -702,7 +702,8 @@ fn main() {
     let phase2_elapsed = phase2_start.elapsed();
 
     // ── Generate and Hash Trace ──
-    let _trace_path = "trace.jsonl";
+    #[cfg(feature = "signing")]
+    let trace_path = "trace.jsonl";
     #[cfg(feature = "signing")]
     let trace_hash = if std::path::Path::new(trace_path).exists() {
         let mut hasher = Sha256::new();
