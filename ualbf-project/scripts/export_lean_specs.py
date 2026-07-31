@@ -401,6 +401,9 @@ def main():
         conjecture_name = bounds.get("conjectural_bounds", {}).get("conjecture_name", "None")
         conjectural_max_log10 = bounds.get("conjectural_bounds", {}).get("target_max_log10_ceiling", 0)
 
+        touchard_mod = bounds["touchard_mod_24"]["modulus"]
+        touchard_residues = bounds["touchard_mod_24"]["residues"]
+
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
@@ -424,6 +427,8 @@ pub const RAYCAST_CHUNK_SIZE: usize = {raycast_chunk_size};
 pub const CONJECTURAL_ACTIVE: bool = {str(conjectural_active).lower()};
 pub const CONJECTURE_NAME: &str = "{conjecture_name}";
 pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = {conjectural_max_log10};
+pub const TOUCHARD_MOD_24_MODULUS: u32 = {touchard_mod};
+pub const TOUCHARD_MOD_24_RESIDUES: [u32; {len(touchard_residues)}] = [{', '.join(map(str, touchard_residues))}];
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 """
         with open(
@@ -453,6 +458,9 @@ pub const MANIFEST_HASH: &str = "{bounds_hash}";
 #define CONJECTURAL_ACTIVE {1 if conjectural_active else 0}
 #define CONJECTURE_NAME "{conjecture_name}"
 #define CONJECTURAL_MAX_LOG10_CEILING {conjectural_max_log10}
+#define TOUCHARD_MOD_24_MODULUS {touchard_mod}
+#define TOUCHARD_MOD_24_RESIDUES_LEN {len(touchard_residues)}
+#define TOUCHARD_MOD_24_RESIDUES {{ {', '.join(map(str, touchard_residues))} }}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"
@@ -486,6 +494,9 @@ def RAYCAST_CHUNK_SIZE : Nat := {raycast_chunk_size}
 def CONJECTURAL_ACTIVE : Bool := {'true' if conjectural_active else 'false'}
 def CONJECTURE_NAME : String := "{conjecture_name}"
 def CONJECTURAL_MAX_LOG10_CEILING : Nat := {conjectural_max_log10}
+
+def TOUCHARD_MOD_24_MODULUS : Nat := {touchard_mod}
+def TOUCHARD_MOD_24_RESIDUES : Array Nat := #[{', '.join(map(str, touchard_residues))}]
 
 def PRIME_FACTOR_LIST : Array Nat := #[{', '.join(map(str, bounds.get('prime_factor_list', [])))}]
 def STATIC_SUFFIX_BOUNDS : Array Nat := #[{', '.join(map(str, bounds.get('static_suffix_bounds', [])))}]

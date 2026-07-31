@@ -109,6 +109,12 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **conjectural_bounds.target_max_log10_ceiling**
   - **Description**: The maximum upper log10 bound ceiling applied when conjectural bounds are active.
 
+- **touchard_mod_24.modulus**
+  - **Description**: The modulus used for checking Touchard congruence.
+
+- **touchard_mod_24.residues**
+  - **Description**: The valid mod-24 residue set for quasiperfect numbers.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128

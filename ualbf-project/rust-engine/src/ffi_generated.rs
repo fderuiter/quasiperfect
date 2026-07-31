@@ -10,6 +10,7 @@ extern "C" {
     pub fn ualbf_check_mod_8(q: u64) -> u8;
     pub fn ualbf_check_mod_3(p: u64, two_e: u32) -> u8;
     pub fn ualbf_check_mod_5(p: u64, two_e: u32) -> u8;
+    pub fn ualbf_check_touchard(p: u64, two_e: u32) -> u8;
     pub fn ualbf_check_mod_9(p: u64, two_e: u32) -> u8;
     pub fn ualbf_compute_sigma(p: u64, pow: u64) -> *mut crate::lean_ffi::lean_object;
     pub fn ualbf_mod_inverse(

@@ -354,5 +354,20 @@
     "active": true,
     "conjecture_name": "ABC Conjecture",
     "target_max_log10_ceiling": 30
+  },
+  "touchard_mod_24": {
+    "modulus": 24,
+    "residues": [
+      3,
+      19
+    ],
+    "is_axiomatic": false,
+    "justification": "Touchard's theorem implies quasiperfect numbers are congruent to 3 or 19 modulo 24.",
+    "citation": {
+      "author": "Touchard, Jacques",
+      "year": "1953",
+      "title": "On prime numbers and perfect numbers",
+      "identifier": "Scripta Mathematica"
+    }
   }
 }
