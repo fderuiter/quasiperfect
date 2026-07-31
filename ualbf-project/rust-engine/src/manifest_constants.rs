@@ -21,4 +21,6 @@ pub const RAYCAST_CHUNK_SIZE: usize = 10000000;
 pub const CONJECTURAL_ACTIVE: bool = true;
 pub const CONJECTURE_NAME: &str = "ABC Conjecture";
 pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
-pub const MANIFEST_HASH: &str = "3134da64b48db96a0e5aa0ea13fa9984b25600dad70a04c9a0992a07562380d7";
+pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
+pub const TOUCHARD_MOD_24_RESIDUES: [u32; 2] = [3, 19];
+pub const MANIFEST_HASH: &str = "2ced490e977a89e3a007d78ea283ba12e4d12fef36de585aa0f7473750ca5ac2";

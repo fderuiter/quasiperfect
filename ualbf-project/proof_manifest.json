@@ -73,6 +73,18 @@
       "checksum": "c5eb373387a5f879187048cf077e5bd469925cce2e0535bdf1c8f05df0b0bbf9"
     },
     {
+      "name": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+      "file": "UALBF/QPN/TouchardQPN.lean",
+      "status": "proven",
+      "checksum": "90e45662dad67ef6b3a778a89521711e508b72fbc7f6a5e0abb0cb257d746e02"
+    },
+    {
+      "name": "UALBF.Engine.TouchardBridge.touchard_bridge",
+      "file": "UALBF/Engine/TouchardBridge.lean",
+      "status": "proven",
+      "checksum": "94811b32a1ca7d6e2dd94fdc6a2157a31bd5418be494a7fd2ed9862bf370e7e5"
+    },
+    {
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
@@ -139,7 +151,7 @@
       "checksum": "bd062f026a2936ce04aebdea3ad5519441b93431ddeab5ed1f0bce637de6478a"
     }
   ],
-  "verified_logic_hash": "5c99316db074bb346da159653d8d55d586ca32741c07cd67931e2cdd0087d033",
+  "verified_logic_hash": "015d8da93114f339ecdb31edc087bb77420e700c6ea4b14a38790e562fb8cb34",
   "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -192,7 +204,7 @@
   "proof_files": [
     {
       "file": "UALBF.lean",
-      "checksum": "2100239ac393f2bea63bbc7d83877e6255a9bc3e602dab2811f97654cd38765a"
+      "checksum": "8b3964f221c4f874df1ad777941b837a56fba905e0aaac5f7273fbec190f38b2"
     },
     {
       "file": "UALBF/Basic.lean",
@@ -227,12 +239,16 @@
       "checksum": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
     },
     {
+      "file": "UALBF/Engine/TouchardBridge.lean",
+      "checksum": "79a3ba3120802ee1a23047ed20555f2a0713da0785c1960b3b3632eaac75c77d"
+    },
+    {
       "file": "UALBF/FFI.lean",
-      "checksum": "d6636f133ca833c3f1ce15968781b07cc28fd414bceb85b6ce288a4a88e83829"
+      "checksum": "fcc938e5b000ff26c817cd71b616341a4ab21b78fbac22711f1f018f1321632b"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "49bd127846e0890b2c9f8a8237cc35337281c493eabc9f2617b8d4b00ed8ba82"
+      "checksum": "6fd0767c3166e6480b55328dc59b040184caf32fd386222bc795e42c52925a40"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",
@@ -279,9 +295,13 @@
       "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
     },
     {
+      "file": "UALBF/QPN/TouchardQPN.lean",
+      "checksum": "ea74bcd0b0504f867b312064a41584a5d43fee87049299889ca0f732d095316b"
+    },
+    {
       "file": "Validator.lean",
       "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "3134da64b48db96a0e5aa0ea13fa9984b25600dad70a04c9a0992a07562380d7"
+  "bounds_manifest_hash": "2ced490e977a89e3a007d78ea283ba12e4d12fef36de585aa0f7473750ca5ac2"
 }
