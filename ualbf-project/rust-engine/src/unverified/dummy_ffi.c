@@ -42,6 +42,17 @@ uint8_t ualbf_check_mod_5(uint64_t p, uint32_t two_e) {
     return (p % 5 == 1 && e % 5 == 2) ? 1 : 0;
 }
 
+uint8_t ualbf_check_touchard(uint64_t p, uint32_t two_e) {
+    uint64_t p_mod = p % 24;
+    uint64_t sum = 0;
+    uint64_t term = 1;
+    for (uint32_t i = 0; i <= two_e; i++) {
+        sum = (sum + term) % 24;
+        term = (term * p_mod) % 24;
+    }
+    return ((sum % 2 == 0) || (sum == 9)) ? 1 : 0;
+}
+
 uint8_t ualbf_check_mod_9(uint64_t p, uint32_t two_e) {
     uint64_t p_mod = p % 9;
     uint64_t sum = 0;
