@@ -601,10 +601,6 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
 
 /-! ### FFI Overflow Tests -/
 
-@[export ualbf_cyclotomic_eval_pub]
-def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
-  ualbf_cyclotomic_eval_impl d p
-
 /-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
     Returns `none` if `d = 0` or if the result overflows 512 bits. -/
 private def computeCyclotomicNat (d : Nat) (p : Nat) : Option Nat :=
@@ -626,13 +622,17 @@ theorem ualbf_compute_cyclotomic_eq_eval (d p : Nat) (hd : d > 0) (hp : p ≥ 2)
   have hd_not_zero : d ≠ 0 := by omega
   simp [hd_not_zero]
   rw [UALBF.Pure.Cyclotomic.verified_ualbf_cyclotomic_eval d p hp hd]
-  change 2 ^ 512 with 13407807929942597099574024998205846127479365820592393377723561443721764030073546976801874298166903427690031858186486050853753882811946569946433649006084096 at h_bound
+  change _ < 13407807929942597099574024998205846127479365820592393377723561443721764030073546976801874298166903427690031858186486050853753882811946569946433649006084096 at h_bound
   simp [h_bound]
 
 def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
   match computeCyclotomicNat d.toNat (UALBF.FFI.fromU512 p) with
   | some val => some (toU512 val)
   | none => none
+
+@[export ualbf_cyclotomic_eval_pub]
+def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
+  ualbf_cyclotomic_eval_impl d p
 
 /-! ### Static Suffix Bound Export -/
 

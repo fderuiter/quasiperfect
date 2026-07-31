@@ -510,31 +510,83 @@ def main():
         touchard_residues = bounds["touchard_mod_24"]["residues"]
 
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
+#[cfg(not(verus_keep_ghost))]
 pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
+#[cfg(not(verus_keep_ghost))]
 pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
+#[cfg(not(verus_keep_ghost))]
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {prasad_bound};
+#[cfg(not(verus_keep_ghost))]
 pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = {div_5_coprime_3_proof};
+#[cfg(not(verus_keep_ghost))]
 pub const DIV_5_COPRIME_3_BOUND: u64 = {div_5_coprime_3_bound};
+#[cfg(not(verus_keep_ghost))]
 pub const BASELINE_MIN_PRIME_FACTORS: u64 = {baseline_min};
+#[cfg(not(verus_keep_ghost))]
 pub const EULER_CEILING_NUM: u64 = {euler_num};
+#[cfg(not(verus_keep_ghost))]
 pub const EULER_CEILING_DEN: u64 = {euler_den};
+#[cfg(not(verus_keep_ghost))]
 pub const TARGET_MIN_LOG10: u32 = {target_min_log10};
+#[cfg(not(verus_keep_ghost))]
 pub const TARGET_MAX_LOG10: u32 = {target_max_log10};
+#[cfg(not(verus_keep_ghost))]
 pub const SIEVE_LIMIT: usize = {sieve_limit};
+#[cfg(not(verus_keep_ghost))]
 pub const MAX_EXPONENT: u32 = {max_exponent};
+#[cfg(not(verus_keep_ghost))]
 pub const PREFIX_STOP_THRESHOLD: u64 = {prefix_stop_threshold};
+#[cfg(not(verus_keep_ghost))]
 pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {pollard_rho_iteration_limit};
+#[cfg(not(verus_keep_ghost))]
 pub const POLLARD_RHO_BATCH_SIZE: u32 = {pollard_rho_batch_size};
+#[cfg(not(verus_keep_ghost))]
 pub const OVERFLOW_THRESHOLD_NUM: u64 = {overflow_num};
+#[cfg(not(verus_keep_ghost))]
 pub const OVERFLOW_THRESHOLD_DEN: u64 = {overflow_den};
+#[cfg(not(verus_keep_ghost))]
 pub const RAYCAST_GPU_THRESHOLD: usize = {raycast_gpu_threshold};
+#[cfg(not(verus_keep_ghost))]
 pub const RAYCAST_CHUNK_SIZE: usize = {raycast_chunk_size};
+#[cfg(not(verus_keep_ghost))]
 pub const CONJECTURAL_ACTIVE: bool = {str(conjectural_active).lower()};
+#[cfg(not(verus_keep_ghost))]
 pub const CONJECTURE_NAME: &str = "{conjecture_name}";
+#[cfg(not(verus_keep_ghost))]
 pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = {conjectural_max_log10};
+#[cfg(not(verus_keep_ghost))]
 pub const TOUCHARD_MOD_24_MODULUS: u32 = {touchard_mod};
+#[cfg(not(verus_keep_ghost))]
 pub const TOUCHARD_MOD_24_RESIDUES: [u32; {len(touchard_residues)}] = [{', '.join(map(str, touchard_residues))}];
+#[cfg(not(verus_keep_ghost))]
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
+
+#[cfg(verus_keep_ghost)]
+verus! {{
+    pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
+    pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};
+    pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = {prasad_bound};
+    pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = {div_5_coprime_3_proof};
+    pub const DIV_5_COPRIME_3_BOUND: u64 = {div_5_coprime_3_bound};
+    pub const BASELINE_MIN_PRIME_FACTORS: u64 = {baseline_min};
+    pub const EULER_CEILING_NUM: u64 = {euler_num};
+    pub const EULER_CEILING_DEN: u64 = {euler_den};
+    pub const TARGET_MIN_LOG10: u32 = {target_min_log10};
+    pub const TARGET_MAX_LOG10: u32 = {target_max_log10};
+    pub const SIEVE_LIMIT: usize = {sieve_limit};
+    pub const MAX_EXPONENT: u32 = {max_exponent};
+    pub const PREFIX_STOP_THRESHOLD: u64 = {prefix_stop_threshold};
+    pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {pollard_rho_iteration_limit};
+    pub const POLLARD_RHO_BATCH_SIZE: u32 = {pollard_rho_batch_size};
+    pub const OVERFLOW_THRESHOLD_NUM: u64 = {overflow_num};
+    pub const OVERFLOW_THRESHOLD_DEN: u64 = {overflow_den};
+    pub const RAYCAST_GPU_THRESHOLD: usize = {raycast_gpu_threshold};
+    pub const RAYCAST_CHUNK_SIZE: usize = {raycast_chunk_size};
+    pub const CONJECTURAL_ACTIVE: bool = {str(conjectural_active).lower()};
+    pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = {conjectural_max_log10};
+    pub const TOUCHARD_MOD_24_MODULUS: u32 = {touchard_mod};
+    pub const MANIFEST_HASH: &'static str = "{bounds_hash}";
+}}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.rs"), "w"
