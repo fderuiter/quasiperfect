@@ -201,7 +201,11 @@ pub fn load_checkpoint_or_fallback(
     }
 }
 
-fn save_checkpoint(queue: &[RangeWorkUnit], active_workers: &HashMap<usize, ActiveWorkerState>) {
+fn save_checkpoint(
+    checkpoint_path: &str,
+    queue: &[RangeWorkUnit],
+    active_workers: &HashMap<usize, ActiveWorkerState>,
+) {
     let active: Vec<RangeWorkUnit> = active_workers
         .values()
         .map(|w| w.active_task.clone())
@@ -209,13 +213,12 @@ fn save_checkpoint(queue: &[RangeWorkUnit], active_workers: &HashMap<usize, Acti
     let pending = queue.to_vec();
     let schema = CheckpointSchema { active, pending };
     if let Ok(json) = serde_json::to_string(&schema) {
-        let temp_path = "checkpoint.json.tmp";
-        let target_path = "checkpoint.json";
-        if let Ok(mut file) = std::fs::File::create(temp_path) {
+        let temp_path = format!("{}.tmp", checkpoint_path);
+        if let Ok(mut file) = std::fs::File::create(&temp_path) {
             if file.write_all(json.as_bytes()).is_ok() {
                 let _ = file.sync_all(); // Ensure durability before renaming
                 drop(file);
-                let _ = std::fs::rename(temp_path, target_path);
+                let _ = std::fs::rename(&temp_path, checkpoint_path);
             }
         }
     }
@@ -235,8 +238,10 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
 
     println!("Controller listening on {}", addr);
 
+    let checkpoint_path = "checkpoint.json";
+
     // Load from checkpoint if exists with fallback parsing
-    let (initial_units, is_new_or_legacy) = load_checkpoint_or_fallback("checkpoint.json", units);
+    let (initial_units, is_new_or_legacy) = load_checkpoint_or_fallback(checkpoint_path, units);
 
     let work_queue = Arc::new(Mutex::new(initial_units));
     let total_units = work_queue.lock().unwrap().len();
@@ -249,13 +254,14 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     if is_new_or_legacy {
         let queue = work_queue.lock().unwrap();
         let empty_workers = HashMap::new();
-        save_checkpoint(&queue, &empty_workers);
+        save_checkpoint(checkpoint_path, &queue, &empty_workers);
     }
 
     let completed = Arc::new(AtomicUsize::new(0));
 
     let active_workers_monitor = Arc::clone(&active_workers);
     let work_queue_monitor = Arc::clone(&work_queue);
+    let checkpoint_path_monitor = checkpoint_path.to_string();
     std::thread::spawn(move || {
         let timeout = Duration::from_secs(heartbeat_timeout);
         loop {
@@ -282,7 +288,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                     }
                 }
                 if changed {
-                    save_checkpoint(&queue, &workers);
+                    save_checkpoint(&checkpoint_path_monitor, &queue, &workers);
                 }
             }
         }
@@ -294,6 +300,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
             let completed = Arc::clone(&completed);
             let active_workers = Arc::clone(&active_workers);
             let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
+            let checkpoint_path_clone = checkpoint_path.to_string();
 
             thread::spawn(move || {
                 let mut buf = vec![0; 1024 * 1024];
@@ -318,7 +325,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                             );
                                         }
                                         // Save checkpoint with updated queue and active workers
-                                        save_checkpoint(&queue, &workers);
+                                        save_checkpoint(&checkpoint_path_clone, &queue, &workers);
                                         let reply = Message::WorkUnit(work);
                                         let reply_bytes = serde_json::to_vec(&reply).unwrap();
                                         if stream.write_all(&reply_bytes).is_err() {
@@ -342,7 +349,11 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                             if workers.remove(&worker_id).is_some() {
                                                 let c =
                                                     completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                                save_checkpoint(&queue, &workers);
+                                                save_checkpoint(
+                                                    &checkpoint_path_clone,
+                                                    &queue,
+                                                    &workers,
+                                                );
                                                 if c >= total_units {
                                                     println!(
                                                         "{}",
@@ -376,7 +387,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                         worker_id
                     );
                     queue.push(state.active_task);
-                    save_checkpoint(&queue, &workers);
+                    save_checkpoint(&checkpoint_path_clone, &queue, &workers);
                 }
             });
         }
@@ -662,12 +673,10 @@ mod tests {
 
     #[test]
     fn test_save_checkpoint_atomic() {
-        // Backup existing checkpoint.json if it exists
-        let backup_path = "checkpoint.json.bak";
-        let original_exists = std::path::Path::new("checkpoint.json").exists();
-        if original_exists {
-            let _ = fs::rename("checkpoint.json", backup_path);
-        }
+        let temp_path = "test_checkpoint_atomic.json";
+        let _ = fs::remove_file(temp_path);
+        let temp_tmp_path = "test_checkpoint_atomic.json.tmp";
+        let _ = fs::remove_file(temp_tmp_path);
 
         let p1 = RangeWorkUnit {
             start_bound: vec![1, 2],
@@ -688,11 +697,11 @@ mod tests {
             },
         );
 
-        save_checkpoint(&queue, &active_workers);
+        save_checkpoint(temp_path, &queue, &active_workers);
 
-        // Verify checkpoint.json exists and contains correct content
-        assert!(std::path::Path::new("checkpoint.json").exists());
-        let content = fs::read_to_string("checkpoint.json").unwrap();
+        // Verify test_checkpoint_atomic.json exists and contains correct content
+        assert!(std::path::Path::new(temp_path).exists());
+        let content = fs::read_to_string(temp_path).unwrap();
         let schema: CheckpointSchema = serde_json::from_str(&content).unwrap();
         assert_eq!(schema.pending.len(), 1);
         assert_eq!(schema.active.len(), 1);
@@ -700,12 +709,7 @@ mod tests {
         assert_eq!(schema.active[0].start_bound, vec![5, 6]);
 
         // Clean up
-        let _ = fs::remove_file("checkpoint.json");
-        let _ = fs::remove_file("checkpoint.json.tmp").unwrap_or(()); // Just in case
-
-        // Restore backup
-        if original_exists {
-            let _ = fs::rename(backup_path, "checkpoint.json");
-        }
+        let _ = fs::remove_file(temp_path);
+        let _ = fs::remove_file(temp_tmp_path);
     }
 }
