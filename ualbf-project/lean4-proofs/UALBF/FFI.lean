@@ -573,33 +573,33 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
 /-! ### FFI Overflow Tests -/
 
 @[export ualbf_cyclotomic_eval_pub]
-def ualbf_cyclotomic_eval_pub_impl (_d : UInt32) (_p : @& UALBF.FFI.U512) : UInt8 := 1
+def ualbf_cyclotomic_eval_pub_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
+  ualbf_cyclotomic_eval_impl d p
 
 /-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
     Returns `none` if `d = 0` or if the result overflows 512 bits. -/
-private noncomputable def computeCyclotomicNat (d : Nat) (p : Nat) : Option Nat :=
-  if _h : d = 0 then
+private def computeCyclotomicNat (d : Nat) (p : Nat) : Option Nat :=
+  if d = 0 then
     none
   else
-    let val := (Polynomial.eval (p : Int) (Polynomial.cyclotomic d Int)).natAbs
-    if _h_bound : val < 2 ^ 512 then some val else none
+    let val := UALBF.Pure.Cyclotomic.cyclotomicEval d p
+    if val < 2 ^ 512 then some val else none
 
 /--
   **FFI Bridge Theorem**: `computeCyclotomicNat` strictly matches the mathematical
   evaluation of the cyclotomic polynomial when the degree is positive and the
   result fits within the 512-bit limit.
 -/
-theorem ualbf_compute_cyclotomic_eq_eval (d p : Nat) (hd : d > 0)
+theorem ualbf_compute_cyclotomic_eq_eval (d p : Nat) (hd : d > 0) (hp : p ≥ 2)
     (h_bound : (Polynomial.eval (p : Int) (Polynomial.cyclotomic d Int)).natAbs < 2 ^ 512) :
     computeCyclotomicNat d p = some ((Polynomial.eval (p : Int) (Polynomial.cyclotomic d Int)).natAbs) := by
   unfold computeCyclotomicNat
   have hd_not_zero : d ≠ 0 := by omega
   simp [hd_not_zero]
-  exact h_bound
+  rw [UALBF.Pure.Cyclotomic.verified_ualbf_cyclotomic_eval d p hp hd]
+  simp [h_bound]
 
--- The following is noncomputable and cannot be exported to C.
--- Rust engine provides its own native cyclotomic polynomial evaluation.
-noncomputable def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
+def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
   match computeCyclotomicNat d.toNat (UALBF.FFI.fromU512 p) with
   | some val => some (toU512 val)
   | none => none
