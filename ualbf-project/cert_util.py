@@ -84,6 +84,8 @@ CORE_THEOREMS = [
     "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
     "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
     "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
+    "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+    "UALBF.Engine.TouchardBridge.touchard_bridge",
     "UALBF.FFI.fromU512_toU512",
     "UALBF.FFI.toU512_fromU512",
     "UALBF.FFI.modInverse_spec",

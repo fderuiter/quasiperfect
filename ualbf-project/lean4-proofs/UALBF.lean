@@ -16,6 +16,7 @@ import UALBF.Pure.Fixed64
 -- Layer 2: QPN Theory (requires IsQuasiperfect)
 import UALBF.QPN.BasicProperties
 import UALBF.QPN.Obstruction
+import UALBF.QPN.TouchardQPN
 import UALBF.QPN.PrasadSunitha
 import UALBF.QPN.AbundancyBound
 
@@ -31,3 +32,4 @@ import UALBF.BloomFilter
 import UALBF.FFI
 
 import UALBF.Engine.Mod5Bridge
+import UALBF.Engine.TouchardBridge
