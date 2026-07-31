@@ -212,6 +212,19 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         conjectural_active = bounds.get("conjectural_bounds", {}).get("active", False)
         conjectural_max_log10_ceiling = bounds.get("conjectural_bounds", {}).get("target_max_log10_ceiling", 0)
 
+        prime_split_threshold = bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
+        target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
+        target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
+        sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
+        max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
+        prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"]["value"]
+        pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"]["iteration_limit"]
+        pollard_rho_batch_size = bounds["search_bounds"]["pollard_rho"]["batch_size"]
+        overflow_num = bounds["overflow_threshold"]["num"]
+        overflow_den = bounds["overflow_threshold"]["den"]
+        raycast_gpu_threshold = bounds["search_bounds"]["raycast"]["gpu_threshold"]
+        raycast_chunk_size = bounds["search_bounds"]["raycast"]["chunk_size"]
+
         f.write(f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "{bounds_hash}";
@@ -219,25 +232,117 @@ pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str = "{bounds_hash}";
 use vstd::prelude::*;
 
 verus! {{
+    pub open spec fn lean_prime_split_threshold() -> nat {{ {prime_split_threshold} }}
+    pub open spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
+    pub open spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
+    pub open spec fn lean_div_5_coprime_3_bound() -> nat {{ {div_5_bound} }}
+    pub open spec fn lean_div_5_coprime_3_combined() -> nat {{ {div_5_combined} }}
+    pub open spec fn lean_hagis1982_combined() -> nat {{ {hagis1982_combined} }}
     pub open spec fn lean_qpn_totient_bound_num() -> nat {{ {tot_num} }}
     pub open spec fn lean_qpn_totient_bound_den() -> nat {{ {tot_den} }}
-    
-    pub open spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
-    pub open spec fn lean_hagis1982_offset() -> nat {{ {hagis1982_offset} }}
-    pub open spec fn lean_hagis1982_combined() -> nat {{ {hagis1982_combined} }}
-    
-    pub open spec fn lean_prasad_sunitha_bound() -> nat {{ {ps_bound} }}
-    pub open spec fn lean_prasad_sunitha_offset() -> nat {{ {ps_offset} }}
-    pub open spec fn lean_prasad_sunitha_combined() -> nat {{ {ps_combined} }}
-    
-    pub open spec fn lean_div_5_coprime_3_bound() -> nat {{ {div_5_bound} }}
-    pub open spec fn lean_div_5_coprime_3_offset() -> nat {{ {div_5_offset} }}
-    pub open spec fn lean_div_5_coprime_3_combined() -> nat {{ {div_5_combined} }}
-    
-    pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
-
+    pub open spec fn lean_target_min_log10() -> nat {{ {target_min_log10} }}
+    pub open spec fn lean_target_max_log10() -> nat {{ {target_max_log10} }}
+    pub open spec fn lean_sieve_limit() -> nat {{ {sieve_limit} }}
+    pub open spec fn lean_max_exponent() -> nat {{ {max_exponent} }}
+    pub open spec fn lean_prefix_stop_threshold() -> nat {{ {prefix_stop_threshold} }}
+    pub open spec fn lean_pollard_rho_iteration_limit() -> nat {{ {pollard_rho_iteration_limit} }}
+    pub open spec fn lean_pollard_rho_batch_size() -> nat {{ {pollard_rho_batch_size} }}
+    pub open spec fn lean_overflow_threshold_num() -> nat {{ {overflow_num} }}
+    pub open spec fn lean_overflow_threshold_den() -> nat {{ {overflow_den} }}
+    pub open spec fn lean_raycast_gpu_threshold() -> nat {{ {raycast_gpu_threshold} }}
+    pub open spec fn lean_raycast_chunk_size() -> nat {{ {raycast_chunk_size} }}
     pub open spec fn lean_conjectural_active() -> bool {{ {str(conjectural_active).lower()} }}
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat {{ {conjectural_max_log10_ceiling} }}
+
+    pub open spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
+    pub open spec fn lean_hagis1982_offset() -> nat {{ {hagis1982_offset} }}
+    pub open spec fn lean_prasad_sunitha_offset() -> nat {{ {ps_offset} }}
+    pub open spec fn lean_div_5_coprime_3_offset() -> nat {{ {div_5_offset} }}
+    pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
+
+    pub proof fn prove_prime_split_threshold_equivalence()
+        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) == lean_prime_split_threshold()
+    {{}}
+
+    pub proof fn prove_prasad_sunitha_bound_equivalence()
+        ensures (crate::manifest_constants::PRASAD_SUNITHA_PROOF_BOUND as nat) == lean_prasad_sunitha_bound()
+    {{}}
+
+    pub proof fn prove_prasad_sunitha_combined_equivalence()
+        ensures (crate::manifest_constants::PRASAD_SUNITHA_BOUND_NO_3_5 as nat) == lean_prasad_sunitha_combined()
+    {{}}
+
+    pub proof fn prove_div_5_coprime_3_bound_equivalence()
+        ensures (crate::manifest_constants::DIV_5_COPRIME_3_PROOF_BOUND as nat) == lean_div_5_coprime_3_bound()
+    {{}}
+
+    pub proof fn prove_div_5_coprime_3_combined_equivalence()
+        ensures (crate::manifest_constants::DIV_5_COPRIME_3_BOUND as nat) == lean_div_5_coprime_3_combined()
+    {{}}
+
+    pub proof fn prove_baseline_min_prime_factors_equivalence()
+        ensures (crate::manifest_constants::BASELINE_MIN_PRIME_FACTORS as nat) == lean_hagis1982_combined()
+    {{}}
+
+    pub proof fn prove_euler_ceiling_num_equivalence()
+        ensures (crate::manifest_constants::EULER_CEILING_NUM as nat) == lean_qpn_totient_bound_num()
+    {{}}
+
+    pub proof fn prove_euler_ceiling_den_equivalence()
+        ensures (crate::manifest_constants::EULER_CEILING_DEN as nat) == lean_qpn_totient_bound_den()
+    {{}}
+
+    pub proof fn prove_target_min_log10_equivalence()
+        ensures (crate::manifest_constants::TARGET_MIN_LOG10 as nat) == lean_target_min_log10()
+    {{}}
+
+    pub proof fn prove_target_max_log10_equivalence()
+        ensures (crate::manifest_constants::TARGET_MAX_LOG10 as nat) == lean_target_max_log10()
+    {{}}
+
+    pub proof fn prove_sieve_limit_equivalence()
+        ensures (crate::manifest_constants::SIEVE_LIMIT as nat) == lean_sieve_limit()
+    {{}}
+
+    pub proof fn prove_max_exponent_equivalence()
+        ensures (crate::manifest_constants::MAX_EXPONENT as nat) == lean_max_exponent()
+    {{}}
+
+    pub proof fn prove_prefix_stop_threshold_equivalence()
+        ensures (crate::manifest_constants::PREFIX_STOP_THRESHOLD as nat) == lean_prefix_stop_threshold()
+    {{}}
+
+    pub proof fn prove_pollard_rho_iteration_limit_equivalence()
+        ensures (crate::manifest_constants::POLLARD_RHO_ITERATION_LIMIT as nat) == lean_pollard_rho_iteration_limit()
+    {{}}
+
+    pub proof fn prove_pollard_rho_batch_size_equivalence()
+        ensures (crate::manifest_constants::POLLARD_RHO_BATCH_SIZE as nat) == lean_pollard_rho_batch_size()
+    {{}}
+
+    pub proof fn prove_overflow_threshold_num_equivalence()
+        ensures (crate::manifest_constants::OVERFLOW_THRESHOLD_NUM as nat) == lean_overflow_threshold_num()
+    {{}}
+
+    pub proof fn prove_overflow_threshold_den_equivalence()
+        ensures (crate::manifest_constants::OVERFLOW_THRESHOLD_DEN as nat) == lean_overflow_threshold_den()
+    {{}}
+
+    pub proof fn prove_raycast_gpu_threshold_equivalence()
+        ensures (crate::manifest_constants::RAYCAST_GPU_THRESHOLD as nat) == lean_raycast_gpu_threshold()
+    {{}}
+
+    pub proof fn prove_raycast_chunk_size_equivalence()
+        ensures (crate::manifest_constants::RAYCAST_CHUNK_SIZE as nat) == lean_raycast_chunk_size()
+    {{}}
+
+    pub proof fn prove_conjectural_active_equivalence()
+        ensures crate::manifest_constants::CONJECTURAL_ACTIVE == lean_conjectural_active()
+    {{}}
+
+    pub proof fn prove_conjectural_max_log10_ceiling_equivalence()
+        ensures (crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING as nat) == lean_conjectural_max_log10_ceiling()
+    {{}}
 
     pub proof fn prove_combined_bounds() {{
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
