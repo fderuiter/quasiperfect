@@ -279,7 +279,7 @@ def verify_certificate(cert_path, manifest_path):
     return cert
 
 
-def verify_telemetry_paths(certs_list):
+def verify_telemetry_paths(certs_list: list) -> None:
     """
     Passes certificate telemetry arrays containing inner path ranges to the Rust-backed validation core,
     asserts lexicographical continuity across all path boundaries, identifies missing intervals,
