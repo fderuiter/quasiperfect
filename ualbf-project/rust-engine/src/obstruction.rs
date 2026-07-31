@@ -1,4 +1,4 @@
-use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_9};
+use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_9, check_touchard};
 use crate::types::Uint;
 
 pub trait Obstruction: Sync + Send {
@@ -61,6 +61,13 @@ impl Obstruction for Mod5Obstruction {
     }
 }
 
+pub struct TouchardObstruction;
+impl Obstruction for TouchardObstruction {
+    fn check_component(&self, p: u64, two_e: u32) -> bool {
+        !check_touchard(p, two_e)
+    }
+}
+
 pub struct Mod9Obstruction;
 impl Obstruction for Mod9Obstruction {
     /// Evaluates the geometric sum polynomial $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k \pmod 9$.
@@ -118,6 +125,30 @@ mod tests {
 
         assert!(mod9.check_component(13, 8));
         assert!(mod9.check_component(13, 2));
+    }
+
+    #[test]
+    fn test_touchard_obstruction() {
+        let filter = TouchardObstruction;
+        // p = 3, 2e = 2 -> sum = 1 + 3 + 9 = 13 (odd, not 9 -> invalid, i.e. obstructed)
+        assert!(filter.check_component(3, 2));
+
+        // p = 5, 2e = 2 -> sum = 1 + 5 + 25 = 31 % 24 = 7 (odd, not 9 -> invalid, i.e. obstructed)
+        assert!(filter.check_component(5, 2));
+
+        // p = 17, 2e = 2 -> sum = 1 + 17 + 289 = 307 % 24 = 19 (odd, not 9 -> invalid, i.e. obstructed)
+        assert!(filter.check_component(17, 2));
+
+        // Let's test reachability of residues modulo 24
+        // target final residues are [3, 19]
+        // reachable ones are {3, 11, 19}
+        assert!(crate::dfs_tree::is_touchard_reachable(3));
+        assert!(crate::dfs_tree::is_touchard_reachable(11));
+        assert!(crate::dfs_tree::is_touchard_reachable(19));
+
+        assert!(!crate::dfs_tree::is_touchard_reachable(0));
+        assert!(!crate::dfs_tree::is_touchard_reachable(5));
+        assert!(!crate::dfs_tree::is_touchard_reachable(7));
     }
 }
 

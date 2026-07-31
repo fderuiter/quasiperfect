@@ -394,6 +394,10 @@ pub fn check_mod_5(p: u64, two_e: u32) -> bool {
     unsafe { ualbf_check_mod_5(p, two_e) != 0 }
 }
 
+pub fn check_touchard(p: u64, two_e: u32) -> bool {
+    unsafe { ualbf_check_touchard(p, two_e) != 0 }
+}
+
 pub fn check_mod_9(p: u64, two_e: u32) -> bool {
     unsafe { ualbf_check_mod_9(p, two_e) != 0 }
 }

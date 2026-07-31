@@ -35,6 +35,9 @@ pub enum PruneReason {
         remaining_components: usize,
     },
     Raycast,
+    TouchardKill {
+        sigma_mod24: u64,
+    },
 }
 
 pub struct TraceEvent {
@@ -76,6 +79,8 @@ struct SerializableTraceEvent<'a> {
     curr_factors: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     remaining_components: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sigma_mod24: Option<u64>,
 }
 
 pub struct TraceWriter {
@@ -111,6 +116,7 @@ impl TraceWriter {
                     dynamic_min_factors: None,
                     curr_factors: None,
                     remaining_components: None,
+                    sigma_mod24: None,
                 };
 
                 match &event.reason {
@@ -169,6 +175,10 @@ impl TraceWriter {
                     }
                     PruneReason::Raycast => {
                         ser_event.reason = "raycast";
+                    }
+                    PruneReason::TouchardKill { sigma_mod24 } => {
+                        ser_event.reason = "touchard_kill";
+                        ser_event.sigma_mod24 = Some(*sigma_mod24);
                     }
                 }
 

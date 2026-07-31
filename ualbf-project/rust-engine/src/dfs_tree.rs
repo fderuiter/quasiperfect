@@ -76,8 +76,52 @@ static PRASAD_SUNITHA_BOUND: OnceLock<usize> = OnceLock::new();
 static DIV_5_COPRIME_3_BOUND: OnceLock<usize> = OnceLock::new();
 static TARGET_ABUNDANCE_NUM: OnceLock<u64> = OnceLock::new();
 static TARGET_ABUNDANCE_DEN: OnceLock<u64> = OnceLock::new();
+static TOUCHARD_REACHABLE: OnceLock<[bool; 24]> = OnceLock::new();
+
+pub fn init_touchard_reachable() {
+    TOUCHARD_REACHABLE.get_or_init(|| {
+        let mut reachable = [false; 24];
+        let targets = crate::manifest_constants::TOUCHARD_MOD_24_RESIDUES;
+        for start in 0..24 {
+            let mut visited = [false; 24];
+            let mut queue = Vec::new();
+            queue.push(start);
+            visited[start] = true;
+            let mut can_reach = false;
+            let mut q_idx = 0;
+            while q_idx < queue.len() {
+                let curr = queue[q_idx];
+                q_idx += 1;
+                if targets.contains(&(curr as u32)) {
+                    can_reach = true;
+                    break;
+                }
+                for r in 0..24 {
+                    if r % 2 == 0 || r == 9 {
+                        let nxt = (curr * r) % 24;
+                        if !visited[nxt] {
+                            visited[nxt] = true;
+                            queue.push(nxt);
+                        }
+                    }
+                }
+            }
+            reachable[start] = can_reach;
+        }
+        reachable
+    });
+}
+
+pub fn is_touchard_reachable(residue: u64) -> bool {
+    init_touchard_reachable();
+    let table = TOUCHARD_REACHABLE
+        .get()
+        .expect("Touchard table initialized");
+    table[(residue % 24) as usize]
+}
 
 pub fn init_bounds() {
+    init_touchard_reachable();
     let min_pf = crate::lean_ffi::get_baseline_min_prime_factors();
     if min_pf == 0 {
         panic!("Failed to resolve baseline min prime factors from proof bridge");
@@ -259,6 +303,7 @@ pub fn phase2_and_4_fused(
                 sf
             },
             active_mask: backbone.compatibility_matrix[i].clone(),
+            sigma_mod24: (comp.sigma % Uint::from_u64(24)).as_u64(),
         };
 
         explore_prefix(
@@ -382,6 +427,24 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::TargetBound,
+                verification_status: "formally verified",
+            });
+        }
+        return false;
+    }
+
+    if !is_touchard_reachable(curr.sigma_mod24) {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::TouchardKill {
+                    sigma_mod24: curr.sigma_mod24,
+                },
                 verification_status: "formally verified",
             });
         }
@@ -1198,6 +1261,8 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
                     dfs_ctx.curr.sigma_factors_u64.push(sf.as_u64());
                 }
             }
+            let comp_sigma_mod24 = (comp.sigma % Uint::from_u64(24)).as_u64();
+            dfs_ctx.curr.sigma_mod24 = (dfs_ctx.curr.sigma_mod24 * comp_sigma_mod24) % 24;
             return true;
         }
     }
@@ -1290,6 +1355,7 @@ mod tests {
             sigma_factors: vec![],
             sigma_factors_u64: vec![],
             active_mask: vec![],
+            sigma_mod24: s_l % 24,
         }
     }
 

@@ -151,8 +151,8 @@
       "checksum": "bd062f026a2936ce04aebdea3ad5519441b93431ddeab5ed1f0bce637de6478a"
     }
   ],
-  "verified_logic_hash": "015d8da93114f339ecdb31edc087bb77420e700c6ea4b14a38790e562fb8cb34",
-  "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
+  "verified_logic_hash": "aadd2369676ca77e8a770f85a1b22e3c74c21f6b2a87214b9f070adfcd02509d",
+  "verified_extension_hash": "7bd7368cae12f582cfab7e738e4c38bbad5fa4957ed6f631fab9b857b1a57345",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
     "prasad_sunitha_bound_satisfied": "8e55cd49edcfc1f202b00f41b27d896612482209565483df7f3c239072849bbe",
@@ -232,7 +232,7 @@
     },
     {
       "file": "UALBF/Engine/SearchState.lean",
-      "checksum": "54d46a12b81cea8c5531a66861157bef3134ff850da3096bc88d514f5d566821"
+      "checksum": "8afcf62f03454ce0ea3010bb7c5d0432e1406f346f4fd3ce7327ac324dbb914b"
     },
     {
       "file": "UALBF/Engine/SieveSoundness.lean",

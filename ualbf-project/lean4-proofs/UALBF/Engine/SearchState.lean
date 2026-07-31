@@ -14,6 +14,7 @@ structure SearchState where
   sigma_factors : Array Nat
   sigma_factors_u64 : Array UInt64
   active_mask : Array UInt64
+  sigma_mod24 : UInt64
 deriving Inhabited, Repr
 
 structure SearchStateTransport where
@@ -24,6 +25,7 @@ structure SearchStateTransport where
   sigma_factors : Array UALBF.FFI.U512
   sigma_factors_u64 : Array UInt64
   active_mask : Array UInt64
+  sigma_mod24 : UInt64
 deriving Inhabited
 
 def SearchStateTransport.toNative (t : SearchStateTransport) : SearchState := {
@@ -34,6 +36,7 @@ def SearchStateTransport.toNative (t : SearchStateTransport) : SearchState := {
   sigma_factors := t.sigma_factors.map UALBF.FFI.fromU512,
   sigma_factors_u64 := t.sigma_factors_u64,
   active_mask := t.active_mask,
+  sigma_mod24 := t.sigma_mod24,
 }
 
 end UALBF.Engine

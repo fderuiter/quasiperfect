@@ -54,6 +54,7 @@ pub fn generate_work_units(
             },
             sigma_factors: comp.sigma_factors.clone(),
             active_mask: backbone.compatibility_matrix[i].clone(),
+            sigma_mod24: (comp.sigma % Uint::from_u64(24)).as_u64(),
         };
         expand_work_units(
             &mut curr,
@@ -457,6 +458,7 @@ pub fn run_worker(
                     sigma_factors: vec![],
                     sigma_factors_u64: vec![],
                     active_mask: vec![u64::MAX; mask_len],
+                    sigma_mod24: 1,
                 };
 
                 let count = AtomicUsize::new(0);
