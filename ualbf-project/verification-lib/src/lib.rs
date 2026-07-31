@@ -213,8 +213,8 @@ fn validate_telemetry_numbers(val: &serde_json::Value) -> Result<(), String> {
         serde_json::Value::Number(n) => {
             if let Some(f) = n.as_f64() {
                 if f.fract() == 0.0 {
-                    let fits_i64 = f >= i64::MIN as f64 && f <= i64::MAX as f64;
-                    let fits_u64 = f >= 0.0 && f < 18446744073709551616.0;
+                    let fits_i64 = (i64::MIN as f64..=i64::MAX as f64).contains(&f);
+                    let fits_u64 = (0.0..18446744073709551616.0).contains(&f);
                     if !fits_i64 && !fits_u64 {
                         return Err(format!(
                             "Telemetry number {} exceeds 64-bit integer limits",
