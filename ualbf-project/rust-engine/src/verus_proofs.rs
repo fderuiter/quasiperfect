@@ -17,6 +17,9 @@ pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u12
 
 use vstd::prelude::*;
 
+#[cfg(verus_keep_ghost)]
+pub mod manifest_constants;
+
 include!("lean_export.rs");
 
 verus! {
