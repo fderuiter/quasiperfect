@@ -476,7 +476,10 @@ fn main() {
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
     if ir_dir.exists() {
         if let Err(e) = fs::remove_dir_all(&ir_dir) {
-            println!("cargo:warning=Failed to delete intermediate C-IR directory: {}", e);
+            println!(
+                "cargo:warning=Failed to delete intermediate C-IR directory: {}",
+                e
+            );
         }
     }
 
@@ -495,9 +498,13 @@ fn main() {
 
     if !lake_success {
         let build_dir = lean_project.join(".lake/build");
-        eprintln!("================================================================================");
+        eprintln!(
+            "================================================================================"
+        );
         eprintln!("FATAL: Lean proof verification failed!");
-        eprintln!("================================================================================");
+        eprintln!(
+            "================================================================================"
+        );
         eprintln!("The Lean verification tool returned a non-zero exit code during build.");
         eprintln!();
         eprintln!("Proof Logs / Build Directory:");
@@ -505,7 +512,9 @@ fn main() {
         eprintln!();
         eprintln!("To troubleshoot and rerun the verification manually, execute:");
         eprintln!("    cd lean4-proofs && lake build UALBF");
-        eprintln!("================================================================================");
+        eprintln!(
+            "================================================================================"
+        );
         panic!("Lean verification failed. See diagnostics above.");
     }
 
