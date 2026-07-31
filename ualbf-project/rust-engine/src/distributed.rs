@@ -169,7 +169,10 @@ pub struct CheckpointSchema {
     pub pending: Vec<RangeWorkUnit>,
 }
 
-pub fn load_checkpoint_or_fallback(checkpoint_path: &str, default_units: Vec<RangeWorkUnit>) -> (Vec<RangeWorkUnit>, bool) {
+pub fn load_checkpoint_or_fallback(
+    checkpoint_path: &str,
+    default_units: Vec<RangeWorkUnit>,
+) -> (Vec<RangeWorkUnit>, bool) {
     if let Ok(content) = std::fs::read_to_string(checkpoint_path) {
         println!("Resuming from {}", checkpoint_path);
         // Try to parse as the new unified checkpoint schema first
@@ -187,7 +190,10 @@ pub fn load_checkpoint_or_fallback(checkpoint_path: &str, default_units: Vec<Ran
             (legacy_units, true)
         } else {
             // Reject corrupt or invalid JSON files by ignoring/falling back to generated units
-            eprintln!("Warning: corrupt or invalid checkpoint file {}. Falling back to generated units.", checkpoint_path);
+            eprintln!(
+                "Warning: corrupt or invalid checkpoint file {}. Falling back to generated units.",
+                checkpoint_path
+            );
             (default_units, false)
         }
     } else {
