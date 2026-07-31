@@ -107,13 +107,18 @@ def verify_certificate(cert_path, manifest_path):
 
     is_conditional = cert.get("is_conditional", False)
     conjecture = cert.get("conjecture")
-    if is_conditional or (conjecture and (conjecture.get("conditional", False) or conjecture.get("conjecture_name"))):
+    if is_conditional or (
+        conjecture
+        and (conjecture.get("conditional", False) or conjecture.get("conjecture_name"))
+    ):
         conjecture_name = "Unknown"
         if conjecture:
             conjecture_name = conjecture.get("conjecture_name", "Unknown Conjecture")
         print("\n" + "!" * 80)
         print("! WARNING: THIS CERTIFICATE WAS GENERATED IN CONJECTURAL MODE!")
-        print(f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'.")
+        print(
+            f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'."
+        )
         print("!" * 80 + "\n")
 
     with open(manifest_path, encoding="utf-8") as f:
@@ -431,7 +436,9 @@ if __name__ == "__main__":
                 print("\n=== Verifying Meta-Certificate ===")
                 loaded_certs = content_json["node_certificates"]
 
-                is_conditional = content_json.get("is_conditional", False) or any(c.get("is_conditional", False) for c in loaded_certs)
+                is_conditional = content_json.get("is_conditional", False) or any(
+                    c.get("is_conditional", False) for c in loaded_certs
+                )
                 conjecture = content_json.get("conjecture")
                 if not conjecture:
                     for c in loaded_certs:
@@ -441,10 +448,16 @@ if __name__ == "__main__":
                 if is_conditional or conjecture:
                     conjecture_name = "Unknown"
                     if conjecture:
-                        conjecture_name = conjecture.get("conjecture_name", "Unknown Conjecture")
+                        conjecture_name = conjecture.get(
+                            "conjecture_name", "Unknown Conjecture"
+                        )
                     print("\n" + "!" * 80)
-                    print("! WARNING: THIS META-CERTIFICATE CONTAINS CONJECTURAL CERTIFICATES!")
-                    print(f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'.")
+                    print(
+                        "! WARNING: THIS META-CERTIFICATE CONTAINS CONJECTURAL CERTIFICATES!"
+                    )
+                    print(
+                        f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'."
+                    )
                     print("!" * 80 + "\n")
 
                 check_continuity(loaded_certs)
