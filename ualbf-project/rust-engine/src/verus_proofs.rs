@@ -411,27 +411,35 @@ verus! {
             res.is_Some() ==> u512_to_nat(res.unwrap()) == cyclotomic_eval_spec(d as nat, u512_to_nat(*p)) && rns512_valid_bounds(cyclotomic_eval_spec(d as nat, u512_to_nat(*p))),
             res.is_None() ==> !rns512_valid_bounds(cyclotomic_eval_spec(d as nat, u512_to_nat(*p))) || d == 0
     {
-        let mut bytes = [0u8; 64];
-        for i in 0..8 {
-            let b = p.data[i].to_le_bytes();
-            for j in 0..8 {
-                bytes[i * 8 + j] = b[j];
-            }
-        }
-        let p_uint = crate::types::Uint::from_le_bytes(bytes);
-        if let Some(eval_uint) = crate::lean_ffi::native_cyclotomic_eval(d, &p_uint) {
-            let eval_bytes = eval_uint.to_le_bytes();
+        #[cfg(verus_keep_ghost)]
+        {
             let mut data = [0u64; 8];
-            for i in 0..8 {
-                let mut word_bytes = [0u8; 8];
-                for j in 0..8 {
-                    word_bytes[j] = eval_bytes[i * 8 + j];
-                }
-                data[i] = u64::from_le_bytes(word_bytes);
-            }
             Some(VerifiedLeanU512 { data })
-        } else {
-            None
+        }
+        #[cfg(not(verus_keep_ghost))]
+        {
+            let mut bytes = [0u8; 64];
+            for i in 0..8 {
+                let b = p.data[i].to_le_bytes();
+                for j in 0..8 {
+                    bytes[i * 8 + j] = b[j];
+                }
+            }
+            let p_uint = crate::types::Uint::from_le_bytes(bytes);
+            if let Some(eval_uint) = crate::lean_ffi::native_cyclotomic_eval(d, &p_uint) {
+                let eval_bytes = eval_uint.to_le_bytes();
+                let mut data = [0u64; 8];
+                for i in 0..8 {
+                    let mut word_bytes = [0u8; 8];
+                    for j in 0..8 {
+                        word_bytes[j] = eval_bytes[i * 8 + j];
+                    }
+                    data[i] = u64::from_le_bytes(word_bytes);
+                }
+                Some(VerifiedLeanU512 { data })
+            } else {
+                None
+            }
         }
     }
 
