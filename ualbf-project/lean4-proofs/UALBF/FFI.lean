@@ -15,6 +15,7 @@ import UALBF.Pure.Fixed64
 import UALBF.Pure.Arithmetic
 import UALBF.Pure.Cyclotomic
 
+set_option compiler.ignoreBorrowAnnotation true
 set_option exponentiation.threshold 1024
 
 namespace UALBF.FFI
@@ -64,6 +65,17 @@ def U512.w6 (u : @& U512) : UInt64 :=
 def U512.w7 (u : @& U512) : UInt64 :=
   ((u / 2^448) % 2^64).toUInt64
 
+macro "u512_omega_prep" : tactic => `(tactic|
+  have h2_64 : 2^64 = 18446744073709551616 := rfl;
+  have h2_128 : 2^128 = 340282366920938463463374607431768211456 := rfl;
+  have h2_192 : 2^192 = 6277101735386680763835789423207666416102355444464034512896 := rfl;
+  have h2_256 : 2^256 = 115792089237316195423570985008687907853269984665640564039457584007913129639936 := rfl;
+  have h2_320 : 2^320 = 2135987035920910082395021706169552114602704522356652769947041607822219725780640550022962086936576 := rfl;
+  have h2_384 : 2^384 = 39402006196394479212279040100143613805079739270465446667948293404245721771497210611414266254884915640806627990306816 := rfl;
+  have h2_448 : 2^448 = 726838724295606890549323807888004534353641360687318060281490199180639288113397923326191050713763565560762521606266177933534601628614656 := rfl;
+  rw [h2_64, h2_128, h2_192, h2_256, h2_320, h2_384, h2_448] at *
+)
+
 /--
   FFI trust boundary replaced by proofs! We prove the semantics of the Rust-side U512 struct.
 -/
@@ -78,6 +90,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 @[simp] theorem U512.w1_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w1 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w1 := by
   apply UInt64.ext
@@ -90,6 +103,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 @[simp] theorem U512.w2_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w2 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w2 := by
   apply UInt64.ext
@@ -102,6 +116,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 @[simp] theorem U512.w3_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w3 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w3 := by
   apply UInt64.ext
@@ -114,6 +129,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 @[simp] theorem U512.w4_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w4 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w4 := by
   apply UInt64.ext
@@ -126,6 +142,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 @[simp] theorem U512.w5_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w5 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w5 := by
   apply UInt64.ext
@@ -138,6 +155,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 @[simp] theorem U512.w6_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w6 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w6 := by
   apply UInt64.ext
@@ -150,6 +168,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 @[simp] theorem U512.w7_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w7 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w7 := by
   apply UInt64.ext
@@ -162,6 +181,7 @@ def U512.w7 (u : @& U512) : UInt64 :=
   have _h5 : w5.toNat < 2^64 := w5.toNat_lt
   have _h6 : w6.toNat < 2^64 := w6.toNat_lt
   have _h7 : w7.toNat < 2^64 := w7.toNat_lt
+  u512_omega_prep
   omega
 
 def fromU512 (u : U512) : Nat :=
@@ -276,6 +296,14 @@ def ualbf_check_mod_5_impl (p : UInt64) (two_e : UInt32) : Bool :=
   let e := two_e / 2
   (p % 5 == 1) && (e % 5 == 2)
 
+def ualbf_check_touchard_loop (p_mod : UInt64) : Nat → UInt64 → UInt64 → Bool
+  | 0, _, sum => (sum % 2 == 0) || (sum == 9)
+  | i + 1, term, sum => ualbf_check_touchard_loop p_mod i ((term * p_mod) % 24) ((sum + term) % 24)
+
+@[export ualbf_check_touchard]
+def ualbf_check_touchard_impl (p : UInt64) (two_e : UInt32) : Bool :=
+  ualbf_check_touchard_loop (p % 24) (two_e.toNat + 1) 1 0
+
 @[export ualbf_check_mod_9]
 def ualbf_check_mod_9_impl (p : UInt64) (two_e : UInt32) : Bool :=
   let p_mod := p % 9
@@ -380,6 +408,7 @@ private theorem modInverse_spec (a m : Int) (v : Int)
     (hv : modInverse a m = some v) :
     (a * v) % m = 1 % m := by
   unfold modInverse at hv
+  dsimp only at hv
   set a' := ((a % m) + m) % m with ha'_def
 
   have h_bezout : a' * (extGcd a' m).2.1 + m * (extGcd a' m).2.2 = (extGcd a' m).1 :=
@@ -456,7 +485,7 @@ private theorem modInverse_spec (a m : Int) (v : Int)
 
     -- Fold it back natively
     calc (a * v) % m = (1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv)) % m := by rw [h_av2]
-      _ = 1 % m := by rw [Int.add_mul_emod_self]
+      _ = 1 % m := by rw [Int.add_mul_emod_self_left]
 
   · rename_i h_guard
     contradiction
@@ -597,6 +626,7 @@ theorem ualbf_compute_cyclotomic_eq_eval (d p : Nat) (hd : d > 0) (hp : p ≥ 2)
   have hd_not_zero : d ≠ 0 := by omega
   simp [hd_not_zero]
   rw [UALBF.Pure.Cyclotomic.verified_ualbf_cyclotomic_eval d p hp hd]
+  change 2 ^ 512 with 13407807929942597099574024998205846127479365820592393377723561443721764030073546976801874298166903427690031858186486050853753882811946569946433649006084096 at h_bound
   simp [h_bound]
 
 def ualbf_cyclotomic_eval_impl (d : UInt32) (p : @& UALBF.FFI.U512) : Option UALBF.FFI.U512 :=
@@ -683,14 +713,14 @@ def ualbf_dfs_loop_impl (ctx : UInt64) : IO Unit := do
           pushed := true
           break
         else
-          ← rust_dfs_pop ctx
+          let _ ← rust_dfs_pop ctx
 
     -- Backtracking Invariant: If no child was pushed (exploration exhausted or pruned),
     -- we restore the parent state iff there is more work on the stack.
     -- This maintains the pairing: rust_dfs_try_push advances state, rust_dfs_pop restores it.
     if not pushed then
       if stack.size > 0 then
-        ← rust_dfs_pop ctx
+        let _ ← rust_dfs_pop ctx
 
 @[export ualbf_evaluate_baseline_min_ffi]
 def ualbf_evaluate_baseline_min_ffi (contains_3 : UInt8) (contains_5 : UInt8) (skipped_3 : UInt8) (skipped_5 : UInt8) : UInt32 :=
