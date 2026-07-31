@@ -473,12 +473,41 @@ fn main() {
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
     let ir_dir = lean_project.join(".lake/build/ir");
 
+    // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
+    if ir_dir.exists() {
+        if let Err(e) = fs::remove_dir_all(&ir_dir) {
+            println!("cargo:warning=Failed to delete intermediate C-IR directory: {}", e);
+        }
+    }
+
     // Execute targeted module compilation instead of a full project build
-    let _ = Command::new("lake")
+    let status = Command::new("lake")
         .arg("build")
         .arg("UALBF") // Targeted build
         .current_dir(&lean_project)
         .status();
+
+    // Capture and Evaluate Verification Exit Code (Requirement 2 & 3)
+    let lake_success = match status {
+        Ok(exit_status) => exit_status.success(),
+        Err(_) => false,
+    };
+
+    if !lake_success {
+        let build_dir = lean_project.join(".lake/build");
+        eprintln!("================================================================================");
+        eprintln!("FATAL: Lean proof verification failed!");
+        eprintln!("================================================================================");
+        eprintln!("The Lean verification tool returned a non-zero exit code during build.");
+        eprintln!();
+        eprintln!("Proof Logs / Build Directory:");
+        eprintln!("    {}", build_dir.display());
+        eprintln!();
+        eprintln!("To troubleshoot and rerun the verification manually, execute:");
+        eprintln!("    cd lean4-proofs && lake build UALBF");
+        eprintln!("================================================================================");
+        panic!("Lean verification failed. See diagnostics above.");
+    }
 
     // --- 2. Compile all UALBF C-IR files into a static library ---
     let mut c_files = Vec::new();
