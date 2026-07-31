@@ -51,6 +51,9 @@ pub const TOUCHARD_MOD_24_RESIDUES: [u32; 2] = [3, 19];
 pub const MANIFEST_HASH: &str = "5451fb32e952c793c653a6f5dc31ec017868bb47e86db5761115b508b2fe2137";
 
 #[cfg(verus_keep_ghost)]
+use vstd::prelude::*;
+
+#[cfg(verus_keep_ghost)]
 verus! {
     pub const PRIME_SPLIT_THRESHOLD: u64 = 61;
     pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = 15;
