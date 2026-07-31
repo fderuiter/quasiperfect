@@ -139,7 +139,7 @@
       "checksum": "bd062f026a2936ce04aebdea3ad5519441b93431ddeab5ed1f0bce637de6478a"
     }
   ],
-  "verified_logic_hash": "2348ab69a5692c0882fd97c43652aef744bfb955bbfe25afd9bc43f5801bf093",
+  "verified_logic_hash": "5c99316db074bb346da159653d8d55d586ca32741c07cd67931e2cdd0087d033",
   "verified_extension_hash": "ac257f70aab84dece06ade792361e8ab8e5c19d7c36f1674675b3666610b25de",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -228,7 +228,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "ee0f9d6cd9cf33db9892e235acd7ffc62e1d70812f11dce97758f19ccf020c10"
+      "checksum": "d6636f133ca833c3f1ce15968781b07cc28fd414bceb85b6ce288a4a88e83829"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
@@ -240,7 +240,7 @@
     },
     {
       "file": "UALBF/Pure/Cyclotomic.lean",
-      "checksum": "ffe6e91508a36c3d656ab8e4ee868da9ddc4a0e207d0177c2f03d49a31aacc03"
+      "checksum": "f89ea96f0487be9d0f4ce3b517e2502d61a73528221649d2564860c8db1e5fa2"
     },
     {
       "file": "UALBF/Pure/CyclotomicAlgebra.lean",

@@ -163,6 +163,67 @@ struct ActiveWorkerState {
     last_heartbeat: Instant,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CheckpointSchema {
+    pub active: Vec<RangeWorkUnit>,
+    pub pending: Vec<RangeWorkUnit>,
+}
+
+pub fn load_checkpoint_or_fallback(
+    checkpoint_path: &str,
+    default_units: Vec<RangeWorkUnit>,
+) -> (Vec<RangeWorkUnit>, bool) {
+    if let Ok(content) = std::fs::read_to_string(checkpoint_path) {
+        println!("Resuming from {}", checkpoint_path);
+        // Try to parse as the new unified checkpoint schema first
+        if let Ok(schema) = serde_json::from_str::<CheckpointSchema>(&content) {
+            let mut initial_queue = schema.pending;
+            // The controller must put recovered active tasks at the front of the queue to prioritize their execution.
+            // Since work_queue.pop() removes elements from the end of the vector, prepending/appending recovered active
+            // tasks to the queue so they are processed next ensures priority. Since it's a LIFO behavior (i.e. elements
+            // are popped from the end), appending active units to the end of the queue Vec puts them at the "front" of
+            // execution priority.
+            initial_queue.extend(schema.active);
+            (initial_queue, true)
+        } else if let Ok(legacy_units) = serde_json::from_str::<Vec<RangeWorkUnit>>(&content) {
+            // Fallback parsing: convert flat legacy format into unassigned tasks
+            (legacy_units, true)
+        } else {
+            // Reject corrupt or invalid JSON files by ignoring/falling back to generated units
+            eprintln!(
+                "Warning: corrupt or invalid checkpoint file {}. Falling back to generated units.",
+                checkpoint_path
+            );
+            (default_units, false)
+        }
+    } else {
+        (default_units, false)
+    }
+}
+
+fn save_checkpoint(
+    checkpoint_path: &str,
+    queue: &[RangeWorkUnit],
+    active_workers: &HashMap<usize, ActiveWorkerState>,
+) {
+    let active: Vec<RangeWorkUnit> = active_workers
+        .values()
+        .map(|w| w.active_task.clone())
+        .collect();
+    let pending = queue.to_vec();
+    let schema = CheckpointSchema { active, pending };
+    if let Ok(json) = serde_json::to_string(&schema) {
+        let temp_path = format!("{}.tmp", checkpoint_path);
+        if let Ok(mut file) = std::fs::File::create(&temp_path) {
+            if file.write_all(json.as_bytes()).is_ok() {
+                let _ = file.sync_all(); // Ensure durability before renaming
+                drop(file);
+                let _ = std::fs::rename(&temp_path, checkpoint_path);
+            }
+        }
+    }
+}
+
 pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     let listener = TcpListener::bind(addr).unwrap();
 
@@ -177,13 +238,10 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
 
     println!("Controller listening on {}", addr);
 
-    // Load from checkpoint if exists
-    let initial_units = if let Ok(content) = std::fs::read_to_string("checkpoint.json") {
-        println!("Resuming from checkpoint.json");
-        serde_json::from_str::<Vec<RangeWorkUnit>>(&content).unwrap_or_else(|_| units)
-    } else {
-        units
-    };
+    let checkpoint_path = "checkpoint.json";
+
+    // Load from checkpoint if exists with fallback parsing
+    let (initial_units, is_new_or_legacy) = load_checkpoint_or_fallback(checkpoint_path, units);
 
     let work_queue = Arc::new(Mutex::new(initial_units));
     let total_units = work_queue.lock().unwrap().len();
@@ -192,10 +250,18 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
         total_units
     );
 
+    // After constructing the initial queue, save the new schema immediately to persist the updated state
+    if is_new_or_legacy {
+        let queue = work_queue.lock().unwrap();
+        let empty_workers = HashMap::new();
+        save_checkpoint(checkpoint_path, &queue, &empty_workers);
+    }
+
     let completed = Arc::new(AtomicUsize::new(0));
 
     let active_workers_monitor = Arc::clone(&active_workers);
     let work_queue_monitor = Arc::clone(&work_queue);
+    let checkpoint_path_monitor = checkpoint_path.to_string();
     std::thread::spawn(move || {
         let timeout = Duration::from_secs(heartbeat_timeout);
         loop {
@@ -222,9 +288,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                     }
                 }
                 if changed {
-                    if let Ok(json) = serde_json::to_string(&*queue) {
-                        let _ = std::fs::write("checkpoint.json", json);
-                    }
+                    save_checkpoint(&checkpoint_path_monitor, &queue, &workers);
                 }
             }
         }
@@ -236,6 +300,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
             let completed = Arc::clone(&completed);
             let active_workers = Arc::clone(&active_workers);
             let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
+            let checkpoint_path_clone = checkpoint_path.to_string();
 
             thread::spawn(move || {
                 let mut buf = vec![0; 1024 * 1024];
@@ -249,8 +314,8 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                     Message::RequestWork => {
                                         let mut queue = work_queue.lock().unwrap();
                                         let work = queue.pop();
+                                        let mut workers = active_workers.lock().unwrap();
                                         if let Some(ref w) = work {
-                                            let mut workers = active_workers.lock().unwrap();
                                             workers.insert(
                                                 worker_id,
                                                 ActiveWorkerState {
@@ -259,10 +324,8 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                                 },
                                             );
                                         }
-                                        // Save checkpoint
-                                        if let Ok(json) = serde_json::to_string(&*queue) {
-                                            let _ = std::fs::write("checkpoint.json", json);
-                                        }
+                                        // Save checkpoint with updated queue and active workers
+                                        save_checkpoint(&checkpoint_path_clone, &queue, &workers);
                                         let reply = Message::WorkUnit(work);
                                         let reply_bytes = serde_json::to_vec(&reply).unwrap();
                                         if stream.write_all(&reply_bytes).is_err() {
@@ -281,11 +344,16 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                                         if let crate::events::SearchEvent::DFSComplete { .. } =
                                             event
                                         {
-                                            let _queue = work_queue.lock().unwrap();
+                                            let mut queue = work_queue.lock().unwrap();
                                             let mut workers = active_workers.lock().unwrap();
                                             if workers.remove(&worker_id).is_some() {
                                                 let c =
                                                     completed.fetch_add(1, Ordering::Relaxed) + 1;
+                                                save_checkpoint(
+                                                    &checkpoint_path_clone,
+                                                    &queue,
+                                                    &workers,
+                                                );
                                                 if c >= total_units {
                                                     println!(
                                                         "{}",
@@ -319,9 +387,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                         worker_id
                     );
                     queue.push(state.active_task);
-                    if let Ok(json) = serde_json::to_string(&*queue) {
-                        let _ = std::fs::write("checkpoint.json", json);
-                    }
+                    save_checkpoint(&checkpoint_path_clone, &queue, &workers);
                 }
             });
         }
@@ -507,4 +573,143 @@ pub fn run_worker(
         },
         explored_ranges,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_save_and_load_checkpoint_unified() {
+        let temp_path = "test_checkpoint_unified.json";
+        let _ = fs::remove_file(temp_path);
+
+        let p1 = RangeWorkUnit {
+            start_bound: vec![1, 2],
+            end_bound: vec![3, 4],
+        };
+        let p2 = RangeWorkUnit {
+            start_bound: vec![5, 6],
+            end_bound: vec![7, 8],
+        };
+        let a1 = RangeWorkUnit {
+            start_bound: vec![9, 10],
+            end_bound: vec![11, 12],
+        };
+
+        // Create a dummy active_workers mapping and test parsing
+        let schema = CheckpointSchema {
+            active: vec![a1.clone()],
+            pending: vec![p1.clone(), p2.clone()],
+        };
+
+        let json = serde_json::to_string(&schema).unwrap();
+        fs::write(temp_path, json).unwrap();
+
+        // Load it back
+        let default_units = vec![];
+        let (loaded, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        assert!(ok);
+        // It should have: pending + active.
+        // Since active is put at the end of the queue (pop priority): [p1, p2, a1]
+        assert_eq!(loaded.len(), 3);
+        assert_eq!(loaded[0].start_bound, vec![1, 2]);
+        assert_eq!(loaded[1].start_bound, vec![5, 6]);
+        assert_eq!(loaded[2].start_bound, vec![9, 10]); // Recovered active task priority!
+
+        let _ = fs::remove_file(temp_path);
+    }
+
+    #[test]
+    fn test_load_checkpoint_legacy_fallback() {
+        let temp_path = "test_checkpoint_legacy.json";
+        let _ = fs::remove_file(temp_path);
+
+        let p1 = RangeWorkUnit {
+            start_bound: vec![1, 2],
+            end_bound: vec![3, 4],
+        };
+        let p2 = RangeWorkUnit {
+            start_bound: vec![5, 6],
+            end_bound: vec![7, 8],
+        };
+
+        let legacy_data = vec![p1, p2];
+        let json = serde_json::to_string(&legacy_data).unwrap();
+        fs::write(temp_path, json).unwrap();
+
+        // Load it back
+        let default_units = vec![];
+        let (loaded, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        assert!(ok);
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].start_bound, vec![1, 2]);
+        assert_eq!(loaded[1].start_bound, vec![5, 6]);
+
+        let _ = fs::remove_file(temp_path);
+    }
+
+    #[test]
+    fn test_load_checkpoint_corrupt_fallback() {
+        let temp_path = "test_checkpoint_corrupt.json";
+        let _ = fs::remove_file(temp_path);
+
+        fs::write(temp_path, "{invalid_json: true").unwrap();
+
+        let p_default = RangeWorkUnit {
+            start_bound: vec![99],
+            end_bound: vec![100],
+        };
+        let default_units = vec![p_default.clone()];
+
+        let (loaded, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        assert!(!ok); // Rejected corrupt JSON
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].start_bound, vec![99]);
+
+        let _ = fs::remove_file(temp_path);
+    }
+
+    #[test]
+    fn test_save_checkpoint_atomic() {
+        let temp_path = "test_checkpoint_atomic.json";
+        let _ = fs::remove_file(temp_path);
+        let temp_tmp_path = "test_checkpoint_atomic.json.tmp";
+        let _ = fs::remove_file(temp_tmp_path);
+
+        let p1 = RangeWorkUnit {
+            start_bound: vec![1, 2],
+            end_bound: vec![3, 4],
+        };
+        let a1 = RangeWorkUnit {
+            start_bound: vec![5, 6],
+            end_bound: vec![7, 8],
+        };
+
+        let queue = vec![p1];
+        let mut active_workers = HashMap::new();
+        active_workers.insert(
+            42,
+            ActiveWorkerState {
+                active_task: a1,
+                last_heartbeat: Instant::now(),
+            },
+        );
+
+        save_checkpoint(temp_path, &queue, &active_workers);
+
+        // Verify test_checkpoint_atomic.json exists and contains correct content
+        assert!(std::path::Path::new(temp_path).exists());
+        let content = fs::read_to_string(temp_path).unwrap();
+        let schema: CheckpointSchema = serde_json::from_str(&content).unwrap();
+        assert_eq!(schema.pending.len(), 1);
+        assert_eq!(schema.active.len(), 1);
+        assert_eq!(schema.pending[0].start_bound, vec![1, 2]);
+        assert_eq!(schema.active[0].start_bound, vec![5, 6]);
+
+        // Clean up
+        let _ = fs::remove_file(temp_path);
+        let _ = fs::remove_file(temp_tmp_path);
+    }
 }

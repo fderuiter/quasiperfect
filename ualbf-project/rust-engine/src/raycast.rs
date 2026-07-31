@@ -617,24 +617,50 @@ pub fn phase4_exact_ray_casting(
                                 return;
                             }
                         } else {
-                            if let Some((min_bound, max_bound)) = cofactor_sigma_bounds(cofactor) {
-                                if required_cofactor_s_r < min_bound
-                                    || required_cofactor_s_r > max_bound
-                                {
-                                    return;
-                                }
+                            let mut prime_verified = false;
+                            let q = cofactor;
+                            let prime_sigma_opt = q
+                                .checked_mul(q)
+                                .and_then(|q2| q2.checked_add(q))
+                                .and_then(|q2_plus_q| q2_plus_q.checked_add(Uint::one()));
 
-                                if (cofactor >> 256) > Uint::zero() {
-                                    if !crate::math_utils::verified_is_prime(cofactor) {
+                            if let Some(prime_sigma) = prime_sigma_opt {
+                                if prime_sigma == required_cofactor_s_r {
+                                    // If the required divisor sum matches the prime divisor sum formula (1 + q + q^2),
+                                    // the cofactor MUST be prime. If verified_is_prime(cofactor) is false, then the
+                                    // cofactor is composite, so its actual divisor sum sigma(q^2) would be strictly
+                                    // greater than 1 + q + q^2. Thus, it can never match, and we can safely return early.
+                                    if crate::math_utils::verified_is_prime(cofactor) {
+                                        s_r = required_s_r;
+                                        prime_verified = true;
+                                    } else {
                                         return;
                                     }
                                 }
+                            }
 
-                                // Bounds match the required divisor sum, valid candidate!
-                                // Proceed to emit the candidate for downstream proof.
-                                s_r = required_s_r; // Force match since analytical reductions passed.
-                            } else {
-                                return;
+                            if !prime_verified {
+                                if let Some((min_bound, max_bound)) =
+                                    cofactor_sigma_bounds(cofactor)
+                                {
+                                    if required_cofactor_s_r < min_bound
+                                        || required_cofactor_s_r > max_bound
+                                    {
+                                        return;
+                                    }
+
+                                    if (cofactor >> 256) > Uint::zero() {
+                                        if !crate::math_utils::verified_is_prime(cofactor) {
+                                            return;
+                                        }
+                                    }
+
+                                    // Bounds match the required divisor sum, valid candidate!
+                                    // Proceed to emit the candidate for downstream proof.
+                                    s_r = required_s_r; // Force match since analytical reductions passed.
+                                } else {
+                                    return;
+                                }
                             }
                         }
                     }
@@ -779,5 +805,33 @@ mod additional_tests {
     fn test_cofactor_sigma_bounds_normal() {
         let bounds = cofactor_sigma_bounds(Uint::from_u32(5));
         assert!(bounds.is_some());
+    }
+
+    #[test]
+    fn test_prime_divisor_sum_exact_match() {
+        // Let's test a prime cofactor: q = 5.
+        // The prime divisor sum is 1 + 5 + 25 = 31.
+        let cofactor = Uint::from_u32(5);
+        let required_cofactor_s_r = Uint::from_u32(31);
+
+        let q = cofactor;
+        let prime_sigma_opt = q
+            .checked_mul(q)
+            .and_then(|q2| q2.checked_add(q))
+            .and_then(|q2_plus_q| q2_plus_q.checked_add(Uint::one()));
+
+        assert_eq!(prime_sigma_opt, Some(required_cofactor_s_r));
+        assert!(crate::math_utils::verified_is_prime(cofactor));
+
+        // Let's test a composite cofactor: q = 9.
+        let cofactor_comp = Uint::from_u32(9);
+        let q_comp = cofactor_comp;
+        let prime_sigma_opt_comp = q_comp
+            .checked_mul(q_comp)
+            .and_then(|q2| q2.checked_add(q_comp))
+            .and_then(|q2_plus_q| q2_plus_q.checked_add(Uint::one()));
+
+        assert_eq!(prime_sigma_opt_comp, Some(Uint::from_u32(91)));
+        assert!(!crate::math_utils::verified_is_prime(cofactor_comp));
     }
 }

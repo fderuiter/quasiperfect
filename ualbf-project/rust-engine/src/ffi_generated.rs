@@ -17,7 +17,10 @@ extern "C" {
         a_neg: u8,
         m_obj: *mut crate::lean_ffi::lean_object,
     ) -> *mut crate::lean_ffi::lean_object;
-    pub fn ualbf_cyclotomic_eval_pub(_d: u32, _p: *mut crate::lean_ffi::lean_object) -> u8;
+    pub fn ualbf_cyclotomic_eval_pub(
+        d: u32,
+        p: *mut crate::lean_ffi::lean_object,
+    ) -> *mut crate::lean_ffi::lean_object;
     pub fn ualbf_static_suffix_bound_w0(k: u32) -> u64;
     pub fn ualbf_static_suffix_bound_w1(k: u32) -> u64;
     pub fn ualbf_dfs_loop(

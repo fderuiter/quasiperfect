@@ -19,7 +19,7 @@ import pytest  # type: ignore
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # type: ignore
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
-from verify_cert import verify_certificate, check_continuity
+from verify_cert import verify_certificate, check_continuity, verify_telemetry_paths
 from cert_util import load_and_validate_cert, CertificateValidationError
 
 # ---------------------------------------------------------------------------
@@ -119,6 +119,7 @@ def build_cert(
     target_max_log10: int = 37,
     target_min_log10: int = 35,
     tamper_sig: bool = False,
+    path_ranges: list = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
     payload = (
@@ -146,6 +147,7 @@ def build_cert(
             "total_execution_time_ms": 13000,
             "raycast_pruned": 100,
             "math_interruptions": 2,
+            "path_ranges": path_ranges if path_ranges is not None else [{"start_bound": [], "end_bound": []}],
         },
         "signature": sig_hex,
         "public_key": pub_hex,
@@ -669,11 +671,12 @@ class TestAggregationE2E:
         with open(os.path.join(tmpdir, "proof_manifest.json"), "w") as f:
             json.dump(manifest, f)
 
-        def write_signed_cert(idx, t_min, t_max):
+        def write_signed_cert(idx, t_min, t_max, path_ranges):
             cert = build_cert(
                 manifest["bounds_manifest_hash"],
                 target_min_log10=t_min,
                 target_max_log10=t_max,
+                path_ranges=path_ranges,
             )
 
             manifest_content = json.dumps(manifest)
@@ -699,9 +702,9 @@ class TestAggregationE2E:
                 json.dump(cert, f)
 
         # Write contiguous sequence OUT OF ORDER
-        write_signed_cert(1, 35, 40)
-        write_signed_cert(2, 30, 35)
-        write_signed_cert(3, 40, 45)
+        write_signed_cert(1, 35, 40, [{"start_bound": [2], "end_bound": [2, 3]}])
+        write_signed_cert(2, 30, 35, [{"start_bound": [], "end_bound": [2]}])
+        write_signed_cert(3, 40, 45, [{"start_bound": [2, 3], "end_bound": []}])
 
         script_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
@@ -825,4 +828,108 @@ class TestConditionalCertificates:
             assert meta["conjecture"]["conjecture_name"] == "ABC Conjecture"
         finally:
             os.environ.pop("UALBF_PROOF_MANIFEST", None)
+
+
+class TestPathContinuityValidation:
+    def test_missing_path_ranges_field_fails(self, tmp_path):
+        """If path_ranges is missing from telemetry, verification fails."""
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        # Explicitly remove path_ranges from telemetry
+        del cert["telemetry"]["path_ranges"]
+        
+        cert_path, manifest_path = write_files(manifest, cert)
+        
+        # When running the verification, it should fail due to missing path_ranges
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+            verify_telemetry_paths([cert])
+        assert exc_info.value.code != 0
+
+    def test_path_ranges_gap_fails_and_writes_recovery(self, tmp_path, monkeypatch):
+        """If there is a gap in path ranges, verification fails and writes recovery file."""
+        manifest = make_manifest()
+        
+        # Create a gap: [] to [2], then [3] to [] (missing [2] to [3])
+        path_ranges = [
+            {"start_bound": [], "end_bound": [2]},
+            {"start_bound": [3], "end_bound": []}
+        ]
+        cert = build_cert("placeholder", path_ranges=path_ranges)
+        cert_path, manifest_path = write_files(manifest, cert)
+        
+        # Change directory to tmp_path so the recovery file is written there
+        monkeypatch.chdir(tmp_path)
+        
+        recovery_file = os.path.join(str(tmp_path), "recovery_work_units.json")
+        if os.path.exists(recovery_file):
+            os.remove(recovery_file)
+            
+        from verify_cert import verify_telemetry_paths
+        with pytest.raises(SystemExit) as exc_info:
+            # We want to run the verify_telemetry_paths call
+            verify_telemetry_paths([cert])
+        assert exc_info.value.code != 0
+        
+        # Verify recovery file exists and contains the correct gap: start [2] -> end [3]
+        assert os.path.exists(recovery_file)
+        with open(recovery_file, "r") as f:
+            gaps = json.load(f)
+        assert len(gaps) == 1
+        assert gaps[0]["start_bound"] == [2]
+        assert gaps[0]["end_bound"] == [3]
+
+    def test_path_ranges_multiple_gaps(self, tmp_path, monkeypatch):
+        """Test detection of multiple gaps in the path chain."""
+        manifest = make_manifest()
+        # [2] to [3] is missing, [4] to [] is missing
+        path_ranges = [
+            {"start_bound": [], "end_bound": [2]},
+            {"start_bound": [3], "end_bound": [4]}
+        ]
+        cert = build_cert("placeholder", path_ranges=path_ranges)
+        monkeypatch.chdir(tmp_path)
+        
+        recovery_file = os.path.join(str(tmp_path), "recovery_work_units.json")
+        if os.path.exists(recovery_file):
+            os.remove(recovery_file)
+            
+        from verify_cert import verify_telemetry_paths
+        with pytest.raises(SystemExit):
+            verify_telemetry_paths([cert])
+            
+        assert os.path.exists(recovery_file)
+        with open(recovery_file, "r") as f:
+            gaps = json.load(f)
+        assert len(gaps) == 2
+        assert gaps[0]["start_bound"] == [2]
+        assert gaps[0]["end_bound"] == [3]
+        assert gaps[1]["start_bound"] == [4]
+        assert gaps[1]["end_bound"] == []
+
+    def test_path_ranges_performance_10k(self):
+        """Verify processing of 10,000 path ranges is fast (under 2 seconds)."""
+        import time
+        # Generate 10,000 contiguous path ranges
+        # [ [], [1] ], [ [1], [2] ], ..., [ [9999], [] ]
+        path_ranges = []
+        path_ranges.append({"start_bound": [], "end_bound": [1]})
+        for i in range(1, 9999):
+            path_ranges.append({"start_bound": [i], "end_bound": [i+1]})
+        path_ranges.append({"start_bound": [9999], "end_bound": []})
+        
+        import verification_lib
+        path_ranges_json = json.dumps(path_ranges)
+        
+        start_time = time.time()
+        result_json = verification_lib.check_path_continuity(path_ranges_json)
+        end_time = time.time()
+        
+        duration = end_time - start_time
+        assert duration < 2.0
+        
+        result = json.loads(result_json)
+        assert result["is_continuous"] is True
+        assert len(result["gaps"]) == 0
+
 

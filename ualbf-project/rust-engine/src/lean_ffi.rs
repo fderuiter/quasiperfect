@@ -573,20 +573,19 @@ pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> 
 }
 
 pub fn cyclotomic_eval(n: u32, p: Uint) -> Option<Uint> {
-    if n == 0 {
-        return None;
-    }
-    let mut phi = p.pow(n) - Uint::from_u128(1);
-    for d in 1..n {
-        if n % d == 0 {
-            if let Some(sub_phi) = cyclotomic_eval(d, p) {
-                phi /= sub_phi;
-            } else {
-                return None;
-            }
+    unsafe {
+        let p_obj = p.to_lean();
+        let opt_obj = ualbf_cyclotomic_eval_pub(n, p_obj.as_ptr());
+        if !is_none(opt_obj) {
+            let obj = get_some(opt_obj);
+            let w = get_u512(obj);
+            rs_lean_dec(opt_obj);
+            let b = words_to_bytes::<8, 64>(&w);
+            Some(Uint::from_le_slice(&b).unwrap())
+        } else {
+            None
         }
     }
-    Some(phi)
 }
 
 #[cfg(test)]

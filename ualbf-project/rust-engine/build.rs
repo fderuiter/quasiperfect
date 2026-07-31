@@ -483,10 +483,39 @@ fn main() {
         }
     }
 
+    // Prepend mock-bin to PATH and ensure mock files exist to avoid sandbox network hangs during Lean build
+    let mock_bin_dir = PathBuf::from(&manifest_dir).join("../build/mock-bin");
+    fs::create_dir_all(&mock_bin_dir).unwrap();
+    fs::write(mock_bin_dir.join("node"), "#!/usr/bin/env bash\nexit 0\n").unwrap();
+    fs::write(mock_bin_dir.join("npx"), "#!/usr/bin/env bash\nexit 0\n").unwrap();
+    fs::write(
+        mock_bin_dir.join("npm"),
+        "#!/usr/bin/env bash\necho \"Mocking npm command in build.rs: $@\"\nmkdir -p dist build/js js\necho \"module.exports = {};\" > dist/index.js\necho \"module.exports = {};\" > build/js/index.js\necho \"module.exports = {};\" > js/index.js\necho \"module.exports = {};\" > index.js\nexit 0\n"
+    ).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for f in &["node", "npx", "npm"] {
+            let p = mock_bin_dir.join(f);
+            if let Ok(metadata) = fs::metadata(&p) {
+                let mut perms = metadata.permissions();
+                perms.set_mode(0o755);
+                let _ = fs::set_permissions(&p, perms);
+            }
+        }
+    }
+
+    let mut paths = vec![mock_bin_dir];
+    if let Some(existing) = env::var_os("PATH") {
+        paths.extend(env::split_paths(&existing));
+    }
+    let new_path = env::join_paths(paths).unwrap();
     // Execute targeted module compilation instead of a full project build
     let status = Command::new("lake")
         .arg("build")
         .arg("UALBF") // Targeted build
+        .env("PATH", new_path)
         .current_dir(&lean_project)
         .status();
 

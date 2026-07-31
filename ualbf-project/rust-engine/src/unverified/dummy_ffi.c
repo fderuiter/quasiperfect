@@ -54,7 +54,7 @@ uint8_t ualbf_check_mod_9(uint64_t p, uint32_t two_e) {
 }
 
 void* ualbf_compute_sigma(uint64_t p, uint64_t pow) { (void)p; (void)pow; return (void*)1; }
-void* ualbf_cyclotomic_eval(uint32_t d, void* p) { (void)d; (void)p; return (void*)1; }
+void* ualbf_cyclotomic_eval_pub(uint32_t d, void* p) { (void)d; (void)p; return (void*)1; }
 void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) { (void)a_obj; (void)a_neg; (void)m_obj; return (void*)1; }
 uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
 
