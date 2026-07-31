@@ -87,7 +87,7 @@
     "is_axiomatic": false
   },
   "miller_rabin_20_base_sufficiency": {
-    "is_axiomatic": true
+    "is_axiomatic": false
   },
   "prime_factor_list": [
     3,

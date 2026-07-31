@@ -488,30 +488,54 @@ pub fn verified_is_prime(n: Uint) -> bool {
         return false;
     }
 
-    // Hybrid Tiered Primality: Route small inputs (< 2^64) through the verified exact trial-division algorithm.
+    // Hybrid Tiered Primality: Route small inputs (< 2^64) through the proven deterministic 12-base Miller-Rabin test.
     let threshold = Uint::from_u128(1_u128 << 64);
     if n < threshold {
-        let n_u128 = n.as_u128();
-        if n_u128 <= 3 {
-            return true;
-        }
-        if n_u128 % 2 == 0 || n_u128 % 3 == 0 {
-            return false;
-        }
-        let mut i = 5u128;
-        while i * i <= n_u128 {
-            if n_u128 % i == 0 || n_u128 % (i + 2) == 0 {
+        let n_u64 = n.as_u128() as u64;
+        let bases_12: [u64; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
+        for &b in &bases_12 {
+            if n_u64 == b {
+                return true;
+            }
+            if n_u64 % b == 0 {
                 return false;
             }
-            i += 6;
+        }
+
+        let mut d = n_u64 - 1;
+        let mut s = 0;
+        while d % 2 == 0 {
+            d /= 2;
+            s += 1;
+        }
+
+        for &base in &bases_12 {
+            let mut x = modpow_u256(Uint::from_u64(base), Uint::from_u64(d), n);
+            if x == Uint::one() || x == n - Uint::one() {
+                continue;
+            }
+            let mut composite = true;
+            for _ in 0..(s - 1) {
+                x = mul_mod_u256(x, x, n);
+                if x == Uint::one() {
+                    return false;
+                }
+                if x == n - Uint::one() {
+                    composite = false;
+                    break;
+                }
+            }
+            if composite {
+                return false;
+            }
         }
         return true;
     }
 
-    if (n >> 256) > Uint::zero() {
-        return generate_and_verify_pocklington(n);
-    }
-
+    // For all inputs >= 2^64:
+    // First, run a fast non-binding Miller-Rabin pre-filter.
+    // If the pre-filter determines the number is composite, reject it.
+    // Otherwise, generate and verify a Pocklington certificate for absolute mathematical certainty.
     let bases: [u32; 20] = [
         2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
     ];
@@ -535,6 +559,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
         s += 1;
     }
 
+    let mut is_mr_prime = true;
     for &base_u32 in &bases {
         let a = Uint::from_u128(base_u32 as u128);
         if a >= n {
@@ -548,19 +573,26 @@ pub fn verified_is_prime(n: Uint) -> bool {
         for _ in 0..(s - 1) {
             x = mul_mod_u256(x, x, n);
             if x == Uint::one() {
-                return false;
+                is_mr_prime = false;
+                break;
             }
             if x == n - Uint::one() {
                 composite = false;
                 break;
             }
         }
-        if composite {
-            return false;
+        if !is_mr_prime || composite {
+            is_mr_prime = false;
+            break;
         }
     }
 
-    true
+    if !is_mr_prime {
+        return false;
+    }
+
+    // Candidate passed the fast pre-filter. Validate using a verified Pocklington certificate.
+    generate_and_verify_pocklington(n)
 }
 
 /// Compute the greatest common divisor of two unsigned integers using the Euclidean algorithm.
@@ -1182,6 +1214,23 @@ mod tests {
             verified_is_prime(Uint::from_u128(1_000_000_000_039 * 5)),
             false
         );
+
+        // Primes and composites around the 2^64 boundary
+        // Prime just below 2^64: 18446744073709551557 (2^64 - 59)
+        let prime_under_2_64 = Uint::from_u128(18446744073709551557_u128);
+        assert_eq!(verified_is_prime(prime_under_2_64), true);
+
+        // Composite just below 2^64
+        let composite_under_2_64 = Uint::from_u128(18446744073709551558_u128);
+        assert_eq!(verified_is_prime(composite_under_2_64), false);
+
+        // Prime just above 2^64: 18446744073709551629 (2^64 + 13)
+        let prime_over_2_64 = Uint::from_u128(18446744073709551629_u128);
+        assert_eq!(verified_is_prime(prime_over_2_64), true);
+
+        // Composite just above 2^64
+        let composite_over_2_64 = Uint::from_u128(18446744073709551617_u128);
+        assert_eq!(verified_is_prime(composite_over_2_64), false);
     }
 
     #[test]

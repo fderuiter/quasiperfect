@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "3134da64b48db96a0e5aa0ea13fa9984b25600dad70a04c9a0992a07562380d7";
+    "f132e7ffeec8ce08096fc4c42278d8aaadec71a9113deb3f3f1ae52709e85283";
 
 use vstd::prelude::*;
 
@@ -21,7 +21,7 @@ verus! {
     pub open spec fn lean_div_5_coprime_3_offset() -> nat { 0 }
     pub open spec fn lean_div_5_coprime_3_combined() -> nat { 11 }
 
-    pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool { true }
+    pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool { false }
 
     pub open spec fn lean_conjectural_active() -> bool { true }
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat { 30 }
