@@ -286,43 +286,54 @@ def verify_telemetry_paths(certs_list):
     and writes a formatted recovery file for any detected gaps.
     """
     print("\n--- Verifying Inner Telemetry Path Ranges ---")
-    
+
     all_path_ranges = []
     for i, cert in enumerate(certs_list):
         tel = cert.get("telemetry", {})
         if "path_ranges" not in tel and "inner_paths" not in tel:
-            print(f"ERROR: Inner telemetry path ranges are missing from certificate {i}.")
+            print(
+                f"ERROR: Inner telemetry path ranges are missing from certificate {i}."
+            )
             sys.exit(1)
-        path_ranges = tel.get("path_ranges") if "path_ranges" in tel else tel.get("inner_paths")
+        path_ranges = (
+            tel.get("path_ranges") if "path_ranges" in tel else tel.get("inner_paths")
+        )
         if not isinstance(path_ranges, list):
-            print(f"ERROR: Inner telemetry path ranges in certificate {i} must be a list.")
+            print(
+                f"ERROR: Inner telemetry path ranges in certificate {i} must be a list."
+            )
             sys.exit(1)
         all_path_ranges.extend(path_ranges)
-        
+
     # Pass to the Rust-backed validation core
     if not cert_util._has_verification_lib:
-        print("ERROR: Native verification_lib not found. Cannot verify path continuity.")
+        print(
+            "ERROR: Native verification_lib not found. Cannot verify path continuity."
+        )
         sys.exit(1)
-        
+
     try:
-        import verification_lib
+        import verification_lib  # type: ignore[import-not-found]
+
         path_ranges_json = json.dumps(all_path_ranges)
         result_json = verification_lib.check_path_continuity(path_ranges_json)
         result = json.loads(result_json)
     except Exception as e:
         print(f"ERROR: Failed to verify path continuity via Rust core: {e}")
         sys.exit(1)
-        
+
     is_continuous = result.get("is_continuous", False)
     gaps = result.get("gaps", [])
-    
+
     if not is_continuous or gaps:
         print("ERROR: Telemetry path continuity validation failed!")
         if gaps:
             print(f"Detected {len(gaps)} missing interval(s) in the path chain:")
             for gap in gaps:
-                print(f"  Gap: Start {gap.get('start_bound')} -> End {gap.get('end_bound')}")
-            
+                print(
+                    f"  Gap: Start {gap.get('start_bound')} -> End {gap.get('end_bound')}"
+                )
+
             # Write recovery file
             recovery_file = "recovery_work_units.json"
             try:
@@ -333,10 +344,12 @@ def verify_telemetry_paths(certs_list):
                 print(f"ERROR: Failed to write recovery file: {e}")
         else:
             print("Detected continuity violation / overlap without explicit gaps.")
-            
+
         sys.exit(1)
-        
-    print(f"✓ Lexicographical continuity verified across all {len(all_path_ranges)} path boundaries.")
+
+    print(
+        f"✓ Lexicographical continuity verified across all {len(all_path_ranges)} path boundaries."
+    )
 
 
 def check_continuity(certs_list):
@@ -448,10 +461,14 @@ if __name__ == "__main__":
         verify_telemetry_paths(loaded_certs)
 
         agg_tel = loaded_certs[0]["telemetry"].copy()
-        
-        all_path_ranges = []
+
+        all_path_ranges: list = []
         for c in loaded_certs:
-            path_ranges = c["telemetry"].get("path_ranges") or c["telemetry"].get("inner_paths") or []
+            path_ranges = (
+                c["telemetry"].get("path_ranges")
+                or c["telemetry"].get("inner_paths")
+                or []
+            )
             all_path_ranges.extend(path_ranges)
         if all_path_ranges:
             agg_tel["path_ranges"] = all_path_ranges
