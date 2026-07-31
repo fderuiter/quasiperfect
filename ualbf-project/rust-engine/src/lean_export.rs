@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "5451fb32e952c793c653a6f5dc31ec017868bb47e86db5761115b508b2fe2137";
+    "741628feffcdf13d09e4f7bdb8165c3a8d40793ae2a64fd86e30de2532c127c8";
 
 use vstd::prelude::*;
 
@@ -25,7 +25,7 @@ verus! {
     pub open spec fn lean_overflow_threshold_den() -> nat { 1000000 }
     pub open spec fn lean_raycast_gpu_threshold() -> nat { 100000 }
     pub open spec fn lean_raycast_chunk_size() -> nat { 10000000 }
-    pub open spec fn lean_conjectural_active() -> bool { true }
+    pub open spec fn lean_conjectural_active() -> bool { false }
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat { 30 }
 
     pub open spec fn lean_hagis1982_min_prime_factors() -> nat { 7 }
