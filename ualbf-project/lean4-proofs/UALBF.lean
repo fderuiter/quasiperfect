@@ -25,12 +25,12 @@ import UALBF.QPN.AbundancyBound
 import UALBF.Engine.SearchState
 import UALBF.Engine.Bipartition
 import UALBF.Engine.SieveSoundness
+import UALBF.Engine.CyclotomicGraph
 import UALBF.Engine.Obstruction
 import UALBF.Engine.SearchMonad
 import UALBF.BloomFilter
 
 -- FFI: C-linkage exports
-import UALBF.FFI
 
 import UALBF.Engine.Mod5Bridge
 import UALBF.Engine.TouchardBridge
