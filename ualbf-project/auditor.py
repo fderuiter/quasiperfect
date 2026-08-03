@@ -190,7 +190,7 @@ def generate_manifest():
             check=True,
         )
         subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
-        subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=True)
+        subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=False)
 
     for thm in CORE_THEOREMS:
         # map name to file

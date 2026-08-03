@@ -1,4 +1,4 @@
-use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_9};
+use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_9, check_touchard};
 use crate::types::Uint;
 
 pub trait Obstruction: Sync + Send {
@@ -83,6 +83,14 @@ impl Obstruction for Mod9Obstruction {
     }
 }
 
+pub struct TouchardObstruction;
+impl Obstruction for TouchardObstruction {
+    /// Evaluates Touchard obstruction constraints.
+    fn check_component(&self, p: u64, two_e: u32) -> bool {
+        check_touchard(p, two_e)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,6 +126,19 @@ mod tests {
 
         assert!(mod9.check_component(13, 8));
         assert!(mod9.check_component(13, 2));
+    }
+
+    #[test]
+    fn test_touchard_obstruction() {
+        let touchard = TouchardObstruction;
+        // In order to call FFI without panic, we initialize lean runtime.
+        crate::lean_ffi::initialize_lean_runtime();
+        crate::lean_ffi::initialize_lean_worker_thread();
+
+        assert_eq!(touchard.check_component(3, 2), false);
+        assert_eq!(touchard.check_component(5, 2), false);
+        assert_eq!(touchard.check_component(3, 1), true);
+        assert_eq!(touchard.check_component(7, 2), true);
     }
 }
 
