@@ -101,7 +101,8 @@ jobs:
           nix build .#packages.${NIX_ARCH}.lean -o ualbf-project/lean-built
           chmod -R +w ualbf-project/lean4-proofs || true
           rm -rf ualbf-project/lean4-proofs/.lake || true
-          ln -s ../lean-built/.lake ualbf-project/lean4-proofs/.lake
+          cp -rL ualbf-project/lean-built/.lake ualbf-project/lean4-proofs/.lake
+          chmod -R +w ualbf-project/lean4-proofs/.lake || true
 
       - name: Run Unified Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check"
