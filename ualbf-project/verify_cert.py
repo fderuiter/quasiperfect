@@ -106,7 +106,9 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     if manifest_to_check.get("status") == "unverified":
-        print("ERROR: Manifest is tainted with 'unverified' status (Lean compiler was missing during generation).")
+        print(
+            "ERROR: Manifest is tainted with 'unverified' status (Lean compiler was missing during generation)."
+        )
         sys.exit(1)
 
     for thm in manifest_to_check.get("theorems", []):
@@ -209,7 +211,9 @@ def verify_certificate(cert_path, manifest_path):
     manifest = json.loads(manifest_content)
 
     if manifest.get("status") == "unverified":
-        print("ERROR: Manifest is tainted with 'unverified' status (Lean compiler was missing during generation).")
+        print(
+            "ERROR: Manifest is tainted with 'unverified' status (Lean compiler was missing during generation)."
+        )
         sys.exit(1)
 
     bounds_manifest_hash = manifest.get("bounds_manifest_hash")
@@ -291,7 +295,8 @@ def verify_certificate(cert_path, manifest_path):
     sorries = [
         thm
         for thm in manifest.get("theorems", [])
-        if thm["status"] in ("sorry", "axiom", "unverified") and thm["name"] not in allowed_axioms
+        if thm["status"] in ("sorry", "axiom", "unverified")
+        and thm["name"] not in allowed_axioms
     ]
 
     print("\n--- Manifest Summary ---")
