@@ -112,6 +112,7 @@ pub fn format_payload(
     deterministic_seed: Option<u64>,
     is_conditional: Option<bool>,
     conjecture_name: Option<&str>,
+    path_ranges: Option<serde_json::Value>,
 ) -> String {
     let mut map = std::collections::BTreeMap::new();
     map.insert(
@@ -170,6 +171,9 @@ pub fn format_payload(
             serde_json::Value::String(conj.to_string()),
         );
     }
+    if let Some(ranges) = path_ranges {
+        map.insert("path_ranges", ranges);
+    }
 
     serde_json::to_string(&map).unwrap()
 }
@@ -202,13 +206,122 @@ pub fn verify_signature(
     Ok(public_key.verify(payload.as_bytes(), &signature).is_ok())
 }
 
+#[allow(dead_code)]
+#[allow(clippy::manual_range_contains)]
+fn validate_telemetry_numbers(val: &serde_json::Value) -> Result<(), String> {
+    match val {
+        serde_json::Value::Number(n) => {
+            if let Some(f) = n.as_f64() {
+                if f.fract() == 0.0 {
+                    let fits_i64 = (i64::MIN as f64..=i64::MAX as f64).contains(&f);
+                    let fits_u64 = (0.0..18446744073709551616.0).contains(&f);
+                    if !fits_i64 && !fits_u64 {
+                        return Err(format!(
+                            "Telemetry number {} exceeds 64-bit integer limits",
+                            n
+                        ));
+                    }
+                }
+            } else {
+                if n.as_i64().is_none() && n.as_u64().is_none() {
+                    return Err(format!(
+                        "Telemetry number {} exceeds 64-bit integer limits",
+                        n
+                    ));
+                }
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for v in arr {
+                validate_telemetry_numbers(v)?;
+            }
+        }
+        serde_json::Value::Object(obj) => {
+            for (_, v) in obj {
+                validate_telemetry_numbers(v)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+#[cfg(feature = "python")]
+fn serde_to_py<'py>(py: Python<'py>, value: &serde_json::Value) -> PyResult<Bound<'py, PyAny>> {
+    use pyo3::IntoPyObject;
+    match value {
+        serde_json::Value::Null => Ok(py.None().into_bound(py)),
+        serde_json::Value::Bool(b) => {
+            let py_val = (*b)
+                .into_pyobject(py)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(py_val.as_any().clone())
+        }
+        serde_json::Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                let py_val = i
+                    .into_pyobject(py)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(py_val.as_any().clone())
+            } else if let Some(u) = n.as_u64() {
+                let py_val = u
+                    .into_pyobject(py)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(py_val.as_any().clone())
+            } else if let Some(f) = n.as_f64() {
+                let py_val = f
+                    .into_pyobject(py)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(py_val.as_any().clone())
+            } else {
+                Err(pyo3::exceptions::PyValueError::new_err(
+                    "Invalid number value",
+                ))
+            }
+        }
+        serde_json::Value::String(s) => {
+            let py_val = s
+                .as_str()
+                .into_pyobject(py)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+            Ok(py_val.as_any().clone())
+        }
+        serde_json::Value::Array(arr) => {
+            let list = PyList::new(py, Vec::<Bound<'py, PyAny>>::new())?;
+            for val in arr {
+                list.append(serde_to_py(py, val)?)?;
+            }
+            Ok(list.as_any().clone())
+        }
+        serde_json::Value::Object(obj) => {
+            let dict = PyDict::new(py);
+            for (k, v) in obj {
+                dict.set_item(k, serde_to_py(py, v)?)?;
+            }
+            Ok(dict.as_any().clone())
+        }
+    }
+}
+
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
+#[cfg(feature = "python")]
+use pyo3::types::{PyDict, PyList};
 
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
+pub fn validate_certificate<'py>(
+    py: Python<'py>,
+    cert_json_str: &str,
+) -> PyResult<Bound<'py, PyAny>> {
     use pyo3::exceptions::{PyException, PyValueError};
+
+    // Null-byte check before parsing
+    if cert_json_str.contains('\0') {
+        return Err(PyValueError::new_err(
+            "Null byte detected in certificate content",
+        ));
+    }
 
     // Parse the JSON string
     let cert: serde_json::Value = serde_json::from_str(cert_json_str)
@@ -218,10 +331,17 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         .as_object()
         .ok_or_else(|| PyValueError::new_err("Certificate is not a JSON object"))?;
 
-    let telemetry = obj
+    let telemetry_val = obj
         .get("telemetry")
-        .and_then(|t| t.as_object())
-        .ok_or_else(|| PyValueError::new_err("Missing or invalid 'telemetry' object"))?;
+        .ok_or_else(|| PyValueError::new_err("Missing 'telemetry' object"))?;
+
+    // Perform strict telemetry number validation
+    validate_telemetry_numbers(telemetry_val)
+        .map_err(|e| PyValueError::new_err(format!("Telemetry validation failed: {}", e)))?;
+
+    let telemetry = telemetry_val
+        .as_object()
+        .ok_or_else(|| PyValueError::new_err("Invalid 'telemetry' object"))?;
 
     // Extract signed fields
     let manifest_hash = obj
@@ -285,6 +405,12 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         .and_then(|o| o.get("conjecture_name"))
         .and_then(|v| v.as_str());
 
+    let path_ranges = telemetry
+        .get("path_ranges")
+        .or_else(|| telemetry.get("inner_paths"))
+        .or_else(|| telemetry.get("explored_ranges"))
+        .cloned();
+
     // Reconstruct payload
     let payload = format_payload(
         manifest_hash,
@@ -299,6 +425,7 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         deterministic_seed,
         is_conditional,
         conjecture_name,
+        path_ranges,
     );
 
     // Verify signature
@@ -320,8 +447,8 @@ pub fn validate_certificate(cert_json_str: &str) -> PyResult<String> {
         return Err(PyValueError::new_err("Missing signature"));
     }
 
-    // Return the unmodified JSON so Python can use it
-    Ok(cert_json_str.to_string())
+    // Return PyObject/PyDict directly to Python
+    serde_to_py(py, &cert)
 }
 
 #[cfg(feature = "python")]
@@ -488,10 +615,23 @@ pub extern "C" fn verify_certificate(
         }
     };
 
-    let telemetry = match obj.get("telemetry").and_then(|t| t.as_object()) {
+    let telemetry_val = match obj.get("telemetry") {
         Some(t) => t,
         None => {
             write_error("Missing or invalid telemetry object");
+            return std::ptr::null_mut();
+        }
+    };
+
+    if let Err(e) = validate_telemetry_numbers(telemetry_val) {
+        write_error(&format!("Telemetry validation failed: {}", e));
+        return std::ptr::null_mut();
+    }
+
+    let telemetry = match telemetry_val.as_object() {
+        Some(t) => t,
+        None => {
+            write_error("Telemetry is not a JSON object");
             return std::ptr::null_mut();
         }
     };
@@ -565,6 +705,12 @@ pub extern "C" fn verify_certificate(
         .and_then(|o| o.get("conjecture_name"))
         .and_then(|v| v.as_str());
 
+    let path_ranges = telemetry
+        .get("path_ranges")
+        .or_else(|| telemetry.get("inner_paths"))
+        .or_else(|| telemetry.get("explored_ranges"))
+        .cloned();
+
     let payload = format_payload(
         manifest_hash,
         verified_logic_hash,
@@ -578,6 +724,7 @@ pub extern "C" fn verify_certificate(
         deterministic_seed,
         is_conditional,
         conjecture_name,
+        path_ranges,
     );
 
     let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);

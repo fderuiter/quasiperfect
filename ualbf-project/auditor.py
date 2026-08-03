@@ -114,7 +114,7 @@ def check_lean_environment():
 
     if not lean_found:
         print(
-            "Warning: Lean 4 toolchain not found! Falling back to existing statuses.",
+            "Warning: Lean 4 compiler toolchain not found! The manifest has been tainted due to the missing compiler.",
             file=sys.stderr,
         )
         return False
@@ -125,6 +125,8 @@ def check_lean_environment():
 def generate_manifest():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
+    if not has_lean:
+        manifest["status"] = "unverified"
 
     # Load existing manifest to preserve statuses if Lean is missing
     existing_statuses = {}
@@ -174,7 +176,7 @@ def generate_manifest():
                 break
 
         if not has_lean:
-            status = existing_statuses.get(thm, "proven")
+            status = "unverified"
         else:
             lean_file = "find_axioms.lean"
             lean_path = os.path.join(cwd, lean_file)
@@ -371,8 +373,13 @@ def generate_manifest():
     doc_check_passed = check_documentation(manifest)
     imports_passed = check_imports(repo_root)
 
-    if has_error or not doc_check_passed or not imports_passed:
-        if has_error:
+    if not has_lean or has_error or not doc_check_passed or not imports_passed:
+        if not has_lean:
+            print(
+                "Error: Manifest generation failed / tainted due to missing Lean compiler.",
+                file=sys.stderr,
+            )
+        elif has_error:
             print(
                 "Error: Unproven placeholders ('sorry' or 'axiom') detected in CORE_THEOREMS.",
                 file=sys.stderr,

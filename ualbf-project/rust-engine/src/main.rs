@@ -64,6 +64,7 @@ struct SearchTelemetry {
     total_branches_searched: usize,
     abundance_pruned: usize,
     raycast_pruned: usize,
+    boundary_pruned: usize,
     phase1_retained: usize,
     phase1_pruned: usize,
     phase1_trial_only: usize,
@@ -139,6 +140,7 @@ mod tests {
             total_branches_searched: 42,
             abundance_pruned: 10,
             raycast_pruned: 0,
+            boundary_pruned: 0,
             phase1_retained: 0,
             phase1_pruned: 0,
             phase1_trial_only: 0,
@@ -174,6 +176,26 @@ mod tests {
             json["baseline_min_prime_factors"].as_u64().unwrap(),
             7,
             "baseline_min_prime_factors must serialise as 7"
+        );
+    }
+
+    /// SearchTelemetry must serialise the new boundary_pruned field.
+    #[test]
+    fn test_telemetry_serialises_boundary_pruned() {
+        let mut tel = sample_telemetry(
+            7,
+            crate::lean_ffi::get_prasad_sunitha_bound() as u64 as usize,
+        );
+        tel.boundary_pruned = 123;
+        let json: Value = serde_json::to_value(&tel).expect("serialisation must succeed");
+        assert!(
+            json.get("boundary_pruned").is_some(),
+            "JSON must contain 'boundary_pruned' key"
+        );
+        assert_eq!(
+            json["boundary_pruned"].as_u64().unwrap(),
+            123,
+            "boundary_pruned must serialise as 123"
         );
     }
 
@@ -772,6 +794,7 @@ fn main() {
             config.deterministic_seed,
             Some(crate::manifest_constants::CONJECTURAL_ACTIVE),
             Some(crate::manifest_constants::CONJECTURE_NAME),
+            serde_json::to_value(&explored_ranges_out).ok(),
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (
@@ -800,6 +823,7 @@ fn main() {
         total_branches_searched: telemetry_data.total_branches,
         abundance_pruned: telemetry_data.abundance_pruned,
         raycast_pruned: telemetry_data.raycast_pruned,
+        boundary_pruned: telemetry_data.boundary_pruned,
         phase1_retained: valid_components.len(),
         phase1_pruned: sieve_result.pruned,
         phase1_trial_only: sieve_result.trial_only,
