@@ -447,6 +447,7 @@ verus! {
         ArithmeticOverflow,
     }
 
+    #[verifier(nonlinear)]
     pub fn try_scale_bound_ceil(bound: u128, p: u128) -> (res: Result<u128, VerusFfiError>)
         ensures
             p <= 1 ==> res == Err(VerusFfiError::DivisionByZero),
