@@ -395,6 +395,59 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
+    // Touchard mod-24 filter reachability check
+    let mut reachable: u32 = 1 << curr.sigma_mod24;
+    let mask = &curr.active_mask;
+    let start_idx = curr.last_idx;
+    let mut block_idx = start_idx / 64;
+    if block_idx < mask.len() {
+        let mut block = mask[block_idx] & (!0 << (start_idx % 64));
+        'outer: loop {
+            while block != 0 {
+                let tz = block.trailing_zeros();
+                let j = block_idx * 64 + tz as usize;
+                let comp = &components[j];
+                let m = (comp.sigma % crate::types::Uint::from_u64(24)).as_u64() as usize;
+                if m != 1 {
+                    let mut next_reachable = reachable;
+                    for r in 0..24 {
+                        if (reachable & (1 << r)) != 0 {
+                            next_reachable |= 1 << ((r * m) % 24);
+                        }
+                    }
+                    reachable = next_reachable;
+                    if (reachable & ((1 << 3) | (1 << 19))) == ((1 << 3) | (1 << 19)) {
+                        break 'outer;
+                    }
+                }
+                block &= block - 1;
+            }
+            block_idx += 1;
+            if block_idx >= mask.len() {
+                break;
+            }
+            block = mask[block_idx];
+        }
+    }
+
+    if (reachable & ((1 << 3) | (1 << 19))) == 0 {
+        abundance_pruned.fetch_add(1, Ordering::Relaxed);
+        if let Some(tx) = trace_tx {
+            let mut f_vec = smallvec::SmallVec::new();
+            f_vec.extend_from_slice(&curr.factors);
+            let _ = tx.send(crate::trace::TraceEvent {
+                factors: f_vec,
+                n_l: curr.n_l,
+                s_l: curr.s_l,
+                reason: crate::trace::PruneReason::Touchard {
+                    sigma_mod24: curr.sigma_mod24,
+                },
+                verification_status: "formally verified",
+            });
+        }
+        return false;
+    }
+
     // Telemetry Export: Sample deep prefixes for frequency analysis
     if curr.factors.len() >= 4 {
         if let Some(r) = reporter {
@@ -1193,7 +1246,8 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
             dfs_ctx.saved_states.push(dfs_ctx.curr.capture_state());
             dfs_ctx.curr.n_l = next_n_l;
             dfs_ctx.curr.s_l = next_s_l;
-            dfs_ctx.curr.sigma_mod24 = (next_s_l % Uint::from_u64(24)).as_u32();
+            let comp_sigma_mod24 = (comp.sigma % Uint::from_u64(24)).as_u32();
+            dfs_ctx.curr.sigma_mod24 = (dfs_ctx.curr.sigma_mod24 * comp_sigma_mod24) % 24;
             dfs_ctx.curr.last_idx = i + 1;
             dfs_ctx.curr.factors.push(comp.p);
             dfs_ctx

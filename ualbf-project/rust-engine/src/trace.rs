@@ -35,6 +35,9 @@ pub enum PruneReason {
         remaining_components: usize,
     },
     Raycast,
+    Touchard {
+        sigma_mod24: u32,
+    },
 }
 
 pub struct TraceEvent {
@@ -169,6 +172,10 @@ impl TraceWriter {
                     }
                     PruneReason::Raycast => {
                         ser_event.reason = "raycast";
+                    }
+                    PruneReason::Touchard { sigma_mod24 } => {
+                        ser_event.reason = "touchard";
+                        ser_event.lhs = Some(sigma_mod24.to_string());
                     }
                 }
 
