@@ -385,7 +385,7 @@ fn main() {
         panic!("FATAL: Configuration mismatch. The proof manifest bounds hash does not match current bounds_manifest.json hash.");
     }
 
-    let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
+    let allowed_axioms: [&str; 0] = [];
     for thm in &proof_manifest.theorems {
         if thm.status == "sorry"
             || thm.status == "unverified"
