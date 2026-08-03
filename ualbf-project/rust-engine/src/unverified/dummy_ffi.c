@@ -1,6 +1,8 @@
 #include "../manifest_constants.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
 void lean_initialize_runtime_module() {}
 void lean_initialize() {}
@@ -64,9 +66,42 @@ uint8_t ualbf_check_touchard(uint64_t p, uint32_t two_e) {
     return ((sum % 2 == 0) || (sum == 9)) ? 1 : 0;
 }
 
-void* ualbf_compute_sigma(uint64_t p, uint64_t pow) { (void)p; (void)pow; return (void*)1; }
-void* ualbf_cyclotomic_eval_pub(uint32_t d, void* p) { (void)d; (void)p; return (void*)1; }
-void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) { (void)a_obj; (void)a_neg; (void)m_obj; return (void*)1; }
+void* make_some(void* val) {
+    void** ptr = malloc(16);
+    ptr[0] = (void*)0; // header
+    ptr[1] = val;      // index 0 field
+    return ptr;
+}
+
+void* ualbf_compute_sigma(uint64_t p, uint64_t pow) {
+    uint64_t* u512_data = malloc(64);
+    memset(u512_data, 0, 64);
+    uint64_t sum = 1;
+    uint64_t term = 1;
+    for (uint32_t i = 1; i <= pow; i++) {
+        term *= p;
+        sum += term;
+    }
+    u512_data[0] = sum;
+    void* u512_obj = rs_lean_alloc_external(NULL, u512_data);
+    return make_some(u512_obj);
+}
+
+void* ualbf_cyclotomic_eval_pub(uint32_t d, void* p) {
+    uint64_t* u512_data = malloc(64);
+    memset(u512_data, 0, 64);
+    u512_data[0] = 1;
+    void* u512_obj = rs_lean_alloc_external(NULL, u512_data);
+    return make_some(u512_obj);
+}
+
+void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) {
+    uint64_t* u512_data = malloc(64);
+    memset(u512_data, 0, 64);
+    u512_data[0] = 1;
+    void* u512_obj = rs_lean_alloc_external(NULL, u512_data);
+    return make_some(u512_obj);
+}
 uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
 
 uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { (void)k; return 0; }
