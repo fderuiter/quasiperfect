@@ -243,7 +243,6 @@ def generate_manifest():
                             has_error = True
                             break
                         elif ax not in [
-                            "UALBF.FFI.rust_is_prime_sound",
                             "propext",
                             "Classical.choice",
                             "Quot.sound",
