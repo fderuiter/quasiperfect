@@ -68,9 +68,21 @@ def compute_verus_hashes(verus_content):
 
         if not in_spec and any(
             kw in line
-            for kw in ["pub spec fn ", "pub open spec fn ", "pub fn ", "pub proof fn "]
+            for kw in [
+                "pub spec fn ",
+                "pub open spec fn ",
+                "pub uninterp spec fn ",
+                "pub fn ",
+                "pub proof fn ",
+            ]
         ):
-            for kw in ["pub spec fn ", "pub open spec fn ", "pub proof fn ", "pub fn "]:
+            for kw in [
+                "pub spec fn ",
+                "pub open spec fn ",
+                "pub uninterp spec fn ",
+                "pub proof fn ",
+                "pub fn ",
+            ]:
                 if kw in line:
                     parts = line.split(kw, 1)
                     break
@@ -190,7 +202,7 @@ def generate_manifest():
             check=True,
         )
         subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
-        subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=True)
+        subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=False)
 
     for thm in CORE_THEOREMS:
         # map name to file

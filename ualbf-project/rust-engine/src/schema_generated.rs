@@ -16,6 +16,7 @@ pub struct Prefix {
     pub sigma_factors: Vec<Uint>,
     pub sigma_factors_u64: Vec<u64>,
     pub active_mask: Vec<u64>,
+    pub sigma_mod24: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,6 +28,7 @@ pub struct SerializedPrefix {
     pub sigma_factors: Vec<String>,
     pub sigma_factors_u64: Vec<u64>,
     pub active_mask: Vec<u64>,
+    pub sigma_mod24: u32,
 }
 
 impl SerializedPrefix {
@@ -39,6 +41,7 @@ impl SerializedPrefix {
             sigma_factors: p.sigma_factors.iter().map(|x| x.to_string()).collect(),
             sigma_factors_u64: p.sigma_factors_u64.clone(),
             active_mask: p.active_mask.clone(),
+            sigma_mod24: p.sigma_mod24.clone(),
         }
     }
 
@@ -55,6 +58,7 @@ impl SerializedPrefix {
                 .collect(),
             sigma_factors_u64: self.sigma_factors_u64.clone(),
             active_mask: self.active_mask.clone(),
+            sigma_mod24: self.sigma_mod24.clone(),
         }
     }
 }
@@ -73,6 +77,7 @@ pub struct PrefixTransport {
     pub sigma_factors_u64_len: usize,
     pub active_mask: *const u64,
     pub active_mask_len: usize,
+    pub sigma_mod24: u32,
 }
 
 impl Prefix {
@@ -101,6 +106,7 @@ impl Prefix {
             sigma_factors_u64_len: self.sigma_factors_u64.len(),
             active_mask: self.active_mask.as_ptr(),
             active_mask_len: self.active_mask.len(),
+            sigma_mod24: self.sigma_mod24.clone(),
         }
     }
 }

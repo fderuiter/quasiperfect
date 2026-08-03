@@ -442,6 +442,7 @@ fn main() {
             let kw_list = [
                 "pub spec fn ",
                 "pub open spec fn ",
+                "pub uninterp spec fn ",
                 "pub proof fn ",
                 "pub fn ",
             ];

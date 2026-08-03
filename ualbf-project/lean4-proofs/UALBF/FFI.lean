@@ -26,6 +26,7 @@ open UALBF UALBF.Pure.Arithmetic Finset Nat
 -- Define the external object type (U512 remains opaque as it is purely FFI)
 
 
+
 /--
   **FFI Bridge Theorem**: Formal bijectivity between `Nat` and `U512`.
   Proves that serialization logic is lossless for 512-bit values.
