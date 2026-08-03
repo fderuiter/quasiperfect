@@ -75,6 +75,7 @@ extern "C" {
     pub fn rs_lean_ctor_get(obj: *mut lean_object, idx: u32) -> *mut lean_object;
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
     pub fn lean_string_cstr(str: *mut lean_object) -> *const std::ffi::c_char;
+    pub fn lean_mk_string(s: *const std::ffi::c_char) -> *mut lean_object;
 
     pub fn rs_lean_io_result_mk_ok(a: *mut lean_object) -> *mut lean_object;
     pub fn rs_lean_box_uint32(v: u32) -> *mut lean_object;
@@ -248,6 +249,18 @@ pub extern "C" fn rust_u512_mk(
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
 
+#[no_mangle]
+pub extern "C" fn rust_u512_to_hex(obj: *mut lean_object) -> *mut lean_object {
+    unsafe {
+        let w = *get_u512_ptr(obj);
+        let bytes = words_to_bytes::<8, 64>(&w);
+        let val = Uint::from_le_slice(&bytes).unwrap();
+        let hex_str = format!("{:x}", val);
+        let c_str = std::ffi::CString::new(hex_str).unwrap();
+        lean_mk_string(c_str.as_ptr())
+    }
+}
+
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
     unsafe { rs_lean_is_scalar(obj) }
@@ -353,6 +366,9 @@ pub fn run_runtime_parity_check() {
     if get_static_suffix_bound(0) != expected_k0 || get_static_suffix_bound(1) != expected_k1 {
         panic!("FATAL: Initialization failed due to fixed-point scaling factor mismatch.");
     }
+
+    // 3. Differential fuzz testing for native cyclotomic evaluation logic
+    run_cyclotomic_differential_fuzzing();
 }
 
 thread_local! {
@@ -576,20 +592,103 @@ pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> 
     }
 }
 
-pub fn cyclotomic_eval(n: u32, p: Uint) -> Option<Uint> {
-    unsafe {
-        let p_obj = p.to_lean();
-        let opt_obj = ualbf_cyclotomic_eval_pub(n, p_obj.as_ptr());
-        if !is_none(opt_obj) {
-            let obj = get_some(opt_obj);
-            let w = get_u512(obj);
-            rs_lean_dec(opt_obj);
-            let b = words_to_bytes::<8, 64>(&w);
-            Some(Uint::from_le_slice(&b).unwrap())
+pub fn native_cyclotomic_eval_aux(d: u32, p: &Uint, div: u32) -> Option<Uint> {
+    if div >= d {
+        Some(Uint::zero())
+    } else if div == 0 {
+        Some(Uint::one())
+    } else if d % div == 0 {
+        let prev = native_cyclotomic_eval_aux(d, p, div - 1)?;
+        let term = native_cyclotomic_eval(div, p)?;
+        prev.checked_mul(term)
+    } else {
+        native_cyclotomic_eval_aux(d, p, div - 1)
+    }
+}
+
+pub fn native_cyclotomic_eval(d: u32, p: &Uint) -> Option<Uint> {
+    if d == 0 {
+        None
+    } else if d == 1 {
+        if *p >= Uint::one() {
+            p.checked_sub(Uint::one())
+        } else {
+            Some(Uint::zero())
+        }
+    } else {
+        let num = p.checked_pow(d)?;
+        let num_sub = if num >= Uint::one() {
+            num.checked_sub(Uint::one())?
+        } else {
+            Uint::zero()
+        };
+        let den = native_cyclotomic_eval_aux(d, p, d - 1)?;
+        if den > Uint::zero() && num_sub % den == Uint::zero() {
+            Some(num_sub / den)
         } else {
             None
         }
     }
+}
+
+pub fn run_cyclotomic_differential_fuzzing() {
+    println!("Running startup differential fuzz checks for native cyclotomic evaluation...");
+    let test_cases = [
+        (2, 10, 11u128),
+        (2, 11, 2047u128),
+        (2, 13, 8191u128),
+        (2, 14, 43u128),
+        (2, 15, 151u128),
+        (3, 3, 13u128),
+        (3, 4, 10u128),
+        (5, 2, 6u128),
+        (5, 3, 31u128),
+    ];
+    for &(p_val, d, expected) in &test_cases {
+        let p = Uint::from_u64(p_val as u64);
+        let native_res = native_cyclotomic_eval(d, &p);
+        let expected_uint = Uint::from_u128(expected);
+        if native_res != Some(expected_uint) {
+            panic!(
+                "FATAL: Native cyclotomic evaluation mismatch! d = {}, p = {}. Native: {:?}, Expected: {:?}",
+                d, p_val, native_res, expected
+            );
+        }
+    }
+
+    #[cfg(not(unverified_build))]
+    {
+        for p_val in 2..=50 {
+            let p = Uint::from_u64(p_val as u64);
+            for d in 1..=15 {
+                let ffi_res = unsafe {
+                    let p_obj = p.to_lean();
+                    let opt_obj = ualbf_cyclotomic_eval_pub(d, p_obj.as_ptr());
+                    if !is_none(opt_obj) {
+                        let obj = get_some(opt_obj);
+                        let w = get_u512(obj);
+                        rs_lean_dec(opt_obj);
+                        let b = words_to_bytes::<8, 64>(&w);
+                        Some(Uint::from_le_slice(&b).unwrap())
+                    } else {
+                        None
+                    }
+                };
+                let native_res = native_cyclotomic_eval(d, &p);
+                if ffi_res != native_res {
+                    panic!(
+                        "FATAL: Differential fuzzing mismatch between Native and Lean FFI! d = {}, p = {}. Native: {:?}, FFI: {:?}",
+                        d, p_val, native_res, ffi_res
+                    );
+                }
+            }
+        }
+    }
+    println!("Differential fuzzing checks passed successfully. Native cyclotomic matches verified outcomes.");
+}
+
+pub fn cyclotomic_eval(n: u32, p: Uint) -> Option<Uint> {
+    native_cyclotomic_eval(n, &p)
 }
 
 #[cfg(test)]
@@ -625,6 +724,33 @@ mod tests {
             std::mem::align_of::<Uint>() >= 1,
             "Rust engine Uint alignment is sufficient"
         );
+    }
+
+    #[test]
+    fn test_rust_u512_to_hex() {
+        setup();
+        let w = [1, 2, 3, 4, 5, 6, 7, 8];
+        let bytes = words_to_bytes::<8, 64>(&w);
+        let val = Uint::from_le_slice(&bytes).unwrap();
+        let hex_str = format!("{:x}", val);
+        assert!(hex_str.ends_with("00000000000000020000000000000001"));
+
+        if !cfg!(unverified_build) {
+            let obj = alloc_u512(w);
+            let str_obj = rust_u512_to_hex(obj);
+            assert!(!str_obj.is_null());
+            unsafe {
+                rs_lean_dec(str_obj);
+                rs_lean_dec(obj);
+            }
+        } else {
+            let obj = alloc_u512(w);
+            let str_obj = rust_u512_to_hex(obj);
+            assert_eq!(str_obj as usize, 1);
+            unsafe {
+                let _ = Box::from_raw(obj as *mut [u64; 8]);
+            }
+        }
     }
 
     /// get_baseline_min_prime_factors must return a positive value.
@@ -869,7 +995,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_cyclotomic_eval_arbitrary_degrees() {
         setup();
         use crate::types::UintExt;

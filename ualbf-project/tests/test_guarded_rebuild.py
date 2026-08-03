@@ -13,7 +13,8 @@ def test_guarded_rebuild_success():
        missing files, the custom 'FATAL: Lean proof verification failed!'
        panic is NOT triggered).
     """
-    lean_project_dir = Path("/app/ualbf-project/lean4-proofs")
+    project_dir = Path(__file__).parent.parent
+    lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
     # Make sure we clean up and create the dummy ir_dir
@@ -42,14 +43,14 @@ def test_guarded_rebuild_success():
         env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
 
         # Touch build.rs to force cargo to rerun it
-        build_rs_path = Path("/app/ualbf-project/rust-engine/build.rs")
+        build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
 
         # Run cargo check in rust-engine
         res = subprocess.run(
             ["cargo", "check"],
-            cwd="/app/ualbf-project/rust-engine",
+            cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
             text=True,
@@ -71,7 +72,8 @@ def test_guarded_rebuild_failure():
     1. The build system immediately halts.
     2. The custom beautifully-formatted diagnostics are printed to stderr.
     """
-    lean_project_dir = Path("/app/ualbf-project/lean4-proofs")
+    project_dir = Path(__file__).parent.parent
+    lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
     if ir_dir.exists():
@@ -98,14 +100,14 @@ def test_guarded_rebuild_failure():
         env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
 
         # Touch build.rs to force cargo to rerun it
-        build_rs_path = Path("/app/ualbf-project/rust-engine/build.rs")
+        build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
 
         # Run cargo check in rust-engine
         res = subprocess.run(
             ["cargo", "check"],
-            cwd="/app/ualbf-project/rust-engine",
+            cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
             text=True,

@@ -80,6 +80,7 @@ fn main() {
                 deterministic_seed,
                 None,
                 None,
+                None,
             );
             println!("{}", payload);
         }
