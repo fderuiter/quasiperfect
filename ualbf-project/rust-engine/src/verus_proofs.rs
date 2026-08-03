@@ -439,14 +439,14 @@ verus! {
     }
 
     pub open spec fn prime_factors(n: nat) -> Set<nat> {
-        Set::new(|p: nat| is_prime(p) && n > 0 && n % p == 0)
+        Set::new_assuming_finite(|p: nat| is_prime(p) && n > 0 && n % p == 0)
     }
 
     pub open spec fn disjoint_factor_sets(a: nat, b: nat) -> bool {
         prime_factors(a).disjoint(prime_factors(b))
     }
 
-    pub open spec fn sigma_spec_val(n: nat) -> nat;
+    pub uninterp spec fn sigma_spec_val(n: nat) -> nat;
 
     pub proof fn lemma_sigma_multiplicative(a: nat, b: nat)
         requires
@@ -457,6 +457,7 @@ verus! {
         assume(sigma_spec_val(a * b) == sigma_spec_val(a) * sigma_spec_val(b));
     }
 
+    #[verifier(nonlinear)]
     pub proof fn lemma_coprime_implies_multiplicative(
         prefix: nat, suffix: nat,
         prefix_num: nat, prefix_den: nat,
