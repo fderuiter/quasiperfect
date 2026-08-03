@@ -36,6 +36,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             Box::new(crate::obstruction::Mod5Obstruction),
             Box::new(crate::obstruction::Mod8Obstruction),
             Box::new(crate::obstruction::Mod9Obstruction),
+            Box::new(crate::obstruction::TouchardObstruction),
         ]);
 
     let num_blocks = (limit / 64) + 1;

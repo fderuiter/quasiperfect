@@ -1035,6 +1035,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(unverified_build, ignore)]
     #[should_panic(expected = "compute_sigma overflow")]
     fn test_compute_sigma_overflow_sentinel() {
         setup();

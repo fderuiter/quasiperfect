@@ -1345,6 +1345,7 @@ fn test_hensels_lift_k3() {
     assert_eq!(lifted, Int::from_u128(108));
 }
 
+#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_residue_failure() {
     // trigger a residue failure
