@@ -454,7 +454,7 @@ verus! {
             p > 1 && bound > u128::MAX - p + 2 ==> res == Err(VerusFfiError::ArithmeticOverflow),
             p > 1 && bound <= u128::MAX - p + 2 && scale_bound_spec(bound as nat, p as nat) > u128::MAX ==> res == Err(VerusFfiError::ArithmeticOverflow),
             p > 1 && bound <= u128::MAX - p + 2 && scale_bound_spec(bound as nat, p as nat) <= u128::MAX ==>
-                res == Ok(scale_bound_spec(bound as nat, p as nat))
+                res == Ok(scale_bound_spec(bound as nat, p as nat) as u128)
     {
         if p <= 1 {
             return Err(VerusFfiError::DivisionByZero);
