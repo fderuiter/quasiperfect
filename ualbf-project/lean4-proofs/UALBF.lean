@@ -12,6 +12,7 @@ import UALBF.Pure.Cyclotomic
 import UALBF.Pure.CyclotomicAlgebra
 import UALBF.Pure.Zsigmondy
 import UALBF.Pure.Fixed64
+import UALBF.Pure.ABCConjecture
 
 -- Layer 2: QPN Theory (requires IsQuasiperfect)
 import UALBF.QPN.BasicProperties

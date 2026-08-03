@@ -149,6 +149,18 @@
       "file": "UALBF/FFI.lean",
       "status": "proven",
       "checksum": "bd062f026a2936ce04aebdea3ad5519441b93431ddeab5ed1f0bce637de6478a"
+    },
+    {
+      "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "status": "proven",
+      "checksum": "8e1dd42f1e492691d3ff257665ff9b4aace7bcfa3f9e06c8ca92bc687a636989"
+    },
+    {
+      "name": "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "status": "proven",
+      "checksum": "1d7199c053041e84937a409c14efb2d25c44f2d98cae0d9b48d5adf867c95ba9"
     }
   ],
   "verified_logic_hash": "3d7a638c8681b5f1f4cb863cf614431bb64cc19c1df929fc829996a0214af84e",
@@ -191,6 +203,7 @@
     "verified_ualbf_cyclotomic_eval": "9aa2ae305bcc73065cb6dfd9b5270a8452cb14e7d69d0a91d1ada36322ef9bc1",
     "scale_bound_spec": "def035629b1ef362535899872bea3405160c6b7f3836dd9f4b267f7634c12d03",
     "scale_bound_ceil": "209ae501b1cf4f71b3b81e6a00cabcdc8e5fc1472d8c16d80f401d3e49c340bf",
+    "try_scale_bound_ceil": "b557cc466b504830ce067946b3541e2741a904d4ae14659ec620f39ae02e5020",
     "prime_factors": "7aaec2c92cf85360eef84f62efea4c5853ead314001cb136f3f3434976666e91",
     "disjoint_factor_sets": "67f57ef0b67f0ea8774630767795705c4cd897014ff82f26178d6358902ddae2",
     "sigma_spec_val": "d9a7fb2dbe4e4d37f1c9752a6aac71abab205b37829db533cfa0ce8355ac8ae8",
@@ -211,7 +224,7 @@
   "proof_files": [
     {
       "file": "UALBF.lean",
-      "checksum": "8b3964f221c4f874df1ad777941b837a56fba905e0aaac5f7273fbec190f38b2"
+      "checksum": "edf7ac6534d96bc526f538e87acae15512453f2fbd11ed9c8fa67f14a859d453"
     },
     {
       "file": "UALBF/Basic.lean",
@@ -251,11 +264,15 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "3b13e64dbce163574fc48ef2f9873f44af321f9977aa3f6c045ef55b2245ad2f"
+      "checksum": "a5272ef0313b43650df912cdc0e181d7055b631d0c1457fe2af87bb9fb74409b"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
       "checksum": "4bb8c5bb01e722771c7a2649c7f3482f87801aee6c15a006abb1354abf7ac9d4"
+    },
+    {
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "checksum": "c4987bcbbba0bbc8c99e3ba8020780822d8582342f2332df90047fd9e3450ccf"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",

@@ -457,15 +457,51 @@ verus! {
     pub fn scale_bound_ceil(bound: u128, p: u128) -> (res: u128)
         requires
             p > 1,
-            bound <= u128::MAX / p,
-            bound * p <= u128::MAX - p,
+            bound <= u128::MAX - p + 2,
+            scale_bound_spec(bound as nat, p as nat) <= u128::MAX,
         ensures
             res == scale_bound_spec(bound as nat, p as nat),
             res as nat * (p as nat - 1) >= bound as nat * p as nat
     {
-        assert(bound as nat * p as nat + p as nat - 2 >= 0);
-        assert((bound as nat * p as nat + p as nat - 2) / (p as nat - 1) * (p as nat - 1) <= bound as nat * p as nat + p as nat - 2);
-        (bound * p + p - 2) / (p - 1)
+        let p_minus_1 = p - 1;
+        let num_add = p - 2;
+        let numerator = bound + num_add;
+        let division = numerator / p_minus_1;
+        let res = bound + division;
+        assert(res as nat == scale_bound_spec(bound as nat, p as nat));
+        res
+    }
+
+    pub enum VerusFfiError {
+        DivisionByZero,
+        ArithmeticOverflow,
+    }
+
+    #[verifier(nonlinear)]
+    pub fn try_scale_bound_ceil(bound: u128, p: u128) -> (res: Result<u128, VerusFfiError>)
+        ensures
+            p <= 1 ==> res == Err(VerusFfiError::DivisionByZero),
+            p > 1 && bound > u128::MAX - p + 2 ==> res == Err(VerusFfiError::ArithmeticOverflow),
+            p > 1 && bound <= u128::MAX - p + 2 && scale_bound_spec(bound as nat, p as nat) > u128::MAX ==> res == Err(VerusFfiError::ArithmeticOverflow),
+            p > 1 && bound <= u128::MAX - p + 2 && scale_bound_spec(bound as nat, p as nat) <= u128::MAX ==>
+                res == Ok(scale_bound_spec(bound as nat, p as nat) as u128)
+    {
+        if p <= 1 {
+            return Err(VerusFfiError::DivisionByZero);
+        }
+        let p_minus_1 = p - 1;
+        let num_add = p - 2;
+        if bound > u128::MAX - num_add {
+            return Err(VerusFfiError::ArithmeticOverflow);
+        }
+        let numerator = bound + num_add;
+        let division = numerator / p_minus_1;
+        if bound > u128::MAX - division {
+            return Err(VerusFfiError::ArithmeticOverflow);
+        }
+        let result = bound + division;
+        assert(result as nat == scale_bound_spec(bound as nat, p as nat));
+        Ok(result)
     }
 
     pub open spec fn prime_factors(n: nat) -> Set<nat> {

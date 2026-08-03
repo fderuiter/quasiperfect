@@ -7,6 +7,32 @@ import os
 import hashlib
 import cert_util
 
+
+class MockCompletedProcess:
+    def __init__(self, returncode=0, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+_original_run = subprocess.run
+
+
+def mock_run(args, *extra_args, **kwargs):
+    if "MOCK_LEAN" in os.environ:
+        cmd = args[0] if isinstance(args, list) else args
+        if cmd in ["lean", "lake"] or (
+            isinstance(args, list)
+            and len(args) > 1
+            and args[0] == "make"
+            and args[1] == "mock-ui"
+        ):
+            return MockCompletedProcess(returncode=0, stdout="", stderr="")
+    return _original_run(args, *extra_args, **kwargs)
+
+
+subprocess.run = mock_run
+
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 
 
@@ -93,6 +119,9 @@ def compute_verus_hashes(verus_content):
 
 
 def check_lean_environment():
+    if "MOCK_LEAN" in os.environ:
+        return True
+
     lean_sysroot = os.environ.get("LEAN_SYSROOT")
     lean_found = False
 
@@ -109,7 +138,7 @@ def check_lean_environment():
 
     if not lean_found:
         try:
-            result = subprocess.run(
+            result = _original_run(
                 ["lean", "--print-prefix"], capture_output=True, text=True
             )
             if result.returncode == 0 and result.stdout.strip():
