@@ -364,6 +364,59 @@ def main():
                 )
                 errors += 1
 
+        # 4. Check conjectural bounds constants in ManifestConstants.lean match bounds_manifest.json
+        manifest_constants_path = os.path.join(
+            base_dir, "lean4-proofs", "UALBF", "ManifestConstants.lean"
+        )
+        if os.path.exists(manifest_constants_path):
+            with open(manifest_constants_path, "r", encoding="utf-8") as f:
+                constants_content = f.read()
+
+            # Parse lean values
+            active_match = re.search(
+                r"def CONJECTURAL_ACTIVE\s*:\s*Bool\s*:=\s*(true|false)",
+                constants_content,
+            )
+            name_match = re.search(
+                r"def CONJECTURE_NAME\s*:\s*String\s*:=\s*\"(.*?)\"", constants_content
+            )
+            ceiling_match = re.search(
+                r"def CONJECTURAL_MAX_LOG10_CEILING\s*:\s*Nat\s*:=\s*(\d+)",
+                constants_content,
+            )
+
+            if active_match and name_match and ceiling_match:
+                lean_active = active_match.group(1) == "true"
+                lean_name = name_match.group(1)
+                lean_ceiling = int(ceiling_match.group(1))
+
+                # Get JSON values
+                json_conjectural = bounds_data.get("conjectural_bounds", {})
+                json_active = json_conjectural.get("active", False)
+                json_name = json_conjectural.get("conjecture_name", "")
+                json_ceiling = json_conjectural.get("target_max_log10_ceiling", 0)
+
+                if lean_active != json_active:
+                    print(
+                        f"Error: CONJECTURAL_ACTIVE mismatch! Lean: {lean_active}, JSON: {json_active}"
+                    )
+                    errors += 1
+                if lean_name != json_name:
+                    print(
+                        f"Error: CONJECTURE_NAME mismatch! Lean: '{lean_name}', JSON: '{json_name}'"
+                    )
+                    errors += 1
+                if lean_ceiling != json_ceiling:
+                    print(
+                        f"Error: CONJECTURAL_MAX_LOG10_CEILING mismatch! Lean: {lean_ceiling}, JSON: {json_ceiling}"
+                    )
+                    errors += 1
+            else:
+                print(
+                    "Error: Could not parse all conjectural constants from ManifestConstants.lean"
+                )
+                errors += 1
+
     if errors > 0:
         sys.exit(1)
     print("Metadata Verification Hub: All checks passed.")

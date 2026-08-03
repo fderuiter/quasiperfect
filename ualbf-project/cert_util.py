@@ -97,6 +97,8 @@ CORE_THEOREMS = [
     "UALBF.FFI.U512.w5_mk",
     "UALBF.FFI.U512.w6_mk",
     "UALBF.FFI.U512.w7_mk",
+    "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
+    "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
 ]
 
 

@@ -10,7 +10,8 @@ This report explicitly links implemented Rust functions to their corresponding L
 ## 2. Fixed-Point Scaling Logic
 - **Lean Theorem:** `scaleBoundCeil_conservative` in `lean4-proofs/UALBF/Pure/Fixed64.lean` (Provides the mathematical bridge proving that fixed-point integer rounding acts as a conservative upper bound for abstract rational multipliers)
 - **Verus Specification:** `scale_bound_spec` in `rust-engine/src/verus_proofs.rs`
-- **Rust Implementation:** `scale_bound_ceil` in `rust-engine/src/lean_ffi.rs`
+- **Verified Implementation:** `scale_bound_ceil` in `rust-engine/src/verus_proofs.rs`
+- **Runtime Gateway Function:** `try_scale_bound_ceil` in `rust-engine/src/lean_ffi.rs`
 
 ## 3. Epistemological Memory Boundary
 - **Lean FFI:** `verified_ualbf_compute_sigma` and `verified_ualbf_cyclotomic_eval`
