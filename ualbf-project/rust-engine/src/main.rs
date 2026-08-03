@@ -794,6 +794,7 @@ fn main() {
             config.deterministic_seed,
             Some(crate::manifest_constants::CONJECTURAL_ACTIVE),
             Some(crate::manifest_constants::CONJECTURE_NAME),
+            serde_json::to_value(&explored_ranges_out).ok(),
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (
