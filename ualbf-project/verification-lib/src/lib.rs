@@ -113,6 +113,7 @@ pub fn format_payload(
     is_conditional: Option<bool>,
     conjecture_name: Option<&str>,
     path_ranges: Option<serde_json::Value>,
+    verification_mode: Option<&str>,
 ) -> String {
     let mut map = std::collections::BTreeMap::new();
     map.insert(
@@ -173,6 +174,12 @@ pub fn format_payload(
     }
     if let Some(ranges) = path_ranges {
         map.insert("path_ranges", ranges);
+    }
+    if let Some(mode) = verification_mode {
+        map.insert(
+            "verification_mode",
+            serde_json::Value::String(mode.to_string()),
+        );
     }
 
     serde_json::to_string(&map).unwrap()
@@ -411,6 +418,8 @@ pub fn validate_certificate<'py>(
         .or_else(|| telemetry.get("explored_ranges"))
         .cloned();
 
+    let verification_mode = obj.get("verification_mode").and_then(|v| v.as_str());
+
     // Reconstruct payload
     let payload = format_payload(
         manifest_hash,
@@ -426,6 +435,7 @@ pub fn validate_certificate<'py>(
         is_conditional,
         conjecture_name,
         path_ranges,
+        verification_mode,
     );
 
     // Verify signature
@@ -711,6 +721,8 @@ pub extern "C" fn verify_certificate(
         .or_else(|| telemetry.get("explored_ranges"))
         .cloned();
 
+    let verification_mode = obj.get("verification_mode").and_then(|v| v.as_str());
+
     let payload = format_payload(
         manifest_hash,
         verified_logic_hash,
@@ -725,6 +737,7 @@ pub extern "C" fn verify_certificate(
         is_conditional,
         conjecture_name,
         path_ranges,
+        verification_mode,
     );
 
     let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);

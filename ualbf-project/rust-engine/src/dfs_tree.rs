@@ -261,7 +261,7 @@ pub fn phase2_and_4_fused(
                 sf
             },
             active_mask: backbone.compatibility_matrix[i].clone(),
-            sigma_mod24: (comp.sigma % Uint::from_u64(24)).as_u32(),
+            sigma_mod24: (comp.sigma % Uint::from_u32(24)).as_u32(),
         };
 
         explore_prefix(
@@ -1193,7 +1193,7 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
             dfs_ctx.saved_states.push(dfs_ctx.curr.capture_state());
             dfs_ctx.curr.n_l = next_n_l;
             dfs_ctx.curr.s_l = next_s_l;
-            dfs_ctx.curr.sigma_mod24 = (next_s_l % Uint::from_u64(24)).as_u32();
+            dfs_ctx.curr.sigma_mod24 = (next_s_l % Uint::from_u32(24)).as_u32();
             dfs_ctx.curr.last_idx = i + 1;
             dfs_ctx.curr.factors.push(comp.p);
             dfs_ctx

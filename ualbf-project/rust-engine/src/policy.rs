@@ -17,11 +17,36 @@ pub struct EngineConfig {
     pub sampling_rate: Option<f64>,
     pub deterministic_seed: Option<u64>,
     pub trial_division_limit: usize,
+    pub proof_mode: String,
 }
 
 use std::sync::OnceLock;
 
 static CONFIG: OnceLock<EngineConfig> = OnceLock::new();
+
+pub fn get_proof_mode() -> String {
+    if let Ok(m) = env::var("UALBF_PROOF_MODE") {
+        let m_lower = m.to_lowercase();
+        if m_lower == "pure" {
+            return "pure".to_string();
+        } else if m_lower == "axiomatic" {
+            return "axiomatic".to_string();
+        }
+    }
+    for arg in env::args() {
+        if arg.starts_with("--proof-mode=") {
+            let mode = arg.trim_start_matches("--proof-mode=");
+            if mode == "pure" {
+                return "pure".to_string();
+            } else if mode == "axiomatic" {
+                return "axiomatic".to_string();
+            }
+        } else if arg == "--pure-proofs" {
+            return "pure".to_string();
+        }
+    }
+    "axiomatic".to_string()
+}
 
 pub fn get_safe_config() -> &'static EngineConfig {
     CONFIG.get_or_init(|| parse_config())
@@ -101,6 +126,8 @@ pub fn parse_config() -> EngineConfig {
         .parse::<usize>()
         .expect("FATAL: UALBF_TRIAL_DIVISION_LIMIT must be a valid usize");
 
+    let proof_mode = get_proof_mode();
+
     let config = EngineConfig {
         target_min_log10,
         target_max_log10,
@@ -116,6 +143,7 @@ pub fn parse_config() -> EngineConfig {
         sampling_rate,
         deterministic_seed,
         trial_division_limit,
+        proof_mode,
     };
 
     if config.target_max_log10 < config.target_min_log10 {
@@ -218,5 +246,18 @@ mod tests {
             result.is_err(),
             "Expected panic when TRIAL_DIVISION_LIMIT exceeds limits"
         );
+    }
+
+    #[test]
+    fn test_get_proof_mode() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        env::set_var("UALBF_PROOF_MODE", "pure");
+        assert_eq!(get_proof_mode(), "pure");
+
+        env::set_var("UALBF_PROOF_MODE", "axiomatic");
+        assert_eq!(get_proof_mode(), "axiomatic");
+
+        env::remove_var("UALBF_PROOF_MODE");
+        assert_eq!(get_proof_mode(), "axiomatic");
     }
 }

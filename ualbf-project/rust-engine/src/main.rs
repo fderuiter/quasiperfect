@@ -122,6 +122,7 @@ struct Certificate {
     public_key: String,
     engine_version: String,
     commit_hash: String,
+    verification_mode: String,
 }
 
 #[cfg(test)]
@@ -256,6 +257,34 @@ mod tests {
             tel.prasad_sunitha_bound > 0,
             "prasad_sunitha_bound must be > 0"
         );
+    }
+
+    #[test]
+    fn test_certificate_verification_mode_serialization() {
+        let ps_bound = crate::lean_ffi::get_prasad_sunitha_bound() as u64;
+        let tel = sample_telemetry(7, ps_bound as usize);
+        let cert_citations = CertificateCitations {
+            target_min_log10: None,
+            baseline_min_prime_factors: None,
+            prasad_sunitha_bound: None,
+            euler_ceiling: None,
+        };
+        let cert = Certificate {
+            manifest_hash: "dummy_manifest_hash".to_string(),
+            verified_logic_hash: "dummy_logic_hash".to_string(),
+            verified_extension_hash: None,
+            is_conditional: false,
+            conjecture: None,
+            telemetry: tel,
+            citations: cert_citations,
+            signature: "dummy_sig".to_string(),
+            public_key: "dummy_pub".to_string(),
+            engine_version: "1.0.0".to_string(),
+            commit_hash: "dummy_commit".to_string(),
+            verification_mode: "pure".to_string(),
+        };
+        let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
+        assert_eq!(json_val["verification_mode"], "pure");
     }
 
     #[test]
@@ -398,6 +427,26 @@ fn main() {
     );
     println!("Ingested proof manifest: {}", manifest_hash);
 
+    if config.proof_mode == "pure" {
+        println!();
+        println!(
+            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        );
+        println!(
+            "! WARNING: PURE PROOFS MODE ACTIVE                                             !"
+        );
+        println!(
+            "! Hagis-Cohen 11-factor pruning is disabled. Falling back to proven bounds.    !"
+        );
+        println!(
+            "! The search space is significantly expanded and execution will be slower.      !"
+        );
+        println!(
+            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        );
+        println!();
+    }
+
     if crate::manifest_constants::CONJECTURAL_ACTIVE {
         println!();
         println!(
@@ -480,6 +529,7 @@ fn main() {
         let kw_list = [
             "pub spec fn ",
             "pub open spec fn ",
+            "pub uninterp spec fn ",
             "pub proof fn ",
             "pub fn ",
         ];
@@ -560,7 +610,7 @@ fn main() {
     }
 
     println!("Epistemological Linkage Verified.");
-    let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
+    let allowed_axioms: [&str; 0] = [];
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
         let expected_payload = format!("{}|{}|{}", thm.name, thm.file, thm.status);
@@ -799,6 +849,7 @@ fn main() {
             Some(crate::manifest_constants::CONJECTURAL_ACTIVE),
             Some(crate::manifest_constants::CONJECTURE_NAME),
             serde_json::to_value(&explored_ranges_out).ok(),
+            Some(&config.proof_mode),
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (
@@ -893,6 +944,7 @@ fn main() {
         public_key: public_key_hex,
         engine_version: env!("CARGO_PKG_VERSION").to_string(),
         commit_hash: option_env!("GIT_HASH").unwrap_or("unknown").to_string(),
+        verification_mode: config.proof_mode.clone(),
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");

@@ -54,7 +54,7 @@ pub fn generate_work_units(
             },
             sigma_factors: comp.sigma_factors.clone(),
             active_mask: backbone.compatibility_matrix[i].clone(),
-            sigma_mod24: (comp.sigma % Uint::from_u64(24)).as_u32(),
+            sigma_mod24: (comp.sigma % Uint::from_u32(24)).as_u32(),
         };
         expand_work_units(
             &mut curr,
