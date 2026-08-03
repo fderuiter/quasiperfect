@@ -8,6 +8,7 @@ import pytest
 
 from verify_cert import verify_certificate
 
+
 def test_check_lean_environment_missing_fails():
     """
     Test that when Lean is missing:
@@ -20,25 +21,25 @@ def test_check_lean_environment_missing_fails():
         tmp_path = Path(tmpdir)
         # Create a copy of auditor.py in a temp space or run it from the real path,
         # but change the current working directory to write proof_manifest.json inside the temp dir.
-        
+
         env = os.environ.copy()
         # Force Lean to be missing by unsetting LEAN_SYSROOT and clearing PATH to not have lean
-        env["LEAN_SYSROOT"] = "DUMMY" # non-existent or empty path
+        env["LEAN_SYSROOT"] = "DUMMY"  # non-existent or empty path
         # Filter path to remove anything that might contain lean
         new_path_parts = []
         for part in env.get("PATH", "").split(":"):
             if not os.path.exists(os.path.join(part, "lean")):
                 new_path_parts.append(part)
         env["PATH"] = ":".join(new_path_parts)
-        
+
         # Run auditor.py in tmpdir so it writes proof_manifest.json there
         auditor_path = Path("/app/ualbf-project/auditor.py").resolve()
-        
+
         # Copy bounds_manifest.json to tmpdir since auditor.py searches for it
         bounds_src = Path("/app/ualbf-project/bounds_manifest.json")
         bounds_dest = tmp_path / "bounds_manifest.json"
         bounds_dest.write_text(bounds_src.read_text())
-        
+
         res = subprocess.run(
             [sys.executable, str(auditor_path)],
             cwd=tmpdir,
@@ -46,22 +47,22 @@ def test_check_lean_environment_missing_fails():
             capture_output=True,
             text=True,
         )
-        
+
         # Must exit with code 1
         assert res.returncode == 1
-        
+
         # Stderr must contain descriptive warning
         assert "Lean 4 compiler toolchain not found" in res.stderr
         assert "The manifest has been tainted due to the missing compiler" in res.stderr
         assert "Manifest generation failed / tainted" in res.stderr
-        
+
         # Check the generated proof_manifest.json
         manifest_file = tmp_path / "proof_manifest.json"
         assert manifest_file.exists()
-        
+
         with open(manifest_file, "r") as f:
             manifest = json.load(f)
-            
+
         assert manifest.get("status") == "unverified"
         assert len(manifest.get("theorems", [])) > 0
         for thm in manifest["theorems"]:
@@ -79,23 +80,23 @@ def test_verify_cert_rejects_global_unverified_manifest(tmp_path):
                 "name": "SomeTheorem",
                 "file": "SomeFile.lean",
                 "status": "proven",
-                "checksum": "123"
+                "checksum": "123",
             }
         ],
-        "bounds_manifest_hash": "abc"
+        "bounds_manifest_hash": "abc",
     }
-    
+
     manifest_path = tmp_path / "proof_manifest.json"
     with open(manifest_path, "w") as f:
         json.dump(manifest, f)
-        
+
     cert_path = tmp_path / "formal_certificate.json"
     with open(cert_path, "w") as f:
         json.dump({"dummy": "cert"}, f)
-        
+
     with pytest.raises(SystemExit) as exc_info:
         verify_certificate(str(cert_path), str(manifest_path))
-        
+
     assert exc_info.value.code == 1
 
 
@@ -109,21 +110,21 @@ def test_verify_cert_rejects_theorem_unverified_manifest(tmp_path):
                 "name": "SomeTheorem",
                 "file": "SomeFile.lean",
                 "status": "unverified",
-                "checksum": "123"
+                "checksum": "123",
             }
         ],
-        "bounds_manifest_hash": "abc"
+        "bounds_manifest_hash": "abc",
     }
-    
+
     manifest_path = tmp_path / "proof_manifest.json"
     with open(manifest_path, "w") as f:
         json.dump(manifest, f)
-        
+
     cert_path = tmp_path / "formal_certificate.json"
     with open(cert_path, "w") as f:
         json.dump({"dummy": "cert"}, f)
-        
+
     with pytest.raises(SystemExit) as exc_info:
         verify_certificate(str(cert_path), str(manifest_path))
-        
+
     assert exc_info.value.code == 1
