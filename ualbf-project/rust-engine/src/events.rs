@@ -35,6 +35,7 @@ pub enum SearchEvent {
         total_branches: usize,
         ap: usize,
         rp: usize,
+        bp: usize,
     },
     RaycastDeferred {
         rem_str: String,
