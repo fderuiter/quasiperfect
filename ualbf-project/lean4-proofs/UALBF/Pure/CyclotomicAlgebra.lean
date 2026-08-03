@@ -3,7 +3,6 @@ import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.IntervalCases
-import Mathlib.Tactic.PushNeg
 
 lemma q_sq_le_two_pow (q : ℕ) (hq : 7 ≤ q) : q ^ 2 ≤ 2 ^ (q - 1) := by
   induction q, hq using Nat.le_induction with
@@ -26,9 +25,9 @@ lemma composite_bound_p_q (p q : ℕ) (hp : 3 ≤ p) (h_lt : p < q) :
     · exfalso; revert hp h_lt; decide
     · interval_cases p <;> decide
     · interval_cases p <;> decide
-  · push Not at hq7
+  · have hq7_ge : 7 ≤ q := by omega
     have hpq : p * q ≤ q ^ 2 := by nlinarith
-    have hq2 : q ^ 2 ≤ 2 ^ (q - 1) := q_sq_le_two_pow q hq7
+    have hq2 : q ^ 2 ≤ 2 ^ (q - 1) := q_sq_le_two_pow q hq7_ge
     have h_pow_p : 2 ^ p ≤ 2 ^ (q - 1) := Nat.pow_le_pow_right (by omega) (by omega)
     have h_part1 : p * q * 2 ^ p ≤ 2 ^ (2 * q - 2) := by
       calc p * q * 2 ^ p
