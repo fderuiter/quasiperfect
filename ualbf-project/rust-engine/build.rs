@@ -189,6 +189,63 @@ fn main() {
     let current_manifest_hash = hex::encode(hasher.finalize());
 
     let lean_export_path = PathBuf::from(&manifest_dir).join("src/lean_export.rs");
+
+    // --- REQUIREMENT 1 & 3: Schema Manifest Synchronization Guardrail ---
+    let schema_manifest_path = PathBuf::from(&manifest_dir).join("../schema_manifest.json");
+    if schema_manifest_path.exists() {
+        let schema_manifest_content =
+            fs::read_to_string(&schema_manifest_path).expect("Failed to read schema_manifest.json");
+        let mut hasher = Sha256::new();
+        hasher.update(schema_manifest_content.as_bytes());
+        let current_schema_hash = hex::encode(hasher.finalize());
+
+        // Check against schema_generated.rs
+        let schema_gen_path = PathBuf::from(&manifest_dir).join("src/schema_generated.rs");
+        if schema_gen_path.exists() {
+            let schema_gen_content =
+                fs::read_to_string(&schema_gen_path).expect("Failed to read schema_generated.rs");
+            if let Some(idx) = schema_gen_content.find("pub const EXPORTED_SCHEMA_MANIFEST_HASH") {
+                let rest = &schema_gen_content[idx..];
+                let start = rest.find('"').unwrap_or(0) + 1;
+                let end = rest[start..].find('"').unwrap_or(0) + start;
+                if start < end {
+                    let recorded_hash = &rest[start..end];
+                    if current_schema_hash != recorded_hash {
+                        panic!(
+                            "FATAL: Schema Manifest Synchronization Guardrail Triggered!\n\
+                             The contents of 'schema_manifest.json' have changed, but the generated types \
+                             have not been regenerated.\n\
+                             Current hash : {}\n\
+                             Recorded hash: {}\n\
+                             Please run `scripts/export_lean_specs.py` to update before building.",
+                             current_schema_hash, recorded_hash
+                        );
+                    }
+                }
+            }
+        }
+
+        // Check against ffi_generated.rs
+        let ffi_gen_path = PathBuf::from(&manifest_dir).join("src/ffi_generated.rs");
+        if ffi_gen_path.exists() {
+            let ffi_gen_content =
+                fs::read_to_string(&ffi_gen_path).expect("Failed to read ffi_generated.rs");
+            if let Some(idx) = ffi_gen_content.find("pub const EXPORTED_SCHEMA_MANIFEST_HASH") {
+                let rest = &ffi_gen_content[idx..];
+                let start = rest.find('"').unwrap_or(0) + 1;
+                let end = rest[start..].find('"').unwrap_or(0) + start;
+                if start < end {
+                    let recorded_hash = &rest[start..end];
+                    if current_schema_hash != recorded_hash {
+                        panic!(
+                            "FATAL: FFI bindings out of sync with schema manifest!\n\
+                             Please run `scripts/export_lean_specs.py` to update before building."
+                        );
+                    }
+                }
+            }
+        }
+    }
     if lean_export_path.exists() {
         let export_content =
             fs::read_to_string(&lean_export_path).expect("Failed to read lean_export.rs");
@@ -328,7 +385,7 @@ fn main() {
         panic!("FATAL: Configuration mismatch. The proof manifest bounds hash does not match current bounds_manifest.json hash.");
     }
 
-    let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
+    let allowed_axioms: [&str; 0] = [];
     for thm in &proof_manifest.theorems {
         if thm.status == "sorry"
             || thm.status == "unverified"
@@ -385,6 +442,7 @@ fn main() {
             let kw_list = [
                 "pub spec fn ",
                 "pub open spec fn ",
+                "pub uninterp spec fn ",
                 "pub proof fn ",
                 "pub fn ",
             ];

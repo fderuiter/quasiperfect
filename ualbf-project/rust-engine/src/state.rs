@@ -9,6 +9,7 @@ pub struct PrefixStateSnapshot {
     pub sigma_factors_len: usize,
     pub sigma_factors_u64_len: usize,
     pub active_mask: Vec<u64>,
+    pub sigma_mod24: u32,
 }
 
 impl Prefix {
@@ -23,6 +24,7 @@ impl Prefix {
             sigma_factors_len: self.sigma_factors.len(),
             sigma_factors_u64_len: self.sigma_factors_u64.len(),
             active_mask: self.active_mask.clone(),
+            sigma_mod24: self.sigma_mod24,
         }
     }
 
@@ -35,5 +37,6 @@ impl Prefix {
         self.sigma_factors.truncate(snap.sigma_factors_len);
         self.sigma_factors_u64.truncate(snap.sigma_factors_u64_len);
         self.active_mask = snap.active_mask.clone();
+        self.sigma_mod24 = snap.sigma_mod24;
     }
 }

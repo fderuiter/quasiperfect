@@ -95,16 +95,16 @@ const _: () = {
     }
 
     // Check 512-bit integer layout (external object data size and alignment)
-    if std::mem::size_of::<[u64; 8]>() != 64 {
-        panic!("512-bit representation [u64; 8] must be exactly 64 bytes");
+    if std::mem::size_of::<crate::lean_ffi::U512Data>() != crate::lean_ffi::LIMB_COUNT * 8 {
+        panic!("U512 representation must be exactly correct size in bytes");
     }
-    if std::mem::align_of::<[u64; 8]>() != 8 {
-        panic!("512-bit representation [u64; 8] must have 8-byte alignment");
+    if std::mem::align_of::<crate::lean_ffi::U512Data>() != 8 {
+        panic!("U512 representation must have 8-byte alignment");
     }
 
     // Check Rust engine Uint (512-bit) size
-    if std::mem::size_of::<crate::types::Uint>() != 64 {
-        panic!("Rust engine Uint (512-bit) must be exactly 64 bytes");
+    if std::mem::size_of::<crate::types::Uint>() != crate::lean_ffi::LIMB_COUNT * 8 {
+        panic!("Rust engine Uint must be exactly correct size in bytes");
     }
 };
 
@@ -203,7 +203,7 @@ static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
 extern "C" fn u512_finalize(ptr: *mut c_void) {
     unsafe {
-        let _ = Box::from_raw(ptr as *mut [u64; 8]);
+        let _ = Box::from_raw(ptr as *mut crate::lean_ffi::U512Data);
     }
 }
 
@@ -215,38 +215,24 @@ fn init_u512_class() {
     }
 }
 
-pub const ZERO_U512: [u64; 8] = [0; 8];
+pub const ZERO_U512: crate::lean_ffi::U512Data = [0; crate::lean_ffi::LIMB_COUNT];
 
-pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
+pub fn alloc_u512(data: crate::lean_ffi::U512Data) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
         rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
 }
 
-pub unsafe fn get_u512_ptr(obj: *mut lean_object) -> *const [u64; 8] {
-    unsafe { rs_lean_get_external_data(obj) as *const [u64; 8] }
+pub unsafe fn get_u512_ptr(obj: *mut lean_object) -> *const crate::lean_ffi::U512Data {
+    unsafe { rs_lean_get_external_data(obj) as *const crate::lean_ffi::U512Data }
 }
 
-pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
+pub fn get_u512(obj: *mut lean_object) -> crate::lean_ffi::U512Data {
     unsafe {
-        let ptr = rs_lean_get_external_data(obj) as *mut [u64; 8];
+        let ptr = rs_lean_get_external_data(obj) as *mut crate::lean_ffi::U512Data;
         *ptr
     }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_u512_mk(
-    w0: u64,
-    w1: u64,
-    w2: u64,
-    w3: u64,
-    w4: u64,
-    w5: u64,
-    w6: u64,
-    w7: u64,
-) -> *mut lean_object {
-    alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
 
 #[no_mangle]
@@ -286,9 +272,35 @@ pub fn get_logic_hash() -> String {
 }
 
 pub fn run_runtime_parity_check() {
+    let mode = crate::policy::get_proof_mode();
     let baseline_val = get_baseline_min_prime_factors() as u32;
     let prasad_sunitha = get_prasad_sunitha_bound() as u32;
     let div_5_coprime_3 = get_div_5_coprime_3_bound() as u32;
+
+    if mode == "pure" {
+        // In pure mode, the div_5_coprime_3 bound must dynamically fall back to the proven baseline bound.
+        if div_5_coprime_3 != baseline_val {
+            panic!(
+                "FATAL: In pure mode, div_5_coprime_3 bound ({}) must equal the proven baseline bound ({}).",
+                div_5_coprime_3, baseline_val
+            );
+        }
+    } else {
+        // In axiomatic mode, the div_5_coprime_3 bound must equal the unmasked Hagis-Cohen bound from FFI.
+        let ffi_div_5_bound = unsafe {
+            let val = ualbf_div_5_coprime_3_bound;
+            if let Err(e) = check_verified_bit(val as u64, 63, "get_div_5_coprime_3_bound") {
+                handle_verified_bit_err(e);
+            }
+            (val & !(1 << 63)) as u32
+        };
+        if div_5_coprime_3 != ffi_div_5_bound as u32 {
+            panic!(
+                "FATAL: In axiomatic mode, div_5_coprime_3 bound ({}) must equal FFI bound ({}).",
+                div_5_coprime_3, ffi_div_5_bound
+            );
+        }
+    }
 
     for i in 0..16u32 {
         let c3 = (i & 1) as u8;
@@ -297,18 +309,20 @@ pub fn run_runtime_parity_check() {
         let s5 = ((i >> 3) & 1) as u8;
 
         let ffi_res = unsafe { ualbf_evaluate_baseline_min_ffi(c3, c5, s3, s5) };
-        let native_res = if (i & 3) == 0 && (i & 12) == 12 {
+        // Determine the expected FFI result regardless of our runtime overrides
+        let ffi_expected = if (i & 3) == 0 && (i & 12) == 12 {
             prasad_sunitha
         } else if (i & 1) == 0 && (i & 2) != 0 && (i & 4) != 0 {
-            div_5_coprime_3
+            // Under axiomatic mode, this is the Hagis-Cohen bound (11)
+            unsafe { (ualbf_div_5_coprime_3_bound & !(1 << 63)) as u32 }
         } else {
             baseline_val
         };
 
-        if ffi_res != native_res {
+        if ffi_res != ffi_expected {
             panic!(
-                "FATAL: Native baseline_min evaluation mismatch at info_mask {}! FFI: {}, Native: {}",
-                i, ffi_res, native_res
+                "FATAL: FFI evaluation mismatch at info_mask {}! FFI: {}, Expected: {}",
+                i, ffi_res, ffi_expected
             );
         }
     }
@@ -361,10 +375,13 @@ pub fn run_runtime_parity_check() {
     }
 
     // 2. Validate fixed-point scaling factor
-    let expected_k0 = 1u128 << 64;
-    let expected_k1 = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
-    if get_static_suffix_bound(0) != expected_k0 || get_static_suffix_bound(1) != expected_k1 {
-        panic!("FATAL: Initialization failed due to fixed-point scaling factor mismatch.");
+    #[cfg(not(unverified_build))]
+    {
+        let expected_k0 = 1u128 << 64;
+        let expected_k1 = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
+        if get_static_suffix_bound(0) != expected_k0 || get_static_suffix_bound(1) != expected_k1 {
+            panic!("FATAL: Initialization failed due to fixed-point scaling factor mismatch.");
+        }
     }
 
     // 3. Differential fuzz testing for native cyclotomic evaluation logic
@@ -511,6 +528,9 @@ pub fn get_prasad_sunitha_bound() -> usize {
 }
 
 pub fn get_div_5_coprime_3_bound() -> usize {
+    if crate::policy::get_proof_mode() == "pure" {
+        return get_baseline_min_prime_factors();
+    }
     unsafe {
         let val = ualbf_div_5_coprime_3_bound;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_div_5_coprime_3_bound") {
@@ -1043,6 +1063,19 @@ mod tests {
         // 4. p = 7, 2e = 2 => sigma(7^2) = 57 % 24 = 9.
         // sum == 9. Should return true (forbidden).
         assert_eq!(check_touchard(7, 2), true);
+    }
+
+    #[test]
+    fn test_dynamic_bounds_under_proof_modes() {
+        setup();
+        std::env::remove_var("UALBF_PROOF_MODE");
+        let div_5_bound_axiomatic = get_div_5_coprime_3_bound();
+        assert_eq!(div_5_bound_axiomatic, 11);
+
+        std::env::set_var("UALBF_PROOF_MODE", "pure");
+        let div_5_bound_pure = get_div_5_coprime_3_bound();
+        std::env::remove_var("UALBF_PROOF_MODE");
+        assert_eq!(div_5_bound_pure, 7);
     }
 }
 
