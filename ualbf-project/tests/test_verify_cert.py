@@ -829,6 +829,73 @@ class TestConditionalCertificates:
         finally:
             os.environ.pop("UALBF_PROOF_MANIFEST", None)
 
+    def test_verify_conditional_cert_prints_warning(self, tmp_path, capsys):
+        """Verifying a conditional certificate prints a prominent warning message."""
+        manifest = make_manifest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
+        
+        cert = build_cert(manifest_hash)
+        cert["is_conditional"] = True
+        cert["conjecture"] = {
+            "conditional": True,
+            "conjecture_name": "ABC Conjecture",
+            "conjectural_max_log10_ceiling": 30
+        }
+        
+        # We need to manually format the payload for signing inside the test
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 35),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+            "is_conditional": True,
+            "conjecture_name": "ABC Conjecture"
+        }
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+        
+        cert_path = os.path.join(str(tmp_path), "formal_certificate.json")
+        manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
+        bounds_path = os.path.join(str(tmp_path), "bounds_manifest.json")
+        with open(cert_path, "w") as f:
+            json.dump(cert, f)
+        with open(manifest_path, "w") as f:
+            f.write(manifest_content)
+        with open(bounds_path, "wb") as f:
+            f.write(b'{"dummy": "bounds"}')
+            
+        manifest["bounds_manifest_hash"] = hashlib.sha256(b'{"dummy": "bounds"}').hexdigest()
+        with open(manifest_path, "w") as f:
+            f.write(json.dumps(manifest))
+            
+        # Re-sign with correct manifest hash
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+        cert["manifest_hash"] = manifest_hash
+        map_obj["manifest_hash"] = manifest_hash
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+        with open(cert_path, "w") as f:
+            json.dump(cert, f)
+
+        os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+        try:
+            verify_certificate(cert_path, manifest_path)
+            captured = capsys.readouterr()
+            assert "WARNING: THIS CERTIFICATE WAS GENERATED IN CONJECTURAL MODE!" in captured.out
+            assert "ABC Conjecture" in captured.out
+        finally:
+            os.environ.pop("UALBF_PROOF_MANIFEST", None)
+
 
 class TestPathContinuityValidation:
     def test_missing_path_ranges_field_fails(self, tmp_path):

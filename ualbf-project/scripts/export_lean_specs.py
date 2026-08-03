@@ -562,6 +562,9 @@ pub const TOUCHARD_MOD_24_RESIDUES: [u32; {len(touchard_residues)}] = [{', '.joi
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 
 #[cfg(verus_keep_ghost)]
+use vstd::prelude::*;
+
+#[cfg(verus_keep_ghost)]
 verus! {{
     pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
     pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = {prasad_proof};

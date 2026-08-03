@@ -105,6 +105,22 @@ def verify_certificate(cert_path, manifest_path):
         print(f"ERROR: {e}")
         sys.exit(1)
 
+    is_conditional = cert.get("is_conditional", False)
+    conjecture = cert.get("conjecture")
+    if is_conditional or (
+        conjecture
+        and (conjecture.get("conditional", False) or conjecture.get("conjecture_name"))
+    ):
+        conjecture_name = "Unknown"
+        if conjecture:
+            conjecture_name = conjecture.get("conjecture_name", "Unknown Conjecture")
+        print("\n" + "!" * 80)
+        print("! WARNING: THIS CERTIFICATE WAS GENERATED IN CONJECTURAL MODE!")
+        print(
+            f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'."
+        )
+        print("!" * 80 + "\n")
+
     with open(manifest_path, encoding="utf-8") as f:
         manifest_content = f.read()
 
@@ -419,6 +435,31 @@ if __name__ == "__main__":
             if "node_certificates" in content_json:
                 print("\n=== Verifying Meta-Certificate ===")
                 loaded_certs = content_json["node_certificates"]
+
+                is_conditional = content_json.get("is_conditional", False) or any(
+                    c.get("is_conditional", False) for c in loaded_certs
+                )
+                conjecture = content_json.get("conjecture")
+                if not conjecture:
+                    for c in loaded_certs:
+                        if c.get("conjecture"):
+                            conjecture = c.get("conjecture")
+                            break
+                if is_conditional or conjecture:
+                    conjecture_name = "Unknown"
+                    if conjecture:
+                        conjecture_name = conjecture.get(
+                            "conjecture_name", "Unknown Conjecture"
+                        )
+                    print("\n" + "!" * 80)
+                    print(
+                        "! WARNING: THIS META-CERTIFICATE CONTAINS CONJECTURAL CERTIFICATES!"
+                    )
+                    print(
+                        f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'."
+                    )
+                    print("!" * 80 + "\n")
+
                 check_continuity(loaded_certs)
                 for i, nc in enumerate(loaded_certs):
                     tmp = f"tmp_cert_{i}.json"
@@ -496,12 +537,21 @@ if __name__ == "__main__":
 
         agg_sigs = [c["signature"] for c in loaded_certs]
 
+        any_conditional = any(c.get("is_conditional", False) for c in loaded_certs)
+        conjecture_info = None
+        for c in loaded_certs:
+            if c.get("conjecture"):
+                conjecture_info = c.get("conjecture")
+                break
+
         master_cert = {
             "meta_manifest_hash": loaded_certs[0]["manifest_hash"],
             "aggregated_signatures": agg_sigs,
             "telemetry": agg_tel,
             "total_nodes": len(loaded_certs),
             "node_certificates": loaded_certs,
+            "is_conditional": any_conditional,
+            "conjecture": conjecture_info,
         }
 
         with open("meta_certificate.json", "w", encoding="utf-8") as f:

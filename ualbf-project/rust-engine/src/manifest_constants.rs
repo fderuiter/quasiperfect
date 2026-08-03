@@ -38,7 +38,7 @@ pub const RAYCAST_GPU_THRESHOLD: usize = 100000;
 #[cfg(not(verus_keep_ghost))]
 pub const RAYCAST_CHUNK_SIZE: usize = 10000000;
 #[cfg(not(verus_keep_ghost))]
-pub const CONJECTURAL_ACTIVE: bool = true;
+pub const CONJECTURAL_ACTIVE: bool = false;
 #[cfg(not(verus_keep_ghost))]
 pub const CONJECTURE_NAME: &str = "ABC Conjecture";
 #[cfg(not(verus_keep_ghost))]
@@ -48,7 +48,10 @@ pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
 #[cfg(not(verus_keep_ghost))]
 pub const TOUCHARD_MOD_24_RESIDUES: [u32; 2] = [3, 19];
 #[cfg(not(verus_keep_ghost))]
-pub const MANIFEST_HASH: &str = "5451fb32e952c793c653a6f5dc31ec017868bb47e86db5761115b508b2fe2137";
+pub const MANIFEST_HASH: &str = "741628feffcdf13d09e4f7bdb8165c3a8d40793ae2a64fd86e30de2532c127c8";
+
+#[cfg(verus_keep_ghost)]
+use vstd::prelude::*;
 
 #[cfg(verus_keep_ghost)]
 verus! {
@@ -71,8 +74,8 @@ verus! {
     pub const OVERFLOW_THRESHOLD_DEN: u64 = 1000000;
     pub const RAYCAST_GPU_THRESHOLD: usize = 100000;
     pub const RAYCAST_CHUNK_SIZE: usize = 10000000;
-    pub const CONJECTURAL_ACTIVE: bool = true;
+    pub const CONJECTURAL_ACTIVE: bool = false;
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
     pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
-    pub const MANIFEST_HASH: &'static str = "5451fb32e952c793c653a6f5dc31ec017868bb47e86db5761115b508b2fe2137";
+    pub const MANIFEST_HASH: &'static str = "741628feffcdf13d09e4f7bdb8165c3a8d40793ae2a64fd86e30de2532c127c8";
 }
