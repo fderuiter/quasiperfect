@@ -223,6 +223,9 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
             "target_max_log10_ceiling", 0
         )
 
+        crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
+        crt_moduli = bounds["crt_obstruction"]["moduli"]
+
         prime_split_threshold = (
             bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
         )
@@ -270,6 +273,7 @@ verus! {{
     pub open spec fn lean_raycast_chunk_size() -> nat {{ {raycast_chunk_size} }}
     pub open spec fn lean_conjectural_active() -> bool {{ {str(conjectural_active).lower()} }}
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat {{ {conjectural_max_log10_ceiling} }}
+    pub open spec fn lean_crt_modulus_product() -> nat {{ {crt_modulus_product} }}
 
     pub open spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
     pub open spec fn lean_hagis1982_offset() -> nat {{ {hagis1982_offset} }}
@@ -359,6 +363,10 @@ verus! {{
 
     pub proof fn prove_conjectural_max_log10_ceiling_equivalence()
         ensures (crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING as nat) == lean_conjectural_max_log10_ceiling()
+    {{}}
+
+    pub proof fn prove_crt_modulus_product_equivalence()
+        ensures (crate::manifest_constants::CRT_MODULUS_PRODUCT as nat) == lean_crt_modulus_product()
     {{}}
 
     pub proof fn prove_combined_bounds() {{
@@ -670,6 +678,9 @@ def main():
         touchard_mod = bounds["touchard_mod_24"]["modulus"]
         touchard_residues = bounds["touchard_mod_24"]["residues"]
 
+        crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
+        crt_moduli = bounds["crt_obstruction"]["moduli"]
+
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 #[cfg(not(verus_keep_ghost))]
 pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
@@ -720,6 +731,10 @@ pub const TOUCHARD_MOD_24_MODULUS: u32 = {touchard_mod};
 #[cfg(not(verus_keep_ghost))]
 pub const TOUCHARD_MOD_24_RESIDUES: [u32; {len(touchard_residues)}] = [{', '.join(map(str, touchard_residues))}];
 #[cfg(not(verus_keep_ghost))]
+pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
+#[cfg(not(verus_keep_ghost))]
+pub const CRT_MODULI: [u32; {len(crt_moduli)}] = [{', '.join(map(str, crt_moduli))}];
+#[cfg(not(verus_keep_ghost))]
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 
 #[cfg(verus_keep_ghost)]
@@ -749,6 +764,7 @@ verus! {{
     pub const CONJECTURAL_ACTIVE: bool = {str(conjectural_active).lower()};
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = {conjectural_max_log10};
     pub const TOUCHARD_MOD_24_MODULUS: u32 = {touchard_mod};
+    pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
     pub const MANIFEST_HASH: &'static str = "{bounds_hash}";
 }}
 """
@@ -782,6 +798,9 @@ verus! {{
 #define TOUCHARD_MOD_24_MODULUS {touchard_mod}
 #define TOUCHARD_MOD_24_RESIDUES_LEN {len(touchard_residues)}
 #define TOUCHARD_MOD_24_RESIDUES {{ {', '.join(map(str, touchard_residues))} }}
+#define CRT_MODULUS_PRODUCT {crt_modulus_product}
+#define CRT_MODULI_LEN {len(crt_moduli)}
+#define CRT_MODULI {{ {', '.join(map(str, crt_moduli))} }}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"
@@ -818,6 +837,9 @@ def CONJECTURAL_MAX_LOG10_CEILING : Nat := {conjectural_max_log10}
 
 def TOUCHARD_MOD_24_MODULUS : Nat := {touchard_mod}
 def TOUCHARD_MOD_24_RESIDUES : Array Nat := #[{', '.join(map(str, touchard_residues))}]
+
+def CRT_MODULUS_PRODUCT : Nat := {crt_modulus_product}
+def CRT_MODULI : Array Nat := #[{', '.join(map(str, crt_moduli))}]
 
 def PRIME_FACTOR_LIST : Array Nat := #[{', '.join(map(str, bounds.get('prime_factor_list', [])))}]
 def STATIC_SUFFIX_BOUNDS : Array Nat := #[{', '.join(map(str, bounds.get('static_suffix_bounds', [])))}]

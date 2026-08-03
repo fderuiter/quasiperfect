@@ -355,6 +355,16 @@
     "conjecture_name": "ABC Conjecture",
     "target_max_log10_ceiling": 30
   },
+  "crt_obstruction": {
+    "moduli": [
+      3,
+      5,
+      7,
+      11
+    ],
+    "modulus_product": 1155,
+    "is_axiomatic": false
+  },
   "touchard_mod_24": {
     "modulus": 24,
     "residues": [
