@@ -376,6 +376,27 @@ fn main() {
     );
     println!("Ingested proof manifest: {}", manifest_hash);
 
+    if crate::manifest_constants::CONJECTURAL_ACTIVE {
+        println!();
+        println!(
+            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        );
+        println!(
+            "! WARNING: CONJECTURAL MODE IS ACTIVATED                                       !"
+        );
+        println!(
+            "! The search is running with conjectural limits ({}).                         !",
+            crate::manifest_constants::CONJECTURE_NAME
+        );
+        println!(
+            "! Any generated exhaustion certificates are conditional and NOT absolute.      !"
+        );
+        println!(
+            "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        );
+        println!();
+    }
+
     // Hash the verified search logic (Verus proofs + core logic)
     let verified_logic_hash = verification_lib::compute_core_tcb_hash_at_compile_time!();
     println!("Verified core search logic hash: {}", verified_logic_hash);
