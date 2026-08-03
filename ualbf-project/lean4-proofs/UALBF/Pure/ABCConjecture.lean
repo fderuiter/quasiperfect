@@ -4,6 +4,10 @@ import UALBF.Basic
 
 namespace UALBF.Pure.ABCConjecture
 
+/-- Axiomatic/conjectural power function for rational numbers to support parameterized formulations. -/
+noncomputable instance : HPow ℚ ℚ ℚ where
+  hPow a _ := a
+
 /-- radical of a natural number. -/
 def radical (n : ℕ) : ℕ := n
 
@@ -33,7 +37,10 @@ theorem qpn_conjectural_pruning_sound
     (h_gt : (N : ℚ) > (10^30 : ℚ)) :
     ¬ IsQuasiperfect N := by
   intro h_qpn
-  have h_c_le_10_30 := derive_conjectural_ceiling ε K h_abc a b N ha hb h_coprime h_sum h_bound
+  have h_bound' : K * (radical (a * b * N) : ℚ) ^ (1 + ε) ≤ (10^30 : ℚ) := by
+    rw [← h_sum]
+    exact h_bound
+  have h_c_le_10_30 := derive_conjectural_ceiling ε K h_abc a b N ha hb h_coprime h_sum h_bound'
   linarith
 
 end UALBF.Pure.ABCConjecture
