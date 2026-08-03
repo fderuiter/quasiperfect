@@ -149,9 +149,21 @@
       "file": "UALBF/FFI.lean",
       "status": "proven",
       "checksum": "bd062f026a2936ce04aebdea3ad5519441b93431ddeab5ed1f0bce637de6478a"
+    },
+    {
+      "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "status": "proven",
+      "checksum": "8e1dd42f1e492691d3ff257665ff9b4aace7bcfa3f9e06c8ca92bc687a636989"
+    },
+    {
+      "name": "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "status": "proven",
+      "checksum": "1d7199c053041e84937a409c14efb2d25c44f2d98cae0d9b48d5adf867c95ba9"
     }
   ],
-  "verified_logic_hash": "27896648f152119462aa93836f3bb1b1f589a512cfc0c7c9626d43ac54d04f30",
+  "verified_logic_hash": "4c84a16861dd8e4b2ad4248fae34d8e7c0abe8b623e7a27a3959277a0326f690",
   "verified_extension_hash": "7bd7368cae12f582cfab7e738e4c38bbad5fa4957ed6f631fab9b857b1a57345",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -205,7 +217,7 @@
   "proof_files": [
     {
       "file": "UALBF.lean",
-      "checksum": "8b3964f221c4f874df1ad777941b837a56fba905e0aaac5f7273fbec190f38b2"
+      "checksum": "edf7ac6534d96bc526f538e87acae15512453f2fbd11ed9c8fa67f14a859d453"
     },
     {
       "file": "UALBF/Basic.lean",
@@ -245,11 +257,15 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "3b13e64dbce163574fc48ef2f9873f44af321f9977aa3f6c045ef55b2245ad2f"
+      "checksum": "a5272ef0313b43650df912cdc0e181d7055b631d0c1457fe2af87bb9fb74409b"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
       "checksum": "4bb8c5bb01e722771c7a2649c7f3482f87801aee6c15a006abb1354abf7ac9d4"
+    },
+    {
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "checksum": "c4987bcbbba0bbc8c99e3ba8020780822d8582342f2332df90047fd9e3450ccf"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",
