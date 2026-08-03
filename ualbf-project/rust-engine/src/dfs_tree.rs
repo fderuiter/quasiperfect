@@ -168,6 +168,7 @@ pub struct DfsTelemetry {
     pub raycast_pruned: usize,
     pub search_space_density: f64,
     pub math_interruptions: usize,
+    pub boundary_pruned: usize,
 }
 
 pub fn phase2_and_4_fused(
@@ -195,6 +196,7 @@ pub fn phase2_and_4_fused(
     let count = AtomicUsize::new(0);
     let pruned_count = AtomicUsize::new(0);
     let abundance_pruned = AtomicUsize::new(0);
+    let boundary_pruned = AtomicUsize::new(0);
     let completed_weight_scaled = AtomicUsize::new(0);
     let math_interruptions = AtomicUsize::new(0);
     let total_weight_scaled: usize = components
@@ -274,6 +276,7 @@ pub fn phase2_and_4_fused(
             &count,
             &pruned_count,
             &abundance_pruned,
+            &boundary_pruned,
             &completed_weight_scaled,
             &math_interruptions,
             total_weight_scaled,
@@ -298,6 +301,7 @@ pub fn phase2_and_4_fused(
     let ap = abundance_pruned.load(Ordering::Relaxed);
     let total_branches = count.load(Ordering::Relaxed);
     let rp = pruned_count.load(Ordering::Relaxed);
+    let bp = boundary_pruned.load(Ordering::Relaxed);
     drop(trace_tx);
     drop(trace_writer.sender);
     let _ = trace_writer.handle.join();
@@ -307,6 +311,7 @@ pub fn phase2_and_4_fused(
             total_branches,
             ap,
             rp,
+            bp,
         });
     }
     DfsTelemetry {
@@ -315,6 +320,7 @@ pub fn phase2_and_4_fused(
         raycast_pruned: rp,
         search_space_density: density,
         math_interruptions: math_interruptions.load(Ordering::Relaxed),
+        boundary_pruned: bp,
     }
 }
 
@@ -854,6 +860,7 @@ pub fn explore_prefix(
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
+    boundary_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
     math_interruptions: &AtomicUsize,
     total_weight_scaled: usize,
@@ -878,6 +885,7 @@ pub fn explore_prefix(
         count,
         pruned_count,
         abundance_pruned,
+        boundary_pruned,
         completed_weight_scaled,
         math_interruptions,
         total_weight_scaled,
@@ -887,8 +895,8 @@ pub fn explore_prefix(
         reporter,
         max_idx_3,
         max_idx_5,
-        &lazy_cache,
-        &backbone,
+        lazy_cache,
+        backbone,
         trace_tx,
         start_bound,
         end_bound,
@@ -906,6 +914,7 @@ fn explore_prefix_sequential(
     count: &AtomicUsize,
     pruned_count: &AtomicUsize,
     abundance_pruned: &AtomicUsize,
+    boundary_pruned: &AtomicUsize,
     completed_weight_scaled: &AtomicUsize,
     math_interruptions: &AtomicUsize,
     total_weight_scaled: usize,
@@ -932,6 +941,7 @@ fn explore_prefix_sequential(
         count,
         pruned_count,
         abundance_pruned,
+        boundary_pruned,
         completed_weight_scaled,
         math_interruptions,
         total_weight_scaled,
@@ -1054,6 +1064,7 @@ pub struct DfsContext<'a> {
     pub count: &'a AtomicUsize,
     pub pruned_count: &'a AtomicUsize,
     pub abundance_pruned: &'a AtomicUsize,
+    pub boundary_pruned: &'a AtomicUsize,
     pub completed_weight_scaled: &'a AtomicUsize,
     pub math_interruptions: &'a AtomicUsize,
     pub total_weight_scaled: usize,
@@ -1151,6 +1162,7 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
         }
 
         if !is_valid {
+            dfs_ctx.boundary_pruned.fetch_add(1, Ordering::Relaxed);
             return false;
         }
     }
@@ -1336,6 +1348,7 @@ mod tests {
             let abundance_pruned = AtomicUsize::new(0);
             let completed_weight_scaled = AtomicUsize::new(0);
             let math_interruptions = AtomicUsize::new(0);
+            let boundary_pruned = AtomicUsize::new(0);
             let active_primes = make_active_primes();
             let sigma_cache: crate::math_utils::SigmaCache = HashMap::new();
             let stop_threshold = Uint::from_u128(u128::MAX);
@@ -1358,6 +1371,7 @@ mod tests {
                 count: &count,
                 pruned_count: &pruned_count,
                 abundance_pruned: &abundance_pruned,
+                boundary_pruned: &boundary_pruned,
                 completed_weight_scaled: &completed_weight_scaled,
                 math_interruptions: &math_interruptions,
                 total_weight_scaled: 1000,
@@ -1725,6 +1739,39 @@ mod tests {
                 let pushed = __rust_dfs_try_push(ptr, 0);
                 assert!(pushed, "n_l * val == bound should succeed (<=)");
                 assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
+            }
+        );
+    }
+
+    #[test]
+    fn test_try_push_range_pruned_boundary_counter() {
+        let mut curr = make_prefix(1, 1, 0);
+        let p7 = make_prime_power(7, 49, 57);
+        let comps = vec![p7];
+        let tb = Uint::from_u64(100);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                // Set start_bound to something larger, e.g., [11]
+                let start_bound_data = vec![11];
+                (*(ptr as *mut DfsContext)).start_bound = Some(&start_bound_data);
+
+                // Assert that try_push returns false due to boundary pruning
+                let pushed = __rust_dfs_try_push(ptr, 0);
+                assert!(!pushed);
+
+                // Assert that the boundary_pruned counter was incremented to 1
+                assert_eq!(
+                    (*(ptr as *const DfsContext))
+                        .boundary_pruned
+                        .load(Ordering::Relaxed),
+                    1
+                );
             }
         );
     }
