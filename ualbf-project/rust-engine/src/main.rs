@@ -480,6 +480,7 @@ fn main() {
         let kw_list = [
             "pub spec fn ",
             "pub open spec fn ",
+            "pub uninterp spec fn ",
             "pub proof fn ",
             "pub fn ",
         ];
@@ -560,7 +561,7 @@ fn main() {
     }
 
     println!("Epistemological Linkage Verified.");
-    let allowed_axioms = ["UALBF.FFI.rust_is_prime_sound"];
+    let allowed_axioms: [&str; 0] = [];
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
         let expected_payload = format!("{}|{}|{}", thm.name, thm.file, thm.status);

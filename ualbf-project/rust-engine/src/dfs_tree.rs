@@ -261,6 +261,7 @@ pub fn phase2_and_4_fused(
                 sf
             },
             active_mask: backbone.compatibility_matrix[i].clone(),
+            sigma_mod24: (comp.sigma % Uint::from_u32(24)).as_u32(),
         };
 
         explore_prefix(
@@ -1302,6 +1303,7 @@ mod tests {
             sigma_factors: vec![],
             sigma_factors_u64: vec![],
             active_mask: vec![],
+            sigma_mod24: (s_l % 24) as u32,
         }
     }
 
