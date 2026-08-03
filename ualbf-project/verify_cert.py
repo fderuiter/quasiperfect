@@ -99,6 +99,22 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest_to_check = json.load(f)
+    except Exception as e:
+        print(f"ERROR: Failed to parse manifest JSON: {e}")
+        sys.exit(1)
+
+    if manifest_to_check.get("status") == "unverified":
+        print("ERROR: Manifest is tainted with 'unverified' status (Lean compiler was missing during generation).")
+        sys.exit(1)
+
+    for thm in manifest_to_check.get("theorems", []):
+        if thm.get("status") == "unverified":
+            print(f"ERROR: Theorem '{thm['name']}' is unverified in manifest.")
+            sys.exit(1)
+
+    try:
         os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
         cert = cert_util.load_and_validate_cert(cert_path)
     except cert_util.CertificateError as e:
@@ -192,6 +208,10 @@ def verify_certificate(cert_path, manifest_path):
 
     manifest = json.loads(manifest_content)
 
+    if manifest.get("status") == "unverified":
+        print("ERROR: Manifest is tainted with 'unverified' status (Lean compiler was missing during generation).")
+        sys.exit(1)
+
     bounds_manifest_hash = manifest.get("bounds_manifest_hash")
     if bounds_manifest_hash:
         bounds_path = os.path.join(
@@ -271,7 +291,7 @@ def verify_certificate(cert_path, manifest_path):
     sorries = [
         thm
         for thm in manifest.get("theorems", [])
-        if thm["status"] in ("sorry", "axiom") and thm["name"] not in allowed_axioms
+        if thm["status"] in ("sorry", "axiom", "unverified") and thm["name"] not in allowed_axioms
     ]
 
     print("\n--- Manifest Summary ---")
@@ -280,7 +300,7 @@ def verify_certificate(cert_path, manifest_path):
 
     if sorries:
         print(
-            "WARNING: The formal proof is incomplete! The following theorems contain 'sorry' or 'axiom':"
+            "WARNING: The formal proof is incomplete! The following theorems contain 'sorry' or 'axiom' or 'unverified':"
         )
         for thm in sorries:
             print(f"  - {thm['name']} in {thm['file']} (Status: {thm['status']})")
