@@ -163,7 +163,7 @@
       "checksum": "1d7199c053041e84937a409c14efb2d25c44f2d98cae0d9b48d5adf867c95ba9"
     }
   ],
-  "verified_logic_hash": "4c84a16861dd8e4b2ad4248fae34d8e7c0abe8b623e7a27a3959277a0326f690",
+  "verified_logic_hash": "7ed1fba9f84251ba92d873d1c8fd94a0cb2d99d65c99512fd167c0a6623aa8f9",
   "verified_extension_hash": "7bd7368cae12f582cfab7e738e4c38bbad5fa4957ed6f631fab9b857b1a57345",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -204,6 +204,13 @@
     "scale_bound_spec": "def035629b1ef362535899872bea3405160c6b7f3836dd9f4b267f7634c12d03",
     "scale_bound_ceil": "209ae501b1cf4f71b3b81e6a00cabcdc8e5fc1472d8c16d80f401d3e49c340bf",
     "try_scale_bound_ceil": "b557cc466b504830ce067946b3541e2741a904d4ae14659ec620f39ae02e5020",
+    "prime_factors": "7aaec2c92cf85360eef84f62efea4c5853ead314001cb136f3f3434976666e91",
+    "disjoint_factor_sets": "67f57ef0b67f0ea8774630767795705c4cd897014ff82f26178d6358902ddae2",
+    "sigma_spec_val": "d9a7fb2dbe4e4d37f1c9752a6aac71abab205b37829db533cfa0ce8355ac8ae8",
+    "lemma_sigma_multiplicative": "e5a0eb59ed740c0608f7464e8076cf9a6938711b4532d7b5db353c65c86e7bf8",
+    "lemma_coprime_implies_multiplicative_nonlinear": "3f83199ee284d4372f8742bee07b3240d22b0a0d28299f473a3220576b7645a8",
+    "lemma_coprime_implies_multiplicative": "43dc1ca8a2341b479a646e0f777e803822f2f83d74f1047e362b1b7d9bd73a54",
+    "lemma_disjoint_by_construction": "7c9915242c5363d0d746cf738fcc8d5a645e83a0a97b4c81cb5803a5606c497e",
     "lean_abundancy_starvation_theorem": "3f4300e9de5e8e30ef5786aef95f510ca2fdd189fc24e155441bfa357c7ea366",
     "verify_starvation_pruning": "3fe33985a5f6827b419338c23cc10bb0e50ea2d8bb4dc4ce39c1ccc6a8e95e9c",
     "rns512_gcd_spec": "326bf8dad421fb30d03432967c2fa2e50077f926b6b04d96fed84e8ac39fede6",
