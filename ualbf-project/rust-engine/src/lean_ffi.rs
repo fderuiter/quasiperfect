@@ -401,6 +401,10 @@ pub fn check_mod_9(p: u64, two_e: u32) -> bool {
     unsafe { ualbf_check_mod_9(p, two_e) != 0 }
 }
 
+pub fn check_touchard(p: u64, two_e: u32) -> bool {
+    unsafe { ualbf_check_touchard(p, two_e) != 0 }
+}
+
 pub fn try_scale_bound_ceil(bound: u128, p: u128) -> Result<u128, FfiError> {
     if p <= 1 {
         return Err(FfiError::DivisionByZero);
@@ -979,6 +983,26 @@ mod tests {
         let p = u64::MAX;
         let pow = 100;
         let _ = compute_sigma(p, pow);
+    }
+
+    #[test]
+    fn test_check_touchard_cases() {
+        setup();
+        // 1. p = 3, 2e = 2 => sigma(3^2) = 13 % 24 = 13.
+        // sum % 2 != 0 and sum != 9. Should return false (not forbidden).
+        assert_eq!(check_touchard(3, 2), false);
+
+        // 2. p = 5, 2e = 2 => sigma(5^2) = 31 % 24 = 7.
+        // Should return false (not forbidden).
+        assert_eq!(check_touchard(5, 2), false);
+
+        // 3. p = 3, 2e = 1 => sigma(3^1) = 4 % 24 = 4.
+        // sum % 2 == 0. Should return true (forbidden).
+        assert_eq!(check_touchard(3, 1), true);
+
+        // 4. p = 7, 2e = 2 => sigma(7^2) = 57 % 24 = 9.
+        // sum == 9. Should return true (forbidden).
+        assert_eq!(check_touchard(7, 2), true);
     }
 }
 
