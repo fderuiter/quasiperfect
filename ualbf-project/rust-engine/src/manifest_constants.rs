@@ -48,7 +48,11 @@ pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
 #[cfg(not(verus_keep_ghost))]
 pub const TOUCHARD_MOD_24_RESIDUES: [u32; 2] = [3, 19];
 #[cfg(not(verus_keep_ghost))]
-pub const MANIFEST_HASH: &str = "741628feffcdf13d09e4f7bdb8165c3a8d40793ae2a64fd86e30de2532c127c8";
+pub const CRT_MODULUS_PRODUCT: u32 = 1155;
+#[cfg(not(verus_keep_ghost))]
+pub const CRT_MODULI: [u32; 4] = [3, 5, 7, 11];
+#[cfg(not(verus_keep_ghost))]
+pub const MANIFEST_HASH: &str = "03621939f943cbd2642ccdcaa31840dbf415ebd424ded3d35012f277c0568c90";
 
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
@@ -77,5 +81,6 @@ verus! {
     pub const CONJECTURAL_ACTIVE: bool = false;
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
     pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
-    pub const MANIFEST_HASH: &'static str = "741628feffcdf13d09e4f7bdb8165c3a8d40793ae2a64fd86e30de2532c127c8";
+    pub const CRT_MODULUS_PRODUCT: u32 = 1155;
+    pub const MANIFEST_HASH: &'static str = "03621939f943cbd2642ccdcaa31840dbf415ebd424ded3d35012f277c0568c90";
 }

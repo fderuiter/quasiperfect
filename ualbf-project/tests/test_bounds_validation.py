@@ -23,6 +23,8 @@ def test_specification_parity():
     div_5_gap = bounds["omega_bounds"]["div_5_coprime_3"]["engine_justified_gap"]
     div_5_combined = div_5_proof + div_5_gap
 
+    crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
+
     # 2. Parse manifest_constants.rs (active engine constants)
     constants_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -59,6 +61,9 @@ def test_specification_parity():
     assert (
         engine_constants.get("BASELINE_MIN_PRIME_FACTORS") == hagis_combined
     ), "Active constant mismatch for Hagis combined bound"
+    assert (
+        engine_constants.get("CRT_MODULUS_PRODUCT") == crt_modulus_product
+    ), "Active constant mismatch for CRT modulus product"
 
     # 3. Parse lean_export.rs (generated specifications)
     specs_path = os.path.join(
@@ -108,3 +113,6 @@ def test_specification_parity():
     assert (
         spec_constants.get("lean_hagis1982_combined") == hagis_combined
     ), "Spec mismatch for Hagis combined bound"
+    assert (
+        spec_constants.get("lean_crt_modulus_product") == crt_modulus_product
+    ), "Spec mismatch for CRT modulus product"

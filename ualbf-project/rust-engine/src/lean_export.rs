@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "741628feffcdf13d09e4f7bdb8165c3a8d40793ae2a64fd86e30de2532c127c8";
+    "03621939f943cbd2642ccdcaa31840dbf415ebd424ded3d35012f277c0568c90";
 
 use vstd::prelude::*;
 
@@ -27,6 +27,7 @@ verus! {
     pub open spec fn lean_raycast_chunk_size() -> nat { 10000000 }
     pub open spec fn lean_conjectural_active() -> bool { false }
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat { 30 }
+    pub open spec fn lean_crt_modulus_product() -> nat { 1155 }
 
     pub open spec fn lean_hagis1982_min_prime_factors() -> nat { 7 }
     pub open spec fn lean_hagis1982_offset() -> nat { 0 }
@@ -116,6 +117,10 @@ verus! {
 
     pub proof fn prove_conjectural_max_log10_ceiling_equivalence()
         ensures (crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING as nat) == lean_conjectural_max_log10_ceiling()
+    {}
+
+    pub proof fn prove_crt_modulus_product_equivalence()
+        ensures (crate::manifest_constants::CRT_MODULUS_PRODUCT as nat) == lean_crt_modulus_product()
     {}
 
     pub proof fn prove_combined_bounds() {
