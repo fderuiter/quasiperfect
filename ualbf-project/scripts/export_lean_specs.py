@@ -6,17 +6,20 @@ import json
 import re
 
 
-def generate_rust_types(schema, repo_root):
+def generate_rust_types(schema, repo_root, schema_hash):
     # We will generate a file src/schema_generated.rs in rust-engine
     rust_path = os.path.join(repo_root, "rust-engine", "src", "schema_generated.rs")
 
     with open(rust_path, "w", encoding="utf-8") as f:
         f.write("// AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
+        f.write(f'pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str = "{schema_hash}";\n\n')
         f.write("use crate::types::Uint;\n")
         f.write("use smallvec::SmallVec;\n")
         f.write("use serde::{Serialize, Deserialize};\n\n")
 
         for struct_name, struct_def in schema.items():
+            if "fields" not in struct_def:
+                continue
             fields = struct_def["fields"]
 
             # 1. Rust Struct (e.g. Prefix)
@@ -77,9 +80,13 @@ def generate_rust_types(schema, repo_root):
                     if "ffi_transport_type" in field:
                         ffi_t = field["ffi_transport_type"]
                         if ffi_t == "U512":
-                            f.write(f"    pub {field['name']}: [u64; 8],\n")
+                            f.write(
+                                f"    pub {field['name']}: crate::lean_ffi::U512Data,\n"
+                            )
                         elif ffi_t == "Array U512":
-                            f.write(f"    pub {field['name']}: *const [u64; 8],\n")
+                            f.write(
+                                f"    pub {field['name']}: *const crate::lean_ffi::U512Data,\n"
+                            )
                             f.write(f"    pub {field['name']}_len: usize,\n")
                         else:
                             f.write(f"    pub {field['name']}: {ffi_t},\n")
@@ -106,7 +113,7 @@ def generate_rust_types(schema, repo_root):
                                 f"                let bytes = self.{field['name']}.to_le_bytes();\n"
                             )
                             f.write(
-                                "                crate::lean_ffi::bytes_to_words::<64, 8>(&bytes)\n"
+                                "                crate::lean_ffi::bytes_to_words::<{crate::lean_ffi::LIMB_COUNT * 8}, {crate::lean_ffi::LIMB_COUNT}>(&bytes)\n"
                             )
                             f.write("            },\n")
                         elif ffi_t == "Array U512":
@@ -148,6 +155,8 @@ def generate_lean_types(schema, repo_root):
         f.write("namespace UALBF.Engine\n\n")
 
         for struct_name, struct_def in schema.items():
+            if "fields" not in struct_def:
+                continue
             fields = struct_def["fields"]
             f.write(f"structure {struct_name} where\n")
             for field in fields:
@@ -210,15 +219,23 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
             "is_axiomatic", False
         )
         conjectural_active = bounds.get("conjectural_bounds", {}).get("active", False)
-        conjectural_max_log10_ceiling = bounds.get("conjectural_bounds", {}).get("target_max_log10_ceiling", 0)
+        conjectural_max_log10_ceiling = bounds.get("conjectural_bounds", {}).get(
+            "target_max_log10_ceiling", 0
+        )
 
-        prime_split_threshold = bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
+        prime_split_threshold = (
+            bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
+        )
         target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
-        prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"]["value"]
-        pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"]["iteration_limit"]
+        prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
+            "value"
+        ]
+        pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"][
+            "iteration_limit"
+        ]
         pollard_rho_batch_size = bounds["search_bounds"]["pollard_rho"]["batch_size"]
         overflow_num = bounds["overflow_threshold"]["num"]
         overflow_den = bounds["overflow_threshold"]["den"]
@@ -372,12 +389,130 @@ def map_type(t):
     return "UNKNOWN"
 
 
-def generate_ffi(repo_root):
+def generate_ffi_lean_spec(schema, repo_root, schema_hash):
+    u512_def = schema.get("U512", {"bit_width": 512, "limb_width": 64})
+    bit_width = u512_def.get("bit_width", 512)
+    limb_width = u512_def.get("limb_width", 64)
+    limb_count = bit_width // limb_width
+
+    lean_generated_path = os.path.join(
+        repo_root, "lean4-proofs", "UALBF", "FFI_generated.lean"
+    )
+
+    mk_args = " ".join(f"w{i}" for i in range(limb_count))
+    mk_expr = "w0.toNat"
+    for i in range(1, limb_count):
+        mk_expr += f" +\n  w{i}.toNat * (2 ^ {i * limb_width})"
+
+    getters = []
+    getters.append(
+        f'@[extern "rust_u512_get_w0"]\ndef U512.w0 (u : @& U512) : UInt64 :=\n  (u % 2^{limb_width}).toUInt64'
+    )
+    for i in range(1, limb_count):
+        getters.append(
+            f'@[extern "rust_u512_get_w{i}"]\ndef U512.w{i} (u : @& U512) : UInt64 :=\n  ((u / 2^{i * limb_width}) % 2^{limb_width}).toUInt64'
+        )
+
+    from_u512_expr = "u.w0.toNat"
+    for i in range(1, limb_count):
+        from_u512_expr += f" +\n  u.w{i}.toNat * (2 ^ {i * limb_width})"
+
+    to_u512_expr = f"  U512.mk\n    (n % 2^{limb_width}).toUInt64"
+    for i in range(1, limb_count):
+        to_u512_expr += f"\n    ((n / 2^{i * limb_width}) % 2^{limb_width}).toUInt64"
+
+    default_mk_args = " ".join("0" for _ in range(limb_count))
+
+    prep_parts = []
+    for j in range(1, limb_count):
+        bits = j * limb_width
+        val = 2**bits
+        prep_parts.append(f"  have h2_{bits} : 2^{bits} = {val} := rfl;")
+
+    prep_names = ", ".join(f"h2_{j * limb_width}" for j in range(1, limb_count))
+    omega_prep = f"""macro "u512_omega_prep" : tactic => `(tactic|
+{chr(10).join(prep_parts)}
+  rw [{prep_names}] at *
+)"""
+
+    theorems = []
+    for idx in range(limb_count):
+        thm_args = " ".join(f"w{j}" for j in range(limb_count))
+        h_decl = "\n  ".join(
+            f"have _h{j} : w{j}.toNat < 2^64 := w{j}.toNat_lt"
+            for j in range(limb_count)
+        )
+        theorems.append(
+            f"""@[simp] theorem U512.w{idx}_mk ({thm_args} : UInt64) : U512.w{idx} (U512.mk {thm_args}) = w{idx} := by
+  apply UInt64.ext
+  simp [U512.w{idx}, U512.mk]
+  {h_decl}
+  u512_omega_prep
+  omega"""
+        )
+
+    with open(lean_generated_path, "w", encoding="utf-8") as f:
+        f.write(f"""-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
+set_option linter.all false
+
+namespace UALBF.FFI
+
+abbrev U512 : Type := Nat
+
+@[extern "rust_u512_mk"]
+def U512.mk ({mk_args} : UInt64) : U512 :=
+  {mk_expr}
+
+instance : Inhabited U512 where
+  default := U512.mk {default_mk_args}
+
+{chr(10).join(getters)}
+
+{omega_prep}
+
+{chr(10).join(theorems)}
+
+@[extern "rust_u512_to_hex"]
+opaque U512.toHex (u : @& U512) : String
+
+def parseHexChar (c : Char) : Nat :=
+  if '0' <= c && c <= '9' then c.toNat - '0'.toNat
+  else if 'a' <= c && c <= 'f' then 10 + (c.toNat - 'a'.toNat)
+  else if 'A' <= c && c <= 'F' then 10 + (c.toNat - 'A'.toNat)
+  else 0
+
+def parseHex (s : String) : Nat :=
+  let s := if s.startsWith "0x" || s.startsWith "0X" then s.drop 2 else s
+  s.foldl (fun acc c => acc * 16 + parseHexChar c) 0
+
+def fromHexU512 (u : U512) : Nat :=
+  parseHex (u.toHex)
+
+@[implemented_by fromHexU512]
+def fromU512 (u : U512) : Nat :=
+  {from_u512_expr}
+
+def toU512 (n : Nat) : U512 :=
+{to_u512_expr}
+
+def SCHEMA_MANIFEST_HASH : String := "{schema_hash}"
+
+end UALBF.FFI
+""")
+
+
+def generate_ffi(repo_root, schema, schema_hash):
     ffi_paths = [
+        os.path.join(repo_root, "lean4-proofs", "UALBF", "FFI_generated.lean"),
         os.path.join(repo_root, "lean4-proofs", "UALBF", "FFI.lean"),
         os.path.join(repo_root, "lean4-proofs", "UALBF", "BloomFilter.lean"),
     ]
     out_path = os.path.join(repo_root, "rust-engine", "src", "ffi_generated.rs")
+
+    u512_def = schema.get("U512", {"bit_width": 512, "limb_width": 64})
+    bit_width = u512_def.get("bit_width", 512)
+    limb_width = u512_def.get("limb_width", 64)
+    limb_count = bit_width // limb_width
 
     exports = []
     externs = []
@@ -401,6 +536,10 @@ def generate_ffi(repo_root):
 
     out = []
     out.append("// AUTO-GENERATED from Lean metadata. DO NOT EDIT.\n")
+    out.append(f'pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str = "{schema_hash}";\n')
+    out.append(f"pub const LIMB_COUNT: usize = {limb_count};\n")
+    out.append(f"pub type U512Data = [u64; {limb_count}];\n")
+
     out.append('extern "C" {')
     for name, args_str, ret_type in exports:
         args = []
@@ -421,12 +560,19 @@ def generate_ffi(repo_root):
             out.append(f"    pub fn {name}({', '.join(args)}){ret_str};")
     out.append("}\n")
 
-    for name, lean_name, sig in externs:
-        if name.startswith("rust_u512_get_w"):
-            idx = name[-1]
-            out.append(
-                f'#[no_mangle]\npub extern "C" fn {name}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ unsafe {{ (*crate::lean_ffi::get_u512_ptr(obj))[{idx}] }} }}\n'
-            )
+    for i in range(limb_count):
+        out.append(
+            f'#[no_mangle]\npub extern "C" fn rust_u512_get_w{i}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ unsafe {{ (*crate::lean_ffi::get_u512_ptr(obj))[{i}] }} }}\n'
+        )
+
+    mk_args = ", ".join(f"w{i}: u64" for i in range(limb_count))
+    mk_array = ", ".join(f"w{i}" for i in range(limb_count))
+    out.append(f"""
+#[no_mangle]
+pub extern "C" fn rust_u512_mk({mk_args}) -> *mut crate::lean_ffi::lean_object {{
+    crate::lean_ffi::alloc_u512([{mk_array}])
+}}
+""")
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(out))
@@ -442,12 +588,17 @@ def main():
     schema_path = os.path.join(repo_root, "schema_manifest.json")
     if os.path.exists(schema_path):
         with open(schema_path, "r", encoding="utf-8") as f:
-            schema = json.load(f)
-        generate_rust_types(schema, repo_root)
+            schema_content = f.read()
+            schema = json.loads(schema_content)
+            schema_hash = hashlib.sha256(schema_content.encode("utf-8")).hexdigest()
+        generate_rust_types(schema, repo_root, schema_hash)
         generate_lean_types(schema, repo_root)
+        generate_ffi_lean_spec(schema, repo_root, schema_hash)
         print(f"Schema generated from {schema_path}")
     else:
         print(f"Warning: {schema_path} not found.")
+        schema = {}
+        schema_hash = "0" * 64
 
     # 2. Load bounds manifest
     bounds_path = os.path.join(repo_root, "bounds_manifest.json")
@@ -459,7 +610,7 @@ def main():
             bounds_hash = hashlib.sha256(bounds_content.encode("utf-8")).hexdigest()
         generate_verus_specs(bounds, repo_root, bounds_hash)
         print(f"Verus specs generated from {bounds_path}")
-        generate_ffi(repo_root)
+        generate_ffi(repo_root, schema, schema_hash)
 
         # Generate manifest constants
         prasad_proof = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
@@ -485,14 +636,20 @@ def main():
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
             "value"
         ]
-        prime_split_threshold = bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
-        
+        prime_split_threshold = (
+            bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
+        )
+
         # Validation checks on configuration parameters
         if prime_split_threshold < 7:
-            raise ValueError(f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be at least 7 to satisfy mathematical safety invariants.")
+            raise ValueError(
+                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be at least 7 to satisfy mathematical safety invariants."
+            )
         if prime_split_threshold % 2 == 0:
-            raise ValueError(f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be an odd prime.")
-            
+            raise ValueError(
+                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be an odd prime."
+            )
+
         pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"][
             "iteration_limit"
         ]
@@ -503,8 +660,12 @@ def main():
         raycast_chunk_size = bounds["search_bounds"]["raycast"]["chunk_size"]
 
         conjectural_active = bounds.get("conjectural_bounds", {}).get("active", False)
-        conjecture_name = bounds.get("conjectural_bounds", {}).get("conjecture_name", "None")
-        conjectural_max_log10 = bounds.get("conjectural_bounds", {}).get("target_max_log10_ceiling", 0)
+        conjecture_name = bounds.get("conjectural_bounds", {}).get(
+            "conjecture_name", "None"
+        )
+        conjectural_max_log10 = bounds.get("conjectural_bounds", {}).get(
+            "target_max_log10_ceiling", 0
+        )
 
         touchard_mod = bounds["touchard_mod_24"]["modulus"]
         touchard_residues = bounds["touchard_mod_24"]["residues"]

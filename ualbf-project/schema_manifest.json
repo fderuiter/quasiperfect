@@ -1,4 +1,8 @@
 {
+  "U512": {
+    "bit_width": 512,
+    "limb_width": 64
+  },
   "SearchState": {
     "fields": [
       {
