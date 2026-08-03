@@ -95,16 +95,16 @@ const _: () = {
     }
 
     // Check 512-bit integer layout (external object data size and alignment)
-    if std::mem::size_of::<[u64; 8]>() != 64 {
-        panic!("512-bit representation [u64; 8] must be exactly 64 bytes");
+    if std::mem::size_of::<crate::lean_ffi::U512Data>() != crate::lean_ffi::LIMB_COUNT * 8 {
+        panic!("U512 representation must be exactly correct size in bytes");
     }
-    if std::mem::align_of::<[u64; 8]>() != 8 {
-        panic!("512-bit representation [u64; 8] must have 8-byte alignment");
+    if std::mem::align_of::<crate::lean_ffi::U512Data>() != 8 {
+        panic!("U512 representation must have 8-byte alignment");
     }
 
     // Check Rust engine Uint (512-bit) size
-    if std::mem::size_of::<crate::types::Uint>() != 64 {
-        panic!("Rust engine Uint (512-bit) must be exactly 64 bytes");
+    if std::mem::size_of::<crate::types::Uint>() != crate::lean_ffi::LIMB_COUNT * 8 {
+        panic!("Rust engine Uint must be exactly correct size in bytes");
     }
 };
 
@@ -203,7 +203,7 @@ static mut U512_CLASS: *mut lean_external_class = std::ptr::null_mut();
 
 extern "C" fn u512_finalize(ptr: *mut c_void) {
     unsafe {
-        let _ = Box::from_raw(ptr as *mut [u64; 8]);
+        let _ = Box::from_raw(ptr as *mut crate::lean_ffi::U512Data);
     }
 }
 
@@ -215,38 +215,24 @@ fn init_u512_class() {
     }
 }
 
-pub const ZERO_U512: [u64; 8] = [0; 8];
+pub const ZERO_U512: crate::lean_ffi::U512Data = [0; crate::lean_ffi::LIMB_COUNT];
 
-pub fn alloc_u512(data: [u64; 8]) -> *mut lean_object {
+pub fn alloc_u512(data: crate::lean_ffi::U512Data) -> *mut lean_object {
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
         rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
 }
 
-pub unsafe fn get_u512_ptr(obj: *mut lean_object) -> *const [u64; 8] {
-    unsafe { rs_lean_get_external_data(obj) as *const [u64; 8] }
+pub unsafe fn get_u512_ptr(obj: *mut lean_object) -> *const crate::lean_ffi::U512Data {
+    unsafe { rs_lean_get_external_data(obj) as *const crate::lean_ffi::U512Data }
 }
 
-pub fn get_u512(obj: *mut lean_object) -> [u64; 8] {
+pub fn get_u512(obj: *mut lean_object) -> crate::lean_ffi::U512Data {
     unsafe {
-        let ptr = rs_lean_get_external_data(obj) as *mut [u64; 8];
+        let ptr = rs_lean_get_external_data(obj) as *mut crate::lean_ffi::U512Data;
         *ptr
     }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_u512_mk(
-    w0: u64,
-    w1: u64,
-    w2: u64,
-    w3: u64,
-    w4: u64,
-    w5: u64,
-    w6: u64,
-    w7: u64,
-) -> *mut lean_object {
-    alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
 
 #[no_mangle]

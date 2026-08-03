@@ -1,5 +1,8 @@
 // AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 
+pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str =
+    "c57a8afb8ff0f71a7a20b7ad46608995ce40c66e7ca69dd7c7ed2f33e78c92af";
+
 use crate::types::Uint;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -59,12 +62,12 @@ impl SerializedPrefix {
 #[repr(C)]
 #[derive(Clone, Debug)]
 pub struct PrefixTransport {
-    pub n_l: [u64; 8],
-    pub s_l: [u64; 8],
+    pub n_l: crate::lean_ffi::U512Data,
+    pub s_l: crate::lean_ffi::U512Data,
     pub last_idx: usize,
     pub factors: *const u64,
     pub factors_len: usize,
-    pub sigma_factors: *const [u64; 8],
+    pub sigma_factors: *const crate::lean_ffi::U512Data,
     pub sigma_factors_len: usize,
     pub sigma_factors_u64: *const u64,
     pub sigma_factors_u64_len: usize,
@@ -77,11 +80,17 @@ impl Prefix {
         PrefixTransport {
             n_l: {
                 let bytes = self.n_l.to_le_bytes();
-                crate::lean_ffi::bytes_to_words::<64, 8>(&bytes)
+                crate::lean_ffi::bytes_to_words::<
+                    { crate::lean_ffi::LIMB_COUNT * 8 },
+                    { crate::lean_ffi::LIMB_COUNT },
+                >(&bytes)
             },
             s_l: {
                 let bytes = self.s_l.to_le_bytes();
-                crate::lean_ffi::bytes_to_words::<64, 8>(&bytes)
+                crate::lean_ffi::bytes_to_words::<
+                    { crate::lean_ffi::LIMB_COUNT * 8 },
+                    { crate::lean_ffi::LIMB_COUNT },
+                >(&bytes)
             },
             last_idx: self.last_idx.clone(),
             factors: self.factors.as_ptr(),

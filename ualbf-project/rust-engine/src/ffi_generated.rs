@@ -1,5 +1,12 @@
 // AUTO-GENERATED from Lean metadata. DO NOT EDIT.
 
+pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str =
+    "c57a8afb8ff0f71a7a20b7ad46608995ce40c66e7ca69dd7c7ed2f33e78c92af";
+
+pub const LIMB_COUNT: usize = 8;
+
+pub type U512Data = [u64; 8];
+
 extern "C" {
     pub fn ualbf_verify_identity(
         n_l: *mut crate::lean_ffi::lean_object,
@@ -92,4 +99,18 @@ pub extern "C" fn rust_u512_get_w6(obj: *mut crate::lean_ffi::lean_object) -> u6
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w7(obj: *mut crate::lean_ffi::lean_object) -> u64 {
     unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[7] }
+}
+
+#[no_mangle]
+pub extern "C" fn rust_u512_mk(
+    w0: u64,
+    w1: u64,
+    w2: u64,
+    w3: u64,
+    w4: u64,
+    w5: u64,
+    w6: u64,
+    w7: u64,
+) -> *mut crate::lean_ffi::lean_object {
+    crate::lean_ffi::alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
 }
