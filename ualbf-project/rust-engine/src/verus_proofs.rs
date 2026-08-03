@@ -439,7 +439,7 @@ verus! {
     }
 
     pub open spec fn prime_factors(n: nat) -> Set<nat> {
-        Set::new_assuming_finite(|p: nat| is_prime(p) && n > 0 && n % p == 0)
+        Set::new(|p: nat| is_prime(p) && n > 0 && n % p == 0)->Some_0
     }
 
     pub open spec fn disjoint_factor_sets(a: nat, b: nat) -> bool {
@@ -458,6 +458,21 @@ verus! {
     }
 
     #[verifier(nonlinear)]
+    pub proof fn lemma_coprime_implies_multiplicative_nonlinear(
+        prefix: nat, suffix: nat,
+        prefix_num: nat, prefix_den: nat,
+        suffix_num: nat, suffix_den: nat,
+        cand_num: nat, cand_den: nat,
+    )
+        requires
+            prefix_den == prefix,
+            suffix_den == suffix,
+            cand_den == prefix * suffix,
+            cand_num == prefix_num * suffix_num,
+        ensures
+            cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den
+    {}
+
     pub proof fn lemma_coprime_implies_multiplicative(
         prefix: nat, suffix: nat,
         prefix_num: nat, prefix_den: nat,
@@ -477,7 +492,12 @@ verus! {
     {
         lemma_sigma_multiplicative(prefix, suffix);
         assert(cand_num == prefix_num * suffix_num);
-        assert(cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den);
+        lemma_coprime_implies_multiplicative_nonlinear(
+            prefix, suffix,
+            prefix_num, prefix_den,
+            suffix_num, suffix_den,
+            cand_num, cand_den,
+        );
     }
 
     pub proof fn lemma_disjoint_by_construction(prefix: nat, suffix: nat, new_factor: nat)
