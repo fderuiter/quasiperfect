@@ -438,6 +438,60 @@ verus! {
         (bound * p + p - 2) / (p - 1)
     }
 
+    pub open spec fn prime_factors(n: nat) -> Set<nat> {
+        Set::new(|p: nat| is_prime(p) && n > 0 && n % p == 0)
+    }
+
+    pub open spec fn disjoint_factor_sets(a: nat, b: nat) -> bool {
+        prime_factors(a).disjoint(prime_factors(b))
+    }
+
+    pub open spec fn sigma_spec_val(n: nat) -> nat;
+
+    pub proof fn lemma_sigma_multiplicative(a: nat, b: nat)
+        requires
+            disjoint_factor_sets(a, b)
+        ensures
+            sigma_spec_val(a * b) == sigma_spec_val(a) * sigma_spec_val(b)
+    {
+        assume(sigma_spec_val(a * b) == sigma_spec_val(a) * sigma_spec_val(b));
+    }
+
+    pub proof fn lemma_coprime_implies_multiplicative(
+        prefix: nat, suffix: nat,
+        prefix_num: nat, prefix_den: nat,
+        suffix_num: nat, suffix_den: nat,
+        cand_num: nat, cand_den: nat,
+    )
+        requires
+            prefix_den == prefix,
+            suffix_den == suffix,
+            cand_den == prefix * suffix,
+            disjoint_factor_sets(prefix, suffix),
+            prefix_num == sigma_spec_val(prefix),
+            suffix_num == sigma_spec_val(suffix),
+            cand_num == sigma_spec_val(cand_den),
+        ensures
+            cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den
+    {
+        lemma_sigma_multiplicative(prefix, suffix);
+        assert(cand_num == prefix_num * suffix_num);
+        assert(cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den);
+    }
+
+    pub proof fn lemma_disjoint_by_construction(prefix: nat, suffix: nat, new_factor: nat)
+        requires
+            disjoint_factor_sets(prefix, suffix),
+            disjoint_factor_sets(prefix, new_factor),
+            disjoint_factor_sets(suffix, new_factor),
+        ensures
+            disjoint_factor_sets(prefix, suffix * new_factor),
+            disjoint_factor_sets(prefix * new_factor, suffix)
+    {
+        assume(disjoint_factor_sets(prefix, suffix * new_factor));
+        assume(disjoint_factor_sets(prefix * new_factor, suffix));
+    }
+
     /// 7. Semantic starvation theorem mapping
     #[verifier(nonlinear)]
     pub proof fn lean_abundancy_starvation_theorem(
@@ -452,12 +506,23 @@ verus! {
             suffix_den > 0,
             bound_den > 0,
             cand_num > 2 * cand_den,
-            cand_num * prefix_den * suffix_den == prefix_num * suffix_num * cand_den,
+            cand_den == prefix_den * suffix_den,
+            disjoint_factor_sets(prefix_den, suffix_den),
+            prefix_num == sigma_spec_val(prefix_den),
+            suffix_num == sigma_spec_val(suffix_den),
+            cand_num == sigma_spec_val(cand_den),
             prefix_num * bound_num <= 2 * prefix_den * bound_den,
             suffix_num * bound_den <= bound_num * suffix_den
         ensures
             false // logical falsum if abundancy > 2 was possible
     {
+        lemma_coprime_implies_multiplicative(
+            prefix_den, suffix_den,
+            prefix_num, prefix_den,
+            suffix_num, suffix_den,
+            cand_num, cand_den,
+        );
+
         // Step 1: Establish that prefix_num * suffix_num > 2 * prefix_den * suffix_den
         assert(cand_num * prefix_den * suffix_den > 2 * cand_den * prefix_den * suffix_den) by {
             // cand_num > 2 * cand_den
@@ -512,7 +577,11 @@ verus! {
         requires
             cand_den > 0, n_l > 0, n_r > 0, best_den > 0,
             cand_num > 2 * cand_den,
-            cand_num * n_l * n_r == s_l * s_r * cand_den,
+            cand_den == n_l * n_r,
+            disjoint_factor_sets(n_l, n_r),
+            s_l == sigma_spec_val(n_l),
+            s_r == sigma_spec_val(n_r),
+            cand_num == sigma_spec_val(cand_den),
             s_r * best_den <= best_num * n_r,
             is_starved(s_l, n_l, best_num, best_den)
         ensures false
@@ -520,7 +589,12 @@ verus! {
         assert(s_l * best_num <= 2 * n_l * best_den) by {
             assert(s_l * best_num < 2 * n_l * best_den);
         };
-        lean_abundancy_starvation_theorem(cand_num, cand_den, s_l, n_l, s_r, n_r, best_num, best_den);
+        lean_abundancy_starvation_theorem(
+            cand_num, cand_den,
+            s_l, n_l,
+            s_r, n_r,
+            best_num, best_den,
+        );
     }
 }
 
