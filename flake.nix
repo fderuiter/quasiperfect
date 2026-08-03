@@ -263,6 +263,7 @@
             pkgs.pkg-config
             pkgs.lean4
             pkgs.llvmPackages.libclang
+            pkgs.m4
           ];
 
           buildInputs = [
@@ -485,6 +486,9 @@ with open("dummy_cert.json", "w") as f:
         };
 
         devShells.default = pkgs.mkShell {
+          nativeBuildInputs = [
+            pkgs.m4
+          ];
           buildInputs = [
             pkgs.lean4
             pkgs.rustc

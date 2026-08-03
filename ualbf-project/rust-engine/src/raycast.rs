@@ -759,6 +759,7 @@ mod tests {
             sigma_factors: vec![Uint::from_u32(13)],
             sigma_factors_u64: vec![13],
             active_mask: vec![1],
+            sigma_mod24: 13,
         };
 
         let target_min = Uint::from_u32(1);
