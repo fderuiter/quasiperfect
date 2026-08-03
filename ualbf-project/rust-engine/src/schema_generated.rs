@@ -1,7 +1,7 @@
 // AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str =
-    "c57a8afb8ff0f71a7a20b7ad46608995ce40c66e7ca69dd7c7ed2f33e78c92af";
+    "dcf4d6074ba46690077ed7b21ec0a2f77b605f80374c4f43e90e2eab54b5ab08";
 
 use crate::types::Uint;
 use serde::{Deserialize, Serialize};
