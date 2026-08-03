@@ -59,6 +59,14 @@
         "rust_ser_type": "Vec<u64>",
         "rust_ser_convert": "v.clone()",
         "rust_deser_convert": "v.clone()"
+      },
+      {
+        "name": "sigma_mod24",
+        "lean_type": "UInt32",
+        "rust_type": "u32",
+        "rust_ser_type": "u32",
+        "rust_ser_convert": "v.clone()",
+        "rust_deser_convert": "v.clone()"
       }
     ]
   }

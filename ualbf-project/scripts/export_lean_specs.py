@@ -142,9 +142,9 @@ def generate_lean_types(schema, repo_root):
     )
     with open(lean_path, "w", encoding="utf-8") as f:
         f.write("-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n")
-        f.write("set_option linter.all false\n\n")
         f.write("import Mathlib.Data.Nat.Basic\n")
         f.write("import UALBF.FFI\n\n")
+        f.write("set_option linter.all false\n\n")
         f.write("namespace UALBF.Engine\n\n")
 
         for struct_name, struct_def in schema.items():
