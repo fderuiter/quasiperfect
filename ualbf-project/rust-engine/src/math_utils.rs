@@ -500,17 +500,15 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
                 };
 
                 let mut is_composite = false;
-                if !r_is_negative {
-                    if let Some(r_sq_val) = r.checked_mul(r) {
-                        if let Some(eight_q_val) = Uint::from_u32(8).checked_mul(q) {
-                            if r_sq_val >= eight_q_val {
-                                let diff = r_sq_val - eight_q_val;
-                                let s = diff.isqrt();
-                                if s * s == diff {
-                                    if let Some(s_plus_2) = s.checked_add(Uint::from_u32(2)) {
-                                        if r >= s_plus_2 {
-                                            is_composite = true;
-                                        }
+                if let Some(r_sq_val) = r.checked_mul(r) {
+                    if let Some(eight_q_val) = Uint::from_u32(8).checked_mul(q) {
+                        if r_sq_val >= eight_q_val {
+                            let diff = r_sq_val - eight_q_val;
+                            let s = diff.isqrt();
+                            if s * s == diff {
+                                if let Some(s_plus_2) = s.checked_add(Uint::from_u32(2)) {
+                                    if r >= s_plus_2 {
+                                        is_composite = true;
                                     }
                                 }
                             }
