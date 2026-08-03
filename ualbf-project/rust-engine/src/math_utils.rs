@@ -448,7 +448,16 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
         }
     }
 
-    if f * f <= n_minus_1 {
+    let is_pocklington = f.checked_mul(f).map_or(true, |f2| f2 > n_minus_1);
+    let is_bls = if is_pocklington {
+        false
+    } else {
+        f.checked_mul(f)
+            .and_then(|f2| f2.checked_mul(f))
+            .map_or(true, |f3| f3 > n_minus_1)
+    };
+
+    if !is_pocklington && !is_bls {
         return false;
     }
 
@@ -476,7 +485,45 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
         }
 
         if valid_a {
-            return true;
+            if is_pocklington {
+                return true;
+            } else if is_bls {
+                // Perform the BLS check
+                let r_val = n_minus_1 / f;
+                let double_f = f.checked_mul(Uint::from_u32(2)).unwrap_or(Uint::MAX);
+                let q_div = r_val / double_f;
+                let r_rem = r_val % double_f;
+                let (q, r, r_is_negative) = if r_rem <= f {
+                    (q_div, r_rem, false)
+                } else {
+                    (q_div + Uint::one(), double_f - r_rem, true)
+                };
+
+                let mut is_composite = false;
+                if !r_is_negative {
+                    if let Some(r_sq_val) = r.checked_mul(r) {
+                        if let Some(eight_q_val) = Uint::from_u32(8).checked_mul(q) {
+                            if r_sq_val >= eight_q_val {
+                                let diff = r_sq_val - eight_q_val;
+                                let s = diff.isqrt();
+                                if s * s == diff {
+                                    if let Some(s_plus_2) = s.checked_add(Uint::from_u32(2)) {
+                                        if r >= s_plus_2 {
+                                            is_composite = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if is_composite {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
         }
     }
 
@@ -1240,6 +1287,17 @@ mod tests {
 
         let composite = Uint::from_str_radix("1000000000037", 10).unwrap();
         assert!(!generate_and_verify_pocklington(composite));
+    }
+
+    #[test]
+    fn test_bls_fallback() {
+        // This prime candidate n has f^2 <= n-1 < f^3 when factored with the Pocklington/BLS routine
+        // f = 14216887496626725604656092894182942316875435081728000
+        // n = 2379738973818137587966091241708611381752917711408835932379608374701813936555867387813613052614017647793415905146965240226643968001
+        let n_str = "2379738973818137587966091241708611381752917711408835932379608374701813936555867387813613052614017647793415905146965240226643968001";
+        let n = Uint::from_str_radix(n_str, 10).unwrap();
+        assert!(generate_and_verify_pocklington(n));
+        assert!(verified_is_prime(n));
     }
 }
 #[test]

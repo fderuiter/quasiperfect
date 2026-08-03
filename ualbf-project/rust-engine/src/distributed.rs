@@ -427,6 +427,7 @@ pub fn run_worker(
     let mut total_abundance_pruned = 0;
     let mut total_raycast_pruned = 0;
     let mut total_math_interruptions = 0;
+    let mut total_boundary_pruned = 0;
     let mut explored_ranges = Vec::new();
 
     loop {
@@ -462,6 +463,7 @@ pub fn run_worker(
                 let count = AtomicUsize::new(0);
                 let pruned_count = AtomicUsize::new(0);
                 let abundance_pruned = AtomicUsize::new(0);
+                let boundary_pruned = AtomicUsize::new(0);
                 let completed_weight_scaled = AtomicUsize::new(0);
                 let math_interruptions = AtomicUsize::new(0);
 
@@ -523,6 +525,7 @@ pub fn run_worker(
                     &count,
                     &pruned_count,
                     &abundance_pruned,
+                    &boundary_pruned,
                     &completed_weight_scaled,
                     &math_interruptions,
                     total_weight_scaled,
@@ -547,11 +550,13 @@ pub fn run_worker(
                 total_abundance_pruned += abundance_pruned.load(Ordering::Relaxed);
                 total_raycast_pruned += pruned_count.load(Ordering::Relaxed);
                 total_math_interruptions += math_interruptions.load(Ordering::Relaxed);
+                total_boundary_pruned += boundary_pruned.load(Ordering::Relaxed);
                 explored_ranges.push(range_bound.clone());
                 let rep = Message::Event(crate::events::SearchEvent::DFSComplete {
                     total_branches: count.into_inner(),
                     ap: abundance_pruned.into_inner(),
                     rp: pruned_count.into_inner(),
+                    bp: boundary_pruned.into_inner(),
                 });
                 let rep_bytes = serde_json::to_vec(&rep).unwrap();
                 stream.write_all(&rep_bytes).unwrap();
@@ -570,6 +575,7 @@ pub fn run_worker(
             raycast_pruned: total_raycast_pruned,
             search_space_density: 0.0,
             math_interruptions: total_math_interruptions,
+            boundary_pruned: total_boundary_pruned,
         },
         explored_ranges,
     )

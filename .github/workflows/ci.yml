@@ -95,6 +95,14 @@ jobs:
           workspaces: ualbf-project/rust-engine
           cache-on-failure: true
 
+      - name: Populate Pre-built Lean Objects
+        run: |
+          NIX_ARCH=$(nix eval --raw --impure --expr 'builtins.currentSystem')
+          nix build .#packages.${NIX_ARCH}.lean -o ualbf-project/lean-built
+          chmod -R +w ualbf-project/lean4-proofs || true
+          rm -rf ualbf-project/lean4-proofs/.lake || true
+          ln -s ../lean-built/.lake ualbf-project/lean4-proofs/.lake
+
       - name: Run Unified Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check"
 
