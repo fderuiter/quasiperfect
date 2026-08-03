@@ -75,6 +75,7 @@ extern "C" {
     pub fn rs_lean_ctor_get(obj: *mut lean_object, idx: u32) -> *mut lean_object;
     pub fn initialize_ualbf_UALBF(builtin: u8) -> *mut lean_object;
     pub fn lean_string_cstr(str: *mut lean_object) -> *const std::ffi::c_char;
+    pub fn lean_mk_string(s: *const std::ffi::c_char) -> *mut lean_object;
 
     pub fn rs_lean_io_result_mk_ok(a: *mut lean_object) -> *mut lean_object;
     pub fn rs_lean_box_uint32(v: u32) -> *mut lean_object;
@@ -246,6 +247,18 @@ pub extern "C" fn rust_u512_mk(
     w7: u64,
 ) -> *mut lean_object {
     alloc_u512([w0, w1, w2, w3, w4, w5, w6, w7])
+}
+
+#[no_mangle]
+pub extern "C" fn rust_u512_to_hex(obj: *mut lean_object) -> *mut lean_object {
+    unsafe {
+        let w = *get_u512_ptr(obj);
+        let bytes = words_to_bytes::<8, 64>(&w);
+        let val = Uint::from_le_slice(&bytes).unwrap();
+        let hex_str = format!("{:x}", val);
+        let c_str = std::ffi::CString::new(hex_str).unwrap();
+        lean_mk_string(c_str.as_ptr())
+    }
 }
 
 #[inline(always)]
@@ -711,6 +724,33 @@ mod tests {
             std::mem::align_of::<Uint>() >= 1,
             "Rust engine Uint alignment is sufficient"
         );
+    }
+
+    #[test]
+    fn test_rust_u512_to_hex() {
+        setup();
+        let w = [1, 2, 3, 4, 5, 6, 7, 8];
+        let bytes = words_to_bytes::<8, 64>(&w);
+        let val = Uint::from_le_slice(&bytes).unwrap();
+        let hex_str = format!("{:x}", val);
+        assert!(hex_str.ends_with("00000000000000020000000000000001"));
+
+        if !cfg!(unverified_build) {
+            let obj = alloc_u512(w);
+            let str_obj = rust_u512_to_hex(obj);
+            assert!(!str_obj.is_null());
+            unsafe {
+                rs_lean_dec(str_obj);
+                rs_lean_dec(obj);
+            }
+        } else {
+            let obj = alloc_u512(w);
+            let str_obj = rust_u512_to_hex(obj);
+            assert_eq!(str_obj as usize, 1);
+            unsafe {
+                let _ = Box::from_raw(obj as *mut [u64; 8]);
+            }
+        }
     }
 
     /// get_baseline_min_prime_factors must return a positive value.

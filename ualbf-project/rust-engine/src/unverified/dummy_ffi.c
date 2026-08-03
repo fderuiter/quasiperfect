@@ -8,8 +8,8 @@ void initialize_Ualbf_C_Main() {}
 void lean_initialize_thread() {}
 
 void* lean_register_external_class(void* finalize, void* foreach) { (void)finalize; (void)foreach; return 0; }
-void* rs_lean_alloc_external(void* cls, void* data) { (void)cls; (void)data; return 0; }
-void* rs_lean_get_external_data(void* obj) { (void)obj; return 0; }
+void* rs_lean_alloc_external(void* cls, void* data) { (void)cls; return data; }
+void* rs_lean_get_external_data(void* obj) { return obj; }
 void rs_lean_inc(void* obj) { (void)obj; }
 void rs_lean_dec(void* obj) { (void)obj; }
 
@@ -106,4 +106,5 @@ uint64_t ualbf_bloom_get_index(uint64_t hash1, uint64_t hash2, uint64_t num_bits
 }
 
 const char* lean_string_cstr(void* str) { (void)str; return "dummy_hash"; }
+void* lean_mk_string(const char* s) { (void)s; return (void*)1; }
 void* ualbf_logic_hash = (void*)1;
