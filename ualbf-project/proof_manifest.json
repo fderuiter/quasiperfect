@@ -169,7 +169,7 @@
       "checksum": "1d7199c053041e84937a409c14efb2d25c44f2d98cae0d9b48d5adf867c95ba9"
     }
   ],
-  "verified_logic_hash": "676ff18df9b04d3c6508f99a7d15c8f9776732b64482ca8ee6969c8fb468007d",
+  "verified_logic_hash": "2e3e76c15557aab807fd326fde7bf21d5d97028ebd49b08a51d1abaffd883b80",
   "verified_extension_hash": "7bd7368cae12f582cfab7e738e4c38bbad5fa4957ed6f631fab9b857b1a57345",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
