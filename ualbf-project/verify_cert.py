@@ -292,12 +292,12 @@ def verify_certificate(cert_path, manifest_path):
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
 
     allowed_axioms = set()
-    sorries = [
-        thm
-        for thm in manifest.get("theorems", [])
-        if thm["status"] in ("sorry", "axiom", "unverified")
-        and thm["name"] not in allowed_axioms
-    ]
+    sorries = []
+    for thm in manifest.get("theorems", []):
+        status = thm.get("status")
+        is_whitelisted = status == "proven" or (status == "axiom" and thm.get("name") in allowed_axioms)
+        if not is_whitelisted:
+            sorries.append(thm)
 
     print("\n--- Manifest Summary ---")
     print(f"Total Theorems: {len(manifest.get('theorems', []))}")

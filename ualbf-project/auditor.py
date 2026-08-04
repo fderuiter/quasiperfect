@@ -202,7 +202,10 @@ def generate_manifest():
             check=True,
         )
         subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
-        subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=False)
+        build_res = subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=False)
+        if build_res.returncode != 0:
+            print("Error: Lean compilation failed during build.", file=sys.stderr)
+            has_error = True
 
     for thm in CORE_THEOREMS:
         # map name to file
@@ -236,6 +239,7 @@ def generate_manifest():
             status = "proven"
             if result.returncode != 0:
                 status = "error"
+                has_error = True
                 print(f"Error resolving {thm}: {result.stderr}", file=sys.stderr)
             else:
                 output = result.stdout + result.stderr
