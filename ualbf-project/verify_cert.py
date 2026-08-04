@@ -295,7 +295,9 @@ def verify_certificate(cert_path, manifest_path):
     sorries = []
     for thm in manifest.get("theorems", []):
         status = thm.get("status")
-        is_whitelisted = status == "proven" or (status == "axiom" and thm.get("name") in allowed_axioms)
+        is_whitelisted = status == "proven" or (
+            status == "axiom" and thm.get("name") in allowed_axioms
+        )
         if not is_whitelisted:
             sorries.append(thm)
 

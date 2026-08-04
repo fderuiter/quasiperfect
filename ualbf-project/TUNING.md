@@ -115,6 +115,12 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **touchard_mod_24.residues**
   - **Description**: The valid mod-24 residue set for quasiperfect numbers.
 
+- **crt_obstruction.moduli**
+  - **Description**: The list of moduli used during Chinese Remainder Theorem (CRT) obstruction checks.
+
+- **crt_obstruction.modulus_product**
+  - **Description**: The product of the CRT moduli, defining the period of the obstruction pattern.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128

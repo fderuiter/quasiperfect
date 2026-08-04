@@ -382,7 +382,11 @@ fn main() {
         serde_json::from_str(&proof_manifest_content).expect("Failed to parse proof_manifest.json");
 
     if proof_manifest.bounds_manifest_hash != current_manifest_hash {
-        panic!("FATAL: Configuration mismatch. The proof manifest bounds hash does not match current bounds_manifest.json hash.");
+        panic!(
+            "FATAL: Configuration mismatch. The proof manifest bounds hash ('{}') does not match current bounds_manifest.json hash ('{}').",
+            proof_manifest.bounds_manifest_hash,
+            current_manifest_hash
+        );
     }
 
     let allowed_axioms: [&str; 0] = [];

@@ -202,7 +202,9 @@ def generate_manifest():
             check=True,
         )
         subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
-        build_res = subprocess.run(["lake", "build", "UALBF"], cwd=cwd, env=env, check=False)
+        build_res = subprocess.run(
+            ["lake", "build", "UALBF"], cwd=cwd, env=env, check=False
+        )
         if build_res.returncode != 0:
             print("Error: Lean compilation failed during build.", file=sys.stderr)
             has_error = True
