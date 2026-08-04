@@ -72,6 +72,8 @@
     "conjectural_bounds.active": "TUNING.md",
     "conjectural_bounds.target_max_log10_ceiling": "TUNING.md",
     "touchard_mod_24.modulus": "TUNING.md",
-    "touchard_mod_24.residues": "TUNING.md"
+    "touchard_mod_24.residues": "TUNING.md",
+    "crt_obstruction.moduli": "TUNING.md",
+    "crt_obstruction.modulus_product": "TUNING.md"
   }
 }
