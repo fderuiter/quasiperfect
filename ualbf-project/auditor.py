@@ -166,22 +166,26 @@ def check_lean_environment():
 def generate_manifest():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
-    if not has_lean:
-        manifest["status"] = "unverified"
 
     # Load existing manifest to preserve statuses if Lean is missing
     existing_statuses = {}
+    existing_manifest_status = None
     try:
-        manifest_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "proof_manifest.json"
-        )
+        manifest_path = "proof_manifest.json"
         if os.path.exists(manifest_path):
             with open(manifest_path, "r", encoding="utf-8") as f:
                 old_manifest = json.load(f)
+                existing_manifest_status = old_manifest.get("status")
                 for thm in old_manifest.get("theorems", []):
                     existing_statuses[thm["name"]] = thm["status"]
     except Exception:
         pass
+
+    if not has_lean:
+        if existing_manifest_status is not None:
+            manifest["status"] = existing_manifest_status
+        elif not existing_statuses:
+            manifest["status"] = "unverified"
 
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
@@ -222,7 +226,7 @@ def generate_manifest():
                 break
 
         if not has_lean:
-            status = "unverified"
+            status = existing_statuses.get(thm, "unverified")
         else:
             lean_file = "find_axioms.lean"
             lean_path = os.path.join(cwd, lean_file)
