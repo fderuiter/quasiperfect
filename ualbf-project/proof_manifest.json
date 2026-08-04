@@ -1,6 +1,12 @@
 {
   "theorems": [
     {
+      "name": "UALBF.Engine.CyclotomicGraph.relational_forced_inclusion",
+      "file": "UALBF/Engine/CyclotomicGraph.lean",
+      "status": "proven",
+      "checksum": "e1f3e493e81e13299bb98f5af271ea54ab1dd4347c5e3912fe217c96ff34502b"
+    },
+    {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
@@ -163,7 +169,7 @@
       "checksum": "1d7199c053041e84937a409c14efb2d25c44f2d98cae0d9b48d5adf867c95ba9"
     }
   ],
-  "verified_logic_hash": "ff358e017de25e0659c70c60893b23cf94bf82ffcada55a557968e535d037b03",
+  "verified_logic_hash": "3098c4c18a9d8bed401aabe26a7c30fe4182bf487a225482d5adfd705e340efb",
   "verified_extension_hash": "7bd7368cae12f582cfab7e738e4c38bbad5fa4957ed6f631fab9b857b1a57345",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -224,7 +230,7 @@
   "proof_files": [
     {
       "file": "UALBF.lean",
-      "checksum": "edf7ac6534d96bc526f538e87acae15512453f2fbd11ed9c8fa67f14a859d453"
+      "checksum": "68b6000c3962c27a836a787c930f9f7d62c4edd6e7a9d960455dac8b9ae1dcb0"
     },
     {
       "file": "UALBF/Basic.lean",
@@ -237,6 +243,10 @@
     {
       "file": "UALBF/Engine/Bipartition.lean",
       "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+    },
+    {
+      "file": "UALBF/Engine/CyclotomicGraph.lean",
+      "checksum": "1271728af3d764064ec5802e44cb06889d4722fcfd33e640a61827d4324c6dd0"
     },
     {
       "file": "UALBF/Engine/Mod5Bridge.lean",
@@ -264,7 +274,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "bfe729f3ce2df7311f0f802cf89b9bc0fccfa4cf73279039cce85b3a590ff621"
+      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
     },
     {
       "file": "UALBF/FFI_generated.lean",
@@ -272,11 +282,11 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "4bb8c5bb01e722771c7a2649c7f3482f87801aee6c15a006abb1354abf7ac9d4"
+      "checksum": "b94373f483b6fe7e5bf2cc0959fecb3f481ccbb7fe4e1087c35fc5ae8e9ebca9"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
-      "checksum": "c4987bcbbba0bbc8c99e3ba8020780822d8582342f2332df90047fd9e3450ccf"
+      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",
@@ -288,7 +298,7 @@
     },
     {
       "file": "UALBF/Pure/CyclotomicAlgebra.lean",
-      "checksum": "42a24295f0064f05e1afea39fcae1d8d9724f478ff5c5bf785f75065faadac7d"
+      "checksum": "2818f7bc8f6b5eb00f80324d765dda201c6604cbaf569b1060bd5ce9eee3bd93"
     },
     {
       "file": "UALBF/Pure/EulerProduct.lean",
@@ -331,5 +341,5 @@
       "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "741628feffcdf13d09e4f7bdb8165c3a8d40793ae2a64fd86e30de2532c127c8"
+  "bounds_manifest_hash": "b7718db13f5874361ef736a9f9233ae550943deea44ed82d8567e37b9b09864c"
 }

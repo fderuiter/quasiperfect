@@ -351,7 +351,7 @@
     108839649604165292755
   ],
   "conjectural_bounds": {
-    "active": false,
+    "active": true,
     "conjecture_name": "ABC Conjecture",
     "target_max_log10_ceiling": 30
   },
