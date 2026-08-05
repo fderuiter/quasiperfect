@@ -260,3 +260,82 @@ def test_extract_backticks_with_lines(tmp_path):
     assert "item4" in extracted_names
 
 
+def test_extract_fqns_nested_namespaces():
+    from verify_metadata import extract_fqns_from_lean_content
+    lean_code = """
+    namespace Outer
+    namespace Inner
+    def val := 1
+    theorem my_thm : 1 = 1 := by rfl
+    end Inner
+    def top_val := 2
+    end Outer
+    def root_val := 3
+    """
+    fqns = extract_fqns_from_lean_content(lean_code)
+    assert "Outer.Inner.val" in fqns
+    assert "Outer.Inner.my_thm" in fqns
+    assert "Outer.top_val" in fqns
+    assert "root_val" in fqns
+    assert "val" not in fqns
+
+
+def test_find_construct_strict_and_fallback():
+    lean_code = """
+    namespace MyNamespace
+    def my_theorem := True
+    end MyNamespace
+    """
+    assert find_construct(lean_code, "MyNamespace.my_theorem", "test.lean") is True
+    # Bypasses leaf-level fallback completely for qualified references containing '.'
+    assert find_construct(lean_code, "WrongNamespace.my_theorem", "test.lean") is False
+    # Preserves fallback for unqualified references
+    assert find_construct(lean_code, "my_theorem", "test.lean") is True
+
+
+def test_check_documentation_fqn_rules(tmp_path):
+    import json
+    from unittest.mock import patch, mock_open
+    from auditor import check_documentation
+    
+    doc_path = tmp_path / "README.md"
+    doc_path.write_text("""
+    This is `MyNamespace.my_theorem` which is valid.
+    This is `unrelated_theorem` which is unqualified and valid because it's in a namespace.
+    This is `WrongNamespace.my_theorem` which is invalid and must be flagged!
+    This is `MyNamespace.deleted_theorem` which is invalid and must be flagged!
+    """)
+    
+    with patch("auditor.CORE_THEOREMS", []), \
+         patch("auditor.os.walk", return_value=[]), \
+         patch("auditor.check_lean_environment", return_value=True):
+         
+         with patch("auditor.CORE_THEOREMS", ["MyNamespace.my_theorem", "Outer.unrelated_theorem"]):
+             docs_manifest_content = json.dumps({"README.md": "authoritative"})
+             
+             original_open = open
+             def custom_open(file, *args, **kwargs):
+                 if "docs_manifest.json" in str(file):
+                     return mock_open(read_data=docs_manifest_content)()
+                 if "README.md" in str(file):
+                     return original_open(doc_path, *args, **kwargs)
+                 return original_open(file, *args, **kwargs)
+                 
+             with patch("builtins.open", custom_open), \
+                  patch("auditor.os.path.exists", return_value=True):
+                 with patch("sys.stderr") as mock_stderr:
+                     result = check_documentation({"verus_hashes": {}})
+                     
+                     assert result is False
+                     
+                     error_calls = [call[0][0] for call in mock_stderr.write.call_args_list if call[0]]
+                     full_error_output = "".join(error_calls)
+                     
+                     assert "Invalid code symbol: 'WrongNamespace.my_theorem'" in full_error_output
+                     assert "Invalid code symbol: 'MyNamespace.deleted_theorem'" in full_error_output
+                     assert "Invalid code symbol: 'MyNamespace.my_theorem'" not in full_error_output
+                     assert "Invalid code symbol: 'unrelated_theorem'" not in full_error_output
+
+
+
+
