@@ -116,3 +116,87 @@ def test_specification_parity():
     assert (
         spec_constants.get("lean_crt_modulus_product") == crt_modulus_product
     ), "Spec mismatch for CRT modulus product"
+
+
+def test_conjectural_bounds_conflict_fails_build():
+    """
+    Test that if conjectural bounds are active but the ceiling is set below the search floor,
+    cargo check fails to compile and describes the conflicting parameters.
+    """
+    import subprocess
+    import shutil
+    from pathlib import Path
+
+    project_dir = Path(__file__).parent.parent
+    bounds_path = project_dir / "bounds_manifest.json"
+    proof_path = project_dir / "proof_manifest.json"
+    lean_export_path = project_dir / "rust-engine/src/lean_export.rs"
+    manifest_constants_h = project_dir / "rust-engine/src/manifest_constants.h"
+    manifest_constants_rs = project_dir / "rust-engine/src/manifest_constants.rs"
+    manifest_constants_lean = project_dir / "lean4-proofs/UALBF/ManifestConstants.lean"
+
+    # Backup files
+    bounds_backup = bounds_path.read_text(encoding="utf-8")
+    proof_backup = proof_path.read_text(encoding="utf-8")
+    lean_export_backup = lean_export_path.read_text(encoding="utf-8")
+    constants_h_backup = manifest_constants_h.read_text(encoding="utf-8")
+    constants_rs_backup = manifest_constants_rs.read_text(encoding="utf-8")
+    constants_lean_backup = manifest_constants_lean.read_text(encoding="utf-8")
+
+    try:
+        # Modify bounds_manifest to have active = true and ceiling = 30 (which is less than target_min_log10 = 37)
+        bounds_data = json.loads(bounds_backup)
+        bounds_data["conjectural_bounds"] = {
+            "active": True,
+            "conjecture_name": "ABC Conjecture",
+            "target_max_log10_ceiling": 30
+        }
+        bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
+
+        # 1. Run export_lean_specs.py to regenerate specifications
+        subprocess.run(
+            ["python3", "scripts/export_lean_specs.py"],
+            cwd=str(project_dir),
+            check=True
+        )
+
+        # 2. Run auditor.py with MOCK_LEAN=1 to update proof_manifest.json
+        env = os.environ.copy()
+        env["MOCK_LEAN"] = "1"
+        subprocess.run(
+            ["python3", "auditor.py"],
+            cwd=str(project_dir),
+            env=env
+        )
+
+        # Touch build.rs to force rerun
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
+        # 3. Run cargo check
+        res = subprocess.run(
+            ["cargo", "check"],
+            cwd=str(project_dir / "rust-engine"),
+            capture_output=True,
+            text=True
+        )
+
+        assert res.returncode != 0
+        assert "FATAL: Conflicting bounds parameters detected!" in res.stderr
+        assert "target_max_log10_ceiling = 30" in res.stderr
+        assert "target_min_log10 = 37" in res.stderr
+
+    finally:
+        # Restore backups
+        bounds_path.write_text(bounds_backup, encoding="utf-8")
+        proof_path.write_text(proof_backup, encoding="utf-8")
+        lean_export_path.write_text(lean_export_backup, encoding="utf-8")
+        manifest_constants_h.write_text(constants_h_backup, encoding="utf-8")
+        manifest_constants_rs.write_text(constants_rs_backup, encoding="utf-8")
+        manifest_constants_lean.write_text(constants_lean_backup, encoding="utf-8")
+        # Touch build.rs to restore clean state
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
