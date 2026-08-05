@@ -116,3 +116,38 @@ cargo run --release
 
 ## ⚖️ Logical Safeguards
 Strictly ensures all roots derived computationally are validated via intrinsic structural invariant checks (Miller-Rabin verification before claiming topological discoveries) to prevent infinite loops and false positives present in classical iterative sieves.
+
+---
+
+## Active Source Files Index
+
+To ensure 100% layout coverage and prevent documentation drift, the following complete list of active Rust source and build configuration files in this sub-module are indexed and verified:
+
+- `build.rs`
+- `lib.rs`
+- `main.rs`
+- `types.rs`
+- `sieve.rs`
+- `dfs_tree.rs`
+- `raycast.rs`
+- `math_utils.rs`
+- `lean_ffi.rs`
+- `gpu.rs`
+- `metal_reflection.rs`
+- `mod.rs`
+- `obstruction.rs`
+- `ffi_generated.rs`
+- `verus_proofs.rs`
+- `policy.rs`
+- `profile.rs`
+- `state.rs`
+- `backbone.rs`
+- `universal_bounds.rs`
+- `manifest_constants.rs`
+- `residue.rs`
+- `schema_generated.rs`
+- `events.rs`
+- `trace.rs`
+- `distributed.rs`
+- `lean_export.rs`
+

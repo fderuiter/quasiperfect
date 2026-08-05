@@ -4,6 +4,9 @@ from verify_metadata import (
     find_leaf_parameters,
     get_parameter_candidates,
     is_parameter_documented,
+    is_backtick_valid,
+    extract_backticks_with_lines,
+    SUPERSCRIPTS,
 )
 
 
@@ -200,4 +203,60 @@ def test_is_parameter_documented():
     assert is_parameter_documented(doc_content, ["max_exponent"]) is True
     assert is_parameter_documented(doc_content, ["active_prime_slots"]) is True
     assert is_parameter_documented(doc_content, ["missing_param"]) is False
+
+
+def test_superscripts_mapping():
+    assert SUPERSCRIPTS['⁰'] == '0'
+    assert SUPERSCRIPTS['⁴'] == '4'
+    assert SUPERSCRIPTS['³'] == '3'
+
+
+def test_is_backtick_valid():
+    repo_paths = {"sieve.rs", "ManifestConstants.lean", "README.md"}
+    code_constructs = {"my_theorem", "my_fn"}
+    valid_params = {"target_max_log10", "pollard_rho_batch_size"}
+
+    # Common technology/names from SAFE_COMMON_WORDS
+    assert is_backtick_valid("rust", repo_paths, code_constructs, valid_params) is True
+    assert is_backtick_valid("lean", repo_paths, code_constructs, valid_params) is True
+    assert is_backtick_valid("rayon", repo_paths, code_constructs, valid_params) is True
+
+    # Real file references
+    assert is_backtick_valid("sieve.rs", repo_paths, code_constructs, valid_params) is True
+    assert is_backtick_valid("ManifestConstants.lean", repo_paths, code_constructs, valid_params) is True
+
+    # Active code constructs
+    assert is_backtick_valid("my_theorem", repo_paths, code_constructs, valid_params) is True
+    assert is_backtick_valid("my_fn", repo_paths, code_constructs, valid_params) is True
+
+    # Active parameters
+    assert is_backtick_valid("target_max_log10", repo_paths, code_constructs, valid_params) is True
+
+    # Trailing slashes or attributes/keywords
+    assert is_backtick_valid("UALBF/Pure/", {"UALBF/Pure"}, code_constructs, valid_params) is True
+    assert is_backtick_valid("@[export]", repo_paths, code_constructs, valid_params) is True
+    assert is_backtick_valid("#[cfg(test)]", repo_paths, code_constructs, valid_params) is True
+    assert is_backtick_valid("def", repo_paths, code_constructs, valid_params) is True
+
+    # Broken/invalid reference
+    assert is_backtick_valid("broken_ref", repo_paths, code_constructs, valid_params) is False
+
+
+def test_extract_backticks_with_lines(tmp_path):
+    temp_file = tmp_path / "test_doc.md"
+    temp_file.write_text("""
+    # Header
+    This is `item1` and `item2` here.
+    ```rust
+    ignore `item3` inside code block
+    ```
+    Another line with `item4`.
+    """)
+    items = extract_backticks_with_lines(str(temp_file))
+    extracted_names = [item[0] for item in items]
+    assert "item1" in extracted_names
+    assert "item2" in extracted_names
+    assert "item3" not in extracted_names
+    assert "item4" in extracted_names
+
 

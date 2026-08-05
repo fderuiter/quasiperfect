@@ -1,9 +1,9 @@
 {
-  "README.md": "informal",
+  "README.md": "authoritative",
   "ualbf-project/TCB.md": "authoritative",
   "ualbf-project/TUNING.md": "authoritative",
   "ualbf-project/TODO.md": "informal",
   "ualbf-project/semantic_verification_report.md": "authoritative",
-  "ualbf-project/lean4-proofs/README.md": "informal",
-  "ualbf-project/rust-engine/README.md": "informal"
+  "ualbf-project/lean4-proofs/README.md": "authoritative",
+  "ualbf-project/rust-engine/README.md": "authoritative"
 }
