@@ -169,8 +169,63 @@ def strip_comments(text: str, filename: str) -> str:
     return "".join(result)
 
 
+def extract_fqns_from_lean_content(stripped: str) -> list[str]:
+    # Remove string literals to avoid finding keywords inside strings
+    stripped_no_strings = re.sub(r'"([^"\\]|\\.)*"', '""', stripped)
+
+    fqns = []
+    namespace_stack = []
+
+    # Matches:
+    # 1. namespace <name>
+    # 2. end <optional_name>
+    # 3. def/theorem/lemma/structure/inductive/class/instance/abbrev <name>
+    pattern = re.compile(
+        r"\b(namespace|end|def|theorem|lemma|structure|inductive|class|instance|abbrev)\b(?:\s+([a-zA-Z0-9_'\.]+))?"
+    )
+
+    for m in re.finditer(pattern, stripped_no_strings):
+        keyword = m.group(1)
+        name = m.group(2)
+
+        if keyword == "namespace":
+            if name:
+                namespace_stack.append(name)
+        elif keyword == "end":
+            if name:
+                # Pop until the matching namespace is found, or just pop the top of stack
+                if name in namespace_stack:
+                    while namespace_stack:
+                        popped = namespace_stack.pop()
+                        if popped == name:
+                            break
+                elif namespace_stack:
+                    namespace_stack.pop()
+            else:
+                if namespace_stack:
+                    namespace_stack.pop()
+        else:
+            if name:
+                # Prepend the active namespace prefix
+                full_prefix = ".".join(namespace_stack)
+                if full_prefix:
+                    fqn = f"{full_prefix}.{name}"
+                else:
+                    fqn = name
+                fqns.append(fqn)
+
+    return fqns
+
+
 def find_construct(content_stripped: str, construct: str, filename: str) -> bool:
     _, ext = os.path.splitext(filename)
+
+    if ext == ".lean":
+        fqns = extract_fqns_from_lean_content(content_stripped)
+        if "." in construct:
+            return construct in fqns
+        else:
+            return any(fqn == construct or fqn.split(".")[-1] == construct for fqn in fqns)
 
     names_to_try = [construct]
     if "." in construct:
@@ -179,9 +234,6 @@ def find_construct(content_stripped: str, construct: str, filename: str) -> bool
     for name in names_to_try:
         if ext == ".rs":
             keywords = r"(fn|struct|enum|trait|union|const|static|type|mod)"
-            pattern = rf"\b{keywords}\s+{re.escape(name)}\b"
-        elif ext == ".lean":
-            keywords = r"(def|theorem|lemma|structure|inductive|class|instance|abbrev)"
             pattern = rf"\b{keywords}\s+{re.escape(name)}\b"
         else:
             pattern = rf"\b{re.escape(name)}\b"
@@ -517,15 +569,11 @@ def extract_code_constructs(base_dir):
                     with open(path, "r", encoding="utf-8") as f:
                         content = f.read()
                     stripped = strip_comments(content, file)
-                    # Find all Lean definitions
-                    for m in re.finditer(
-                        r"\b(def|theorem|lemma|structure|inductive|class|instance|abbrev)\s+([a-zA-Z0-9_'\.]+)",
-                        stripped,
-                    ):
-                        name = m.group(2)
-                        constructs.add(name)
-                        if "." in name:
-                            constructs.add(name.split(".")[-1])
+                    # Find all Lean definitions using stateful namespace tracker
+                    fqns = extract_fqns_from_lean_content(stripped)
+                    for fqn in fqns:
+                        constructs.add(fqn)
+                        constructs.add(fqn.split(".")[-1])
                 except Exception:
                     pass
 

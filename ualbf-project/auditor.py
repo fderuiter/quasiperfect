@@ -6,6 +6,7 @@ import sys
 import os
 import hashlib
 import cert_util
+from verify_metadata import extract_fqns_from_lean_content, strip_comments
 
 
 class MockCompletedProcess:
@@ -492,7 +493,12 @@ def check_documentation(manifest):
             if file.endswith(".lean"):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
-                        valid_symbols.update(lean_regex.findall(f.read()))
+                        content = f.read()
+                    stripped = strip_comments(content, file)
+                    fqns = extract_fqns_from_lean_content(stripped)
+                    for fqn in fqns:
+                        valid_symbols.add(fqn)
+                        valid_symbols.add(fqn.split(".")[-1])
                 except Exception:
                     pass
             elif file.endswith(".rs"):
@@ -636,12 +642,20 @@ def check_documentation(manifest):
                                 )
                     elif re.match(r"^[a-zA-Z_][a-zA-Z0-9_::\.]*(?:\(\))?$", bt):
                         clean_bt = bt.removesuffix("()")
-                        parts = re.split(r"\.|::", clean_bt)
-                        ident = parts[-1]
-                        if ident not in ignore_symbols and ident not in valid_symbols:
-                            errors.append(
-                                f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
-                            )
+                        if "." in clean_bt and "::" not in clean_bt:
+                            # Strict match for dot-notated qualified names (Lean)
+                            if clean_bt not in ignore_symbols and clean_bt not in valid_symbols:
+                                errors.append(
+                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
+                                )
+                        else:
+                            # Unqualified names or Rust names (using ::)
+                            parts = re.split(r"\.|::", clean_bt)
+                            ident = parts[-1]
+                            if ident not in ignore_symbols and ident not in valid_symbols:
+                                errors.append(
+                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
+                                )
 
     for e in errors:
         print(e, file=sys.stderr)
