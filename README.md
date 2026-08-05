@@ -61,7 +61,7 @@ This project extends and formally verifies the following:
 
 | Result | Description |
 |---|---|
-| **N > 10⁴⁵** | Computationally verified — no QPN exists below 10⁴⁵ |
+| **N > 10⁴³** | Computationally verified — no QPN exists below 10⁴³ |
 | **Odd perfect square** | Mechanically proved in Lean 4: any QPN must be an odd perfect square |
 | **Modulo-8 obstruction** | Formalized Legendre-Cattaneo filter: odd prime factors q of σ(N) satisfy q ≡ 1 or 3 (mod 8) |
 | **ω(N) ≥ 15** | Prasad-Sunitha bound: any QPN with gcd(N, 15) = 1 has at least 15 distinct prime factors |
@@ -275,7 +275,7 @@ Located in `ualbf-project/paper/`. The compiled PDF is at `paper/main.pdf`.
 | Math & Formalization | Lean 4 proofs, cyclotomic theory, Zsigmondy decomposition |
 | Bipartition Algorithm | Prefix-suffix DFS, formal exhaustion certificate |
 | Verified Engine | Rust architecture, FFI bridge, overflow safety |
-| Results | N > 10⁴⁵ established; hardware telemetry |
+| Results | N > 10⁴³ established; hardware telemetry |
 | Conclusion | Outlook for deeper bounds |
 
 Build the paper with:

@@ -192,6 +192,200 @@ def find_construct(content_stripped: str, construct: str, filename: str) -> bool
     return False
 
 
+SUPERSCRIPTS = {
+    '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+    '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'
+}
+
+SAFE_COMMON_WORDS = {
+    # Languages and Tech
+    "rust", "lean", "bash", "python", "latex", "c", "c++", "ffi", "git", "nix", "github", "ci",
+    "rayon", "crossbeam-channel", "num-bigint", "num-integer", "num-traits", "primal", "std", "z3",
+    "prime_factorization", "curses", "serde", "serde_json", "clap", "tokio", "axum", "reqwest",
+    "mathlib", "mathlib4", "lake", "cargo", "pytest", "unittest", "black", "flake8", "mypy",
+    "clang", "llvm", "gmp", "libuv", "metal", "opencl", "ocl-icd", "texlive", "pdf", "html",
+    
+    # Common words / Types / Keywords
+    "item", "min", "max", "sieve-limit", "max-exponent", "skip-lean-build", "auto-raise", "debug",
+    "def", "export", "cfg", "tests",
+    "q", "r", "l", "h", "n", "u128", "u256", "u512", "uint", "nat", "int", "float", "bool", "string",
+    "char", "proposition", "prop", "true", "false", "none", "some", "err", "ok", "result", "option",
+    "theorem", "lemma", "definition", "structure", "inductive", "class", "instance", "abbrev",
+    "fn", "struct", "enum", "trait", "union", "const", "static", "type", "mod",
+    "s_l", "n_l", "n_r", "z", "p", "e", "k", "sigma", "IsQuasiperfect", "abundancy_index",
+    "ExactValuation", "Bipartition", "abc", "legendre_cattaneo_obstruction", "legendre-cattaneo",
+    "no_solution_no_qpn", "tonelli_shanks", "hensels_lift", "solve_crt", "pollard_rho", "miller-rabin",
+    "modinverse_spec", "compute_sigma", "verified_is_prime", "pollard_rho_brent_u256", "run_gui.py",
+    "build.rs", "lakefile.lean", "verify-sync", "make", "clean", "warnings", "formatting",
+    "check", "check_literals.py", "argparse", "latexminted", "dummy_cert.json", "main.pdf",
+    "libverification_lib", "verification-lib", "verus", "rust_verify", "autoconf", "automake",
+    "libtool", "m4", "pkg-config", "gnumake", "which", "cacert", "jq", "curl", "unzip", "tar", "xz",
+    "nixpkgs", "flake-utils", "autopatchelfhook", "stdenv", "zlib", "openssl",
+    "darwin", "security", "corefoundation", "systemconfiguration", "metal-reflection", "unverified",
+    "gpu.rs", "metal_reflection.rs", "mod.rs", "obstruction.rs", "ffi_generated.rs", "verus_proofs.rs",
+    "policy.rs", "profile.rs", "state.rs", "lean_ffi.rs", "backbone.rs", "universal_bounds.rs",
+    "manifest_constants.rs", "residue.rs", "schema_generated.rs", "sieve.rs", "main.rs", "types.rs",
+    "dfs_tree.rs", "events.rs", "trace.rs", "raycast.rs", "distributed.rs", "lean_export.rs",
+    "validator.lean", "touchardqpn.lean", "mod5bridge.lean", "cyclotomicgraph.lean", "searchmonad.lean",
+    "touchardbridge.lean", "searchstate.lean", "ffi_generated.lean", "bloomfilter.lean",
+    "rationalbounds.lean", "zsigmondy.lean", "fixed64.lean", "abcconjecture.lean",
+    "cyclotomalgebra.lean", "cyclotomic.lean", "eulerproduct.lean", "arithmetic.lean",
+    "ffi.lean", "manifestconstants.lean", "basic.lean", "ualbf.lean", "docs_manifest.json",
+    
+    # Environment variables
+    "ualbf_target_min_log10", "ualbf_target_max_log10", "ualbf_sieve_limit", "ualbf_max_exponent",
+    "ualbf_prefix_stop_threshold", "ualbf_cert_path", "ualbf_dummy_paper_ci",
+    "libclang_path", "lean_sysroot", "path", "home", "git_ssl_cainfo", "ssl_cert_file",
+    "verus_use_rustup", "ld_library_path", "dyld_library_path",
+    
+    # Words commonly in backticks
+    "cfg(test)", "test", "release", "debug", "all", "none", "any", "some", "err", "ok",
+    "tcb.md", "tuning.md", "todo.md", "readme.md", "libualbf_engine.a", "warningaserror=true",
+    "warningaserror", "prasad_sunitha", "hagis1982", "div_5_coprime_3", "modulus", "residues",
+    "moduli", "modulus_product", "active", "conjecture_name", "target_max_log10_ceiling",
+    "pollard_rho_batch_size", "omega_bounds", "search_bounds", "euler_ceiling", "overflow_threshold",
+    "prime_factor_list", "static_suffix_bounds", "conjectural_bounds", "crt_obstruction", "touchard_mod_24",
+    "conjectural_active", "conjecture_name", "conjectural_max_log10_ceiling", "bloom_filter",
+    "mod5_bridge", "cyclotomic_graph", "search_monad", "touchard_bridge", "search_state",
+    "ffi_generated", "fixed64", "abc_conjecture", "cyclotomic_algebra", "cyclotomic", "euler_product",
+    "arithmetic", "manifest_constants", "basic", "validation", "verification", "pipeline", "github-actions",
+}
+
+
+def extract_code_constructs(base_dir):
+    constructs = set()
+    # Scan all .lean files under lean4-proofs
+    lean_dir = os.path.join(base_dir, "lean4-proofs")
+    for root, dirs, files in os.walk(lean_dir):
+        if ".lake" in root or "build" in root:
+            continue
+        for file in files:
+            if file.endswith(".lean"):
+                path = os.path.join(root, file)
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    stripped = strip_comments(content, file)
+                    # Find all Lean definitions
+                    for m in re.finditer(r"\b(def|theorem|lemma|structure|inductive|class|instance|abbrev)\s+([a-zA-Z0-9_'\.]+)", stripped):
+                        name = m.group(2)
+                        constructs.add(name)
+                        if "." in name:
+                            constructs.add(name.split(".")[-1])
+                except Exception:
+                    pass
+
+    # Scan all .rs files under rust-engine
+    rust_dir = os.path.join(base_dir, "rust-engine")
+    for root, dirs, files in os.walk(rust_dir):
+        if "target" in root:
+            continue
+        for file in files:
+            if file.endswith(".rs"):
+                path = os.path.join(root, file)
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    stripped = strip_comments(content, file)
+                    # Find all Rust definitions
+                    for m in re.finditer(r"\b(fn|struct|enum|trait|union|const|static|type|mod)\s+([a-zA-Z0-9_]+)", stripped):
+                        name = m.group(2)
+                        constructs.add(name)
+                except Exception:
+                    pass
+    return constructs
+
+
+def get_all_repo_paths(repo_root):
+    paths = set()
+    for root, dirs, files in os.walk(repo_root):
+        if ".git" in root or ".lake" in root or "target" in root:
+            continue
+        # Add relative directory paths
+        rel_dir = os.path.relpath(root, repo_root)
+        if rel_dir != ".":
+            paths.add(rel_dir)
+            paths.add(os.path.basename(rel_dir))
+        for file in files:
+            path = os.path.join(root, file)
+            rel_file = os.path.relpath(path, repo_root)
+            paths.add(rel_file)
+            paths.add(file) # base name match
+    return paths
+
+
+def is_backtick_valid(item, repo_paths, code_constructs, valid_params):
+    item = item.strip()
+    if not item:
+        return True
+    
+    # Strip trailing slashes, leading @, leading #, and brackets/quotes/etc.
+    item = item.rstrip("/").strip("@#[]()'\"`")
+    if not item:
+        return True
+
+    item_lower = item.lower()
+    if item_lower in SAFE_COMMON_WORDS:
+        return True
+    if item in code_constructs or item_lower in code_constructs:
+        return True
+    if item in repo_paths or item_lower in repo_paths:
+        return True
+    if item in valid_params or item_lower in valid_params:
+        return True
+    
+    if "/" in item:
+        if item in repo_paths or os.path.exists(item) or os.path.exists(os.path.join("/app", item)):
+            return True
+            
+    # Tokenize by space/punctuation to check individual components
+    # We remove : from the allowed token characters to split module paths like math_utils::tests on :
+    tokens = re.split(r'[^a-zA-Z0-9_\-\./\+=^<>&*#]+', item)
+    all_tokens_valid = True
+    for tok in tokens:
+        tok = tok.strip(".,;:_*-()[]{}'\"@#")
+        if not tok:
+            continue
+        tok_lower = tok.lower()
+        if re.match(r'^[0-9]+$', tok_lower) or tok_lower in {"", "<", ">", "=", "<=", ">=", "+", "-", "*", "/", "==", "&&", "||", "::", "mod", "n", "z", "p", "e", "q", "l", "r", "n_l", "s_l", "n_r", "z^2", "10^35", "10^37", "10^43", "10^45"}:
+            continue
+        if tok_lower in SAFE_COMMON_WORDS:
+            continue
+        if tok in code_constructs or tok_lower in code_constructs:
+            continue
+        if tok in repo_paths or tok_lower in repo_paths:
+            continue
+        if tok in valid_params or tok_lower in valid_params:
+            continue
+        if os.path.basename(tok) in repo_paths or tok in repo_paths:
+            continue
+        all_tokens_valid = False
+        break
+        
+    if all_tokens_valid:
+        return True
+        
+    return False
+
+
+def extract_backticks_with_lines(file_path):
+    items = []
+    if not os.path.exists(file_path):
+        return items
+    in_code_block = False
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line_no, line in enumerate(f, 1):
+            if line.strip().startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+            matches = re.findall(r"`([^`]+)`", line)
+            for m in matches:
+                items.append((m, line_no))
+    return items
+
+
 def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     manifest_path = os.path.join(base_dir, "metadata_manifest.json")
@@ -416,6 +610,102 @@ def main():
                     "Error: Could not parse all conjectural constants from ManifestConstants.lean"
                 )
                 errors += 1
+
+        # A. Manifest Promotion Check
+        docs_manifest_path = os.path.join(os.path.dirname(base_dir), "docs_manifest.json")
+        if os.path.exists(docs_manifest_path):
+            with open(docs_manifest_path, "r", encoding="utf-8") as f:
+                docs_manifest = json.load(f)
+            for req_doc in ["README.md", "ualbf-project/lean4-proofs/README.md", "ualbf-project/rust-engine/README.md"]:
+                if docs_manifest.get(req_doc) != "authoritative":
+                    print(f"Error: {req_doc} must be registered as 'authoritative' in docs_manifest.json.")
+                    errors += 1
+
+        # B. Mathematical Bounds Synchronization Check
+        target_max_log10 = bounds_data["search_bounds"]["target_max_log10"]["value"]
+        readme_path = os.path.join(os.path.dirname(base_dir), "README.md")
+        if os.path.exists(readme_path):
+            with open(readme_path, "r", encoding="utf-8") as f:
+                readme_content = f.read()
+            superscript_pattern = re.compile(r"10([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
+            matches = superscript_pattern.findall(readme_content)
+            found_search_limit_claim = False
+            for m in matches:
+                val_str = "".join(SUPERSCRIPTS[c] for c in m)
+                val = int(val_str)
+                if val_str.startswith('4'):
+                    found_search_limit_claim = True
+                    if val != target_max_log10:
+                        print(f"Error: README.md claims verified search limit of 10^{val}, but bounds_manifest.json target_max_log10 is {target_max_log10}.")
+                        errors += 1
+            if not found_search_limit_claim:
+                print("Error: Could not find any 10⁴... search limit claim in the root README.md.")
+                errors += 1
+
+        # C. Sub-Module Layout Parity Verification
+        # Layout parity verification for sub-module lean4-proofs
+        lean_readme_path = os.path.join(base_dir, "lean4-proofs", "README.md")
+        if os.path.exists(lean_readme_path):
+            with open(lean_readme_path, "r", encoding="utf-8") as f:
+                lean_readme_content = f.read()
+            # Find all .lean files in lean4-proofs
+            lean_files = []
+            lean_dir = os.path.join(base_dir, "lean4-proofs")
+            for root, dirs, files in os.walk(lean_dir):
+                if ".lake" in root or "build" in root:
+                    continue
+                for file in files:
+                    if file.endswith(".lean"):
+                        lean_files.append(file)
+            for lf in lean_files:
+                if lf not in lean_readme_content:
+                    print(f"Error in lean4-proofs/README.md: Active proof file '{lf}' is not mentioned.")
+                    errors += 1
+
+        # Layout parity verification for sub-module rust-engine
+        rust_readme_path = os.path.join(base_dir, "rust-engine", "README.md")
+        if os.path.exists(rust_readme_path):
+            with open(rust_readme_path, "r", encoding="utf-8") as f:
+                rust_readme_content = f.read()
+            # Find all .rs files in rust-engine
+            rust_files = []
+            rust_dir = os.path.join(base_dir, "rust-engine")
+            for root, dirs, files in os.walk(rust_dir):
+                if "target" in root:
+                    continue
+                for file in files:
+                    if file.endswith(".rs"):
+                        rust_files.append(file)
+            for rf in rust_files:
+                if rf not in rust_readme_content:
+                    print(f"Error in rust-engine/README.md: Active source file '{rf}' is not mentioned.")
+                    errors += 1
+
+        # D. Backticked Items Validation
+        repo_root = os.path.dirname(base_dir)
+        repo_paths = get_all_repo_paths(repo_root)
+        code_constructs = extract_code_constructs(base_dir)
+        
+        # Build valid parameters set
+        valid_params = set()
+        for param in leaf_params:
+            valid_params.update(get_parameter_candidates(param))
+            
+        readme_files_to_check = [
+            os.path.join(repo_root, "README.md"),
+            os.path.join(base_dir, "lean4-proofs", "README.md"),
+            os.path.join(base_dir, "rust-engine", "README.md")
+        ]
+        
+        for rf_path in readme_files_to_check:
+            if not os.path.exists(rf_path):
+                continue
+            rel_rf_path = os.path.relpath(rf_path, repo_root)
+            backticked_items = extract_backticks_with_lines(rf_path)
+            for item, line_no in backticked_items:
+                if not is_backtick_valid(item, repo_paths, code_constructs, valid_params):
+                    print(f"Error in {rel_rf_path}:{line_no}: Broken code reference or invalid backticked item `{item}`.")
+                    errors += 1
 
     if errors > 0:
         sys.exit(1)

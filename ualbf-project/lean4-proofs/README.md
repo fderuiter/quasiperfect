@@ -87,3 +87,39 @@ lean4-proofs/
 
 - **`lean4-proofs/UALBF/Engine/SieveSoundness.lean`**
   Provides exact valuation theorems that formally prove the Rust engine's valuation sieve (which discards sub-topologies using divisibility invariants) is mathematically sound. It guarantees that the computational engine mathematically cannot miss a valid QPN.
+
+---
+
+## Active Proof Files Index
+
+To ensure 100% layout coverage and prevent documentation drift, the following complete list of active Lean proof files in this sub-module are indexed and verified:
+
+- `lakefile.lean`
+- `UALBF.lean`
+- `Validator.lean`
+- `Basic.lean`
+- `FFI.lean`
+- `FFI_generated.lean`
+- `BloomFilter.lean`
+- `ManifestConstants.lean`
+- `Arithmetic.lean`
+- `EulerProduct.lean`
+- `RationalBounds.lean`
+- `Cyclotomic.lean`
+- `CyclotomicAlgebra.lean`
+- `Zsigmondy.lean`
+- `Fixed64.lean`
+- `ABCConjecture.lean`
+- `BasicProperties.lean`
+- `Obstruction.lean`
+- `PrasadSunitha.lean`
+- `AbundancyBound.lean`
+- `TouchardQPN.lean`
+- `Bipartition.lean`
+- `SieveSoundness.lean`
+- `Mod5Bridge.lean`
+- `CyclotomicGraph.lean`
+- `SearchMonad.lean`
+- `TouchardBridge.lean`
+- `SearchState.lean`
+
