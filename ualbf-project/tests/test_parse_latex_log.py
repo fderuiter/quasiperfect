@@ -5,7 +5,7 @@ import tempfile
 import subprocess
 
 # Add scripts directory to sys.path
-sys.path.append(str(Path(__file__).parent.parent / "scripts"))
+sys.path.append(str(Path(__file__).resolve().parent.parent / "scripts"))
 from parse_latex_log import parse_log, unwrap_log_content
 
 
@@ -99,7 +99,7 @@ LaTeX Warning: Citation `key1, key2, key3' on page 2 undefined on input line 5.
 
 def test_script_execution_success():
     # Test script returning 0 for a clean log
-    script_path = str(Path(__file__).parent.parent / "scripts" / "parse_latex_log.py")
+    script_path = str(Path(__file__).resolve().parent.parent / "scripts" / "parse_latex_log.py")
     with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
         f.write("A clean LaTeX log file with no warnings.\n")
         log_name = f.name
@@ -115,7 +115,7 @@ def test_script_execution_success():
 
 def test_script_execution_failure():
     # Test script returning 1 for a log with warnings
-    script_path = str(Path(__file__).parent.parent / "scripts" / "parse_latex_log.py")
+    script_path = str(Path(__file__).resolve().parent.parent / "scripts" / "parse_latex_log.py")
     with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
         f.write(
             "LaTeX Warning: Reference `sec:broken' on page 4 undefined on input line 56.\n"
