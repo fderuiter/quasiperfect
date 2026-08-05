@@ -382,15 +382,18 @@ fn main() {
         serde_json::from_str(&proof_manifest_content).expect("Failed to parse proof_manifest.json");
 
     if proof_manifest.bounds_manifest_hash != current_manifest_hash {
-        panic!("FATAL: Configuration mismatch. The proof manifest bounds hash ({}) does not match current bounds_manifest.json hash ({}).", proof_manifest.bounds_manifest_hash, current_manifest_hash);
+        panic!(
+            "FATAL: Configuration mismatch. The proof manifest bounds hash ('{}') does not match current bounds_manifest.json hash ('{}').",
+            proof_manifest.bounds_manifest_hash,
+            current_manifest_hash
+        );
     }
 
     let allowed_axioms: [&str; 0] = [];
     for thm in &proof_manifest.theorems {
-        if thm.status == "sorry"
-            || thm.status == "unverified"
-            || (thm.status == "axiom" && !allowed_axioms.contains(&thm.name.as_str()))
-        {
+        let is_whitelisted = thm.status == "proven"
+            || (thm.status == "axiom" && allowed_axioms.contains(&thm.name.as_str()));
+        if !is_whitelisted {
             panic!(
                 "FATAL: Theorem '{}' in '{}' is incomplete (status: {}). Compilation halted.",
                 thm.name, thm.file, thm.status
