@@ -371,6 +371,20 @@ fn main() {
     let manifest: BoundsManifest =
         serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
 
+    // --- REQUIREMENT 2 & 3: Conjectural Bounds Safety Guardrails ---
+    if let Some(ref cb) = manifest.conjectural_bounds {
+        if cb.active {
+            let floor = manifest.search_bounds.target_min_log10.value;
+            let ceiling = cb.target_max_log10_ceiling;
+            if ceiling < floor {
+                panic!(
+                    "FATAL: Conflicting bounds parameters detected! Active conjectural ceiling (target_max_log10_ceiling = {}) is set below the target search floor (target_min_log10 = {}). This configuration is invalid.",
+                    ceiling, floor
+                );
+            }
+        }
+    }
+
     // --- REQUIREMENT 2 & 4: Proof Manifest Check ---
     let proof_manifest_path = PathBuf::from(&manifest_dir).join("../proof_manifest.json");
     if !proof_manifest_path.exists() {
