@@ -31,10 +31,11 @@ jobs:
         run: |
           is_core_file() {
             local f="$1"
-            # Block if it touches core directories
+            # Block if it touches core directories or scripts
             if [[ "$f" == *"rust-engine/"* ]] || \
                [[ "$f" == *"lean4-proofs/"* ]] || \
-               [[ "$f" == *"verification-lib/"* ]]; then
+               [[ "$f" == *"verification-lib/"* ]] || \
+               [[ "$f" == *"ualbf-project/scripts/"* ]]; then
                return 0
             fi
             # Block if it is a critical manifest/config file
@@ -73,6 +74,12 @@ jobs:
             fi
           done < pr_files.txt
           
+          # Fetch and checkout the ualbf-project/scripts/ directory from the target branch (base ref)
+          # to ensure that only the trusted target-branch version of validate_docs.py is executed.
+          echo "Fetching target branch ${{ github.event.pull_request.base.ref }} to checkout trusted validation scripts..."
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          git checkout FETCH_HEAD -- ualbf-project/scripts/
+
           # Check docs manifest dynamically
           # We use our validation engine explicitly
           python3 ualbf-project/scripts/validate_docs.py pr_files.txt > doc_validation.log
