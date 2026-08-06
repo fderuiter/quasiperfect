@@ -6,6 +6,7 @@ pub trait UintExt {
     fn from_u64(v: u64) -> Self;
     fn from_u32(v: u32) -> Self;
     fn from_u128(v: u128) -> Self;
+    fn from_usize(v: usize) -> Self;
     fn zero() -> Self;
     fn one() -> Self;
     fn as_u128(&self) -> u128;
@@ -24,6 +25,9 @@ impl UintExt for Uint {
         Self::try_from(v).unwrap()
     }
     fn from_u128(v: u128) -> Self {
+        Self::try_from(v).unwrap()
+    }
+    fn from_usize(v: usize) -> Self {
         Self::try_from(v).unwrap()
     }
     fn zero() -> Self {
