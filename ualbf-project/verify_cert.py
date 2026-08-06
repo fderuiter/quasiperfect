@@ -64,11 +64,29 @@ def verify_theorem_checksum(thm, manifest_path=None):
     """
     Compute and verify the checksum for a single theorem entry.
 
-    The checksum is computed purely using the theorem's metadata fields.
+    The checksum is computed using the physical file content hash.
     """
-    payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-    computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-    return computed == thm.get("checksum", "")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "lean4-proofs", thm["file"])
+    
+    if not os.path.exists(file_path) and manifest_path:
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        file_path = os.path.join(manifest_dir, "lean4-proofs", thm["file"])
+        if not os.path.exists(file_path):
+            file_path = os.path.join(manifest_dir, thm["file"])
+
+    if not os.path.exists(file_path):
+        file_path = os.path.join("lean4-proofs", thm["file"])
+
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            computed = hashlib.sha256(f.read()).hexdigest()
+        return computed == thm.get("checksum", "")
+    else:
+        # Fallback to metadata-based hash if the physical file does not exist anywhere
+        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+        computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return computed == thm.get("checksum", "")
 
 
 def verify_certificate(cert_path, manifest_path):
@@ -285,8 +303,23 @@ def verify_certificate(cert_path, manifest_path):
                 f"ERROR: Checksum mismatch for theorem '{thm['name']}' in {thm['file']}"
             )
             print(f"Expected: {thm.get('checksum')}")
-            payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-            computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+            # Compute physical hash for display if possible, otherwise metadata hash
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            file_path = os.path.join(base_dir, "lean4-proofs", thm["file"])
+            if not os.path.exists(file_path) and manifest_path:
+                manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+                file_path = os.path.join(manifest_dir, "lean4-proofs", thm["file"])
+                if not os.path.exists(file_path):
+                    file_path = os.path.join(manifest_dir, thm["file"])
+            if not os.path.exists(file_path):
+                file_path = os.path.join("lean4-proofs", thm["file"])
+            
+            if os.path.exists(file_path):
+                with open(file_path, "rb") as f:
+                    computed = hashlib.sha256(f.read()).hexdigest()
+            else:
+                payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+                computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
             print(f"Computed: {computed}")
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")

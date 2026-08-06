@@ -29,22 +29,32 @@ from cert_util import load_and_validate_cert, CertificateValidationError
 
 def make_manifest(theorems=None):
     """Return a minimal proof manifest dict."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if theorems is None:
         name = "UALBF.Pure.Arithmetic.foo"
         file = "UALBF/Pure/Arithmetic.lean"
         status = "proven"
-        payload = f"{name}|{file}|{status}"
-        checksum = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        file_path = os.path.join(base_dir, "lean4-proofs", file)
+        try:
+            with open(file_path, "rb") as f:
+                content = f.read()
+        except Exception:
+            content = b"mock content for " + file.encode("utf-8")
+        checksum = hashlib.sha256(content).hexdigest()
         theorems = [
             {"name": name, "file": file, "status": status, "checksum": checksum},
         ]
     else:
         for t in theorems:
             if t.get("checksum") in ["x", "y", "allowed"]:
-                payload = f"{t['name']}|{t['file']}|{t['status']}"
-                t["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+                file_path = os.path.join(base_dir, "lean4-proofs", t["file"])
+                try:
+                    with open(file_path, "rb") as f:
+                        content = f.read()
+                except Exception:
+                    content = b"mock content for " + t["file"].encode("utf-8")
+                t["checksum"] = hashlib.sha256(content).hexdigest()
 
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     arith_file = "UALBF/Pure/Arithmetic.lean"
     arith_path = os.path.join(base_dir, "lean4-proofs", arith_file)
     try:
@@ -68,7 +78,7 @@ def sign_payload(payload_str: str) -> tuple[str, str]:
 
 
 def write_mock_manifest_files(tmpdir, manifest):
-    """Write mock theorem and proof_files to tmpdir and update their checksums to metadata hashes."""
+    """Write mock theorem and proof_files to tmpdir and update their checksums to physical hashes."""
     # Ensure they exist and have matching content-level hashes
     for thm in manifest.get("theorems", []):
         file_path = os.path.join(tmpdir, thm["file"])
@@ -88,8 +98,7 @@ def write_mock_manifest_files(tmpdir, manifest):
         with open(file_path, "wb") as f:
             f.write(content)
 
-        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-        thm["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        thm["checksum"] = hashlib.sha256(content).hexdigest()
 
     for pf in manifest.get("proof_files", []):
         file_path = os.path.join(tmpdir, pf["file"])
@@ -585,6 +594,40 @@ class TestTheoremChecking:
         verify_certificate(cert_path, manifest_path)
         captured = capsys.readouterr()
         assert "0 sorries" in captured.out
+
+    def test_proof_file_modification_triggers_failure(self):
+        """
+        Verify that modifying a proof file's content triggers a verification failure.
+        """
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.Foo",
+                    "file": "F.lean",
+                    "status": "proven",
+                    "checksum": "x",
+                }
+            ]
+        )
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        
+        # Manifest is written and verified initially
+        verify_certificate(cert_path, manifest_path)
+        
+        # Now modify the physical theorem/proof file
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        file_path = os.path.join(manifest_dir, "F.lean")
+        
+        # Confirm file exists and then write modified content
+        assert os.path.exists(file_path)
+        with open(file_path, "wb") as f:
+            f.write(b"modified theorem content")
+            
+        # Verify that checking again fails because of checksum mismatch
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code != 0
 
 
 # ---------------------------------------------------------------------------
