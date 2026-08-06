@@ -68,7 +68,7 @@ def verify_theorem_checksum(thm, manifest_path=None):
     """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_dir, "lean4-proofs", thm["file"])
-    
+
     if not os.path.exists(file_path) and manifest_path:
         manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
         file_path = os.path.join(manifest_dir, "lean4-proofs", thm["file"])
@@ -313,7 +313,7 @@ def verify_certificate(cert_path, manifest_path):
                     file_path = os.path.join(manifest_dir, thm["file"])
             if not os.path.exists(file_path):
                 file_path = os.path.join("lean4-proofs", thm["file"])
-            
+
             if os.path.exists(file_path):
                 with open(file_path, "rb") as f:
                     computed = hashlib.sha256(f.read()).hexdigest()

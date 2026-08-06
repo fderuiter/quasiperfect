@@ -652,7 +652,10 @@ def check_documentation(manifest):
                         clean_bt = bt.removesuffix("()")
                         if "." in clean_bt and "::" not in clean_bt:
                             # Strict match for dot-notated qualified names (Lean)
-                            if clean_bt not in ignore_symbols and clean_bt not in valid_symbols:
+                            if (
+                                clean_bt not in ignore_symbols
+                                and clean_bt not in valid_symbols
+                            ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
                                 )
@@ -660,7 +663,10 @@ def check_documentation(manifest):
                             # Unqualified names or Rust names (using ::)
                             parts = re.split(r"\.|::", clean_bt)
                             ident = parts[-1]
-                            if ident not in ignore_symbols and ident not in valid_symbols:
+                            if (
+                                ident not in ignore_symbols
+                                and ident not in valid_symbols
+                            ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
                                 )
