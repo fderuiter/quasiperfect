@@ -484,10 +484,6 @@ def check_documentation(manifest):
         valid_symbols.add(fn)
         valid_symbols.add(fn.split("::")[-1])
 
-    lean_regex = re.compile(
-        r"^\s*(?:(?:protected|private|noncomputable|partial|unsafe|macro|elab|syntax|@[^\n]+\n)\s*)*(?:def|theorem|lemma|structure|class|inductive|abbrev|constant|axiom|namespace)\s+([a-zA-Z0-9_]+)",
-        re.MULTILINE,
-    )
     rust_regex = re.compile(
         r"^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:unsafe\s+)?(?:fn|struct|enum|const|mod|trait|type|spec\s+fn|proof\s+fn)\s+([a-zA-Z0-9_]+)",
         re.MULTILINE,
