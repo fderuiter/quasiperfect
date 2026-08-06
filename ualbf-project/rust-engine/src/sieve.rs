@@ -136,7 +136,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     );
                     }
                 }
-                let p_bu = Uint::from_u128((p as u32) as u128);
+                let p_bu = Uint::from_usize(p);
 
                 for e in 1..=max_e {
                     // Stage 2 (Mod8) exponent filter in O(1)
@@ -171,7 +171,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     let mut sum: Uint = Uint::one();
                     let mut p_pow: Uint = Uint::one();
                     for _ in 0..two_e {
-                        p_pow *= Uint::from_u128((p as u64) as u128);
+                        p_pow *= Uint::from_usize(p);
                         sum += p_pow;
                     }
                     let sigma = sum;
@@ -330,13 +330,47 @@ mod tests {
             let fact_res = quick_factor_u256(comp.sigma);
             let factors = fact_res.factors();
             for q in factors {
-                let q_mod_8 = (q % Uint::from_u128((8u32) as u128)).as_u32();
+                let q_mod_8 = (q % Uint::from_u32(8)).as_u32();
                 assert!(
                     q_mod_8 != 5 && q_mod_8 != 7,
                     "Invalid sigma component leaked into valid_components!"
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_high_range_prime_conversions() {
+        // A prime exceeding 2^32 - 1
+        let p: usize = 4294967311;
+
+        // 1. Safe conversion
+        let p_bu = Uint::from_usize(p);
+
+        // Old conversion would have been:
+        let p_truncated = Uint::from_u128((p as u32) as u128);
+
+        assert_ne!(p_bu, p_truncated, "Conversion must not truncate!");
+        assert_eq!(p_bu.to_string(), "4294967311");
+        assert_eq!(p_truncated.to_string(), "15");
+
+        // 2. Compute components without truncation
+        let two_e = 2;
+        let val = p_bu.checked_pow(two_e).unwrap();
+
+        let mut sum = Uint::one();
+        let mut p_pow = Uint::one();
+        for _ in 0..two_e {
+            p_pow *= Uint::from_usize(p);
+            sum += p_pow;
+        }
+        let sigma = sum;
+
+        // Correct mathematical values
+        // p^2 = 4294967311^2 = 18446744202558570721
+        // sigma(p^2) = 1 + p + p^2 = 18446744206853538033
+        assert_eq!(val.to_string(), "18446744202558570721");
+        assert_eq!(sigma.to_string(), "18446744206853538033");
     }
 }
 
