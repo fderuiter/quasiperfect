@@ -293,6 +293,7 @@ SAFE_COMMON_WORDS = {
     "mathlib4",
     "lake",
     "cargo",
+    "build",
     "pytest",
     "unittest",
     "black",
