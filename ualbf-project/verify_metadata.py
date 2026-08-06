@@ -225,7 +225,9 @@ def find_construct(content_stripped: str, construct: str, filename: str) -> bool
         if "." in construct:
             return construct in fqns
         else:
-            return any(fqn == construct or fqn.split(".")[-1] == construct for fqn in fqns)
+            return any(
+                fqn == construct or fqn.split(".")[-1] == construct for fqn in fqns
+            )
 
     names_to_try = [construct]
     if "." in construct:
@@ -291,6 +293,7 @@ SAFE_COMMON_WORDS = {
     "mathlib4",
     "lake",
     "cargo",
+    "build",
     "pytest",
     "unittest",
     "black",
