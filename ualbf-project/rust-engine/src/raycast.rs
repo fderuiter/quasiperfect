@@ -698,10 +698,8 @@ pub fn phase4_exact_ray_casting(
                                                 continue;
                                             }
 
-                                            if (cofactor >> 256) > Uint::zero() {
-                                                if !crate::math_utils::verified_is_prime(cofactor) {
-                                                    continue;
-                                                }
+                                            if !crate::math_utils::verified_is_prime(cofactor) {
+                                                continue;
                                             }
 
                                             s_r = required_s_r;
@@ -934,5 +932,36 @@ mod additional_tests {
             }
         });
         assert!(result_prime_fail.is_err(), "Non-prime factors must panic");
+    }
+
+    #[test]
+    fn test_cofactor_unconditional_primality_correction() {
+        let cofactor = Uint::from_u32(1_000_000);
+        let required_cofactor_s_r = Uint::from_u64(1_005_000_000_000);
+
+        // 1. Verify cofactor is <= 256 bits
+        assert!((cofactor >> 256) == Uint::zero());
+
+        // 2. Verify cofactor is composite
+        assert!(!crate::math_utils::verified_is_prime(cofactor));
+
+        // 3. Verify required_cofactor_s_r is within cofactor_sigma_bounds
+        let (min_bound, max_bound) = cofactor_sigma_bounds(cofactor).unwrap();
+        assert!(required_cofactor_s_r >= min_bound);
+        assert!(required_cofactor_s_r <= max_bound);
+
+        // 4. Mimic the phase4 check:
+        // Previously, the size bypass would allow this to succeed because cofactor <= 256 bits,
+        // and we wouldn't call verified_is_prime(cofactor).
+        // With the correction, we unconditionally call verified_is_prime(cofactor),
+        // which correctly fails and we reject the candidate.
+        let mut check_passed = false;
+        if required_cofactor_s_r >= min_bound && required_cofactor_s_r <= max_bound {
+            // New logic: unconditional check
+            if crate::math_utils::verified_is_prime(cofactor) {
+                check_passed = true;
+            }
+        }
+        assert!(!check_passed, "Composite cofactor must be rejected even if <= 256 bits");
     }
 }
