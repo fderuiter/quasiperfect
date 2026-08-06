@@ -473,7 +473,7 @@ if __name__ == "__main__":
         "--min-rigor",
         type=float,
         default=None,
-        help="Minimum acceptable rigor level (e.g. 0.05 for 5%)",
+        help="Minimum acceptable rigor level (e.g. 0.05 for 5%%)",
     )
     args = parser.parse_args()
 
