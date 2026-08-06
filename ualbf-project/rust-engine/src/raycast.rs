@@ -962,6 +962,9 @@ mod additional_tests {
                 check_passed = true;
             }
         }
-        assert!(!check_passed, "Composite cofactor must be rejected even if <= 256 bits");
+        assert!(
+            !check_passed,
+            "Composite cofactor must be rejected even if <= 256 bits"
+        );
     }
 }
