@@ -38,8 +38,16 @@ CORE_THEOREMS = cert_util.CORE_THEOREMS
 
 
 def theorem_checksum(name, rel_file, status):
-    payload = f"{name}|{rel_file}|{status}"
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    # Find the ualbf-project directory relative to this script
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "lean4-proofs", rel_file)
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    else:
+        # Fallback to metadata-based hash if the physical file does not exist (useful for testing/mock environments)
+        payload = f"{name}|{rel_file}|{status}"
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def compute_verus_hashes(verus_content):
