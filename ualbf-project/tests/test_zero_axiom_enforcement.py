@@ -398,8 +398,10 @@ def test_verify_certificate_rejects_undefined_status():
         
         manifest["theorems"][0]["status"] = "corrupted_status"
         thm = manifest["theorems"][0]
-        payload = f"{thm['name']}|{thm['file']}|corrupted_status"
-        thm["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        # Calculate physical file content hash under the new design
+        file_path = project_dir / "lean4-proofs" / thm["file"]
+        with open(file_path, "rb") as f:
+            thm["checksum"] = hashlib.sha256(f.read()).hexdigest()
         
         with open(manifest_path, "w") as f:
             json.dump(manifest, f)
