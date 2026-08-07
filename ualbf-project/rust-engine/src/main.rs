@@ -13,8 +13,6 @@ use std::env;
 use std::fs;
 
 mod dfs_tree;
-pub mod unverified;
-pub use unverified::{gpu, metal_reflection};
 mod lean_ffi;
 mod manifest_constants;
 mod profile;
@@ -472,26 +470,7 @@ fn main() {
     let verified_logic_hash = verification_lib::compute_core_tcb_hash_at_compile_time!();
     println!("Verified core search logic hash: {}", verified_logic_hash);
 
-    let verified_extension_hash = if cfg!(feature = "gpu") {
-        let expected = verification_lib::compute_extension_tcb_hash_at_compile_time!();
-        #[cfg(feature = "signing")]
-        {
-            let actual = verification_lib::compute_verified_extension_hash_runtime(
-                std::path::Path::new(".."),
-            )
-            .unwrap_or_else(|_| "unverified_extension_hash".to_string());
-            if actual != expected {
-                panic!(
-                    "CRITICAL FAILURE: GPU extension hash mismatch. Expected {}, got {}",
-                    expected, actual
-                );
-            }
-        }
-        println!("Verified extension hash: {}", expected);
-        Some(expected)
-    } else {
-        None
-    };
+    let verified_extension_hash: Option<String> = None;
 
     // --- Runtime Audit: Verus Specification Hashes ---
     let verus_content = include_str!("verus_proofs.rs");
@@ -739,9 +718,7 @@ fn main() {
 
     // Check illegal valuations
 
-    if config.enable_diagnostics {
-        crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
-    }
+
 
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = config.mode.clone();
