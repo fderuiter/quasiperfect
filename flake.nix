@@ -291,9 +291,9 @@
             ln -s ${leanPkg}/.lake ../lean4-proofs/.lake
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
-            # Explicitly export Z3_SYS_HEADER so z3-sys instantly finds the precompiled system Z3 headers
+            # Explicitly export Z3_SYS_Z3_HEADER so z3-sys instantly finds the precompiled system Z3 headers
             # from the Nix store rather than compiling Z3 from source.
-            export Z3_SYS_HEADER="${pkgs.z3}/include/z3.h"
+            export Z3_SYS_Z3_HEADER="${pkgs.z3}/include/z3.h"
           '';
         };
 
@@ -524,12 +524,12 @@ with open("dummy_cert.json", "w") as f:
 
           LEAN_SYSROOT = "${pkgs.lean4}";
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          Z3_SYS_HEADER = "${pkgs.z3}/include/z3.h";
+          Z3_SYS_Z3_HEADER = "${pkgs.z3}/include/z3.h";
 
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
-            export Z3_SYS_HEADER="${pkgs.z3}/include/z3.h"
+            export Z3_SYS_Z3_HEADER="${pkgs.z3}/include/z3.h"
           '';
         };
       }
