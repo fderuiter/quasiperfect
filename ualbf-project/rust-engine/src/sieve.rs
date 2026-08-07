@@ -159,7 +159,10 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 let p_bu = Uint::from_usize(p);
 
                 for e in 1..=max_e {
-                    // Stage 2 (Mod8) exponent filter in O(1)
+                    // Stage 2 (Mod8) exponent filter in O(1).
+                    // In stage2_bitset, a bit value of 1 (Some(true)) means the component is NOT obstructed (allowed).
+                    // Thus, if check_sieve_bit returns Some(true), is_pruned is false.
+                    // All other cases (Some(false) or None/overflow) mean we must prune.
                     let p_mod_8 = p & 7;
                     let is_pruned = match check_sieve_bit(&stage2_bitset, p_mod_8, max_e, e) {
                         Some(true) => false,
