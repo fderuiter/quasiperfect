@@ -53,6 +53,18 @@ pub fn get_safe_config() -> &'static EngineConfig {
 }
 
 pub fn parse_config() -> EngineConfig {
+    // Check for deprecated GPU-related CLI arguments or environment variables
+    for arg in env::args() {
+        if arg.contains("gpu") || arg.contains("GPU") {
+            eprintln!("WARNING: Runtime flag '{}' is deprecated. The unverified GPU path has been eliminated; all calculations now run securely on the CPU.", arg);
+        }
+    }
+    for (key, val) in env::vars() {
+        if key.contains("GPU") {
+            eprintln!("WARNING: Environment variable '{}' is deprecated. The unverified GPU path has been eliminated; all calculations now run securely on the CPU.", key);
+        }
+    }
+
     let target_min_log10 = match env::var("UALBF_TARGET_MIN_LOG10") {
         Ok(v) => v
             .parse()
