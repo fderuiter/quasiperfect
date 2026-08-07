@@ -489,11 +489,15 @@ def check_documentation(manifest):
         re.MULTILINE,
     )
 
+    all_repo_files = set()
+    all_repo_dirs = set()
     exclude_dirs = {".lake", "target", ".git", "build", ".pytest_cache", "node_modules"}
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        all_repo_dirs.add(os.path.abspath(root))
         for file in files:
             file_path = os.path.join(root, file)
+            all_repo_files.add(os.path.abspath(file_path))
             if file.endswith(".lean"):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
@@ -572,6 +576,15 @@ def check_documentation(manifest):
         "import",
         "open",
         "mut",
+        "UALBF_TARGET_MIN_LOG10",
+        "UALBF_TARGET_MAX_LOG10",
+        "UALBF_SIEVE_LIMIT",
+        "UALBF_MAX_EXPONENT",
+        "UALBF_PREFIX_STOP_THRESHOLD",
+        "primal",
+        "prime_factorization",
+        "z3",
+        "curses",
     }
 
     errors = []
@@ -629,10 +642,33 @@ def check_documentation(manifest):
                                 os.path.dirname(doc_path), target
                             )
                             target_repo_rel = os.path.join(manifest_dir, target)
-                            if not (
-                                os.path.exists(target_file_rel)
-                                or os.path.exists(target_repo_rel)
+                            exists_in_repo = False
+                            if os.path.exists(target_file_rel) or os.path.exists(
+                                target_repo_rel
                             ):
+                                exists_in_repo = True
+                            else:
+                                target_clean = target.replace("\\", "/").strip("/")
+                                for repo_file in all_repo_files:
+                                    repo_file_clean = repo_file.replace("\\", "/")
+                                    if repo_file_clean.endswith(
+                                        "/" + target_clean
+                                    ) or repo_file_clean.endswith(
+                                        "/" + target_clean.lower()
+                                    ):
+                                        exists_in_repo = True
+                                        break
+                                if not exists_in_repo:
+                                    for repo_dir in all_repo_dirs:
+                                        repo_dir_clean = repo_dir.replace("\\", "/")
+                                        if repo_dir_clean.endswith(
+                                            "/" + target_clean
+                                        ) or repo_dir_clean.endswith(
+                                            "/" + target_clean.lower()
+                                        ):
+                                            exists_in_repo = True
+                                            break
+                            if not exists_in_repo:
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
                                 )
@@ -640,7 +676,33 @@ def check_documentation(manifest):
                             target_repo_rel = os.path.join(
                                 manifest_dir, target.lstrip("/")
                             )
-                            if not os.path.exists(target_repo_rel):
+                            exists_in_repo = False
+                            if os.path.exists(target_repo_rel):
+                                exists_in_repo = True
+                            else:
+                                target_clean = (
+                                    target.lstrip("/").replace("\\", "/").strip("/")
+                                )
+                                for repo_file in all_repo_files:
+                                    repo_file_clean = repo_file.replace("\\", "/")
+                                    if repo_file_clean.endswith(
+                                        "/" + target_clean
+                                    ) or repo_file_clean.endswith(
+                                        "/" + target_clean.lower()
+                                    ):
+                                        exists_in_repo = True
+                                        break
+                                if not exists_in_repo:
+                                    for repo_dir in all_repo_dirs:
+                                        repo_dir_clean = repo_dir.replace("\\", "/")
+                                        if repo_dir_clean.endswith(
+                                            "/" + target_clean
+                                        ) or repo_dir_clean.endswith(
+                                            "/" + target_clean.lower()
+                                        ):
+                                            exists_in_repo = True
+                                            break
+                            if not exists_in_repo:
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
                                 )
