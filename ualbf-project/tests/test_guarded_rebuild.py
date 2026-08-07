@@ -8,7 +8,7 @@ from pathlib import Path
 def test_guarded_rebuild_success():
     """
     Test that when lake build succeeds:
-    1. The intermediate C-IR directory (.lake/build/ir) is deleted.
+    1. The targeted intermediate C-IR directories/files (like UALBF/ and Validator.c) are deleted.
     2. The build proceeds beyond lake check (even if it eventually fails on
        missing files, the custom 'FATAL: Lean proof verification failed!'
        panic is NOT triggered).
@@ -17,12 +17,18 @@ def test_guarded_rebuild_success():
     lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
-    # Make sure we clean up and create the dummy ir_dir
+    # Make sure we clean up and create the dummy ir_dir with targeted items
     if ir_dir.exists():
         shutil.rmtree(ir_dir)
     ir_dir.mkdir(parents=True, exist_ok=True)
-    dummy_file = ir_dir / "dummy.c"
+    
+    ualbf_dir = ir_dir / "UALBF"
+    ualbf_dir.mkdir(parents=True, exist_ok=True)
+    dummy_file = ualbf_dir / "dummy.c"
     dummy_file.write_text("void some_func() {}")
+    
+    validator_file = ir_dir / "Validator.c"
+    validator_file.write_text("void some_func() {}")
 
     # Create a temporary directory for mock tools and fake lean sysroot
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -56,11 +62,12 @@ def test_guarded_rebuild_success():
             text=True,
         )
 
-        # The dummy file and directory should have been purged by build script
+        # The dummy file and targeted directories/files should have been purged by build script
         assert (
             not dummy_file.exists()
         ), "The intermediate C-IR dummy file was not purged!"
-        assert not ir_dir.exists(), "The intermediate C-IR directory was not purged!"
+        assert not ualbf_dir.exists(), "The intermediate UALBF directory was not purged!"
+        assert not validator_file.exists(), "The intermediate Validator.c file was not purged!"
 
         # The custom panic should NOT be in the output
         assert "FATAL: Lean proof verification failed!" not in res.stderr
