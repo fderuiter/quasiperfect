@@ -122,4 +122,5 @@ To ensure 100% layout coverage and prevent documentation drift, the following co
 - `UALBF/Engine/SearchMonad.lean`
 - `UALBF/Engine/TouchardBridge.lean`
 - `UALBF/Engine/SearchState.lean`
+- `UALBF/Engine/Mod1155Bridge.lean`
 

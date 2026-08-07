@@ -57,6 +57,10 @@ extern "C" {
     pub static ualbf_prefix_stop_threshold: u64;
     pub static ualbf_raycast_gpu_threshold: u32;
     pub static ualbf_raycast_chunk_size: u32;
+    pub fn ualbf_check_crt_1155(
+        z_val: *mut crate::lean_ffi::lean_object,
+        x_l_val: *mut crate::lean_ffi::lean_object,
+    ) -> u8;
     pub static ualbf_logic_hash: *mut crate::lean_ffi::lean_object;
     pub fn ualbf_bloom_get_index(hash1: u64, hash2: u64, num_bits: u64, i: u32) -> u64;
 }

@@ -94,67 +94,67 @@
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
@@ -167,9 +167,51 @@
       "file": "UALBF/Pure/ABCConjecture.lean",
       "status": "proven",
       "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
+    },
+    {
+      "name": "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "status": "proven",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+    },
+    {
+      "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3",
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "status": "proven",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+    },
+    {
+      "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5",
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "status": "proven",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+    },
+    {
+      "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod7",
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "status": "proven",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+    },
+    {
+      "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod11",
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "status": "proven",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+    },
+    {
+      "name": "UALBF.Engine.Mod1155Bridge.mod1155_soundness",
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "status": "proven",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+    },
+    {
+      "name": "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound",
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "status": "proven",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "c44ccf3fbd9c013dc5a54f49d525d1d05e1cd5daa805ff994462a2e774673232",
+  "verified_logic_hash": "d19fb1b829ac11d7c48139dbda3957b478a4e09b2d6401309e13a3f0ea4da207",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -230,7 +272,7 @@
   "proof_files": [
     {
       "file": "UALBF.lean",
-      "checksum": "68b6000c3962c27a836a787c930f9f7d62c4edd6e7a9d960455dac8b9ae1dcb0"
+      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
     },
     {
       "file": "UALBF/Basic.lean",
@@ -247,6 +289,10 @@
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "checksum": "4b4746a37829a622b09f2864c05f000aaeee286b4eac276b5de71c9b5d154714"
+    },
+    {
+      "file": "UALBF/Engine/Mod1155Bridge.lean",
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "file": "UALBF/Engine/Mod5Bridge.lean",
@@ -274,7 +320,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "bba32244c6b46de0acbb85891cee161529af019f70b769c0fb002f3c1bf54d41"
+      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
     },
     {
       "file": "UALBF/FFI_generated.lean",
