@@ -103,6 +103,7 @@ void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) {
     return make_some(u512_obj);
 }
 uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
+uint8_t ualbf_check_crt_1155(void* z_val, void* x_l_val) { (void)z_val; (void)x_l_val; return 1; }
 
 uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { (void)k; return 0; }
 uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { (void)k; return 0; }
