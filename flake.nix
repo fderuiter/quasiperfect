@@ -291,6 +291,8 @@
             ln -s ${leanPkg}/.lake ../lean4-proofs/.lake
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+            # Explicitly export Z3_SYS_HEADER so z3-sys instantly finds the precompiled system Z3 headers
+            # from the Nix store rather than compiling Z3 from source.
             export Z3_SYS_HEADER="${pkgs.z3}/include/z3.h"
           '';
         };
