@@ -23,6 +23,8 @@ def test_check_lean_environment_missing_fails():
         # but change the current working directory to write proof_manifest.json inside the temp dir.
 
         env = os.environ.copy()
+        # Prevent inherited MOCK_LEAN from bypassing the Lean check
+        env.pop("MOCK_LEAN", None)
         # Force Lean to be missing by unsetting LEAN_SYSROOT and clearing PATH to not have lean
         env["LEAN_SYSROOT"] = "DUMMY"  # non-existent or empty path
         # Filter path to remove anything that might contain lean
