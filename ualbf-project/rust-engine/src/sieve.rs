@@ -19,12 +19,16 @@ pub struct SieveResult {
     pub execution_time_ms: u128,
 }
 
+/// Helper to safely compute the 1D index inside our stage2 bitset.
+/// Prevents overflow during index calculations for high range searches.
 fn get_sieve_index(p_mod_8: usize, max_e: u32, e: u32) -> Option<usize> {
     let term1 = p_mod_8.checked_mul((max_e as usize).checked_add(1)?)?;
     let idx = term1.checked_add(e as usize)?;
     Some(idx)
 }
 
+/// Safely checks the status of the sieve bit inside `stage2_bitset` with proper bounds validation.
+/// Returns `Some(true)` if the bit is 1, `Some(false)` if the bit is 0, or `None` if out of bounds or overflowed.
 fn check_sieve_bit(stage2_bitset: &[u64], p_mod_8: usize, max_e: u32, e: u32) -> Option<bool> {
     let idx = get_sieve_index(p_mod_8, max_e, e)?;
     let block = idx.checked_div(64)?;
