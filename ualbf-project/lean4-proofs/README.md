@@ -122,4 +122,5 @@ To ensure 100% layout coverage and prevent documentation drift, the following co
 - `SearchMonad.lean`
 - `TouchardBridge.lean`
 - `SearchState.lean`
+- `Mod1155Bridge.lean`
 

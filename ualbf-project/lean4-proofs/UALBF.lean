@@ -34,3 +34,4 @@ import UALBF.BloomFilter
 
 import UALBF.Engine.Mod5Bridge
 import UALBF.Engine.TouchardBridge
+import UALBF.Engine.Mod1155Bridge

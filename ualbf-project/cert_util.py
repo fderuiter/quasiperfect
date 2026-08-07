@@ -100,6 +100,13 @@ CORE_THEOREMS = [
     "UALBF.FFI.U512.w7_mk",
     "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
     "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
+    "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod7",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod11",
+    "UALBF.Engine.Mod1155Bridge.mod1155_soundness",
+    "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound",
 ]
 
 

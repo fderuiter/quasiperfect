@@ -666,6 +666,13 @@ def ualbf_raycast_gpu_threshold_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF
 def ualbf_raycast_chunk_size_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.RAYCAST_CHUNK_SIZE.toUInt32
 
 
+@[export ualbf_check_crt_1155]
+def ualbf_check_crt_1155_impl (z_val : @& U512) (x_l_val : @& U512) : Bool :=
+  let z := fromU512 z_val
+  let xl := fromU512 x_l_val
+  let z2 := z ^ 2
+  (z2 % 3 == xl % 3) && (z2 % 5 == xl % 5) && (z2 % 7 == xl % 7) && (z2 % 11 == xl % 11)
+
 @[export ualbf_logic_hash]
 def ualbf_logic_hash_impl : String := UALBF.Manifest.LOGIC_HASH
 
