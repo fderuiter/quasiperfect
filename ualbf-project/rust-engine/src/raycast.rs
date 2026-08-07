@@ -400,8 +400,7 @@ pub fn phase4_exact_ray_casting(
                         let z_factors = z_fact.factors();
                         let cofactor_opt = match z_fact {
                             crate::math_utils::FactorizationResult::Partial {
-                                remaining,
-                                ..
+                                remaining, ..
                             } => Some(remaining),
                             crate::math_utils::FactorizationResult::Failure(u) => Some(u),
                             _ => None,

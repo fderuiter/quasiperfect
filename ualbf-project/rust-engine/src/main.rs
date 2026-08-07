@@ -718,8 +718,6 @@ fn main() {
 
     // Check illegal valuations
 
-
-
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
