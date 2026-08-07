@@ -19,4 +19,3 @@ pyo3 = { version = "0.29.0", features = ["extension-module"], optional = true }
 [features]
 signing = ["dep:ed25519-dalek", "dep:hex", "dep:rand", "dep:sha2"]
 python = ["pyo3", "signing"]
-gpu = []

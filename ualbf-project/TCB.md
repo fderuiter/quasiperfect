@@ -7,17 +7,12 @@ The Foreign Function Interface (FFI) bridging the Lean 4 formalization and the R
 - **Current State:** The Rust execution engine relies on C-compatible data serialization and exported semantics via Lean's `@[export]` pragmas.
 - **Verification Status:** While the individual Lean 4 proofs are mechanically checked and the Rust execution logic is highly robust, the bridging logic across the boundary itself forms a critical part of the TCB and is not formally proven.
 
-## 2. GPU Pollard's Rho Pipeline (Inactive)
-The repository contains a highly parallelized batch-factorization GPU Pollard's Rho pipeline, implemented in Apple Metal (`rust-engine/src/unverified/gpu.rs`).
-- **Current State:** This pipeline is completely bypassed in the active paths. High-performance execution relies entirely on sequential CPU loops.
-- **Verification Status:** The GPU pipeline operations are unverified. They are not active during the main verified search processes and form no part of the end-to-end verification claims.
-
-## 3. Bloom Filter Hashing Primitives
+## 2. Bloom Filter Hashing Primitives
 The Bloom filter's wrapping double-hashing logic is formally verified in Lean 4 to have zero false negatives. However, the underlying cryptographic (SHA-256) and multiplicative (FNV-1a) hash primitives that generate the initial hash seeds are excluded from formal verification.
 - **Current State:** The Lean 4 formalization guarantees that the index generation step maps inputs securely to the bitset, but relies on Rust-side unverified implementations of SHA-256 and FNV-1a.
 - **Verification Status:** The hash primitives themselves form part of the TCB and remain unverified.
 
-## 4. Miller-Rabin Verification Boundaries
+## 3. Miller-Rabin Verification Boundaries
 The verification pipeline does not treat the 20-base Miller-Rabin sufficiency test as an active, trusted mathematical axiom. To preserve performance guarantees while maintaining complete mathematical certitude and transparency, the system configuration manifest and verification layer reject the assumption that any 20-base probabilistic check is axiomatically sufficient for primality. This is formally represented by the spec function "lean_miller_rabin_20_base_sufficiency" and the system bounds manifest `bounds_manifest.json`, where the "is_axiomatic" status is set to `false`.
 
 Instead of probabilistic sufficiency assumptions, the framework employs a hybrid tiered primality pipeline in the `verified_is_prime` function:

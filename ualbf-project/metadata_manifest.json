@@ -14,19 +14,6 @@
           ]
         }
       ]
-    },
-    {
-      "file": "TCB.md",
-      "code_references": [
-        {
-          "marker": "rust-engine/src/unverified/gpu.rs",
-          "target": "rust-engine/src/unverified/gpu.rs",
-          "code_constructs": [
-            "RNS512",
-            "ENABLE_DIAGNOSTICS"
-          ]
-        }
-      ]
     }
   ],
   "hardcoded_metrics": [
