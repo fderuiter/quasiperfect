@@ -31,10 +31,10 @@ check:
 verify-sync:
 	./scripts/export_lean_specs.py
 	python3 auditor.py
-	@if [ -n "$$(git status --porcelain)" ]; then \
+	@if [ -n "$$(git status --porcelain --untracked-files=no)" ]; then \
 		echo "Error: Workspace is dirty after regenerating specifications!"; \
 		echo "Out of sync files:"; \
-		git status --porcelain; \
+		git status --porcelain --untracked-files=no; \
 		echo "To resolve, run:"; \
 		echo "  make verify-sync && git add . && git commit -m \"chore: sync generated specifications\""; \
 		exit 1; \
