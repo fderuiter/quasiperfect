@@ -643,13 +643,19 @@ fn main() {
     let ir_dir = lean_project.join(".lake/build/ir");
 
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
-    if ir_dir.exists() {
-        if let Err(e) = fs::remove_dir_all(&ir_dir) {
-            println!(
-                "cargo:warning=Failed to delete intermediate C-IR directory: {}",
-                e
-            );
-        }
+    // To avoid triggering complete dependency recompilations (which can take over an hour in GHA),
+    // we proactively purge only our own package's intermediate C-IR directories and files.
+    let ualbf_ir_dir = ir_dir.join("UALBF");
+    if ualbf_ir_dir.exists() {
+        let _ = fs::remove_dir_all(&ualbf_ir_dir);
+    }
+    let validator_ir_c = ir_dir.join("Validator.c");
+    if validator_ir_c.exists() {
+        let _ = fs::remove_file(&validator_ir_c);
+    }
+    let validator_ir_ot = ir_dir.join("Validator.ot");
+    if validator_ir_ot.exists() {
+        let _ = fs::remove_file(&validator_ir_ot);
     }
 
     // Prepend mock-bin to PATH and ensure mock files exist to avoid sandbox network hangs during Lean build
