@@ -206,7 +206,8 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 /// ```
 fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &SigmaCache) -> bool {
     let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
-    let z_factors = z_fact.factors();
+    let mut z_factors = z_fact.factors().to_vec();
+    z_factors.sort_unstable();
     let cofactor_opt = match z_fact {
         crate::math_utils::FactorizationResult::Partial { remaining, .. } => Some(remaining),
         crate::math_utils::FactorizationResult::Failure(u) => Some(u),
@@ -220,7 +221,7 @@ fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &S
     let mut count: u32 = 0;
     let mut s_r_overflowed = false;
 
-    for &f in z_factors {
+    for &f in &z_factors {
         if f == current_p {
             count += 1;
         } else {
