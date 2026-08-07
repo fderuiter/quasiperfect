@@ -518,10 +518,12 @@ with open("dummy_cert.json", "w") as f:
 
           LEAN_SYSROOT = "${pkgs.lean4}";
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          Z3_SYS_HEADER = "${pkgs.z3}/include/z3.h";
 
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+            export Z3_SYS_HEADER="${pkgs.z3}/include/z3.h"
           '';
         };
       }
