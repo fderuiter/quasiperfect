@@ -419,7 +419,6 @@ pub fn phase4_exact_ray_casting(
             };
 
             let mut c_current = c_min;
-            let gpu_threshold = crate::lean_ffi::get_raycast_gpu_threshold();
 
             while c_current <= c_max {
                 let chunk_size = std::cmp::min(
@@ -428,104 +427,7 @@ pub fn phase4_exact_ray_casting(
                 );
                 let c_end = c_current + chunk_size - 1;
 
-                let mut valid_indices: Option<Vec<usize>> = None;
-
-                if chunk_size >= gpu_threshold {
-                    if let Some(gpu) = crate::gpu::get_gpu_pipeline() {
-                        let mut illegal_z_valuations_u256 =
-                            Vec::with_capacity(illegal_z_valuations.len());
-                        for &(pe, pe1) in illegal_z_valuations {
-                            illegal_z_valuations_u256.push((pe.as_uint(), pe1.as_uint()));
-                        }
-
-                        let r_i_uint = r_i.as_uint();
-                        let s_l_uint = s_l_int.as_uint();
-
-                        let (gpu_valid, witnesses, pruned) = gpu.raycast_sieve(
-                            r_i_uint,
-                            s_l_uint,
-                            c_current as u64,
-                            c_end as u64,
-                            z_max_big,
-                            &illegal_z_valuations_u256,
-                            prefix,
-                            max_idx_3,
-                            max_idx_5,
-                            components_len,
-                            true,
-                        );
-
-                        // Asymmetric Sieve Verification using single-obstruction witness certificates:
-                        // 1. Verify 100% of the positive survivors returned by the GPU
-                        for &rel_c in &gpu_valid {
-                            let c = c_current + rel_c as usize;
-                            let z = r_i + Int::from_u64(c as u64) * s_l_int;
-                            let mut passes_sieve = true;
-                            for &(pe, pe1) in illegal_z_valuations {
-                                let rem = z % pe1;
-                                if rem % pe == Int::zero() && rem != Int::zero() {
-                                    passes_sieve = false;
-                                    break;
-                                }
-                            }
-                            if !passes_sieve {
-                                panic!("CRITICAL FAILURE: GPU/CPU Discrepancy detected! GPU returned invalid survivor c: {}", rel_c);
-                            }
-                        }
-
-                        // 2. O(1)-per-candidate validation using the GPU-provided witness certificates
-                        let mut witness_map =
-                            std::collections::HashMap::with_capacity(witnesses.len());
-                        for &(rel_c, obs_idx) in &witnesses {
-                            witness_map.insert(rel_c, obs_idx);
-                        }
-
-                        let mut survivor_set =
-                            std::collections::HashSet::with_capacity(gpu_valid.len());
-                        for &v in &gpu_valid {
-                            survivor_set.insert(v);
-                        }
-
-                        // Let's verify that every discarded candidate in [0, chunk_size - 1] is accounted for and its witness is valid
-                        for rel_c in 0..chunk_size {
-                            let rel_c_u32 = rel_c as u32;
-                            if !survivor_set.contains(&rel_c_u32) {
-                                // Must have a valid witness
-                                if let Some(&obs_idx) = witness_map.get(&rel_c_u32) {
-                                    if obs_idx >= illegal_z_valuations.len() {
-                                        panic!("CRITICAL FAILURE: Witness obstruction index out of bounds: {} for relative candidate {}", obs_idx, rel_c);
-                                    }
-                                    let (pe, pe1) = illegal_z_valuations[obs_idx];
-                                    let c = c_current + rel_c;
-                                    let z = r_i + Int::from_u64(c as u64) * s_l_int;
-                                    let rem = z % pe1;
-                                    if !(rem % pe == Int::zero() && rem != Int::zero()) {
-                                        panic!("CRITICAL FAILURE: Invalid witness certificate for relative candidate {}! Obstruction index {} did not reject.", rel_c, obs_idx);
-                                    }
-                                } else {
-                                    panic!("CRITICAL FAILURE: Discarded candidate at relative index {} has no witness certificate!", rel_c);
-                                }
-                            }
-                        }
-
-                        pruned_count.fetch_add(pruned, Ordering::Relaxed);
-                        valid_indices = Some(
-                            gpu_valid
-                                .into_iter()
-                                .map(|c| (c_current + c as usize))
-                                .collect(),
-                        );
-                    }
-                }
-
-                // Compile all candidate indices in the current chunk to check
-                let chunk_candidates: Vec<usize> = if let Some(indices) = &valid_indices {
-                    indices.clone()
-                } else {
-                    (c_current..=c_end).collect()
-                };
-
-                let count_pruned = valid_indices.is_none();
+                let chunk_candidates: Vec<usize> = (c_current..=c_end).collect();
 
                 let mut candidates_to_factor = Vec::new();
 
@@ -550,20 +452,18 @@ pub fn phase4_exact_ray_casting(
                         }
                     }
 
-                    if count_pruned {
-                        let mut passed_sieve = true;
-                        for &(pe, pe1) in illegal_z_valuations {
-                            let rem = z % pe1;
-                            if rem % pe == Int::zero() && rem != Int::zero() {
-                                passed_sieve = false;
-                                pruned_count.fetch_add(1, Ordering::Relaxed);
-                                break;
-                            }
+                    let mut passed_sieve = true;
+                    for &(pe, pe1) in illegal_z_valuations {
+                        let rem = z % pe1;
+                        if rem % pe == Int::zero() && rem != Int::zero() {
+                            passed_sieve = false;
+                            pruned_count.fetch_add(1, Ordering::Relaxed);
+                            break;
                         }
+                    }
 
-                        if !passed_sieve {
-                            continue;
-                        }
+                    if !passed_sieve {
+                        continue;
                     }
 
                     let mut is_coprime = true;
@@ -621,131 +521,16 @@ pub fn phase4_exact_ray_casting(
                 }
 
                 if !candidates_to_factor.is_empty() {
-                    let gpu_opt = crate::gpu::get_gpu_pipeline();
-                    if gpu_opt.is_some() {
-                        // Gather composite values for batching
-                        let mut composites = Vec::new();
-                        for &(_, z_tiered, _) in &candidates_to_factor {
-                            if !crate::math_utils::verified_is_prime(z_tiered) {
-                                composites.push(z_tiered);
-                            }
-                        }
-
-                        // Call batch factorization on the GPU
-                        let factors = if !composites.is_empty() {
-                            // Unwrapping is safe because gpu_opt is some
-                            gpu_opt.unwrap().factor_batch(&composites)
-                        } else {
-                            vec![]
-                        };
-
-                        let mut composite_index = 0;
-                        for &(c, z_tiered, required_s_r) in &candidates_to_factor {
-                            let factors_list_opt = if crate::math_utils::verified_is_prime(z_tiered)
-                            {
-                                Some(vec![z_tiered])
-                            } else {
-                                let p_opt = factors[composite_index];
-                                composite_index += 1;
-                                if let Some(p) = p_opt {
-                                    let q = z_tiered / p;
-                                    // Multiplication Certificate Verification
-                                    if p <= Uint::one() || q <= Uint::one() || p * q != z_tiered {
-                                        panic!("CRITICAL FAILURE: GPU multiplication certificate verification failed for candidate composite N = {}, factors p = {}, q = {}", z_tiered, p, q);
-                                    }
-
-                                    // Check if cofactor q is composite before initiating GPU primality assertions
-                                    if !crate::math_utils::verified_is_prime(q) {
-                                        // Bypass the GPU-specific factor-verification path
-                                        None
-                                    } else {
-                                        // Primality Certificate Verification for standard semiprimes (both p and q must be prime)
-                                        if !crate::math_utils::verified_is_prime(p) {
-                                            panic!("CRITICAL FAILURE: GPU primality certificate verification failed for candidate composite N = {}, factors p = {}, q = {}", z_tiered, p, q);
-                                        }
-                                        Some(vec![p, q])
-                                    }
-                                } else {
-                                    panic!("CRITICAL FAILURE: GPU factorization pipeline failed to factor candidate composite N = {}", z_tiered);
-                                }
+                    for &(c, z_tiered, required_s_r) in &candidates_to_factor {
+                        if verify_candidate_cpu_only(z_tiered, required_s_r, sigma_cache) {
+                            let total_n = prefix.n_l * z_tiered * z_tiered;
+                            let event = crate::events::SearchEvent::Candidate {
+                                len: 0,
+                                factors_str: total_n.to_string(),
+                                rem_str: "".to_string(),
                             };
-
-                            if let Some(factors_list) = factors_list_opt {
-                                let mut s_r = Uint::from_u128(1 as u128);
-                                let mut current_p = Uint::zero();
-                                let mut count: u32 = 0;
-                                let mut s_r_overflowed = false;
-                                let mut factors_list = factors_list.clone();
-                                factors_list.sort_unstable();
-
-                                for &f in &factors_list {
-                                    if f == current_p {
-                                        count += 1;
-                                    } else {
-                                        if current_p != Uint::zero() {
-                                            let sig =
-                                                sigma_cached(sigma_cache, current_p, 2 * count);
-                                            match s_r.checked_mul(sig) {
-                                                Some(v) => s_r = v,
-                                                None => {
-                                                    s_r_overflowed = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                        current_p = f;
-                                        count = 1;
-                                    }
-                                }
-                                if !s_r_overflowed && current_p != Uint::zero() {
-                                    let sig = sigma_cached(sigma_cache, current_p, 2 * count);
-                                    match s_r.checked_mul(sig) {
-                                        Some(v) => s_r = v,
-                                        None => {
-                                            s_r_overflowed = true;
-                                        }
-                                    }
-                                }
-
-                                if !s_r_overflowed && s_r == required_s_r {
-                                    let total_n = prefix.n_l * z_tiered * z_tiered;
-                                    let event = crate::events::SearchEvent::Candidate {
-                                        len: 0,
-                                        factors_str: total_n.to_string(),
-                                        rem_str: "".to_string(),
-                                    };
-                                    if let Some(r) = reporter {
-                                        let _ = r.send(event);
-                                    }
-                                }
-                            } else {
-                                // Route multi-factor composite cofactor candidates directly to CPU-only validation pipeline
-                                if verify_candidate_cpu_only(z_tiered, required_s_r, sigma_cache) {
-                                    let total_n = prefix.n_l * z_tiered * z_tiered;
-                                    let event = crate::events::SearchEvent::Candidate {
-                                        len: 0,
-                                        factors_str: total_n.to_string(),
-                                        rem_str: "".to_string(),
-                                    };
-                                    if let Some(r) = reporter {
-                                        let _ = r.send(event);
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        // Fallback to sequential CPU factorization when GPU is not active
-                        for &(c, z_tiered, required_s_r) in &candidates_to_factor {
-                            if verify_candidate_cpu_only(z_tiered, required_s_r, sigma_cache) {
-                                let total_n = prefix.n_l * z_tiered * z_tiered;
-                                let event = crate::events::SearchEvent::Candidate {
-                                    len: 0,
-                                    factors_str: total_n.to_string(),
-                                    rem_str: "".to_string(),
-                                };
-                                if let Some(r) = reporter {
-                                    let _ = r.send(event);
-                                }
+                            if let Some(r) = reporter {
+                                let _ = r.send(event);
                             }
                         }
                     }

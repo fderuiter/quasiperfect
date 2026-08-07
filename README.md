@@ -232,9 +232,9 @@ Located in `ualbf-project/rust-engine/`. Written in Rust 2021 edition using the 
 |---|---|
 | `rayon` | Lock-free parallel iterators across all cores |
 | `num-bigint` / `num-integer` / `num-traits` | Arbitrary-precision integer arithmetic |
-| `primal` | Fast prime enumeration |
-| `prime_factorization` | Rapid integer factorization |
-| `z3` | SMT solver integration |
+| 'primal' | Fast prime enumeration |
+| 'prime_factorization' | Rapid integer factorization |
+| 'z3' | SMT solver integration |
 | `crossbeam-channel` | Lock-free communication channels |
 
 **Source modules:**
@@ -248,13 +248,12 @@ Located in `ualbf-project/rust-engine/`. Written in Rust 2021 edition using the 
 | `raycast.rs` | Phase 4: Tonelli-Shanks, Hensel lifting, CRT, Miller-Rabin |
 | `math_utils.rs` | Modular inverse, σ computation, Pollard's ρ factorization |
 | `lean_ffi.rs` | Runtime bridge to Lean 4 C-exported functions |
-| `gpu.rs` | Raycast sieving and Pollard's ρ GPU acceleration (status: uninvoked; platform requirement: macOS/Metal) |
 
 ---
 
 ### Terminal Dashboard (Python)
 
-`ualbf-project/rust-engine/run_gui.py` — a `curses`-based real-time monitoring dashboard that:
+`ualbf-project/rust-engine/run_gui.py` — a 'curses'-based real-time monitoring dashboard that:
 
 - Orchestrates the full build pipeline (Lean → Rust)
 - Streams live telemetry from all engine phases
@@ -388,9 +387,9 @@ python3 run_gui.py --debug
 
 | Key | Action |
 |---|---|
-| `q` / `Q` | Quit |
-| `r` | Raise bounds and re-run (after completion) |
-| `l` | Toggle Lean proof status overlay |
+| 'q' / 'Q' | Quit |
+| 'r' | Raise bounds and re-run (after completion) |
+| 'l' | Toggle Lean proof status overlay |
 
 ### Directly
 
@@ -430,7 +429,7 @@ The test suite covers:
 
 ### macOS Local Testing & Platform Verification
 
-Because the macOS automated CI runner has been deprecated to save resources and avoid environment drift issues, **all macOS-specific frameworks, Apple frameworks, and GPU acceleration logic (including Metal shaders or Metal-specific code) must be compiled and tested locally on macOS hardware before submitting code.**
+Because the macOS automated CI runner has been deprecated to save resources and avoid environment drift issues, **all macOS-specific frameworks and Apple frameworks must be compiled and tested locally on macOS hardware before submitting code.**
 
 #### Manual Verification Steps on macOS:
 
@@ -446,15 +445,7 @@ Because the macOS automated CI runner has been deprecated to save resources and 
    cargo test --release
    ```
 
-2. **Verify GPU/Metal Acceleration (if applicable):**
-   If you have made changes to the GPU/Metal acceleration modules (e.g., `gpu.rs`), verify that the GPU/Metal modules compile and execute correctly on your macOS device:
-   ```bash
-   cd ualbf-project/rust-engine
-   # Ensure the macOS target and Metal compiler are functional and no linking errors occur.
-   cargo build --release
-   ```
-
-3. **Check Workspace Cleanliness:**
+2. **Check Workspace Cleanliness:**
    Confirm that no platform-specific build artifacts are left untracked:
    ```bash
    cd ualbf-project

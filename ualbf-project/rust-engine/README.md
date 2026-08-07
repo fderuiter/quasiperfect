@@ -89,17 +89,12 @@ cargo test
 
 ### macOS Local Testing & Platform Verification
 
-Because the automated macOS CI runner has been deprecated to save resources and avoid environment drift issues, **any development involving macOS-specific components, Apple frameworks, or GPU acceleration / Metal shader pipelines (e.g., inside `gpu.rs`) must be tested locally on macOS hardware before submitting code.**
+Because the automated macOS CI runner has been deprecated to save resources and avoid environment drift issues, **any development involving macOS-specific components or Apple frameworks must be tested locally on macOS hardware before submitting code.**
 
 #### Manual Verification Steps on macOS:
 1. **Compile and run local tests:**
    ```bash
    cargo test --release
-   ```
-2. **GPU/Metal Validation:**
-   Ensure Metal shader logic and target-specific libraries link correctly. If modifying `gpu.rs` or associated hardware acceleration pipelines, perform a release compilation on a macOS machine:
-   ```bash
-   cargo build --release
    ```
 
 ## 🛠️ Usage
@@ -124,30 +119,27 @@ Strictly ensures all roots derived computationally are validated via intrinsic s
 To ensure 100% layout coverage and prevent documentation drift, the following complete list of active Rust source and build configuration files in this sub-module are indexed and verified:
 
 - `build.rs`
-- `lib.rs`
-- `main.rs`
-- `types.rs`
-- `sieve.rs`
-- `dfs_tree.rs`
-- `raycast.rs`
-- `math_utils.rs`
-- `lean_ffi.rs`
-- `gpu.rs`
-- `metal_reflection.rs`
-- `mod.rs`
-- `obstruction.rs`
-- `ffi_generated.rs`
-- `verus_proofs.rs`
-- `policy.rs`
-- `profile.rs`
-- `state.rs`
-- `backbone.rs`
-- `universal_bounds.rs`
-- `manifest_constants.rs`
-- `residue.rs`
-- `schema_generated.rs`
-- `events.rs`
-- `trace.rs`
-- `distributed.rs`
-- `lean_export.rs`
+- `ualbf-macros/src/lib.rs`
+- `src/main.rs`
+- `src/types.rs`
+- `src/sieve.rs`
+- `src/dfs_tree.rs`
+- `src/raycast.rs`
+- `src/math_utils.rs`
+- `src/lean_ffi.rs`
+- `src/obstruction.rs`
+- `src/ffi_generated.rs`
+- `src/verus_proofs.rs`
+- `src/policy.rs`
+- `src/profile.rs`
+- `src/state.rs`
+- `src/backbone.rs`
+- `src/universal_bounds.rs`
+- `src/manifest_constants.rs`
+- `src/residue.rs`
+- `src/schema_generated.rs`
+- `src/events.rs`
+- `src/trace.rs`
+- `src/distributed.rs`
+- `src/lean_export.rs`
 

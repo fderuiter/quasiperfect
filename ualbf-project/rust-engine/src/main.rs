@@ -13,8 +13,6 @@ use std::env;
 use std::fs;
 
 mod dfs_tree;
-pub mod unverified;
-pub use unverified::{gpu, metal_reflection};
 mod lean_ffi;
 mod manifest_constants;
 mod profile;
@@ -391,6 +389,54 @@ pub fn validate_suffix_bounds_sequence(suffix_abundance: &[u128]) -> Result<(), 
 /// // working directory:
 /// // UALBF_PROOF_MANIFEST=proof_manifest.json UALBF_MODE=standalone ./ualbf_engine
 /// ```
+fn find_lean_file(thm_file: &str, manifest_path: &str) -> Option<std::path::PathBuf> {
+    use std::path::{Path, PathBuf};
+
+    let candidates = [
+        Path::new("lean4-proofs").join(thm_file),
+        PathBuf::from(thm_file),
+        if let Some(parent) = Path::new(manifest_path).parent() {
+            parent.join("lean4-proofs").join(thm_file)
+        } else {
+            PathBuf::new()
+        },
+        if let Some(parent) = Path::new(manifest_path).parent() {
+            parent.join(thm_file)
+        } else {
+            PathBuf::new()
+        },
+        Path::new("../lean4-proofs").join(thm_file),
+    ];
+
+    for cand in candidates {
+        if cand.as_os_str().is_empty() {
+            continue;
+        }
+        if cand.exists() && cand.is_file() {
+            return Some(cand);
+        }
+    }
+    None
+}
+
+fn sha256_digest_file(path: &std::path::Path) -> std::io::Result<String> {
+    use sha2::{Digest, Sha256};
+    use std::fs::File;
+    use std::io::Read;
+
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0; 4096];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
+
 fn main() {
     let total_start = std::time::Instant::now();
     crate::lean_ffi::initialize_lean_runtime();
@@ -472,26 +518,7 @@ fn main() {
     let verified_logic_hash = verification_lib::compute_core_tcb_hash_at_compile_time!();
     println!("Verified core search logic hash: {}", verified_logic_hash);
 
-    let verified_extension_hash = if cfg!(feature = "gpu") {
-        let expected = verification_lib::compute_extension_tcb_hash_at_compile_time!();
-        #[cfg(feature = "signing")]
-        {
-            let actual = verification_lib::compute_verified_extension_hash_runtime(
-                std::path::Path::new(".."),
-            )
-            .unwrap_or_else(|_| "unverified_extension_hash".to_string());
-            if actual != expected {
-                panic!(
-                    "CRITICAL FAILURE: GPU extension hash mismatch. Expected {}, got {}",
-                    expected, actual
-                );
-            }
-        }
-        println!("Verified extension hash: {}", expected);
-        Some(expected)
-    } else {
-        None
-    };
+    let verified_extension_hash: Option<String> = None;
 
     // --- Runtime Audit: Verus Specification Hashes ---
     let verus_content = include_str!("verus_proofs.rs");
@@ -613,11 +640,26 @@ fn main() {
     let allowed_axioms: [&str; 0] = [];
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
-        let expected_payload = format!("{}|{}|{}", thm.name, thm.file, thm.status);
-        let mut hasher = sha2::Sha256::new();
-        sha2::Digest::update(&mut hasher, expected_payload.as_bytes());
-        let computed_checksum = hex::encode(hasher.finalize());
-        if computed_checksum != thm.checksum {
+        let mut matched = false;
+        if let Some(file_path) = find_lean_file(&thm.file, &manifest_path) {
+            if let Ok(file_hash) = sha256_digest_file(&file_path) {
+                if file_hash == thm.checksum {
+                    matched = true;
+                }
+            }
+        }
+
+        if !matched {
+            let expected_payload = format!("{}|{}|{}", thm.name, thm.file, thm.status);
+            let mut hasher = sha2::Sha256::new();
+            sha2::Digest::update(&mut hasher, expected_payload.as_bytes());
+            let computed_checksum = hex::encode(hasher.finalize());
+            if computed_checksum == thm.checksum {
+                matched = true;
+            }
+        }
+
+        if !matched {
             panic!("FATAL: Checksum mismatch for theorem {}. The proof manifest has been tampered with.", thm.name);
         }
 
@@ -738,10 +780,6 @@ fn main() {
         raycast::generate_illegal_z_valuations(sieve_limit as u64, max_exponent);
 
     // Check illegal valuations
-
-    if config.enable_diagnostics {
-        crate::gpu::ENABLE_DIAGNOSTICS.store(true, std::sync::atomic::Ordering::Relaxed);
-    }
 
     // Launch fused perfectly-balanced parallel pipeline!
     let mode = config.mode.clone();
