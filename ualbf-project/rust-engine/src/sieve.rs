@@ -162,8 +162,8 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     // Stage 2 (Mod8) exponent filter in O(1)
                     let p_mod_8 = p & 7;
                     let is_pruned = match check_sieve_bit(&stage2_bitset, p_mod_8, max_e, e) {
-                        Some(false) => false, // bit is 0, so not pruned
-                        _ => true, // bit is 1 or None/overflow, so pruned
+                        Some(true) => false,
+                        _ => true, // safe prune on None/overflow
                     };
                     if is_pruned {
                         pruned.fetch_add(1, Ordering::Relaxed);
