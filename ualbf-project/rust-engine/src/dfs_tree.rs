@@ -591,8 +591,14 @@ pub fn check_and_evaluate_node(
 
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
-        let mut accum_lhs = curr.s_l.checked_mul(Uint::from_u64(target_den)).unwrap_or(Uint::MAX);
-        let accum_rhs = curr.n_l.checked_mul(Uint::from_u64(target_num)).unwrap_or(Uint::MAX);
+        let mut accum_lhs = curr
+            .s_l
+            .checked_mul(Uint::from_u64(target_den))
+            .unwrap_or(Uint::MAX);
+        let accum_rhs = curr
+            .n_l
+            .checked_mul(Uint::from_u64(target_num))
+            .unwrap_or(Uint::MAX);
 
         for &ab in &best_abundances {
             let ab_u256 = Uint::from_u128((ab) as u128);

@@ -426,16 +426,16 @@ mod tests {
         // 1. Test index overflow handling
         assert!(get_sieve_index(usize::MAX, 10, 1).is_none());
         assert!(get_sieve_index(usize::MAX, u32::MAX, 1).is_none());
-        
+
         // 2. Test check_sieve_bit bounds check and overflow
         let bitset = vec![0u64; 2];
         assert!(check_sieve_bit(&bitset, usize::MAX, 10, 1).is_none());
         assert_eq!(check_sieve_bit(&bitset, 0, 1, 1), Some(false));
-        
+
         let mut bitset_mut = vec![0u64; 2];
         bitset_mut[0] |= 1 << 1;
         assert_eq!(check_sieve_bit(&bitset_mut, 0, 1, 1), Some(true));
-        
+
         // 3. Test compute_sigma_checked overflow monadic Option propagation
         assert!(crate::lean_ffi::compute_sigma_checked(12345, 1000).is_none());
     }
