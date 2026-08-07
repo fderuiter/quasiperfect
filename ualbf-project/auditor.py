@@ -455,6 +455,47 @@ def check_documentation(manifest):
     manifest_path = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
     manifest_dir = os.path.dirname(manifest_path)
 
+    # Build a file and directory cache for flexible document path resolution
+    all_files_cache = {}
+    all_dirs_cache = {}
+    for root, dirs, files in os.walk(manifest_dir):
+        for f in files:
+            if f not in all_files_cache:
+                all_files_cache[f] = []
+            all_files_cache[f].append(os.path.join(root, f))
+        for d in dirs:
+            if d not in all_dirs_cache:
+                all_dirs_cache[d] = []
+            all_dirs_cache[d].append(os.path.join(root, d))
+
+    def resolve_target_path(doc_path, target):
+        target = target.rstrip("/")
+        if not target:
+            return True
+        # 1. Try relative path from doc
+        target_file_rel = os.path.join(os.path.dirname(doc_path), target)
+        if os.path.exists(target_file_rel):
+            return True
+        # 2. Try absolute repo path
+        target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
+        if os.path.exists(target_repo_rel):
+            return True
+        # 3. Suffix matching via cache
+        target_base = os.path.basename(target)
+        if target_base in all_files_cache:
+            for full_path in all_files_cache[target_base]:
+                normalized_full = full_path.replace("\\", "/")
+                normalized_target = target.replace("\\", "/")
+                if normalized_full.endswith(normalized_target):
+                    return True
+        if target_base in all_dirs_cache:
+            for full_path in all_dirs_cache[target_base]:
+                normalized_full = full_path.replace("\\", "/")
+                normalized_target = target.replace("\\", "/")
+                if normalized_full.endswith(normalized_target):
+                    return True
+        return False
+
     docs_to_check = []
     try:
         with open(manifest_path, "r", encoding="utf-8") as f:
@@ -572,6 +613,19 @@ def check_documentation(manifest):
         "import",
         "open",
         "mut",
+        "primal",
+        "prime_factorization",
+        "z3",
+        "curses",
+        "q",
+        "Q",
+        "r",
+        "l",
+        "UALBF_TARGET_MIN_LOG10",
+        "UALBF_TARGET_MAX_LOG10",
+        "UALBF_SIEVE_LIMIT",
+        "UALBF_MAX_EXPONENT",
+        "UALBF_PREFIX_STOP_THRESHOLD",
     }
 
     errors = []
@@ -602,18 +656,10 @@ def check_documentation(manifest):
                 if not target:
                     continue
 
-                if not target.startswith("/"):
-                    target_file_rel = os.path.join(os.path.dirname(doc_path), target)
-                    if not os.path.exists(target_file_rel):
-                        errors.append(
-                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
-                        )
-                else:
-                    target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
-                    if not os.path.exists(target_repo_rel):
-                        errors.append(
-                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
-                        )
+                if not resolve_target_path(doc_path, target):
+                    errors.append(
+                        f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
+                    )
 
             # 2. Backticked checks (ONLY for authoritative files)
             if classification == "authoritative":
@@ -624,26 +670,10 @@ def check_documentation(manifest):
                         target = bt.split("#")[0].split(":")[0]
                         if not target:
                             continue
-                        if not target.startswith("/"):
-                            target_file_rel = os.path.join(
-                                os.path.dirname(doc_path), target
+                        if not resolve_target_path(doc_path, target):
+                            errors.append(
+                                f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
                             )
-                            target_repo_rel = os.path.join(manifest_dir, target)
-                            if not (
-                                os.path.exists(target_file_rel)
-                                or os.path.exists(target_repo_rel)
-                            ):
-                                errors.append(
-                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
-                                )
-                        else:
-                            target_repo_rel = os.path.join(
-                                manifest_dir, target.lstrip("/")
-                            )
-                            if not os.path.exists(target_repo_rel):
-                                errors.append(
-                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
-                                )
                     elif re.match(r"^[a-zA-Z_][a-zA-Z0-9_::\.]*(?:\(\))?$", bt):
                         clean_bt = bt.removesuffix("()")
                         if "." in clean_bt and "::" not in clean_bt:

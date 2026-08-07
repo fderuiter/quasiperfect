@@ -424,6 +424,16 @@ pub fn phase4_exact_ray_casting(
                         continue;
                     }
 
+                    let s_l_is_multiple_1155 = s_l_int % Int::from_u32(1155) == Int::zero();
+                    if s_l_is_multiple_1155 {
+                        let z_uint = z.as_uint();
+                        let x_l_uint = x_l.as_uint();
+                        if !crate::lean_ffi::check_crt_1155(&z_uint, &x_l_uint) {
+                            pruned_count.fetch_add(1, Ordering::Relaxed);
+                            continue;
+                        }
+                    }
+
                     if count_pruned {
                         let mut passed_sieve = true;
                         for &(pe, pe1) in illegal_z_valuations {

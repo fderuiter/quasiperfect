@@ -374,6 +374,17 @@ pub fn run_runtime_parity_check() {
         panic!("FATAL: Initialization failed due to 512-bit integer word-order mismatch.");
     }
 
+    // 1.5 Verify Modulo-1155 CRT step FFI
+    let test_z = crate::types::Uint::from_u32(2);
+    let test_xl_match = crate::types::Uint::from_u32(4);
+    let test_xl_mismatch = crate::types::Uint::from_u32(5);
+    if !check_crt_1155(&test_z, &test_xl_match) {
+        panic!("FATAL: check_crt_1155 failed to match valid residue 4 for z = 2.");
+    }
+    if check_crt_1155(&test_z, &test_xl_mismatch) {
+        panic!("FATAL: check_crt_1155 succeeded on invalid residue 5 for z = 2.");
+    }
+
     // 2. Validate fixed-point scaling factor
     #[cfg(not(unverified_build))]
     {
@@ -491,6 +502,12 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
         );
         ok != 0
     }
+}
+
+pub fn check_crt_1155(z_val: &Uint, x_l_val: &Uint) -> bool {
+    let z_obj = z_val.to_lean();
+    let x_l_obj = x_l_val.to_lean();
+    unsafe { ualbf_check_crt_1155(z_obj.as_ptr(), x_l_obj.as_ptr()) != 0 }
 }
 
 pub fn get_baseline_min_prime_factors() -> usize {
