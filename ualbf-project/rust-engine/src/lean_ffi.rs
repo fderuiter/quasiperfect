@@ -579,6 +579,9 @@ pub fn compute_sigma(p: u64, pow: u32) -> Uint {
 }
 
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
+    if p > 1 && (pow as f64) * (p as f64).log2() >= 512.0 {
+        return None;
+    }
     unsafe {
         let opt_obj = ualbf_compute_sigma(p, pow as u64);
         if !is_none(opt_obj) {
