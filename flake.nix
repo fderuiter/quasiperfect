@@ -291,6 +291,7 @@
             ln -s ${leanPkg}/.lake ../lean4-proofs/.lake
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+            export Z3_SYS_HEADER="${pkgs.z3}/include/z3.h"
           '';
         };
 
