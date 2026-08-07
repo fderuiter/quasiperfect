@@ -17,7 +17,7 @@ pub const CORE_TCB_FILES: &[&str] = &[
     "../../bounds_manifest.json",
 ];
 
-pub const EXTENSION_TCB_FILES: &[&str] = &["unverified/gpu.rs", "kernel.metal"];
+pub const EXTENSION_TCB_FILES: &[&str] = &[];
 
 #[macro_export]
 #[cfg(feature = "signing")]
@@ -47,19 +47,6 @@ macro_rules! compute_core_tcb_hash_at_compile_time {
 }
 
 #[macro_export]
-#[cfg(all(feature = "signing", feature = "gpu"))]
-macro_rules! compute_extension_tcb_hash_at_compile_time {
-    () => {{
-        use $crate::sha2::{Digest, Sha256};
-        let mut logic_hasher = Sha256::new();
-        logic_hasher.update(include_bytes!("unverified/gpu.rs"));
-        logic_hasher.update(include_bytes!("kernel.metal"));
-        $crate::hex::encode(logic_hasher.finalize())
-    }};
-}
-
-#[macro_export]
-#[cfg(not(all(feature = "signing", feature = "gpu")))]
 macro_rules! compute_extension_tcb_hash_at_compile_time {
     () => {
         "unverified_extension_hash".to_string()

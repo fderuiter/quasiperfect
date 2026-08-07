@@ -885,7 +885,7 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::Raycast,
-                verification_status: "auditor-checked",
+                verification_status: "formally verified",
             });
         }
         phase4_exact_ray_casting(

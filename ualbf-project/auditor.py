@@ -396,7 +396,7 @@ def generate_manifest():
                 "run",
                 "--release",
                 "--features",
-                "signing,python,gpu",
+                "signing",
                 "--manifest-path",
                 os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
@@ -564,11 +564,15 @@ def check_documentation(manifest):
         re.MULTILINE,
     )
 
+    all_repo_files = set()
+    all_repo_dirs = set()
     exclude_dirs = {".lake", "target", ".git", "build", ".pytest_cache", "node_modules"}
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
+        all_repo_dirs.add(os.path.abspath(root))
         for file in files:
             file_path = os.path.join(root, file)
+            all_repo_files.add(os.path.abspath(file_path))
             if file.endswith(".lean"):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:

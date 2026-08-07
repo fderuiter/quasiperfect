@@ -56,3 +56,9 @@ _minted/
 # Python
 __pycache__/
 *.pyc
+poetry.lock
+
+# Nix Build and CI Outputs
+result*
+lean-built
+ualbf-project/lean-built
