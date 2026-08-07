@@ -362,7 +362,7 @@ def generate_manifest():
                 "run",
                 "--release",
                 "--features",
-                "signing,python",
+                "signing",
                 "--manifest-path",
                 os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
