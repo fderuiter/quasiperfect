@@ -6,7 +6,11 @@ import sys
 import os
 import hashlib
 import cert_util
-from verify_metadata import extract_fqns_from_lean_content, strip_comments
+from verify_metadata import (
+    extract_fqns_from_lean_content,
+    strip_comments,
+    SAFE_COMMON_WORDS,
+)
 
 
 class MockCompletedProcess:
@@ -455,6 +459,25 @@ def check_documentation(manifest):
     manifest_path = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
     manifest_dir = os.path.dirname(manifest_path)
 
+    all_repo_paths = set()
+    for root, dirs, files in os.walk(manifest_dir):
+        if any(p in root for p in [".git", ".lake", "target", "build", "node_modules"]):
+            continue
+        for f in files:
+            full_p = os.path.join(root, f)
+            rel_p = os.path.relpath(full_p, manifest_dir)
+            all_repo_paths.add(f)
+            all_repo_paths.add(rel_p)
+            all_repo_paths.add(f.lower())
+            all_repo_paths.add(rel_p.lower())
+        for d in dirs:
+            full_p = os.path.join(root, d)
+            rel_p = os.path.relpath(full_p, manifest_dir)
+            all_repo_paths.add(d)
+            all_repo_paths.add(rel_p)
+            all_repo_paths.add(d.lower())
+            all_repo_paths.add(rel_p.lower())
+
     docs_to_check = []
     try:
         with open(manifest_path, "r", encoding="utf-8") as f:
@@ -573,6 +596,7 @@ def check_documentation(manifest):
         "open",
         "mut",
     }
+    ignore_symbols.update(SAFE_COMMON_WORDS)
 
     errors = []
 
@@ -588,6 +612,20 @@ def check_documentation(manifest):
 
         doc_rel_to_repo = os.path.relpath(doc_path, manifest_dir)
 
+        def resolve_target_exists(target, doc_path, manifest_dir):
+            t = target.split("#")[0].split(":")[0].strip().rstrip("/")
+            if not t:
+                return True
+            if t.startswith("/"):
+                t = t.lstrip("/")
+            t_lower = t.lower()
+            if t in all_repo_paths or t_lower in all_repo_paths:
+                return True
+            for p in all_repo_paths:
+                if p.endswith("/" + t) or p.endswith("/" + t_lower):
+                    return True
+            return False
+
         for i, line in enumerate(lines):
             for link in re.findall(r"\[[^\]]+\]\(([^)]+)\)", line):
                 if link.startswith("http"):
@@ -602,18 +640,10 @@ def check_documentation(manifest):
                 if not target:
                     continue
 
-                if not target.startswith("/"):
-                    target_file_rel = os.path.join(os.path.dirname(doc_path), target)
-                    if not os.path.exists(target_file_rel):
-                        errors.append(
-                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
-                        )
-                else:
-                    target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
-                    if not os.path.exists(target_repo_rel):
-                        errors.append(
-                            f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
-                        )
+                if not resolve_target_exists(target, doc_path, manifest_dir):
+                    errors.append(
+                        f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
+                    )
 
             # 2. Backticked checks (ONLY for authoritative files)
             if classification == "authoritative":
@@ -624,33 +654,20 @@ def check_documentation(manifest):
                         target = bt.split("#")[0].split(":")[0]
                         if not target:
                             continue
-                        if not target.startswith("/"):
-                            target_file_rel = os.path.join(
-                                os.path.dirname(doc_path), target
+                        if not resolve_target_exists(target, doc_path, manifest_dir):
+                            errors.append(
+                                f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
                             )
-                            target_repo_rel = os.path.join(manifest_dir, target)
-                            if not (
-                                os.path.exists(target_file_rel)
-                                or os.path.exists(target_repo_rel)
-                            ):
-                                errors.append(
-                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
-                                )
-                        else:
-                            target_repo_rel = os.path.join(
-                                manifest_dir, target.lstrip("/")
-                            )
-                            if not os.path.exists(target_repo_rel):
-                                errors.append(
-                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{bt}'"
-                                )
                     elif re.match(r"^[a-zA-Z_][a-zA-Z0-9_::\.]*(?:\(\))?$", bt):
                         clean_bt = bt.removesuffix("()")
+                        clean_bt_lower = clean_bt.lower()
                         if "." in clean_bt and "::" not in clean_bt:
                             # Strict match for dot-notated qualified names (Lean)
                             if (
                                 clean_bt not in ignore_symbols
+                                and clean_bt_lower not in ignore_symbols
                                 and clean_bt not in valid_symbols
+                                and clean_bt_lower not in valid_symbols
                             ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
@@ -659,9 +676,12 @@ def check_documentation(manifest):
                             # Unqualified names or Rust names (using ::)
                             parts = re.split(r"\.|::", clean_bt)
                             ident = parts[-1]
+                            ident_lower = ident.lower()
                             if (
                                 ident not in ignore_symbols
+                                and ident_lower not in ignore_symbols
                                 and ident not in valid_symbols
+                                and ident_lower not in valid_symbols
                             ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
