@@ -2,6 +2,7 @@ name: Unified Publication & Verification Build
 
 env:
   NIX_ARCH: "x86_64-linux"
+  PYTHONUNBUFFERED: "1"
 
 on:
   push:
