@@ -606,9 +606,9 @@ def extract_code_constructs(base_dir):
 
 def get_all_repo_paths(repo_root):
     paths = set()
+    exclude_dirs = {".git", ".lake", "target", "node_modules", "build", "venv", ".venv", ".direnv"}
     for root, dirs, files in os.walk(repo_root):
-        if ".git" in root or ".lake" in root or "target" in root:
-            continue
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
         # Add relative directory paths
         rel_dir = os.path.relpath(root, repo_root)
         if rel_dir != ".":

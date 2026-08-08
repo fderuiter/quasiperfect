@@ -599,7 +599,7 @@ def check_documentation(manifest):
 
     all_repo_files = set()
     all_repo_dirs = set()
-    exclude_dirs = {".lake", "target", ".git", "build", ".pytest_cache", "node_modules"}
+    exclude_dirs = {".lake", "target", ".git", "build", ".pytest_cache", "node_modules", "venv", ".venv", ".direnv"}
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
         all_repo_dirs.add(os.path.abspath(root))
