@@ -425,6 +425,55 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
     result
 }
 
+pub fn verified_is_prime_low(n: Uint) -> bool {
+    if n <= Uint::one() {
+        return false;
+    }
+    let threshold = Uint::from_u128(1_u128 << 64);
+    if n >= threshold {
+        return false;
+    }
+    let n_u64 = n.as_u128() as u64;
+    let bases_12: [u64; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
+    for &b in &bases_12 {
+        if n_u64 == b {
+            return true;
+        }
+        if n_u64 % b == 0 {
+            return false;
+        }
+    }
+
+    let mut d = n_u64 - 1;
+    let mut s = 0;
+    while d % 2 == 0 {
+        d /= 2;
+        s += 1;
+    }
+
+    for &base in &bases_12 {
+        let mut x = modpow_u256(Uint::from_u64(base), Uint::from_u64(d), n);
+        if x == Uint::one() || x == n - Uint::one() {
+            continue;
+        }
+        let mut composite = true;
+        for _ in 0..(s - 1) {
+            x = mul_mod_u256(x, x, n);
+            if x == Uint::one() {
+                return false;
+            }
+            if x == n - Uint::one() {
+                composite = false;
+                break;
+            }
+        }
+        if composite {
+            return false;
+        }
+    }
+    true
+}
+
 pub fn generate_and_verify_pocklington(n: Uint) -> bool {
     if n <= Uint::one() {
         return false;
@@ -453,7 +502,13 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
     }
 
     if remaining > Uint::one() {
-        if verified_is_prime(remaining) {
+        let threshold = Uint::from_u128(1_u128 << 64);
+        let remaining_is_prime = if remaining < threshold {
+            verified_is_prime_low(remaining)
+        } else {
+            verified_is_prime(remaining)
+        };
+        if remaining_is_prime {
             f *= remaining;
             unique_prime_factors.push(remaining);
         } else {
@@ -571,45 +626,11 @@ pub fn verified_is_prime(n: Uint) -> bool {
     // Hybrid Tiered Primality: Route small inputs (< 2^64) through the proven deterministic 12-base Miller-Rabin test.
     let threshold = Uint::from_u128(1_u128 << 64);
     if n < threshold {
-        let n_u64 = n.as_u128() as u64;
-        let bases_12: [u64; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
-        for &b in &bases_12 {
-            if n_u64 == b {
-                return generate_and_verify_pocklington(n);
-            }
-            if n_u64 % b == 0 {
-                return false;
-            }
+        if verified_is_prime_low(n) {
+            return generate_and_verify_pocklington(n);
+        } else {
+            return false;
         }
-
-        let mut d = n_u64 - 1;
-        let mut s = 0;
-        while d % 2 == 0 {
-            d /= 2;
-            s += 1;
-        }
-
-        for &base in &bases_12 {
-            let mut x = modpow_u256(Uint::from_u64(base), Uint::from_u64(d), n);
-            if x == Uint::one() || x == n - Uint::one() {
-                continue;
-            }
-            let mut composite = true;
-            for _ in 0..(s - 1) {
-                x = mul_mod_u256(x, x, n);
-                if x == Uint::one() {
-                    return false;
-                }
-                if x == n - Uint::one() {
-                    composite = false;
-                    break;
-                }
-            }
-            if composite {
-                return false;
-            }
-        }
-        return generate_and_verify_pocklington(n);
     }
 
     // For all inputs >= 2^64:
