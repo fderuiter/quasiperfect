@@ -12,7 +12,7 @@ package-dir = {"" = "ualbf-project"}
 py-modules = ["cert_util", "verify_cert", "auditor", "verify_metadata"]
 
 [tool.black]
-extend-exclude = 'scripts|tests|prototypes|experimental|\.lake'
+extend-exclude = 'scripts|tests|prototypes|experimental|\.lake|venv|\.venv|\.direnv|lean-built|result'
 
 [tool.mypy]
 exclude = [
@@ -20,7 +20,12 @@ exclude = [
     'tests/',
     'prototypes/',
     'experimental/',
-    '\.lake/'
+    '\.lake/',
+    'venv/',
+    '\.venv/',
+    '\.direnv/',
+    'lean-built/',
+    'result/'
 ]
 
 [tool.pytest.ini_options]

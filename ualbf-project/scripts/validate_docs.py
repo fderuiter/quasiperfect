@@ -26,7 +26,7 @@ def main():
     all_md_files = glob.glob("**/*.md", recursive=True)
 
     # Filter out common build directories
-    exclude_dirs = [".lake", "target", "node_modules", "build", ".git", "venv", ".venv", ".direnv"]
+    exclude_dirs = [".lake", "target", "node_modules", "build", ".git", "venv", ".venv", ".direnv", "lean-built", "result"]
     filtered_md_files = []
     for md_file in all_md_files:
         if not any(part in exclude_dirs for part in md_file.split(os.sep)):
