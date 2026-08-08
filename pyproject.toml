@@ -35,6 +35,8 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
+# Python unit tests execute via pytest across standard workspace targets.
+# The local suite is fully decoupled and can be executed via `make check-python`.
 # Ignore certificate verification tests as they depend on live network resources/keys
 # and are executed as part of custom manual/isolated validation suites.
 pythonpath = ["ualbf-project"]
