@@ -1,3 +1,9 @@
+"""
+Tests for bounds validation and synchronization.
+Note: Running this test suite locally outside of Nix requires the Z3 development
+headers package (`libz3-dev` on Ubuntu/Debian) to be installed on the host system.
+"""
+
 import json
 import os
 import re
