@@ -7,6 +7,9 @@ export PYTHONUNBUFFERED=1
 #   make lean     — Build only Lean (requires mathlib)
 #   make rust     — Build only Rust (requires prior `make lean`)
 #   make clean    — Clean both Lean and Rust build artifacts
+#   make check    — Runs both check-core and check-python targets
+#   make check-core — Runs Rust formatting and Clippy, and Lean formatting
+#   make check-python — Runs Python style checks, type-checking, doc validation, and unit tests
 #
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
