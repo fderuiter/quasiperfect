@@ -491,13 +491,10 @@ with open("dummy_cert.json", "w") as f:
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [
             pkgs.m4
+            rustToolchain
           ];
           buildInputs = [
             pkgs.lean4
-            pkgs.rustc
-            pkgs.cargo
-            pkgs.clippy
-            pkgs.rustfmt
             (pkgs.python3.withPackages (ps: with ps; [
               black
               flake8
