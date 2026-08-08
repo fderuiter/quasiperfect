@@ -94,67 +94,67 @@
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "c15ca897a42845e85ab093e376de487fcdb813bccf3088df12f023692fd157ef",
+  "verified_logic_hash": "4d40748e6c28da2a290362f1621e5d38f06140e638a3c18b661db606e5dc2229",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -320,7 +320,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "13d2fa1a52bfda38a0db885e3aaf62e0c40492f01405b4a14722ca77302ebf98"
+      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
     },
     {
       "file": "UALBF/FFI_generated.lean",
