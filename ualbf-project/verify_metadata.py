@@ -10,6 +10,9 @@ It also extracts and validates code constructs across files.
 To guarantee highly performant and stable parallelized CI gating, directory walks
 implemented in this module dynamically prune virtual environments, Nix build targets,
 and various testing or compiler caching directories.
+
+Note: Local unit tests compile the rust-engine/z3-sys and require the Z3 C-development
+headers (z3.h) to be available either via pkgs.z3.dev (Nix) or libz3-dev (Debian/Ubuntu).
 """
 
 import json
