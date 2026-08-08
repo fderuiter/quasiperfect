@@ -10,6 +10,8 @@ export PYTHONUNBUFFERED=1
 #   make check    — Runs both check-core and check-python targets
 #   make check-core — Runs Rust formatting and Clippy, and Lean formatting
 #   make check-python — Runs Python style checks, type-checking, doc validation, and unit tests
+#   make verify-sync — Verify generated specifications alignment and workspace cleanliness
+#                      (set MOCK_LEAN=1 to run locally without the Lean compiler)
 #
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
