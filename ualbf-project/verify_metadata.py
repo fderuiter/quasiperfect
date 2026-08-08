@@ -417,6 +417,8 @@ SAFE_COMMON_WORDS = {
     "warnings",
     "formatting",
     "check",
+    "make check-python",
+    "nix develop",
     "check_literals.py",
     "argparse",
     "latexminted",
