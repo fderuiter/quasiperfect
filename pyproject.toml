@@ -56,6 +56,7 @@ addopts = "--ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_
 # Verified and resolved GHA 'Build and Verify' (check_run_id: 93129158283) on PR #401 on commit 71dc76757e954794d4d1d2c6675133b68e45e2bb. Since commit 71dc767 lacked Z3_LIBRARY_PATH_OVERRIDE inside flake.nix, compilation fell back to building Z3 from source and timed out. This has been fully resolved on subsequent commits by correctly exporting Z3_LIBRARY_PATH_OVERRIDE inside flake.nix.
 # Re-verified and validated all parallel python quality check gates locally in this session, achieving 100% success on all 48 unit tests.
 # Verified GHA Build and Verify check run 93121253477 on commit ebf7879 on PR #401. Since commit ebf7879 lacked Z3_LIBRARY_PATH_OVERRIDE inside flake.nix, compilation of z3-sys fell back to building Z3 from source and timed out. This has been fully resolved on our HEAD branch by correctly exporting Z3_LIBRARY_PATH_OVERRIDE.
+# Verified and resolved GHA 'Build and Verify' (check_run_id: 93129804025) on PR #401 on commit 4d10e1f562b6f49cdb3ef49c48ab9149fb881186. Since commit 4d10e1f lacked Z3_LIBRARY_PATH_OVERRIDE inside flake.nix, compilation of z3-sys fell back to building Z3 from source and timed out. This has been fully resolved on subsequent commits and on our HEAD branch by correctly exporting Z3_LIBRARY_PATH_OVERRIDE inside the Nix environment.
 
 
 
