@@ -1,5 +1,8 @@
 name: Unified Publication & Verification Build
 
+env:
+  NIX_ARCH: "x86_64-linux"
+
 on:
   push:
   pull_request:
@@ -17,31 +20,26 @@ jobs:
       - name: Setup Nix
         uses: cachix/install-nix-action@v25
         with:
-          nix_path: nixpkgs=channel:nixos-unstable
+          nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
 
-      - name: Detect Nix Architecture
-        run: |
-          NIX_ARCH=$(nix eval --raw --impure --expr 'builtins.currentSystem')
-          echo "NIX_ARCH=$NIX_ARCH" >> $GITHUB_ENV
-
       - name: Run Formatting Check
-        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.formatting
+        run: nix build .#checks.${NIX_ARCH}.formatting
 
       - name: Run Warnings Check
-        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.warnings
+        run: nix build .#checks.${NIX_ARCH}.warnings
 
       - name: Run Rust Literals Check
-        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.rust-literals
+        run: nix build .#checks.${NIX_ARCH}.rust-literals
 
       - name: Run LaTeX Paper Verification
-        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.latex-paper
+        run: nix build .#checks.${NIX_ARCH}.latex-paper
 
       - name: Prepare PDF Artifact
         if: success()
         run: |
-          OUT_PATH=$(nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.latex-paper --print-out-paths)
+          OUT_PATH=$(nix build .#checks.${NIX_ARCH}.latex-paper --print-out-paths)
           cp "$OUT_PATH/main.pdf" ./main.pdf
 
       - name: Upload Compiled PDF
@@ -62,17 +60,12 @@ jobs:
       - name: Setup Nix
         uses: cachix/install-nix-action@v25
         with:
-          nix_path: nixpkgs=channel:nixos-unstable
+          nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
 
-      - name: Detect Nix Architecture
-        run: |
-          NIX_ARCH=$(nix eval --raw --impure --expr 'builtins.currentSystem')
-          echo "NIX_ARCH=$NIX_ARCH" >> $GITHUB_ENV
-
       - name: Run Verus Semantic Verification via Nix
-        run: nix build .#checks.${NIX_ARCH:-$(nix eval --raw --impure --expr 'builtins.currentSystem')}.verus-proofs
+        run: nix build .#checks.${NIX_ARCH}.verus-proofs
 
   verify-and-build:
     name: Build and Verify
@@ -84,7 +77,7 @@ jobs:
       - name: Setup Nix (Linux)
         uses: cachix/install-nix-action@v25
         with:
-          nix_path: nixpkgs=channel:nixos-unstable
+          nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
 
@@ -97,7 +90,6 @@ jobs:
 
       - name: Populate Pre-built Lean Objects
         run: |
-          NIX_ARCH=$(nix eval --raw --impure --expr 'builtins.currentSystem')
           nix build .#packages.${NIX_ARCH}.lean -o ualbf-project/lean-built
           chmod -R +w ualbf-project/lean4-proofs || true
           rm -rf ualbf-project/lean4-proofs/.lake || true
