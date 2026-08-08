@@ -9,18 +9,22 @@
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit mock-ui verification-lib check verify-sync
+.PHONY: all lean rust clean audit mock-ui verification-lib check verify-sync check-core check-python
 
 all: verification-lib mock-ui lean rust
 
 audit:
 	python3 auditor.py
 
-check:
+check: check-core check-python
+
+check-core:
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
-	python3 scripts/check_literals.py
 	./scripts/check_lean_fmt.sh
+
+check-python:
+	python3 scripts/check_literals.py
 	python3 verify_metadata.py
 	black --check .
 	flake8 .

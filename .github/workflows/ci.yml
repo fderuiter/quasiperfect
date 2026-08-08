@@ -97,7 +97,7 @@ jobs:
           chmod -R +w ualbf-project/lean4-proofs/.lake || true
 
       - name: Run Unified Quality Checks
-        run: nix develop --command bash -c "cd ualbf-project && make check"
+        run: nix develop --command bash -c "cd ualbf-project && make check-core"
 
       - name: Verify Workspace Cleanliness
         run: nix develop --command bash -c "cd ualbf-project && make verify-sync"
@@ -107,4 +107,36 @@ jobs:
 
       - name: Run Core Logic Tests (lean_ffi)
         run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release lean_ffi"
+
+  verify-python:
+    name: Run Python Quality Checks
+    runs-on: ubuntu-latest
+    needs: core-gating
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Nix (Linux)
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=flake:nixpkgs
+          extra_nix_config: |
+            sandbox = true
+
+      - name: Cache Build Artifacts
+        continue-on-error: true
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ualbf-project
+          cache-on-failure: true
+
+      - name: Populate Pre-built Lean Objects
+        run: |
+          nix build .#packages.${NIX_ARCH}.lean -o ualbf-project/lean-built
+          chmod -R +w ualbf-project/lean4-proofs || true
+          rm -rf ualbf-project/lean4-proofs/.lake || true
+          cp -rL ualbf-project/lean-built/.lake ualbf-project/lean4-proofs/.lake
+          chmod -R +w ualbf-project/lean4-proofs/.lake || true
+
+      - name: Run Python Quality Checks
+        run: nix develop --command bash -c "cd ualbf-project && make check-python"
 
