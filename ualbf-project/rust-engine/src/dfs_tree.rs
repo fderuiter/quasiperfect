@@ -69,6 +69,84 @@ use std::sync::Arc;
 
 use crate::raycast::phase4_exact_ray_casting;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PrimeTracker {
+    pub p: u64,
+    pub two_e: u32,
+    pub abundance_fp: u128,
+}
+
+#[derive(Clone, Debug)]
+pub struct SuffixPrimeCollector {
+    pub unique_primes: smallvec::SmallVec<[PrimeTracker; 32]>,
+}
+
+impl Default for SuffixPrimeCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SuffixPrimeCollector {
+    pub fn new() -> Self {
+        Self {
+            unique_primes: smallvec::SmallVec::new(),
+        }
+    }
+
+    pub fn collect_from_mask(&mut self, mask: &[u64], start_idx: usize, components: &[PrimePower]) {
+        let mut block_idx = start_idx / 64;
+        if block_idx < mask.len() {
+            let mut block = mask[block_idx] & (!0 << (start_idx % 64));
+            loop {
+                while block != 0 {
+                    let tz = block.trailing_zeros();
+                    let j = block_idx * 64 + tz as usize;
+                    let comp = &components[j];
+
+                    if let Some(existing) = self.unique_primes.iter_mut().find(|entry| entry.p == comp.p) {
+                        if comp.two_e < existing.two_e {
+                            existing.two_e = comp.two_e;
+                            existing.abundance_fp = comp.abundance_fp;
+                        }
+                    } else {
+                        self.unique_primes.push(PrimeTracker {
+                            p: comp.p,
+                            two_e: comp.two_e,
+                            abundance_fp: comp.abundance_fp,
+                        });
+                    }
+
+                    block &= block - 1; // clear lowest set bit
+                }
+                block_idx += 1;
+                if block_idx >= mask.len() {
+                    break;
+                }
+                block = mask[block_idx];
+            }
+        }
+    }
+
+    pub fn get_abundances_sorted_ascending(&self) -> smallvec::SmallVec<[u128; 32]> {
+        let mut abundances = smallvec::SmallVec::<[u128; 32]>::new();
+        for entry in &self.unique_primes {
+            abundances.push(entry.abundance_fp);
+        }
+        abundances.sort_unstable(); // ascending order
+        abundances
+    }
+
+    pub fn get_abundances_sorted_descending(&self) -> smallvec::SmallVec<[u128; 32]> {
+        let mut abundances = smallvec::SmallVec::<[u128; 32]>::new();
+        for entry in &self.unique_primes {
+            abundances.push(entry.abundance_fp);
+        }
+        abundances.sort_unstable_by(|a, b| b.cmp(a)); // descending order
+        abundances
+    }
+}
+
 use std::sync::OnceLock;
 
 static MIN_PRIME_FACTORS: OnceLock<usize> = OnceLock::new();
@@ -549,45 +627,65 @@ pub fn check_and_evaluate_node(
             if f < 64 {}
         }
 
-        let mut best_abundances = smallvec::SmallVec::<[u128; 32]>::new();
-        let mut current_p = 0;
-        let mut current_best = 1u128 << 64;
+        // Set-based collector to isolate the minimal exponent power of each unique prime
+        let mut collector = SuffixPrimeCollector::new();
+        collector.collect_from_mask(&curr.active_mask, curr.last_idx, components);
 
-        let mask = &curr.active_mask;
-        let start_idx = curr.last_idx;
-        let mut block_idx = start_idx / 64;
-        if block_idx < mask.len() {
-            let mut block = mask[block_idx] & (!0 << (start_idx % 64));
-            loop {
-                while block != 0 {
-                    let tz = block.trailing_zeros();
-                    let j = block_idx * 64 + tz as usize;
-                    let comp = &components[j];
+        // Sorting minimal valuations in ascending order before computing prefix products
+        let best_abundances = collector.get_abundances_sorted_ascending();
 
-                    if comp.p != current_p {
-                        if current_p != 0 && current_best > (1u128 << 64) {
-                            best_abundances.push(current_best);
+        // Support differential validation under valid sorted conditions
+        #[cfg(any(debug_assertions, test))]
+        {
+            let is_sorted_descending = components.windows(2).all(|w| w[0].abundance_fp >= w[1].abundance_fp);
+            if is_sorted_descending {
+                let mut legacy_abundances = smallvec::SmallVec::<[u128; 32]>::new();
+                let mut current_p = 0;
+                let mut current_best = 1u128 << 64;
+
+                let mask = &curr.active_mask;
+                let start_idx = curr.last_idx;
+                let mut block_idx = start_idx / 64;
+                if block_idx < mask.len() {
+                    let mut block = mask[block_idx] & (!0 << (start_idx % 64));
+                    loop {
+                        while block != 0 {
+                            let tz = block.trailing_zeros();
+                            let j = block_idx * 64 + tz as usize;
+                            let comp = &components[j];
+
+                            if comp.p != current_p {
+                                if current_p != 0 && current_best > (1u128 << 64) {
+                                    legacy_abundances.push(current_best);
+                                }
+                                current_p = comp.p;
+                                current_best = 1u128 << 64;
+                            }
+                            if comp.abundance_fp > current_best {
+                                current_best = comp.abundance_fp;
+                            }
+                            block &= block - 1;
                         }
-                        current_p = comp.p;
-                        current_best = 1u128 << 64;
+                        block_idx += 1;
+                        if block_idx >= mask.len() {
+                            break;
+                        }
+                        block = mask[block_idx];
                     }
-                    if comp.abundance_fp > current_best {
-                        current_best = comp.abundance_fp;
-                    }
-                    block &= block - 1; // clear lowest set bit
                 }
-                block_idx += 1;
-                if block_idx >= mask.len() {
-                    break;
+                if current_p != 0 && current_best > (1u128 << 64) {
+                    legacy_abundances.push(current_best);
                 }
-                block = mask[block_idx];
+                legacy_abundances.sort_unstable_by(|a, b| b.cmp(a));
+
+                let mut new_descending = best_abundances.clone();
+                new_descending.sort_unstable_by(|a, b| b.cmp(a));
+                assert_eq!(
+                    new_descending, legacy_abundances,
+                    "Differential validation failed: set-tracker does not match contiguous-grouping!"
+                );
             }
         }
-        if current_p != 0 && current_best > (1u128 << 64) {
-            best_abundances.push(current_best);
-        }
-
-        best_abundances.sort_unstable_by(|a, b| b.cmp(a));
 
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
@@ -2159,6 +2257,122 @@ mod tests {
                     assert_eq!(ctx_n_l(ptr), Uint::from_u64(1), "n_l should be unchanged");
                 }
             );
+        }
+    }
+
+    fn make_test_prime_power(p: u64, two_e: u32) -> PrimePower {
+        let mut val = 1u128;
+        for _ in 0..two_e {
+            val = val.saturating_mul(p as u128);
+        }
+        let mut sigma = 0u128;
+        let mut current_pow = 1u128;
+        for _ in 0..=two_e {
+            sigma = sigma.saturating_add(current_pow);
+            current_pow = current_pow.saturating_mul(p as u128);
+        }
+        let abundance_fp = if val > 0 {
+            (sigma << 64) / val
+        } else {
+            1u128 << 64
+        };
+        PrimePower {
+            p,
+            two_e,
+            val: Uint::from_u128(val),
+            sigma: Uint::from_u128(sigma),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp,
+        }
+    }
+
+    proptest::proptest! {
+        #![proptest_config(proptest::prelude::ProptestConfig::with_cases(1000))]
+        #[test]
+        fn test_collector_permutations_proptest(
+            ref prime_bases in proptest::collection::vec(2u64..100u64, 2..10),
+            ref indices in proptest::collection::vec(0usize..100usize, 5..30)
+        ) {
+            let mut bases = prime_bases.clone();
+            bases.sort_unstable();
+            bases.dedup();
+            if bases.is_empty() {
+                return Ok(());
+            }
+
+            let mut pool = Vec::new();
+            for &p in &bases {
+                for exponent in [2u32, 4u32, 6u32] {
+                    pool.push(make_test_prime_power(p, exponent));
+                }
+            }
+
+            let mut components = Vec::new();
+            for &idx in indices {
+                let pool_idx = idx % pool.len();
+                components.push(pool[pool_idx].clone());
+            }
+
+            let mut expected_min_powers = std::collections::HashMap::new();
+            for comp in &components {
+                let entry = expected_min_powers.entry(comp.p).or_insert(comp.clone());
+                if comp.two_e < entry.two_e {
+                    *entry = comp.clone();
+                }
+            }
+
+            let mut collector = SuffixPrimeCollector::new();
+            let mut mask = vec![0u64; (components.len() + 63) / 64];
+            for i in 0..components.len() {
+                mask[i / 64] |= 1 << (i % 64);
+            }
+
+            collector.collect_from_mask(&mask, 0, &components);
+
+            assert_eq!(collector.unique_primes.len(), expected_min_powers.len());
+            for entry in &collector.unique_primes {
+                let expected = expected_min_powers.get(&entry.p).expect("Prime base should be in expected");
+                assert_eq!(entry.two_e, expected.two_e);
+                assert_eq!(entry.abundance_fp, expected.abundance_fp);
+            }
+
+            let mut distinct_components = Vec::new();
+            for &p in &bases {
+                distinct_components.push(make_test_prime_power(p, 2));
+            }
+            distinct_components.sort_by(|a, b| b.abundance_fp.cmp(&a.abundance_fp));
+
+            let mut dist_mask = vec![0u64; (distinct_components.len() + 63) / 64];
+            for i in 0..distinct_components.len() {
+                dist_mask[i / 64] |= 1 << (i % 64);
+            }
+
+            let mut col_new = SuffixPrimeCollector::new();
+            col_new.collect_from_mask(&dist_mask, 0, &distinct_components);
+            let abundances_new = col_new.get_abundances_sorted_descending();
+
+            let mut abundances_legacy = smallvec::SmallVec::<[u128; 32]>::new();
+            let mut current_p = 0;
+            let mut current_best = 1u128 << 64;
+            for comp in &distinct_components {
+                if comp.p != current_p {
+                    if current_p != 0 && current_best > (1u128 << 64) {
+                        abundances_legacy.push(current_best);
+                    }
+                    current_p = comp.p;
+                    current_best = 1u128 << 64;
+                }
+                if comp.abundance_fp > current_best {
+                    current_best = comp.abundance_fp;
+                }
+            }
+            if current_p != 0 && current_best > (1u128 << 64) {
+                abundances_legacy.push(current_best);
+            }
+            abundances_legacy.sort_unstable_by(|a, b| b.cmp(a));
+
+            assert_eq!(abundances_new, abundances_legacy);
         }
     }
 }
