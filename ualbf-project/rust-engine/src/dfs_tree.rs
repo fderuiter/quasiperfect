@@ -104,7 +104,11 @@ impl SuffixPrimeCollector {
                     let j = block_idx * 64 + tz as usize;
                     let comp = &components[j];
 
-                    if let Some(existing) = self.unique_primes.iter_mut().find(|entry| entry.p == comp.p) {
+                    if let Some(existing) = self
+                        .unique_primes
+                        .iter_mut()
+                        .find(|entry| entry.p == comp.p)
+                    {
                         if comp.two_e < existing.two_e {
                             existing.two_e = comp.two_e;
                             existing.abundance_fp = comp.abundance_fp;
@@ -637,7 +641,9 @@ pub fn check_and_evaluate_node(
         // Support differential validation under valid sorted conditions
         #[cfg(any(debug_assertions, test))]
         {
-            let is_sorted_descending = components.windows(2).all(|w| w[0].abundance_fp >= w[1].abundance_fp);
+            let is_sorted_descending = components
+                .windows(2)
+                .all(|w| w[0].abundance_fp >= w[1].abundance_fp);
             if is_sorted_descending {
                 let mut legacy_abundances = smallvec::SmallVec::<[u128; 32]>::new();
                 let mut current_p = 0;
