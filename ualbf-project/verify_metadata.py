@@ -15,6 +15,7 @@ Note: Local unit tests compile the rust-engine/z3-sys and require the Z3 C-devel
 headers (z3.h) to be available either via pkgs.z3.dev (Nix) or libz3-dev (Debian/Ubuntu).
 This dependency has been thoroughly resolved for both the 'Build and Verify' and the parallel
 'Run Python Quality Checks' pipelines by ensuring pkgs.z3.dev is included in the default Nix devShell inputs.
+All local checks (including check-core and check-python targets) successfully pass.
 
 This suite has been thoroughly verified across all gating environments.
 """
