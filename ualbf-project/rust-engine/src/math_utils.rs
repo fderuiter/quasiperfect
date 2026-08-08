@@ -426,6 +426,12 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
 }
 
 pub fn generate_and_verify_pocklington(n: Uint) -> bool {
+    if n <= Uint::one() {
+        return false;
+    }
+    if n == Uint::from_u32(2) {
+        return true;
+    }
     let n_minus_1 = n - Uint::one();
     let mut f = Uint::one();
     let mut unique_prime_factors = Vec::new();
@@ -447,27 +453,27 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
     }
 
     if remaining > Uint::one() {
-        let limit_256 = (Uint::one() << 256) - Uint::one();
-        if remaining <= limit_256 {
-            let facs = match quick_factor_u256(remaining) {
-                crate::math_utils::FactorizationResult::Complete(facs) => facs,
-                crate::math_utils::FactorizationResult::Partial { known_factors, .. } => {
-                    known_factors
-                }
-                crate::math_utils::FactorizationResult::Failure(_) => smallvec::SmallVec::new(),
-            };
-            let mut last_p = Uint::zero();
-            for p in facs {
-                f *= p;
-                if p != last_p {
-                    unique_prime_factors.push(p);
-                    last_p = p;
-                }
-            }
+        if verified_is_prime(remaining) {
+            f *= remaining;
+            unique_prime_factors.push(remaining);
         } else {
-            if verified_is_prime(remaining) {
-                f *= remaining;
-                unique_prime_factors.push(remaining);
+            let limit_256 = (Uint::one() << 256) - Uint::one();
+            if remaining <= limit_256 {
+                let facs = match quick_factor_u256(remaining) {
+                    crate::math_utils::FactorizationResult::Complete(facs) => facs,
+                    crate::math_utils::FactorizationResult::Partial { known_factors, .. } => {
+                        known_factors
+                    }
+                    crate::math_utils::FactorizationResult::Failure(_) => smallvec::SmallVec::new(),
+                };
+                let mut last_p = Uint::zero();
+                for p in facs {
+                    f *= p;
+                    if p != last_p {
+                        unique_prime_factors.push(p);
+                        last_p = p;
+                    }
+                }
             }
         }
     }
@@ -488,6 +494,9 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
     let bases: [u32; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
     for &base in &bases {
         let a = Uint::from_u32(base);
+        if a % n == Uint::zero() {
+            continue;
+        }
         if modpow_u256(a, n_minus_1, n) != Uint::one() {
             return false;
         }
@@ -566,7 +575,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
         let bases_12: [u64; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
         for &b in &bases_12 {
             if n_u64 == b {
-                return true;
+                return generate_and_verify_pocklington(n);
             }
             if n_u64 % b == 0 {
                 return false;
@@ -600,7 +609,7 @@ pub fn verified_is_prime(n: Uint) -> bool {
                 return false;
             }
         }
-        return true;
+        return generate_and_verify_pocklington(n);
     }
 
     // For all inputs >= 2^64:
