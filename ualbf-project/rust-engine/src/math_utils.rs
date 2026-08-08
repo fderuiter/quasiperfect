@@ -388,23 +388,11 @@ pub fn mul_mod_u256(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
         return prod % m;
     }
 
-    let mut a_bytes = [0u8; 128];
-    let mut b_bytes = [0u8; 128];
-    let mut m_bytes = [0u8; 128];
-    a_bytes[..64].copy_from_slice(&a.to_le_bytes());
-    b_bytes[..64].copy_from_slice(&b.to_le_bytes());
-    m_bytes[..64].copy_from_slice(&m.to_le_bytes());
-
-    let a_1024 = bnum::types::U1024::from_le_bytes(a_bytes);
-    let b_1024 = bnum::types::U1024::from_le_bytes(b_bytes);
-    let m_1024 = bnum::types::U1024::from_le_bytes(m_bytes);
-
-    let prod_1024 = a_1024 * b_1024;
-    let res_1024 = prod_1024 % m_1024;
-    let res_bytes = res_1024.to_le_bytes();
-    let mut res_512 = [0u8; 64];
-    res_512.copy_from_slice(&res_bytes[..64]);
-    Uint::from_le_bytes(res_512)
+    let a_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(a);
+    let b_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(b);
+    let m_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(m);
+    let res_1024 = (a_1024 * b_1024) % m_1024;
+    <Uint as bnum::cast::CastFrom<bnum::types::U1024>>::cast_from(res_1024)
 }
 
 pub fn add_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
