@@ -8,7 +8,8 @@ _DIR_NAME = os.path.dirname(_ABS_FILE)
 def _find_repo_root(start_dir: str) -> str:
     current = os.path.abspath(start_dir)
     while current != os.path.dirname(current):
-        if os.path.exists(os.path.join(current, "docs_manifest.json")):
+        sentinels = ["docs_manifest.json", "pyproject.toml", ".git"]
+        if any(os.path.exists(os.path.join(current, s)) for s in sentinels):
             return current
         current = os.path.dirname(current)
     return os.path.abspath(os.path.join(start_dir, "../.."))
