@@ -63,7 +63,7 @@ uint8_t ualbf_check_touchard(uint64_t p, uint32_t two_e) {
         sum = (sum + term) % 24;
         term = (term * p_mod) % 24;
     }
-    return ((sum % 2 == 0) || (sum == 9)) ? 1 : 0;
+    return (sum % 2 == 0) ? 1 : 0;
 }
 
 void* make_some(void* val) {
