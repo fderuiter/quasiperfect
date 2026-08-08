@@ -606,6 +606,8 @@ def extract_code_constructs(base_dir):
 
 def get_all_repo_paths(repo_root):
     paths = set()
+    # Prune specific virtual environments, Nix build results, and caches
+    # to avoid false metadata discrepancies and keep verification highly performant.
     exclude_dirs = {
         ".git",
         ".lake",
