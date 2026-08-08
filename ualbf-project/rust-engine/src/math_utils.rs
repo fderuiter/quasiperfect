@@ -501,7 +501,16 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
         }
     }
 
-    if remaining > Uint::one() {
+    let mut is_pocklington = f.checked_mul(f).map_or(true, |f2| f2 > n_minus_1);
+    let mut is_bls = if is_pocklington {
+        false
+    } else {
+        f.checked_mul(f)
+            .and_then(|f2| f2.checked_mul(f))
+            .map_or(true, |f3| f3 > n_minus_1)
+    };
+
+    if remaining > Uint::one() && !is_pocklington && !is_bls {
         if verified_is_prime(remaining) {
             f *= remaining;
             unique_prime_factors.push(remaining);
@@ -525,16 +534,15 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
                 }
             }
         }
+        is_pocklington = f.checked_mul(f).map_or(true, |f2| f2 > n_minus_1);
+        is_bls = if is_pocklington {
+            false
+        } else {
+            f.checked_mul(f)
+                .and_then(|f2| f2.checked_mul(f))
+                .map_or(true, |f3| f3 > n_minus_1)
+        };
     }
-
-    let is_pocklington = f.checked_mul(f).map_or(true, |f2| f2 > n_minus_1);
-    let is_bls = if is_pocklington {
-        false
-    } else {
-        f.checked_mul(f)
-            .and_then(|f2| f2.checked_mul(f))
-            .map_or(true, |f3| f3 > n_minus_1)
-    };
 
     if !is_pocklington && !is_bls {
         return false;
