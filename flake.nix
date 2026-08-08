@@ -504,6 +504,7 @@ with open("dummy_cert.json", "w") as f:
               cryptography
             ]))
             pkgs.z3
+            pkgs.z3.dev
             pkgs.pkg-config
             pkgs.llvmPackages.libclang
             pkgs.libcxx
