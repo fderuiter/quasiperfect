@@ -229,10 +229,10 @@ def generate_manifest():
                             os.chmod(f_path, st.st_mode | 0o200)
                         except Exception:
                             pass
-                        if f.endswith(".lean") or f == "lean-toolchain":
-                            os.utime(f_path, (past, past))
-                        else:
+                        if ".lake" in f_path.split(os.sep):
                             os.utime(f_path, (now, now))
+                        else:
+                            os.utime(f_path, (past, past))
                     except Exception:
                         pass
 

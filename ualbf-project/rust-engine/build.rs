@@ -729,12 +729,11 @@ fn main() {
             // Also touch directory itself to past so it's older than build outputs
             touch_path_robust(path, past);
         } else if path.is_file() {
-            let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-            let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
-            if extension == "lean" || filename == "lean-toolchain" {
-                touch_path_robust(path, past);
-            } else {
+            let is_lake = path.components().any(|c| c.as_os_str() == ".lake");
+            if is_lake {
                 touch_path_robust(path, now);
+            } else {
+                touch_path_robust(path, past);
             }
         }
     }
