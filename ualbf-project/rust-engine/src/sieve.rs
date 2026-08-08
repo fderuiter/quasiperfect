@@ -433,6 +433,7 @@ mod tests {
         // 1. Test index overflow handling
         assert!(get_sieve_index(usize::MAX, 10, 1).is_none());
         assert!(get_sieve_index(usize::MAX, u32::MAX, 1).is_none());
+        assert_eq!(get_sieve_index(1, 10, 5), Some(16));
 
         // 2. Test check_sieve_bit bounds check and overflow
         let bitset = vec![0u64; 2];
