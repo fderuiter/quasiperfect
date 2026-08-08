@@ -2,9 +2,13 @@ import os
 import re
 
 
-def test_github_actions_ci_has_pythonunbuffered():
+def _get_repo_root() -> str:
     dir_name = os.path.dirname(__file__)
-    repo_root = os.path.abspath(os.path.join(dir_name, "../.."))
+    return os.path.abspath(os.path.join(dir_name, "../.."))
+
+
+def test_github_actions_ci_has_pythonunbuffered():
+    repo_root = _get_repo_root()
     ci_path = os.path.join(repo_root, ".github/workflows/ci.yml")
 
     msg = f"ci.yml not found at {ci_path}"
@@ -19,8 +23,7 @@ def test_github_actions_ci_has_pythonunbuffered():
 
 
 def test_github_actions_auto_merge_has_pythonunbuffered():
-    dir_name = os.path.dirname(__file__)
-    repo_root = os.path.abspath(os.path.join(dir_name, "../.."))
+    repo_root = _get_repo_root()
     filename = ".github/workflows/auto-merge.yml"
     auto_merge_path = os.path.join(repo_root, filename)
 
@@ -36,8 +39,7 @@ def test_github_actions_auto_merge_has_pythonunbuffered():
 
 
 def test_makefile_has_pythonunbuffered():
-    dir_name = os.path.dirname(__file__)
-    repo_root = os.path.abspath(os.path.join(dir_name, "../.."))
+    repo_root = _get_repo_root()
     makefile_path = os.path.join(repo_root, "ualbf-project/Makefile")
 
     msg = f"Makefile not found at {makefile_path}"
