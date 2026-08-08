@@ -122,13 +122,6 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
-      - name: Cache Build Artifacts
-        continue-on-error: true
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ualbf-project
-          cache-on-failure: true
-
       - name: Populate Pre-built Lean Objects
         run: |
           nix build .#packages.${NIX_ARCH}.lean -o ualbf-project/lean-built
