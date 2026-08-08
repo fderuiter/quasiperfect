@@ -17,17 +17,18 @@ def test_guarded_rebuild_success():
     lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
-    # Make sure we clean up and create the dummy ir_dir with targeted items
-    if ir_dir.exists():
-        shutil.rmtree(ir_dir)
+    # Make sure we clean up only our targeted items within ir_dir to avoid destroying other precompiled objects
     ir_dir.mkdir(parents=True, exist_ok=True)
-    
     ualbf_dir = ir_dir / "UALBF"
+    if ualbf_dir.exists():
+        shutil.rmtree(ualbf_dir)
     ualbf_dir.mkdir(parents=True, exist_ok=True)
     dummy_file = ualbf_dir / "dummy.c"
     dummy_file.write_text("void some_func() {}")
     
     validator_file = ir_dir / "Validator.c"
+    if validator_file.exists():
+        os.remove(validator_file)
     validator_file.write_text("void some_func() {}")
 
     # Create a temporary directory for mock tools and fake lean sysroot
@@ -83,8 +84,13 @@ def test_guarded_rebuild_failure():
     lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
-    if ir_dir.exists():
-        shutil.rmtree(ir_dir)
+    # Do not destroy the entire precompiled ir_dir. Only clean up our own targets if present.
+    ualbf_dir = ir_dir / "UALBF"
+    if ualbf_dir.exists():
+        shutil.rmtree(ualbf_dir)
+    validator_file = ir_dir / "Validator.c"
+    if validator_file.exists():
+        os.remove(validator_file)
 
     # Create a temporary directory for mock tools and fake lean sysroot
     with tempfile.TemporaryDirectory() as tmpdir:
