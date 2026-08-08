@@ -9,7 +9,12 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          config = {
+            allowDeprecatedx86_64Darwin = "force";
+          };
+        };
 
         verusPkg = let
           systemMap = {
@@ -211,20 +216,16 @@
           ];
 
           buildInputs = [
-            pkgs.pkgsStatic.gmp
-            pkgs.pkgsStatic.libuv
             pkgs.z3
             pkgs.libcxx
           ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
+            pkgs.pkgsStatic.gmp
+            pkgs.pkgsStatic.libuv
             pkgs.ocl-icd
             pkgs.opencl-headers
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.OpenCL
-            pkgs.darwin.apple_sdk.frameworks.Metal
-            pkgs.darwin.apple_sdk.frameworks.Foundation
+            pkgs.gmp
+            pkgs.libuv
           ];
 
           buildFeatures = [ "python" ];
@@ -267,20 +268,16 @@
           ];
 
           buildInputs = [
-            pkgs.pkgsStatic.gmp
-            pkgs.pkgsStatic.libuv
             pkgs.z3
             pkgs.libcxx
           ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
+            pkgs.pkgsStatic.gmp
+            pkgs.pkgsStatic.libuv
             pkgs.ocl-icd
             pkgs.opencl-headers
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.OpenCL
-            pkgs.darwin.apple_sdk.frameworks.Metal
-            pkgs.darwin.apple_sdk.frameworks.Foundation
+            pkgs.gmp
+            pkgs.libuv
           ];
 
           # Symlink the built Lean objects so build.rs can find them.
@@ -293,7 +290,10 @@
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             # Explicitly export Z3_SYS_Z3_HEADER so z3-sys instantly finds the precompiled system Z3 headers
             # from the Nix store rather than compiling Z3 from source.
-            export Z3_SYS_Z3_HEADER="${pkgs.z3}/include/z3.h"
+            # We use pkgs.z3.dev because Nixpkgs splits z3 into multiple outputs (out and dev),
+            # and z3.h is packaged only under the dev output path.
+            # This avoids compilation failures during the Build and Verify phase.
+            export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
           '';
         };
 
@@ -506,32 +506,29 @@ with open("dummy_cert.json", "w") as f:
               pytest-mock
               cryptography
             ]))
-            pkgs.pkgsStatic.gmp
-            pkgs.pkgsStatic.libuv
             pkgs.z3
             pkgs.pkg-config
             pkgs.llvmPackages.libclang
             pkgs.libcxx
           ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
+            pkgs.pkgsStatic.gmp
+            pkgs.pkgsStatic.libuv
             pkgs.ocl-icd
             pkgs.opencl-headers
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.OpenCL
-            pkgs.darwin.apple_sdk.frameworks.Metal
-            pkgs.darwin.apple_sdk.frameworks.Foundation
+            pkgs.gmp
+            pkgs.libuv
           ];
 
           LEAN_SYSROOT = "${pkgs.lean4}";
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          Z3_SYS_Z3_HEADER = "${pkgs.z3}/include/z3.h";
+          # We use pkgs.z3.dev as Nixpkgs separates development headers from standard package outputs
+          Z3_SYS_Z3_HEADER = "${pkgs.z3.dev}/include/z3.h";
 
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
-            export Z3_SYS_Z3_HEADER="${pkgs.z3}/include/z3.h"
+            export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
           '';
         };
       }
