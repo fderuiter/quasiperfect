@@ -1,4 +1,10 @@
 venv/
+.venv/
+.direnv/
+test-env/
+env/
+.env/
 .pytest_cache/
 .mypy_cache/
 lean-built
+
