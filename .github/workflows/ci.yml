@@ -26,18 +26,12 @@ jobs:
 
       - name: Dry-run Evaluate macOS Targets
         run: |
-          echo "Evaluating packages on x86_64-darwin..."
-          nix eval .#packages.x86_64-darwin --apply "builtins.mapAttrs (n: v: v.drvPath)"
           echo "Evaluating packages on aarch64-darwin..."
           nix eval .#packages.aarch64-darwin --apply "builtins.mapAttrs (n: v: v.drvPath)"
           
-          echo "Evaluating devShells on x86_64-darwin..."
-          nix eval .#devShells.x86_64-darwin --apply "builtins.mapAttrs (n: v: v.drvPath)"
           echo "Evaluating devShells on aarch64-darwin..."
           nix eval .#devShells.aarch64-darwin --apply "builtins.mapAttrs (n: v: v.drvPath)"
           
-          echo "Evaluating checks on x86_64-darwin..."
-          nix eval .#checks.x86_64-darwin --apply "builtins.mapAttrs (n: v: v.drvPath)"
           echo "Evaluating checks on aarch64-darwin..."
           nix eval .#checks.aarch64-darwin --apply "builtins.mapAttrs (n: v: v.drvPath)"
 
