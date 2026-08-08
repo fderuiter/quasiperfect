@@ -172,7 +172,7 @@ def ualbf_check_mod_5_impl (p : UInt64) (two_e : UInt32) : Bool :=
   (p % 5 == 1) && (e % 5 == 2)
 
 def ualbf_check_touchard_loop (p_mod : UInt64) : Nat → UInt64 → UInt64 → Bool
-  | 0, _, sum => (sum % 2 == 0) || (sum == 9)
+  | 0, _, sum => (sum % 2 == 0)
   | i + 1, term, sum => ualbf_check_touchard_loop p_mod i ((term * p_mod) % 24) ((sum + term) % 24)
 
 @[export ualbf_check_touchard]
