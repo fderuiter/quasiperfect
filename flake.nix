@@ -294,6 +294,9 @@
             # and z3.h is packaged only under the dev output path.
             # This avoids compilation failures during the Build and Verify phase.
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
+            # Explicitly export Z3_LIBRARY_PATH_OVERRIDE so z3-sys links against precompiled libz3 library files
+            # from the Nix store rather than downloading/compiling Z3 from source.
+            export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
           '';
         };
 
@@ -525,11 +528,14 @@ with open("dummy_cert.json", "w") as f:
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           # We use pkgs.z3.dev as Nixpkgs separates development headers from standard package outputs
           Z3_SYS_Z3_HEADER = "${pkgs.z3.dev}/include/z3.h";
+          # We use pkgs.z3 to specify precompiled Z3 library files path for z3-sys crate
+          Z3_LIBRARY_PATH_OVERRIDE = "${pkgs.z3}/lib";
 
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
+            export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
           '';
         };
       }
