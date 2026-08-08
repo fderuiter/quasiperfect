@@ -12,9 +12,12 @@ package-dir = {"" = "ualbf-project"}
 py-modules = ["cert_util", "verify_cert", "auditor", "verify_metadata"]
 
 [tool.black]
+# Exclude standard build directories, Lean packages, Nix outputs, and various local python virtual environments
+# (including venv, .venv, .direnv, test-env, env, .env) to keep the formatting scans highly performant.
 extend-exclude = 'scripts|tests|prototypes|experimental|\.lake|venv|\.venv|\.direnv|lean-built|result|test-env|env|\.env'
 
 [tool.mypy]
+# Exclude paths from static analysis to avoid false type errors in external dependencies
 exclude = [
     'scripts/',
     'tests/',
