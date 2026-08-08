@@ -292,6 +292,7 @@ SAFE_COMMON_WORDS = {
     "ffi",
     "git",
     "nix",
+    # Whitelisted terms to prevent backtick verification failures when documenting local testing setup
     "develop",
     "libz3-dev",
     "check-python",
