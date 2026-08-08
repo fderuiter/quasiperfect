@@ -4,6 +4,10 @@ UALBF Unbuffered Logging Verification Suite
 
 This test suite verifies that python and workflow execution logging are unbuffered,
 ensuring real-time telemetry and diagnostic outputs both locally and in CI.
+
+Note: Other workflows such as john-henry.yml are pure GitHub Actions script
+runners and do not execute Python, thus they are intentionally excluded from
+this verification.
 """
 
 import os
