@@ -3,6 +3,7 @@ open System Lake DSL
 
 package ualbf where
   moreLinkArgs := #["-L../verification-lib/target/release", "-lverification_lib"]
+  moreLeanArgs := if (get_config? warnings_as_errors).isSome then #["-DwarningAsError=true"] else #[]
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4.git" @ "v4.30.0"
 

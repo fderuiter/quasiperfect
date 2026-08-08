@@ -447,14 +447,14 @@ with open("dummy_cert.json", "w") as f:
 
             buildPhase = ''
               echo "Building Lean project with warnings treated as errors..."
-              # Pass -DwarningAsError=true to treat compiler warnings as fatal errors
+              # Pass warnings_as_errors configuration to treat compiler warnings in ualbf as fatal errors
               export HOME=$TMPDIR
               export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               cp -r ${leanDeps}/.lake .lake
             chmod -R +w .lake
             ${rewriteManifest}
-              lake build -- -DwarningAsError=true
+              lake build -Kwarnings_as_errors
             '';
 
             installPhase = ''
