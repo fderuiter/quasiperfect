@@ -213,14 +213,22 @@ def generate_manifest():
                 for d in dirs:
                     try:
                         d_path = os.path.join(root, d)
-                        os.chmod(d_path, 0o755)
+                        try:
+                            st = os.stat(d_path)
+                            os.chmod(d_path, st.st_mode | 0o200)
+                        except Exception:
+                            pass
                         os.utime(d_path, (past, past))
                     except Exception:
                         pass
                 for f in files:
                     try:
                         f_path = os.path.join(root, f)
-                        os.chmod(f_path, 0o644)
+                        try:
+                            st = os.stat(f_path)
+                            os.chmod(f_path, st.st_mode | 0o200)
+                        except Exception:
+                            pass
                         if f.endswith(".lean") or f == "lean-toolchain":
                             os.utime(f_path, (past, past))
                         else:

@@ -692,21 +692,24 @@ fn main() {
     let past = now - std::time::Duration::from_secs(120);
 
     fn touch_path_robust(path: &std::path::Path, time: std::time::SystemTime) {
-        if let Ok(file) = std::fs::File::open(path) {
-            let times = std::fs::FileTimes::new()
-                .set_modified(time)
-                .set_accessed(time);
-            if let Err(_) = file.set_times(times) {
-                // If set_times fails, try setting permission to writable and try again
-                if let Ok(metadata) = std::fs::metadata(path) {
-                    let mut perms = metadata.permissions();
-                    if perms.readonly() {
-                        perms.set_readonly(false);
-                        let _ = std::fs::set_permissions(path, perms.clone());
-                        let _ = file.set_times(times);
-                    }
-                }
+        let times = std::fs::FileTimes::new()
+            .set_modified(time)
+            .set_accessed(time);
+
+        // Ensure write permissions first
+        if let Ok(metadata) = std::fs::metadata(path) {
+            let mut perms = metadata.permissions();
+            if perms.readonly() {
+                perms.set_readonly(false);
+                let _ = std::fs::set_permissions(path, perms);
             }
+        }
+
+        // Open the file after updating its write permissions, then set times
+        if let Ok(file) = std::fs::OpenOptions::new().write(true).open(path) {
+            let _ = file.set_times(times);
+        } else if let Ok(file) = std::fs::File::open(path) {
+            let _ = file.set_times(times);
         }
     }
 
