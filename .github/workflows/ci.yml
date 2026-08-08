@@ -145,6 +145,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Note: This job executes the pytest suite which compiles rust-engine / z3-sys via subprocesses.
+      # To succeed under the Nix development shell, the environment must contain pkgs.z3.dev (Z3 headers).
       - name: Setup Nix (Linux)
         uses: cachix/install-nix-action@v25
         with:
