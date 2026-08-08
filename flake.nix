@@ -498,13 +498,14 @@ with open("dummy_cert.json", "w") as f:
             pkgs.cargo
             pkgs.clippy
             pkgs.rustfmt
-            pkgs.python3Packages.black
-            pkgs.python3Packages.flake8
-            pkgs.python3Packages.mypy
-            # Python testing packages required for running tests inside the Nix environment
-            pkgs.python3Packages.pytest
-            pkgs.python3Packages.pytest-mock
-            pkgs.python3Packages.cryptography
+            (pkgs.python3.withPackages (ps: with ps; [
+              black
+              flake8
+              mypy
+              pytest
+              pytest-mock
+              cryptography
+            ]))
             pkgs.pkgsStatic.gmp
             pkgs.pkgsStatic.libuv
             pkgs.z3
