@@ -1,3 +1,15 @@
+"""
+UALBF Documentation Validation Suite
+====================================
+
+This script performs automated verification that all markdown documentation files
+within the repository are properly registered and categorized in `docs_manifest.json`.
+
+To ensure highly performant and stable parallelized CI gating, files within
+directories matching common virtual environment patterns, Nix build paths, or local
+caches are dynamically filtered out.
+"""
+
 import os
 import sys
 import json
