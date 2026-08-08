@@ -525,7 +525,19 @@ def check_documentation(manifest):
     # Build a file and directory cache for flexible document path resolution
     all_files_cache = {}
     all_dirs_cache = {}
+    exclude_dirs = {
+        ".lake",
+        "target",
+        ".git",
+        "build",
+        ".pytest_cache",
+        "node_modules",
+        "venv",
+        ".venv",
+        ".direnv",
+    }
     for root, dirs, files in os.walk(manifest_dir):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
         for f in files:
             if f not in all_files_cache:
                 all_files_cache[f] = []
@@ -599,7 +611,17 @@ def check_documentation(manifest):
 
     all_repo_files = set()
     all_repo_dirs = set()
-    exclude_dirs = {".lake", "target", ".git", "build", ".pytest_cache", "node_modules", "venv", ".venv", ".direnv"}
+    exclude_dirs = {
+        ".lake",
+        "target",
+        ".git",
+        "build",
+        ".pytest_cache",
+        "node_modules",
+        "venv",
+        ".venv",
+        ".direnv",
+    }
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
         all_repo_dirs.add(os.path.abspath(root))
@@ -783,7 +805,19 @@ def check_documentation(manifest):
 
 def check_imports(repo_root):
     errors = []
+    exclude_dirs = {
+        ".lake",
+        "target",
+        ".git",
+        "build",
+        ".pytest_cache",
+        "node_modules",
+        "venv",
+        ".venv",
+        ".direnv",
+    }
     for root, dirs, files in os.walk(repo_root):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs]
         if (
             "lean4-proofs" in root
             or "verification-lib" in root
