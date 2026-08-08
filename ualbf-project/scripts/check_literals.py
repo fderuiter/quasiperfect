@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""
+UALBF Literals and Hardcoded Bounds Check
+=========================================
+
+This script ensures that specific forbidden hardcoded numeric literals and patterns
+are not hardcoded in either Rust source files or Lean proof scripts.
+Instead, these values should be read from manifest configurations to prevent
+configuration drift.
+"""
+
 import sys
 import re
 import os
