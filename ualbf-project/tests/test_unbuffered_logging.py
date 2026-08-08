@@ -3,10 +3,8 @@ import re
 
 
 def test_github_actions_ci_has_pythonunbuffered():
-    ci_path = "/app/.github/workflows/ci.yml"
-    if not os.path.exists(ci_path):
-        base_dir = os.path.dirname(__file__)
-        ci_path = os.path.join(base_dir, "../../.github/workflows/ci.yml")
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    ci_path = os.path.join(repo_root, ".github/workflows/ci.yml")
 
     msg = f"ci.yml not found at {ci_path}"
     assert os.path.exists(ci_path), msg
@@ -20,12 +18,8 @@ def test_github_actions_ci_has_pythonunbuffered():
 
 
 def test_github_actions_auto_merge_has_pythonunbuffered():
-    auto_merge_path = "/app/.github/workflows/auto-merge.yml"
-    if not os.path.exists(auto_merge_path):
-        base_dir = os.path.dirname(__file__)
-        auto_merge_path = os.path.join(
-            base_dir, "../../.github/workflows/auto-merge.yml"
-        )
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    auto_merge_path = os.path.join(repo_root, ".github/workflows/auto-merge.yml")
 
     msg = f"auto-merge.yml not found at {auto_merge_path}"
     assert os.path.exists(auto_merge_path), msg
@@ -39,10 +33,8 @@ def test_github_actions_auto_merge_has_pythonunbuffered():
 
 
 def test_makefile_has_pythonunbuffered():
-    makefile_path = "/app/ualbf-project/Makefile"
-    if not os.path.exists(makefile_path):
-        base_dir = os.path.dirname(__file__)
-        makefile_path = os.path.join(base_dir, "../Makefile")
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    makefile_path = os.path.join(repo_root, "ualbf-project/Makefile")
 
     msg = f"Makefile not found at {makefile_path}"
     assert os.path.exists(makefile_path), msg
@@ -53,3 +45,4 @@ def test_makefile_has_pythonunbuffered():
     match = re.search(r"export\s+PYTHONUNBUFFERED\s*=\s*1", content)
     msg = "export PYTHONUNBUFFERED=1 not found in Makefile"
     assert match is not None, msg
+
