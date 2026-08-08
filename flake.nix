@@ -292,6 +292,7 @@
             # from the Nix store rather than compiling Z3 from source.
             # We use pkgs.z3.dev because Nixpkgs splits z3 into multiple outputs (out and dev),
             # and z3.h is packaged only under the dev output path.
+            # This avoids compilation failures during the Build and Verify phase.
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
           '';
         };
