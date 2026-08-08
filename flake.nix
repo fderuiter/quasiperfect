@@ -504,6 +504,7 @@ with open("dummy_cert.json", "w") as f:
               cryptography
             ]))
             pkgs.z3
+            # Include development headers of z3 so that python test subprocesses compiling z3-sys can locate z3.h
             pkgs.z3.dev
             pkgs.pkg-config
             pkgs.llvmPackages.libclang
