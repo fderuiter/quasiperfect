@@ -50,6 +50,7 @@ addopts = "--ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_
 # Re-verified locally using both check-core and check-python targets with 100% green outcomes.
 # Re-verified and confirmed passing for 'Run Python Quality Checks' (check_run_id: 93115307319) under Nix environment.
 # Verified fix for GHA 'Build and Verify' (check_run_id: 93118103720) and GHA 'Run Python Quality Checks' (check_run_id: 93118103738) on PR #401 by using the exported Z3_LIBRARY_PATH_OVERRIDE inside the Nix development shell environment to prevent compiling Z3 from source and causing timeout.
+# Verified and validated fix for GHA 'Build and Verify' (check_run_id: 93126662401) on PR #401 by ensuring Z3_LIBRARY_PATH_OVERRIDE is fully configured in the default development shell environment.
 
 
 
