@@ -135,6 +135,9 @@ jobs:
       - name: Run Core Logic Tests (lean_ffi)
         run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release lean_ffi"
 
+  # Parallelized Python Quality Checks Job
+  # This job runs formatting, style checks, type-checking, and tests independently from
+  # the core Rust and Lean validation pipelines to optimize the PR feedback loop.
   verify-python:
     name: Run Python Quality Checks
     runs-on: ubuntu-latest
