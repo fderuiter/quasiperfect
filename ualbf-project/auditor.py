@@ -203,6 +203,22 @@ def generate_manifest():
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
 
+    # Touch all files under .lake to ensure they are newer than checkout files (Nix 1970 mtimes fix)
+    if has_lean:
+        lake_dir = os.path.join(cwd, ".lake")
+        if os.path.exists(lake_dir):
+            for root, dirs, files in os.walk(lake_dir):
+                for d in dirs:
+                    try:
+                        os.utime(os.path.join(root, d), None)
+                    except Exception:
+                        pass
+                for f in files:
+                    try:
+                        os.utime(os.path.join(root, f), None)
+                    except Exception:
+                        pass
+
     has_error = False
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
