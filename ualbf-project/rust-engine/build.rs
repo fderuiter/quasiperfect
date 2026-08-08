@@ -686,6 +686,28 @@ fn main() {
         paths.extend(env::split_paths(&existing));
     }
     let new_path = env::join_paths(paths).unwrap();
+
+    // Touch all files under .lake recursively to ensure they are newer than checkout files (Nix 1970 mtimes fix)
+    let lake_dir = lean_project.join(".lake");
+    if lake_dir.exists() {
+        fn touch_recursively(path: &std::path::Path) {
+            if path.is_dir() {
+                if let Ok(entries) = fs::read_dir(path) {
+                    for entry in entries {
+                        if let Ok(entry) = entry {
+                            touch_recursively(&entry.path());
+                        }
+                    }
+                }
+            } else if path.is_file() {
+                if let Ok(content) = fs::read(path) {
+                    let _ = fs::write(path, content);
+                }
+            }
+        }
+        touch_recursively(&lake_dir);
+    }
+
     // Execute targeted module compilation instead of a full project build
     let status = Command::new("lake")
         .arg("build")
