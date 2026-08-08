@@ -2,6 +2,7 @@ name: Unified Publication & Verification Build
 
 env:
   NIX_ARCH: "x86_64-linux"
+  PYTHONUNBUFFERED: "1"
 
 on:
   push:
@@ -101,7 +102,26 @@ jobs:
           chmod -R +w ualbf-project/lean4-proofs/.lake || true
 
       - name: Run Unified Quality Checks
-        run: nix develop --command bash -c "cd ualbf-project && make check-core"
+        run: |
+          nix develop --command bash -c "cd ualbf-project && make check-core" > make_check.log 2>&1 || {
+            cat make_check.log
+            exit 1
+          }
+
+      - name: Post Failure Log to PR
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f make_check.log ]; then
+            echo "Posting make check failure log to PR..."
+            # Escape backticks and format the log safely
+            echo "### CI Failure Log" > comment_body.txt
+            echo '```' >> comment_body.txt
+            cat make_check.log >> comment_body.txt
+            echo '```' >> comment_body.txt
+            gh pr comment ${{ github.event.pull_request.number }} --body-file comment_body.txt
+          fi
 
       - name: Verify Workspace Cleanliness
         run: nix develop --command bash -c "cd ualbf-project && make verify-sync"

@@ -1,3 +1,5 @@
+export PYTHONUNBUFFERED=1
+
 # UALBF Project — Monorepo Build Script
 #
 # Usage:

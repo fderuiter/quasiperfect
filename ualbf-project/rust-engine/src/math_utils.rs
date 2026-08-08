@@ -382,17 +382,17 @@ pub fn mul_mod_u256(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
     if m <= Uint::from_u128((0xFFFFFFFFFFFFFFFFu64) as u128) {
         return (a % m * (b % m)) % m;
     }
-    let mut res = Uint::zero();
     a %= m;
     b %= m;
-    while b > Uint::zero() {
-        if b & Uint::one() == Uint::one() {
-            res = add_mod_u256(res, a, m);
-        }
-        a = add_mod_u256(a, a, m);
-        b >>= 1;
+    if let Some(prod) = a.checked_mul(b) {
+        return prod % m;
     }
-    res
+
+    let a_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(a);
+    let b_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(b);
+    let m_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(m);
+    let res_1024 = (a_1024 * b_1024) % m_1024;
+    <Uint as bnum::cast::CastFrom<bnum::types::U1024>>::cast_from(res_1024)
 }
 
 pub fn add_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
@@ -425,7 +425,62 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
     result
 }
 
+pub fn verified_is_prime_low(n: Uint) -> bool {
+    if n <= Uint::one() {
+        return false;
+    }
+    let threshold = Uint::from_u128(1_u128 << 64);
+    if n >= threshold {
+        return false;
+    }
+    let n_u64 = n.as_u128() as u64;
+    let bases_12: [u64; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
+    for &b in &bases_12 {
+        if n_u64 == b {
+            return true;
+        }
+        if n_u64 % b == 0 {
+            return false;
+        }
+    }
+
+    let mut d = n_u64 - 1;
+    let mut s = 0;
+    while d % 2 == 0 {
+        d /= 2;
+        s += 1;
+    }
+
+    for &base in &bases_12 {
+        let mut x = modpow_u256(Uint::from_u64(base), Uint::from_u64(d), n);
+        if x == Uint::one() || x == n - Uint::one() {
+            continue;
+        }
+        let mut composite = true;
+        for _ in 0..(s - 1) {
+            x = mul_mod_u256(x, x, n);
+            if x == Uint::one() {
+                return false;
+            }
+            if x == n - Uint::one() {
+                composite = false;
+                break;
+            }
+        }
+        if composite {
+            return false;
+        }
+    }
+    true
+}
+
 pub fn generate_and_verify_pocklington(n: Uint) -> bool {
+    if n <= Uint::one() {
+        return false;
+    }
+    if n == Uint::from_u32(2) {
+        return true;
+    }
     let n_minus_1 = n - Uint::one();
     let mut f = Uint::one();
     let mut unique_prime_factors = Vec::new();
@@ -446,40 +501,48 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
         }
     }
 
-    if remaining > Uint::one() {
-        let limit_256 = (Uint::one() << 256) - Uint::one();
-        if remaining <= limit_256 {
-            let facs = match quick_factor_u256(remaining) {
-                crate::math_utils::FactorizationResult::Complete(facs) => facs,
-                crate::math_utils::FactorizationResult::Partial { known_factors, .. } => {
-                    known_factors
-                }
-                crate::math_utils::FactorizationResult::Failure(_) => smallvec::SmallVec::new(),
-            };
-            let mut last_p = Uint::zero();
-            for p in facs {
-                f *= p;
-                if p != last_p {
-                    unique_prime_factors.push(p);
-                    last_p = p;
-                }
-            }
-        } else {
-            if verified_is_prime(remaining) {
-                f *= remaining;
-                unique_prime_factors.push(remaining);
-            }
-        }
-    }
-
-    let is_pocklington = f.checked_mul(f).map_or(true, |f2| f2 > n_minus_1);
-    let is_bls = if is_pocklington {
+    let mut is_pocklington = f.checked_mul(f).map_or(true, |f2| f2 > n_minus_1);
+    let mut is_bls = if is_pocklington {
         false
     } else {
         f.checked_mul(f)
             .and_then(|f2| f2.checked_mul(f))
             .map_or(true, |f3| f3 > n_minus_1)
     };
+
+    if remaining > Uint::one() && !is_pocklington && !is_bls {
+        if verified_is_prime(remaining) {
+            f *= remaining;
+            unique_prime_factors.push(remaining);
+        } else {
+            let limit_256 = (Uint::one() << 256) - Uint::one();
+            if remaining <= limit_256 {
+                let facs = match quick_factor_u256(remaining) {
+                    crate::math_utils::FactorizationResult::Complete(facs) => facs,
+                    crate::math_utils::FactorizationResult::Partial { known_factors, .. } => {
+                        known_factors
+                    }
+                    crate::math_utils::FactorizationResult::Failure(_) => smallvec::SmallVec::new(),
+                };
+                let mut last_p = Uint::zero();
+                for p in facs {
+                    f *= p;
+                    if p != last_p {
+                        unique_prime_factors.push(p);
+                        last_p = p;
+                    }
+                }
+            }
+        }
+        is_pocklington = f.checked_mul(f).map_or(true, |f2| f2 > n_minus_1);
+        is_bls = if is_pocklington {
+            false
+        } else {
+            f.checked_mul(f)
+                .and_then(|f2| f2.checked_mul(f))
+                .map_or(true, |f3| f3 > n_minus_1)
+        };
+    }
 
     if !is_pocklington && !is_bls {
         return false;
@@ -488,6 +551,9 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
     let bases: [u32; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
     for &base in &bases {
         let a = Uint::from_u32(base);
+        if a % n == Uint::zero() {
+            continue;
+        }
         if modpow_u256(a, n_minus_1, n) != Uint::one() {
             return false;
         }
@@ -562,45 +628,11 @@ pub fn verified_is_prime(n: Uint) -> bool {
     // Hybrid Tiered Primality: Route small inputs (< 2^64) through the proven deterministic 12-base Miller-Rabin test.
     let threshold = Uint::from_u128(1_u128 << 64);
     if n < threshold {
-        let n_u64 = n.as_u128() as u64;
-        let bases_12: [u64; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
-        for &b in &bases_12 {
-            if n_u64 == b {
-                return true;
-            }
-            if n_u64 % b == 0 {
-                return false;
-            }
+        if verified_is_prime_low(n) {
+            return generate_and_verify_pocklington(n);
+        } else {
+            return false;
         }
-
-        let mut d = n_u64 - 1;
-        let mut s = 0;
-        while d % 2 == 0 {
-            d /= 2;
-            s += 1;
-        }
-
-        for &base in &bases_12 {
-            let mut x = modpow_u256(Uint::from_u64(base), Uint::from_u64(d), n);
-            if x == Uint::one() || x == n - Uint::one() {
-                continue;
-            }
-            let mut composite = true;
-            for _ in 0..(s - 1) {
-                x = mul_mod_u256(x, x, n);
-                if x == Uint::one() {
-                    return false;
-                }
-                if x == n - Uint::one() {
-                    composite = false;
-                    break;
-                }
-            }
-            if composite {
-                return false;
-            }
-        }
-        return true;
     }
 
     // For all inputs >= 2^64:
@@ -741,7 +773,7 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
             n_u64 /= 2;
         }
         let mut d = 3u64;
-        while (d as u128 * d as u128) <= (n_u64 as u128) {
+        while (d * d) <= n_u64 && d < 10_000 {
             while n_u64 % d == 0 {
                 factors.push(Uint::from_u128(d as u128));
                 n_u64 /= d;
@@ -749,8 +781,34 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
             d += 2;
         }
         if n_u64 > 1 {
-            factors.push(Uint::from_u128(n_u64 as u128));
+            let n_uint = Uint::from_u64(n_u64);
+            if verified_is_prime(n_uint) {
+                factors.push(n_uint);
+            } else {
+                match rho_factor_u256(n_uint) {
+                    FactorizationResult::Complete(v) => factors.extend(v),
+                    FactorizationResult::Partial {
+                        known_factors,
+                        remaining,
+                    } => {
+                        factors.extend(known_factors);
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining,
+                        };
+                    }
+                    FactorizationResult::Failure(u) => {
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining: u,
+                        };
+                    }
+                }
+            }
         }
+        factors.sort_unstable();
         return FactorizationResult::Complete(factors);
     }
 
