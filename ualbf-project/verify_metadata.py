@@ -634,6 +634,9 @@ def get_all_repo_paths(repo_root):
         "result",
         ".mypy_cache",
         ".pytest_cache",
+        "test-env",
+        "env",
+        ".env",
     }
     for root, dirs, files in os.walk(repo_root):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
