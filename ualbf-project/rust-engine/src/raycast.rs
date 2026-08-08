@@ -557,6 +557,7 @@ mod tests {
 
     #[test]
     fn test_quasi_perfect_residue_class_integration() {
+        crate::lean_ffi::initialize_lean_runtime();
         let n_l = Uint::from_u32(9);
         let s_l = Uint::from_u32(13);
 
@@ -577,8 +578,6 @@ mod tests {
         let pruned_count = AtomicUsize::new(0);
         let math_interruptions = AtomicUsize::new(0);
         let sigma_cache = std::collections::HashMap::new();
-
-        let math_interruptions = AtomicUsize::new(0);
 
         // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint
         // 2N_L * x_l + 1 == 0 mod S_L holds correctly internally.
