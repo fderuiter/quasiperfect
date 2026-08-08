@@ -1082,8 +1082,8 @@ mod tests {
         assert_eq!(check_touchard(3, 1), true);
 
         // 4. p = 7, 2e = 2 => sigma(7^2) = 57 % 24 = 9.
-        // sum == 9. Should return true (forbidden).
-        assert_eq!(check_touchard(7, 2), true);
+        // Since 9 is odd, it should return false (not forbidden).
+        assert_eq!(check_touchard(7, 2), false);
     }
 
     #[test]

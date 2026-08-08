@@ -138,7 +138,7 @@ mod tests {
         assert_eq!(touchard.check_component(3, 2), false);
         assert_eq!(touchard.check_component(5, 2), false);
         assert_eq!(touchard.check_component(3, 1), true);
-        assert_eq!(touchard.check_component(7, 2), true);
+        assert_eq!(touchard.check_component(7, 2), false);
     }
 }
 

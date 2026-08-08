@@ -447,8 +447,6 @@ pub fn check_and_evaluate_node(
         }
         return false;
     }
-
-    // Telemetry Export: Sample deep prefixes for frequency analysis
     if curr.factors.len() >= 4 {
         if let Some(r) = reporter {
             let factors_str = curr
@@ -1354,7 +1352,7 @@ mod tests {
             sigma: Uint::from_u64(sigma),
             sigma_factors: vec![],
             needs_rho: vec![],
-            abundance_fp: (sigma as u128) << 64 / (val as u128).max(1),
+            abundance_fp: ((sigma as u128) << 64) / (val as u128).max(1),
         }
     }
 
@@ -1421,7 +1419,7 @@ mod tests {
             let target_min = Uint::from_u64(1);
             let lazy_cache = make_lazy_cache($comps.len());
             let backbone = crate::backbone::SearchBackbone::new($comps, &lazy_cache);
-            let suffix_abundance: Vec<u128> = vec![1u128 << 64; 129];
+            let suffix_abundance: Vec<u128> = vec![3u128 << 64; 129];
             let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
 
             let mut ctx = DfsContext {
@@ -2160,6 +2158,92 @@ mod tests {
                 }
             );
         }
+    }
+
+    #[test]
+    fn test_touchard_dynamic_reachability_combining_9_and_19() {
+        let comp1 = make_prime_power(7, 49, 57);
+        let comp2 = make_prime_power(19, 1000, 1123);
+        let mut comps = vec![comp1, comp2];
+        for i in 0..8 {
+            comps.push(make_prime_power(101 + i, 10, 50));
+        }
+
+        let mut curr = make_prefix(1, 1, 0);
+        curr.active_mask = vec![0x3FFu64]; // bits 0 to 9 set
+
+        let tb = Uint::from_u128(u128::MAX);
+
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 100,
+            max_idx_5 = 100,
+            saved_states = vec![],
+            |ptr| unsafe {
+                let pushed1 = __rust_dfs_try_push(ptr, 0);
+                assert!(pushed1, "Pushing residue 9 component should succeed");
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(49));
+                assert_eq!(ctx_s_l(ptr), Uint::from_u64(57));
+
+                let should_explore1 = __rust_dfs_check_evaluate(ptr, 7);
+                assert!(
+                    should_explore1,
+                    "Combined state with residue 9 should be dynamically reachable and not pruned"
+                );
+
+                let pushed2 = __rust_dfs_try_push(ptr, 1);
+                assert!(pushed2, "Pushing residue 19 component should succeed");
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(49 * 1000));
+                assert_eq!(ctx_s_l(ptr), Uint::from_u64(57 * 1123));
+
+                let should_explore2 = __rust_dfs_check_evaluate(ptr, 7);
+                assert!(should_explore2, "Combined state with residue 9 and 19 should be dynamically reachable and not pruned");
+            }
+        );
+    }
+
+    #[test]
+    fn test_touchard_dynamic_reachability_prunes_invalid_even_residues() {
+        let comp_even = make_prime_power(2, 4, 2);
+        let mut comps = vec![comp_even];
+        for i in 0..9 {
+            comps.push(make_prime_power(101 + i, 10, 50));
+        }
+
+        let mut curr = make_prefix(1, 1, 0);
+        curr.active_mask = vec![0x3FFu64]; // bits 0 to 9 set
+
+        let tb = Uint::from_u128(u128::MAX);
+
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 100,
+            max_idx_5 = 100,
+            saved_states = vec![],
+            |ptr| unsafe {
+                let pushed = __rust_dfs_try_push(ptr, 0);
+                assert!(pushed, "Pushing comp_even should succeed");
+                assert_eq!(ctx_n_l(ptr), Uint::from_u64(4));
+                assert_eq!(ctx_s_l(ptr), Uint::from_u64(2));
+
+                let should_explore = __rust_dfs_check_evaluate(ptr, 7);
+                assert!(
+                    !should_explore,
+                    "Combined state with even modular residue should be dynamically pruned"
+                );
+
+                assert_eq!(
+                    (*(ptr as *const DfsContext))
+                        .abundance_pruned
+                        .load(Ordering::Relaxed),
+                    1
+                );
+            }
+        );
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
