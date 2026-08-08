@@ -537,6 +537,7 @@ def check_documentation(manifest):
         ".direnv",
         "lean-built",
         "result",
+        ".mypy_cache",
     }
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
@@ -625,6 +626,7 @@ def check_documentation(manifest):
         ".direnv",
         "lean-built",
         "result",
+        ".mypy_cache",
     }
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
@@ -821,6 +823,7 @@ def check_imports(repo_root):
         ".direnv",
         "lean-built",
         "result",
+        ".mypy_cache",
     }
     for root, dirs, files in os.walk(repo_root):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]

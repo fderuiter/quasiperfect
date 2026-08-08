@@ -617,6 +617,8 @@ def get_all_repo_paths(repo_root):
         ".direnv",
         "lean-built",
         "result",
+        ".mypy_cache",
+        ".pytest_cache",
     }
     for root, dirs, files in os.walk(repo_root):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
