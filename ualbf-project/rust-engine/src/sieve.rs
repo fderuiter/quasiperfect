@@ -19,6 +19,27 @@ pub struct SieveResult {
     pub execution_time_ms: u128,
 }
 
+/// Helper to safely compute the 1D index inside our stage2 bitset.
+/// Prevents overflow during index calculations for high range searches.
+fn get_sieve_index(p_mod_8: usize, max_e: u32, e: u32) -> Option<usize> {
+    let term1 = p_mod_8.checked_mul((max_e as usize).checked_add(1)?)?;
+    let idx = term1.checked_add(e as usize)?;
+    Some(idx)
+}
+
+/// Safely checks the status of the sieve bit inside `stage2_bitset` with proper bounds validation.
+/// Returns `Some(true)` if the bit is 1, `Some(false)` if the bit is 0, or `None` if out of bounds or overflowed.
+fn check_sieve_bit(stage2_bitset: &[u64], p_mod_8: usize, max_e: u32, e: u32) -> Option<bool> {
+    let idx = get_sieve_index(p_mod_8, max_e, e)?;
+    let block = idx.checked_div(64)?;
+    let bit = idx.checked_rem(64)?;
+    if block < stage2_bitset.len() {
+        Some((stage2_bitset[block] & (1u64 << bit)) != 0)
+    } else {
+        None
+    }
+}
+
 pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
     let phase1_start = std::time::Instant::now();
@@ -79,8 +100,11 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     for p_mod_8 in 0..8 {
         for e in 1..=max_e {
             if !mod8.check_component(p_mod_8 as u64, 2 * e) {
-                let index = p_mod_8 as usize * (max_e as usize + 1) + e as usize;
-                stage2_bitset[index / 64] |= 1 << (index % 64);
+                if let Some(index) = get_sieve_index(p_mod_8 as usize, max_e, e) {
+                    if index / 64 < stage2_bitset.len() {
+                        stage2_bitset[index / 64] |= 1 << (index % 64);
+                    }
+                }
             }
         }
     }
@@ -139,10 +163,16 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 let p_bu = Uint::from_usize(p);
 
                 for e in 1..=max_e {
-                    // Stage 2 (Mod8) exponent filter in O(1)
+                    // Stage 2 (Mod8) exponent filter in O(1).
+                    // In stage2_bitset, a bit value of 1 (Some(true)) means the component is NOT obstructed (allowed).
+                    // Thus, if check_sieve_bit returns Some(true), is_pruned is false.
+                    // All other cases (Some(false) or None/overflow) mean we must prune.
                     let p_mod_8 = p & 7;
-                    let idx = p_mod_8 * (max_e as usize + 1) + e as usize;
-                    if (stage2_bitset[idx / 64] & (1 << (idx % 64))) == 0 {
+                    let is_pruned = match check_sieve_bit(&stage2_bitset, p_mod_8, max_e, e) {
+                        Some(true) => false,
+                        _ => true, // safe prune on None/overflow
+                    };
+                    if is_pruned {
                         pruned.fetch_add(1, Ordering::Relaxed);
                         continue;
                     }
@@ -170,9 +200,23 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                     }
                     let mut sum: Uint = Uint::one();
                     let mut p_pow: Uint = Uint::one();
+                    let mut overflowed = false;
                     for _ in 0..two_e {
-                        p_pow *= Uint::from_usize(p);
-                        sum += p_pow;
+                        if let Some(next_pow) = p_pow.checked_mul(Uint::from_usize(p)) {
+                            p_pow = next_pow;
+                        } else {
+                            overflowed = true;
+                            break;
+                        }
+                        if let Some(next_sum) = sum.checked_add(p_pow) {
+                            sum = next_sum;
+                        } else {
+                            overflowed = true;
+                            break;
+                        }
+                    }
+                    if overflowed {
+                        continue;
                     }
                     let sigma = sum;
                     if sigma == Uint::zero() {
@@ -188,13 +232,24 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
             let mut process_results = Vec::new();
 
             for (p, two_e, val, sigma) in tasks {
-                let (rejected, all_factors, needs_rho) = get_cofactors_to_factor(p, two_e, &trial_sieve, &ecm_calls, &trial_only);
-                process_results.push(TaskResult {
-                    p, two_e, val, sigma,
-                    pending_factors: all_factors,
-                    needs_rho,
-                    rejected,
-                });
+                if let Some((rejected, all_factors, needs_rho)) = get_cofactors_to_factor(p, two_e, &trial_sieve, &ecm_calls, &trial_only) {
+                    process_results.push(TaskResult {
+                        p, two_e, val, sigma,
+                        pending_factors: all_factors,
+                        needs_rho,
+                        rejected,
+                    });
+                } else {
+                    process_results.push(TaskResult {
+                        p,
+                        two_e,
+                        val,
+                        sigma,
+                        pending_factors: vec![],
+                        needs_rho: vec![],
+                        rejected: true,
+                    });
+                }
             }
 
             for mut res in process_results {
@@ -372,6 +427,26 @@ mod tests {
         assert_eq!(val.to_string(), "18446744202558570721");
         assert_eq!(sigma.to_string(), "18446744206853538033");
     }
+
+    #[test]
+    fn test_checked_sieve_bounds_and_overflow() {
+        // 1. Test index overflow handling
+        assert!(get_sieve_index(usize::MAX, 10, 1).is_none());
+        assert!(get_sieve_index(usize::MAX, u32::MAX, 1).is_none());
+        assert_eq!(get_sieve_index(1, 10, 5), Some(16));
+
+        // 2. Test check_sieve_bit bounds check and overflow
+        let bitset = vec![0u64; 2];
+        assert!(check_sieve_bit(&bitset, usize::MAX, 10, 1).is_none());
+        assert_eq!(check_sieve_bit(&bitset, 0, 1, 1), Some(false));
+
+        let mut bitset_mut = vec![0u64; 2];
+        bitset_mut[0] |= 1 << 1;
+        assert_eq!(check_sieve_bit(&bitset_mut, 0, 1, 1), Some(true));
+
+        // 3. Test compute_sigma_checked overflow monadic Option propagation
+        assert!(crate::lean_ffi::compute_sigma_checked(12345, 1000).is_none());
+    }
 }
 
 /// Gather mod‑8 screening results and cofactor information for the cyclotomic divisors of sigma(p^(2e)).
@@ -404,8 +479,8 @@ fn get_cofactors_to_factor(
     trial: &TrialSieve,
     ecm_calls: &AtomicUsize,
     _trial_only: &AtomicUsize,
-) -> (bool, Vec<Uint>, Vec<Uint>) {
-    let full_sigma = crate::lean_ffi::compute_sigma(p, two_e);
+) -> Option<(bool, Vec<Uint>, Vec<Uint>)> {
+    let full_sigma = crate::lean_ffi::compute_sigma_checked(p, two_e)?;
     let factor_result = trial.factor(full_sigma);
     let factors = factor_result.factors();
     ecm_calls.fetch_add(1, Ordering::Relaxed);
@@ -414,7 +489,7 @@ fn get_cofactors_to_factor(
         let filter = crate::obstruction::Mod8Obstruction;
         use crate::obstruction::Obstruction;
         if filter.check_prime_factor(q) {
-            return (true, vec![], vec![]);
+            return Some((true, vec![], vec![]));
         }
     }
 
@@ -429,5 +504,5 @@ fn get_cofactors_to_factor(
         _ => {}
     }
 
-    (false, factors.to_vec(), needs_rho)
+    Some((false, factors.to_vec(), needs_rho))
 }

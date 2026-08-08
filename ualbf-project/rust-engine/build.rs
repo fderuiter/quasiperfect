@@ -643,13 +643,19 @@ fn main() {
     let ir_dir = lean_project.join(".lake/build/ir");
 
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
-    if ir_dir.exists() {
-        if let Err(e) = fs::remove_dir_all(&ir_dir) {
-            println!(
-                "cargo:warning=Failed to delete intermediate C-IR directory: {}",
-                e
-            );
-        }
+    // To avoid triggering complete dependency recompilations (which can take over an hour in GHA),
+    // we proactively purge only our own package's intermediate C-IR directories and files.
+    let ualbf_ir_dir = ir_dir.join("UALBF");
+    if ualbf_ir_dir.exists() {
+        let _ = fs::remove_dir_all(&ualbf_ir_dir);
+    }
+    let validator_ir_c = ir_dir.join("Validator.c");
+    if validator_ir_c.exists() {
+        let _ = fs::remove_file(&validator_ir_c);
+    }
+    let validator_ir_ot = ir_dir.join("Validator.ot");
+    if validator_ir_ot.exists() {
+        let _ = fs::remove_file(&validator_ir_ot);
     }
 
     // Prepend mock-bin to PATH and ensure mock files exist to avoid sandbox network hangs during Lean build
@@ -680,6 +686,62 @@ fn main() {
         paths.extend(env::split_paths(&existing));
     }
     let new_path = env::join_paths(paths).unwrap();
+
+    // Robust touch logic to resolve Nix epoch mtimes mismatch
+    let now = std::time::SystemTime::now();
+    let past = now - std::time::Duration::from_secs(120);
+
+    fn touch_path_robust(path: &std::path::Path, time: std::time::SystemTime) {
+        let times = std::fs::FileTimes::new()
+            .set_modified(time)
+            .set_accessed(time);
+
+        // Ensure write permissions first
+        if let Ok(metadata) = std::fs::metadata(path) {
+            let mut perms = metadata.permissions();
+            if perms.readonly() {
+                perms.set_readonly(false);
+                let _ = std::fs::set_permissions(path, perms);
+            }
+        }
+
+        // Open the file after updating its write permissions, then set times
+        if let Ok(file) = std::fs::OpenOptions::new().write(true).open(path) {
+            let _ = file.set_times(times);
+        } else if let Ok(file) = std::fs::File::open(path) {
+            let _ = file.set_times(times);
+        }
+    }
+
+    fn touch_recursively_robust(
+        path: &std::path::Path,
+        now: std::time::SystemTime,
+        past: std::time::SystemTime,
+    ) {
+        if path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(path) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        touch_recursively_robust(&entry.path(), now, past);
+                    }
+                }
+            }
+            // Also touch directory itself to past so it's older than build outputs
+            touch_path_robust(path, past);
+        } else if path.is_file() {
+            let is_lake = path.components().any(|c| c.as_os_str() == ".lake");
+            if is_lake {
+                touch_path_robust(path, now);
+            } else {
+                touch_path_robust(path, past);
+            }
+        }
+    }
+
+    if lean_project.exists() {
+        touch_recursively_robust(&lean_project, now, past);
+    }
+
     // Execute targeted module compilation instead of a full project build
     let status = Command::new("lake")
         .arg("build")

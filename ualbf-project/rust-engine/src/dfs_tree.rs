@@ -591,12 +591,20 @@ pub fn check_and_evaluate_node(
 
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
-        let mut accum_lhs = curr.s_l * Uint::from_u64(target_den);
-        let accum_rhs = curr.n_l * Uint::from_u64(target_num);
+        let mut accum_lhs = curr
+            .s_l
+            .checked_mul(Uint::from_u64(target_den))
+            .unwrap_or(Uint::MAX);
+        let accum_rhs = curr
+            .n_l
+            .checked_mul(Uint::from_u64(target_num))
+            .unwrap_or(Uint::MAX);
 
         for &ab in &best_abundances {
             let ab_u256 = Uint::from_u128((ab) as u128);
-            accum_lhs = (accum_lhs * ab_u256 + ((Uint::one() << 64) - Uint::one())) >> 64;
+            let prod = accum_lhs.checked_mul(ab_u256).unwrap_or(Uint::MAX);
+            let offset = (Uint::one() << 64) - Uint::one();
+            accum_lhs = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
             max_factors_needed += 1;
             if accum_lhs >= accum_rhs {
                 break;
@@ -605,9 +613,10 @@ pub fn check_and_evaluate_node(
 
         let mut best_15: Uint = Uint::one() << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
-            best_15 = (best_15 * Uint::from_u128((ab) as u128)
-                + ((Uint::one() << 64) - Uint::one()))
-                >> 64;
+            let ab_u256 = Uint::from_u128((ab) as u128);
+            let prod = best_15.checked_mul(ab_u256).unwrap_or(Uint::MAX);
+            let offset = (Uint::one() << 64) - Uint::one();
+            best_15 = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
         }
 
         // Final LHS = (s_l * best_15) >> 64
