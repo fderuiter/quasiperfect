@@ -502,13 +502,7 @@ pub fn generate_and_verify_pocklington(n: Uint) -> bool {
     }
 
     if remaining > Uint::one() {
-        let threshold = Uint::from_u128(1_u128 << 64);
-        let remaining_is_prime = if remaining < threshold {
-            verified_is_prime_low(remaining)
-        } else {
-            verified_is_prime(remaining)
-        };
-        if remaining_is_prime {
+        if verified_is_prime(remaining) {
             f *= remaining;
             unique_prime_factors.push(remaining);
         } else {
@@ -771,7 +765,7 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
             n_u64 /= 2;
         }
         let mut d = 3u64;
-        while (d as u128 * d as u128) <= (n_u64 as u128) {
+        while (d * d) <= n_u64 && d < 10_000 {
             while n_u64 % d == 0 {
                 factors.push(Uint::from_u128(d as u128));
                 n_u64 /= d;
@@ -779,8 +773,34 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
             d += 2;
         }
         if n_u64 > 1 {
-            factors.push(Uint::from_u128(n_u64 as u128));
+            let n_uint = Uint::from_u64(n_u64);
+            if verified_is_prime(n_uint) {
+                factors.push(n_uint);
+            } else {
+                match rho_factor_u256(n_uint) {
+                    FactorizationResult::Complete(v) => factors.extend(v),
+                    FactorizationResult::Partial {
+                        known_factors,
+                        remaining,
+                    } => {
+                        factors.extend(known_factors);
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining,
+                        };
+                    }
+                    FactorizationResult::Failure(u) => {
+                        factors.sort_unstable();
+                        return FactorizationResult::Partial {
+                            known_factors: factors,
+                            remaining: u,
+                        };
+                    }
+                }
+            }
         }
+        factors.sort_unstable();
         return FactorizationResult::Complete(factors);
     }
 
