@@ -6,7 +6,7 @@ UALBF Literals and Hardcoded Bounds Check
 This script ensures that specific forbidden hardcoded numeric literals and patterns
 are not hardcoded in either Rust source files or Lean proof scripts.
 Instead, these values should be read from manifest configurations to prevent
-configuration drift.
+configuration drift. All local testing environments must also conform to this standard.
 """
 
 import sys
