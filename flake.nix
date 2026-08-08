@@ -9,7 +9,12 @@
   outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; };
+        pkgs = import nixpkgs {
+          inherit system;
+          config = {
+            allowDeprecatedx86_64Darwin = "force";
+          };
+        };
 
         verusPkg = let
           systemMap = {
@@ -221,12 +226,6 @@
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.gmp
             pkgs.libuv
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.OpenCL
-            pkgs.darwin.apple_sdk.frameworks.Metal
-            pkgs.darwin.apple_sdk.frameworks.Foundation
           ];
 
           buildFeatures = [ "python" ];
@@ -279,12 +278,6 @@
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.gmp
             pkgs.libuv
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.OpenCL
-            pkgs.darwin.apple_sdk.frameworks.Metal
-            pkgs.darwin.apple_sdk.frameworks.Foundation
           ];
 
           # Symlink the built Lean objects so build.rs can find them.
@@ -522,12 +515,6 @@ with open("dummy_cert.json", "w") as f:
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.gmp
             pkgs.libuv
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.OpenCL
-            pkgs.darwin.apple_sdk.frameworks.Metal
-            pkgs.darwin.apple_sdk.frameworks.Foundation
           ];
 
           LEAN_SYSROOT = "${pkgs.lean4}";
