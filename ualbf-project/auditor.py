@@ -6,6 +6,7 @@ import sys
 import os
 import hashlib
 import cert_util
+import time
 from verify_metadata import (
     extract_fqns_from_lean_content,
     strip_comments,
@@ -203,19 +204,27 @@ def generate_manifest():
     # Check Lean axioms using the compiler
     cwd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
 
-    # Touch all files under .lake to ensure they are newer than checkout files (Nix 1970 mtimes fix)
+    # Robust touch logic to resolve Nix epoch mtimes mismatch
     if has_lean:
-        lake_dir = os.path.join(cwd, ".lake")
-        if os.path.exists(lake_dir):
-            for root, dirs, files in os.walk(lake_dir):
+        now = time.time()
+        past = now - 120
+        if os.path.exists(cwd):
+            for root, dirs, files in os.walk(cwd):
                 for d in dirs:
                     try:
-                        os.utime(os.path.join(root, d), None)
+                        d_path = os.path.join(root, d)
+                        os.chmod(d_path, 0o755)
+                        os.utime(d_path, (past, past))
                     except Exception:
                         pass
                 for f in files:
                     try:
-                        os.utime(os.path.join(root, f), None)
+                        f_path = os.path.join(root, f)
+                        os.chmod(f_path, 0o644)
+                        if f.endswith(".lean") or f == "lean-toolchain":
+                            os.utime(f_path, (past, past))
+                        else:
+                            os.utime(f_path, (now, now))
                     except Exception:
                         pass
 

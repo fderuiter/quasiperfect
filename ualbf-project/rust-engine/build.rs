@@ -687,25 +687,57 @@ fn main() {
     }
     let new_path = env::join_paths(paths).unwrap();
 
-    // Touch all files under .lake recursively to ensure they are newer than checkout files (Nix 1970 mtimes fix)
-    let lake_dir = lean_project.join(".lake");
-    if lake_dir.exists() {
-        fn touch_recursively(path: &std::path::Path) {
-            if path.is_dir() {
-                if let Ok(entries) = fs::read_dir(path) {
-                    for entry in entries {
-                        if let Ok(entry) = entry {
-                            touch_recursively(&entry.path());
-                        }
+    // Robust touch logic to resolve Nix epoch mtimes mismatch
+    let now = std::time::SystemTime::now();
+    let past = now - std::time::Duration::from_secs(120);
+
+    fn touch_path_robust(path: &std::path::Path, time: std::time::SystemTime) {
+        if let Ok(file) = std::fs::File::open(path) {
+            let times = std::fs::FileTimes::new()
+                .set_modified(time)
+                .set_accessed(time);
+            if let Err(_) = file.set_times(times) {
+                // If set_times fails, try setting permission to writable and try again
+                if let Ok(metadata) = std::fs::metadata(path) {
+                    let mut perms = metadata.permissions();
+                    if perms.readonly() {
+                        perms.set_readonly(false);
+                        let _ = std::fs::set_permissions(path, perms.clone());
+                        let _ = file.set_times(times);
                     }
-                }
-            } else if path.is_file() {
-                if let Ok(content) = fs::read(path) {
-                    let _ = fs::write(path, content);
                 }
             }
         }
-        touch_recursively(&lake_dir);
+    }
+
+    fn touch_recursively_robust(
+        path: &std::path::Path,
+        now: std::time::SystemTime,
+        past: std::time::SystemTime,
+    ) {
+        if path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(path) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        touch_recursively_robust(&entry.path(), now, past);
+                    }
+                }
+            }
+            // Also touch directory itself to past so it's older than build outputs
+            touch_path_robust(path, past);
+        } else if path.is_file() {
+            let filename = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            let extension = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+            if extension == "lean" || filename == "lean-toolchain" {
+                touch_path_robust(path, past);
+            } else {
+                touch_path_robust(path, now);
+            }
+        }
+    }
+
+    if lean_project.exists() {
+        touch_recursively_robust(&lean_project, now, past);
     }
 
     // Execute targeted module compilation instead of a full project build
