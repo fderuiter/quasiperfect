@@ -290,6 +290,8 @@
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             # Explicitly export Z3_SYS_Z3_HEADER so z3-sys instantly finds the precompiled system Z3 headers
             # from the Nix store rather than compiling Z3 from source.
+            # We use pkgs.z3.dev because Nixpkgs splits z3 into multiple outputs (out and dev),
+            # and z3.h is packaged only under the dev output path.
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
           '';
         };
@@ -519,6 +521,7 @@ with open("dummy_cert.json", "w") as f:
 
           LEAN_SYSROOT = "${pkgs.lean4}";
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          # We use pkgs.z3.dev as Nixpkgs separates development headers from standard package outputs
           Z3_SYS_Z3_HEADER = "${pkgs.z3.dev}/include/z3.h";
 
           shellHook = ''
