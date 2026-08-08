@@ -35,6 +35,8 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
+# Ignore certificate verification tests as they depend on live network resources/keys
+# and are executed as part of custom manual/isolated validation suites.
 pythonpath = ["ualbf-project"]
 norecursedirs = ["scripts", "prototypes", "experimental", ".lake"]
 addopts = "--ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_verify_cert.py"
