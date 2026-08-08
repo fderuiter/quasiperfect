@@ -3,7 +3,18 @@ import re
 
 _ABS_FILE = os.path.abspath(__file__)
 _DIR_NAME = os.path.dirname(_ABS_FILE)
-_REPO_ROOT = os.path.abspath(os.path.join(_DIR_NAME, "../.."))
+
+
+def _find_repo_root(start_dir: str) -> str:
+    current = os.path.abspath(start_dir)
+    while current != os.path.dirname(current):
+        if os.path.exists(os.path.join(current, "docs_manifest.json")):
+            return current
+        current = os.path.dirname(current)
+    return os.path.abspath(os.path.join(start_dir, "../.."))
+
+
+_REPO_ROOT = _find_repo_root(_DIR_NAME)
 
 
 def test_github_actions_ci_has_pythonunbuffered():
