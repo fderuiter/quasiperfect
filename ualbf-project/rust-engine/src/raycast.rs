@@ -204,6 +204,122 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 /// let sigma_cache: SigmaCache = Default::default();
 /// phase4_exact_ray_casting(&prefix, &target_min, &target_max, &illegal_z_valuations, &pruned_count, &sigma_cache, None);
 /// ```
+fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &SigmaCache) -> bool {
+    let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
+    let mut z_factors = z_fact.factors().to_vec();
+    // CRITICAL: We must explicitly sort the prime factors using sort_unstable() to
+    // ensure that duplicate/identical factors are adjacent. This is required because
+    // the multiplicity logic below relies on sequential grouping to compute prime
+    // powers (p^k) correctly for multi-factor candidates.
+    z_factors.sort_unstable();
+    let cofactor_opt = match z_fact {
+        crate::math_utils::FactorizationResult::Partial { remaining, .. } => Some(remaining),
+        crate::math_utils::FactorizationResult::Failure(u) => Some(u),
+        _ => None,
+    };
+    if z_factors.is_empty() && cofactor_opt.is_none() {
+        return false;
+    }
+    let mut s_r = Uint::from_u128(1 as u128);
+    let mut current_p = Uint::zero();
+    let mut count: u32 = 0;
+    let mut s_r_overflowed = false;
+
+    for &f in &z_factors {
+        if f == current_p {
+            count += 1;
+        } else {
+            if current_p != Uint::zero() {
+                let sig = sigma_cached(sigma_cache, current_p, 2 * count);
+                match s_r.checked_mul(sig) {
+                    Some(v) => s_r = v,
+                    None => {
+                        s_r_overflowed = true;
+                        break;
+                    }
+                }
+            }
+            current_p = f;
+            count = 1;
+        }
+    }
+    if s_r_overflowed {
+        return false;
+    }
+    if current_p != Uint::zero() {
+        let sig = sigma_cached(sigma_cache, current_p, 2 * count);
+        match s_r.checked_mul(sig) {
+            Some(v) => s_r = v,
+            None => {
+                return false;
+            }
+        }
+    }
+
+    if let Some(cofactor) = cofactor_opt {
+        let rem8 = (cofactor % Uint::from_u32(8)).as_u32();
+        if rem8 == 5 || rem8 == 7 {
+            return false;
+        }
+
+        if required_s_r % &s_r != Uint::zero() {
+            return false;
+        }
+        let required_cofactor_s_r = required_s_r / s_r;
+
+        if let Some((base, exp)) = perfect_power(cofactor) {
+            if let Some(sig) = sigma_power(base, 2 * exp) {
+                if sig != required_cofactor_s_r {
+                    return false;
+                }
+                if let Some(new_s_r) = s_r.checked_mul(sig) {
+                    s_r = new_s_r;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } else {
+            let mut prime_verified = false;
+            let q = cofactor;
+            let prime_sigma_opt = q
+                .checked_mul(q)
+                .and_then(|q2| q2.checked_add(q))
+                .and_then(|q2_plus_q| q2_plus_q.checked_add(Uint::one()));
+
+            if let Some(prime_sigma) = prime_sigma_opt {
+                if prime_sigma == required_cofactor_s_r {
+                    if crate::math_utils::verified_is_prime(cofactor) {
+                        s_r = required_s_r;
+                        prime_verified = true;
+                    } else {
+                        return false;
+                    }
+                }
+            }
+
+            if !prime_verified {
+                if let Some((min_bound, max_bound)) = cofactor_sigma_bounds(cofactor) {
+                    if required_cofactor_s_r < min_bound || required_cofactor_s_r > max_bound {
+                        return false;
+                    }
+
+                    if !crate::math_utils::verified_is_prime(cofactor) {
+                        return false;
+                    }
+
+                    s_r = required_s_r;
+                } else {
+                    return false;
+                }
+            }
+        }
+    }
+
+    s_r == required_s_r
+}
+
 /// Phase 4 Ray Casting (Exact Modular Check)
 ///
 /// This phase executes an exact modular arithmetic test on candidate numbers that survive
@@ -406,128 +522,7 @@ pub fn phase4_exact_ray_casting(
 
                 if !candidates_to_factor.is_empty() {
                     for &(c, z_tiered, required_s_r) in &candidates_to_factor {
-                        let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
-                        let z_factors = z_fact.factors();
-                        let cofactor_opt = match z_fact {
-                            crate::math_utils::FactorizationResult::Partial {
-                                remaining, ..
-                            } => Some(remaining),
-                            crate::math_utils::FactorizationResult::Failure(u) => Some(u),
-                            _ => None,
-                        };
-                        if z_factors.is_empty() && cofactor_opt.is_none() {
-                            continue;
-                        }
-                        let mut s_r = Uint::from_u128(1 as u128);
-                        let mut current_p = 0;
-                        let mut count: u32 = 0;
-                        let mut s_r_overflowed = false;
-
-                        for &f in z_factors {
-                            if f.as_u128() == current_p {
-                                count += 1;
-                            } else {
-                                if current_p != 0 {
-                                    let sig = sigma_cached(
-                                        sigma_cache,
-                                        Uint::from_u128(current_p as u128),
-                                        2 * count,
-                                    );
-                                    match s_r.checked_mul(sig) {
-                                        Some(v) => s_r = v,
-                                        None => {
-                                            s_r_overflowed = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                current_p = f.as_u128();
-                                count = 1;
-                            }
-                        }
-                        if s_r_overflowed {
-                            continue;
-                        }
-                        if current_p != 0 {
-                            let sig = sigma_cached(
-                                sigma_cache,
-                                Uint::from_u128(current_p as u128),
-                                2 * count,
-                            );
-                            match s_r.checked_mul(sig) {
-                                Some(v) => s_r = v,
-                                None => {
-                                    continue;
-                                }
-                            }
-                        }
-
-                        if let Some(cofactor) = cofactor_opt {
-                            let rem8 = (cofactor % Uint::from_u32(8)).as_u32();
-                            if rem8 == 5 || rem8 == 7 {
-                                continue;
-                            }
-
-                            if required_s_r % &s_r != Uint::zero() {
-                                continue;
-                            }
-                            let required_cofactor_s_r = required_s_r / s_r;
-
-                            if let Some((base, exp)) = perfect_power(cofactor) {
-                                if let Some(sig) = sigma_power(base, 2 * exp) {
-                                    if sig != required_cofactor_s_r {
-                                        continue;
-                                    }
-                                    if let Some(new_s_r) = s_r.checked_mul(sig) {
-                                        s_r = new_s_r;
-                                    } else {
-                                        continue;
-                                    }
-                                } else {
-                                    continue;
-                                }
-                            } else {
-                                let mut prime_verified = false;
-                                let q = cofactor;
-                                let prime_sigma_opt = q
-                                    .checked_mul(q)
-                                    .and_then(|q2| q2.checked_add(q))
-                                    .and_then(|q2_plus_q| q2_plus_q.checked_add(Uint::one()));
-
-                                if let Some(prime_sigma) = prime_sigma_opt {
-                                    if prime_sigma == required_cofactor_s_r {
-                                        if crate::math_utils::verified_is_prime(cofactor) {
-                                            s_r = required_s_r;
-                                            prime_verified = true;
-                                        } else {
-                                            continue;
-                                        }
-                                    }
-                                }
-
-                                if !prime_verified {
-                                    if let Some((min_bound, max_bound)) =
-                                        cofactor_sigma_bounds(cofactor)
-                                    {
-                                        if required_cofactor_s_r < min_bound
-                                            || required_cofactor_s_r > max_bound
-                                        {
-                                            continue;
-                                        }
-
-                                        if !crate::math_utils::verified_is_prime(cofactor) {
-                                            continue;
-                                        }
-
-                                        s_r = required_s_r;
-                                    } else {
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
-
-                        if s_r == required_s_r {
+                        if verify_candidate_cpu_only(z_tiered, required_s_r, sigma_cache) {
                             let total_n = prefix.n_l * z_tiered * z_tiered;
                             let event = crate::events::SearchEvent::Candidate {
                                 len: 0,
@@ -562,6 +557,7 @@ mod tests {
 
     #[test]
     fn test_quasi_perfect_residue_class_integration() {
+        crate::lean_ffi::initialize_lean_runtime();
         let n_l = Uint::from_u32(9);
         let s_l = Uint::from_u32(13);
 
@@ -582,8 +578,6 @@ mod tests {
         let pruned_count = AtomicUsize::new(0);
         let math_interruptions = AtomicUsize::new(0);
         let sigma_cache = std::collections::HashMap::new();
-
-        let math_interruptions = AtomicUsize::new(0);
 
         // Ensure phase4 doesn't panic when we call it, verifying the mathematical identity constraint
         // 2N_L * x_l + 1 == 0 mod S_L holds correctly internally.
@@ -782,5 +776,24 @@ mod additional_tests {
             !check_passed,
             "Composite cofactor must be rejected even if <= 256 bits"
         );
+    }
+
+    #[test]
+    fn test_verify_candidate_cpu_only_standard_semiprime() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let sigma_cache = std::collections::HashMap::new();
+        let res = verify_candidate_cpu_only(Uint::from_u32(5), Uint::from_u32(31), &sigma_cache);
+        assert!(res);
+    }
+
+    #[test]
+    fn test_verify_candidate_cpu_only_three_prime_factors() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let sigma_cache = std::collections::HashMap::new();
+        // z_tiered = 3 * 5 * 7 = 105.
+        // sigma(3^2) * sigma(5^2) * sigma(7^2) = 13 * 31 * 57 = 22971.
+        let res =
+            verify_candidate_cpu_only(Uint::from_u32(105), Uint::from_u32(22971), &sigma_cache);
+        assert!(res);
     }
 }

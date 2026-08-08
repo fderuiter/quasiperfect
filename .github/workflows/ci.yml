@@ -92,7 +92,7 @@ jobs:
         continue-on-error: true
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ualbf-project/rust-engine
+          workspaces: ualbf-project
           cache-on-failure: true
 
       - name: Populate Pre-built Lean Objects
