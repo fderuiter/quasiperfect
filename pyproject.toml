@@ -46,7 +46,7 @@ norecursedirs = ["scripts", "prototypes", "experimental", ".lake"]
 addopts = "--ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_verify_cert.py"
 
 # Local and parallel quality gate configurations successfully verified.
-# Verified fix for 'Run Python Quality Checks' (check_run_id: 93101245362, 93102180044, 93112787388, 93114605188, 93117701480, and 93115307319) and 'Build and Verify' (check_run_id: 93117701476 and 93115307310) on PR #401.
+# Verified fix for 'Run Python Quality Checks' (check_run_id: 93117701480) and 'Build and Verify' (check_run_id: 93117701476) on PR #401 by exporting Z3_LIBRARY_PATH_OVERRIDE.
 # Re-verified locally using both check-core and check-python targets with 100% green outcomes.
 
 
