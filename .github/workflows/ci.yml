@@ -86,6 +86,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Note: Swatinem/rust-cache has been removed from this job to prevent post-cleanup cache actions
+      # from running on the host runner outside of the Nix development shell, which would otherwise fail
+      # to compile z3-sys/find z3.h and crash the build.
       - name: Setup Nix (Linux)
         uses: cachix/install-nix-action@v25
         with:
