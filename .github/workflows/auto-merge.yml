@@ -1,5 +1,8 @@
 name: Auto Approve and Merge Non-Core PRs
 
+env:
+  PYTHONUNBUFFERED: "1"
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
