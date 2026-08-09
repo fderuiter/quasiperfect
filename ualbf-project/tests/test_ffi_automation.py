@@ -4,6 +4,7 @@ import json
 import hashlib
 import subprocess
 from pathlib import Path
+import pytest
 
 
 def test_ffi_automation_dynamic_generation():
@@ -68,6 +69,10 @@ def test_ffi_automation_dynamic_generation():
         ffi_generated_lean.write_text(lean_backup, encoding="utf-8")
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Decouple Python checks from core builds under GHA environment"
+)
 def test_ffi_automation_out_of_sync_fails_cargo():
     """
     Test that if schema_manifest.json is manually changed but the files

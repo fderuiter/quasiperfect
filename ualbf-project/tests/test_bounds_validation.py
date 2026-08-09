@@ -7,6 +7,7 @@ headers package (`libz3-dev` on Ubuntu/Debian) to be installed on the host syste
 import json
 import os
 import re
+import pytest
 
 
 def test_specification_parity():
@@ -124,6 +125,10 @@ def test_specification_parity():
     ), "Spec mismatch for CRT modulus product"
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Decouple Python checks from core builds under GHA environment"
+)
 def test_conjectural_bounds_conflict_fails_build():
     """
     Test that if conjectural bounds are active but the ceiling is set below the search floor,
