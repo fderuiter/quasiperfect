@@ -1,15 +1,21 @@
+import os
 import urllib.request
 import json
 import re
 
 def get_parsed_attempt():
     attempts = []
-    # Fetch both pages of comments (up to 200 comments)
-    for page in [1, 2]:
+    # Fetch comments up to 5 pages (up to 500 comments)
+    for page in [1, 2, 3, 4, 5]:
         url = f"https://api.github.com/repos/fderuiter/quasipolynomials/issues/401/comments?per_page=100&page={page}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+        if token:
+            headers["Authorization"] = f"token {token}"
+            
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": "Mozilla/5.0"}
+            headers=headers
         )
         try:
             with urllib.request.urlopen(req) as response:
