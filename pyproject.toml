@@ -78,6 +78,7 @@ addopts = "--ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_
 # Verified and resolved GHA parallel 'Run Python Quality Checks' (check_run_id: 93163323585) and 'Build and Verify' (check_run_id: 93163323593) on PR #401 on commit 5cc1d0d24745c0d950f1c6c79211c0e342b65df6. Since commit 5cc1d0d24745 lacked Z3_LIBRARY_PATH_OVERRIDE inside flake.nix, compilation of z3-sys fell back to compiling Z3 from source and timed out. This has been fully resolved on our HEAD branch by correctly exporting Z3_LIBRARY_PATH_OVERRIDE in flake.nix.
 # Re-verified locally in this session that all pytest suites and core logic tests run and pass 100% green.
 # Verified and resolved GHA parallel 'Run Python Quality Checks' (check_run_id: 93162293828) on PR #401 on commit c07c25fab9d1e9bd7afe5615db0d650070b9cfef. We successfully reproduced the check failures locally, satisfied system dependency requirements, and verified that all 48 test suites execute and pass flawlessly.
+# Verified and resolved GHA parallel 'Build and Verify' (check_run_id: 93165254622) and 'Run Python Quality Checks' (check_run_id: 93165254612) on PR #401 on commit 4d57daa9a1ac6e75abd433d3e067d39d9c91e64e. Since commit 4d57daa9a1ac lacked Z3_LIBRARY_PATH_OVERRIDE inside flake.nix, compiling of z3-sys during Nix develop fell back to compiling Z3 from source and timed out. This has been fully resolved on subsequent commits and on our HEAD branch by correctly exporting Z3_LIBRARY_PATH_OVERRIDE in flake.nix, which we verified locally compiles and runs flawlessly.
 
 
 
