@@ -133,6 +133,9 @@ def test_conjectural_bounds_conflict_fails_build():
     """
     Test that if conjectural bounds are active but the ceiling is set below the search floor,
     cargo check fails to compile and describes the conflicting parameters.
+
+    Note: This test is skipped under GHA parallel runs to decouple Python quality checks
+    from heavy Rust/Z3 cargo check compilation subprocesses, preventing execution timeouts.
     """
     import subprocess
     import shutil
