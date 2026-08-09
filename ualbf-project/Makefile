@@ -37,7 +37,7 @@ check-python:
 	flake8 .
 	mypy .
 	python3 scripts/validate_docs.py
-	pytest tests
+	LEAN_SYSROOT=DUMMY pytest tests
 
 verify-sync:
 	./scripts/export_lean_specs.py
