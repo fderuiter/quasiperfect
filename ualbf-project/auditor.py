@@ -539,6 +539,7 @@ def check_documentation(manifest):
         "result",
         ".mypy_cache",
         "test-env",
+        "test_env",
         "env",
         ".env",
     }
@@ -631,6 +632,7 @@ def check_documentation(manifest):
         "result",
         ".mypy_cache",
         "test-env",
+        "test_env",
         "env",
         ".env",
     }
@@ -831,6 +833,7 @@ def check_imports(repo_root):
         "result",
         ".mypy_cache",
         "test-env",
+        "test_env",
         "env",
         ".env",
     }

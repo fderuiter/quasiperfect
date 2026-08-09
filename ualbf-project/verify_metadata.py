@@ -649,6 +649,7 @@ def get_all_repo_paths(repo_root):
         ".mypy_cache",
         ".pytest_cache",
         "test-env",
+        "test_env",
         "env",
         ".env",
     }
