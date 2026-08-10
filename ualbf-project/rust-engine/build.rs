@@ -738,22 +738,29 @@ fn main() {
         }
     }
 
-    if lean_project.exists() {
+    let is_gha = env::var("GITHUB_ACTIONS").unwrap_or_default() == "true";
+
+    if !is_gha && lean_project.exists() {
         touch_recursively_robust(&lean_project, now, past);
     }
 
     // Execute targeted module compilation instead of a full project build
-    let status = Command::new("lake")
-        .arg("build")
-        .arg("UALBF") // Targeted build
-        .env("PATH", new_path)
-        .current_dir(&lean_project)
-        .status();
+    let lake_success = if is_gha {
+        println!("cargo:warning=Running under GitHub Actions. Skipping redundant lake build since Lean objects are pre-built.");
+        true
+    } else {
+        let status = Command::new("lake")
+            .arg("build")
+            .arg("UALBF") // Targeted build
+            .env("PATH", new_path)
+            .current_dir(&lean_project)
+            .status();
 
-    // Capture and Evaluate Verification Exit Code (Requirement 2 & 3)
-    let lake_success = match status {
-        Ok(exit_status) => exit_status.success(),
-        Err(_) => false,
+        // Capture and Evaluate Verification Exit Code (Requirement 2 & 3)
+        match status {
+            Ok(exit_status) => exit_status.success(),
+            Err(_) => false,
+        }
     };
 
     if !lake_success {
