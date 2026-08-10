@@ -1,11 +1,17 @@
 name: Unified Publication & Verification Build
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NIX_ARCH: "x86_64-linux"
   PYTHONUNBUFFERED: "1"
 
 on:
   push:
+    branches:
+      - main
   pull_request:
   schedule:
     - cron: '0 0 * * *'
