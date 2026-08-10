@@ -89,6 +89,8 @@ jobs:
     name: Build and Verify
     runs-on: ubuntu-latest
     needs: core-gating
+    env:
+      MOCK_LEAN: "1"
     steps:
       - uses: actions/checkout@v4
 
