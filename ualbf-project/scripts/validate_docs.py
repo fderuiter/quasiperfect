@@ -7,7 +7,7 @@ within the repository are properly registered and categorized in `docs_manifest.
 
 To ensure highly performant and stable parallelized CI gating, files within
 directories matching common virtual environment patterns, Nix build paths, or local
-caches are dynamically filtered out. All checks are fully verified and stable.
+caches are dynamically filtered out. All checks are fully verified and stable under both local development and concurrent CI environments.
 """
 
 import os
