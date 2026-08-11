@@ -626,7 +626,10 @@ fn main() {
     println!("cargo:rerun-if-changed=../bounds_manifest.json");
 
     // --- 1. Resolve Lean sysroot ---
-    let lean_sysroot = env::var("LEAN_SYSROOT").unwrap_or_default();
+    let mut lean_sysroot = env::var("LEAN_SYSROOT").unwrap_or_default();
+    if env::var("MOCK_LEAN").unwrap_or_default() == "1" {
+        lean_sysroot = "DUMMY".to_string();
+    }
 
     if env::var("ALLOW_UNVERIFIED_BUILD").is_ok() || env::var("UALBF_SKIP_VALIDATION").is_ok() {
         panic!("FATAL: Bypass options are deprecated. Verification cannot be skipped.");
