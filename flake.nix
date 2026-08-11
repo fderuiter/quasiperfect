@@ -179,6 +179,7 @@
             cp -r ${leanDeps}/.lake .lake
             chmod -R +w .lake
             ${rewriteManifest}
+            lake build UALBF
             lake build
           '';
 
