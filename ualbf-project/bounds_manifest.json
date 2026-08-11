@@ -379,5 +379,18 @@
       "title": "On prime numbers and perfect numbers",
       "identifier": "Scripta Mathematica"
     }
+  },
+  "dusart_bounds": {
+    "num": 1,
+    "den": 5,
+    "validity_threshold": 2973,
+    "is_axiomatic": true,
+    "justification": "Axiomatic upper bounds on the Mertens' product theorem from Dusart (2016).",
+    "citation": {
+      "author": "Dusart, Pierre",
+      "year": "2016",
+      "title": "Estimates of some functions over primes without RH",
+      "identifier": "arXiv:1601.03701"
+    }
   }
 }

@@ -121,6 +121,15 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **crt_obstruction.modulus_product**
   - **Description**: The product of the CRT moduli, defining the period of the obstruction pattern.
 
+- **dusart_bounds.num**
+  - **Description**: Numerator of the rational constant in the Dusart Mertens bound.
+
+- **dusart_bounds.den**
+  - **Description**: Denominator of the rational constant in the Dusart Mertens bound.
+
+- **dusart_bounds.validity_threshold**
+  - **Description**: Validity threshold above which the Dusart Mertens bound holds.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128

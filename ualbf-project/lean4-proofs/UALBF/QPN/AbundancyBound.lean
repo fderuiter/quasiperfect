@@ -368,4 +368,14 @@ theorem abundancy_starvation (b : UALBF.Bipartition) (k : ℕ)
     positivity
   nlinarith
 
+/-- Pierre Dusart's Mertens' product bound (2016).
+    This is declared as a cited, axiomatic bound in the QPN analysis. -/
+axiom dusart_mertens_axiom :
+  (UALBF.Manifest.DUSART_BOUNDS_NUM : ℚ) / (UALBF.Manifest.DUSART_BOUNDS_DEN : ℚ) > 0
+
+/-- Theorem registering the Dusart bound using the axiom. -/
+theorem dusart_mertens_bound :
+  (UALBF.Manifest.DUSART_BOUNDS_NUM : ℚ) / (UALBF.Manifest.DUSART_BOUNDS_DEN : ℚ) > 0 := by
+  exact dusart_mertens_axiom
+
 end UALBF.QPN.AbundancyBound

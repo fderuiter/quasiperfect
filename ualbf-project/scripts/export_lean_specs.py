@@ -205,6 +205,10 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         tot_num = bounds["euler_ceiling"]["num"]
         tot_den = bounds["euler_ceiling"]["den"]
 
+        dusart_bounds_num = bounds["dusart_bounds"]["num"]
+        dusart_bounds_den = bounds["dusart_bounds"]["den"]
+        dusart_bounds_validity_threshold = bounds["dusart_bounds"]["validity_threshold"]
+
         hagis1982 = bounds["omega_bounds"]["hagis1982"]["proof_bound"]
         hagis1982_offset = bounds["omega_bounds"]["hagis1982"]["engine_justified_gap"]
         hagis1982_combined = hagis1982 + hagis1982_offset
@@ -274,6 +278,9 @@ verus! {{
     pub open spec fn lean_conjectural_active() -> bool {{ {str(conjectural_active).lower()} }}
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat {{ {conjectural_max_log10_ceiling} }}
     pub open spec fn lean_crt_modulus_product() -> nat {{ {crt_modulus_product} }}
+    pub open spec fn lean_dusart_bounds_num() -> nat {{ {dusart_bounds_num} }}
+    pub open spec fn lean_dusart_bounds_den() -> nat {{ {dusart_bounds_den} }}
+    pub open spec fn lean_dusart_bounds_validity_threshold() -> nat {{ {dusart_bounds_validity_threshold} }}
 
     pub open spec fn lean_hagis1982_min_prime_factors() -> nat {{ {hagis1982} }}
     pub open spec fn lean_hagis1982_offset() -> nat {{ {hagis1982_offset} }}
@@ -369,6 +376,18 @@ verus! {{
         ensures (crate::manifest_constants::CRT_MODULUS_PRODUCT as nat) == lean_crt_modulus_product()
     {{}}
 
+    pub proof fn prove_dusart_bounds_num_equivalence()
+        ensures (crate::manifest_constants::DUSART_BOUNDS_NUM as nat) == lean_dusart_bounds_num()
+    {{}}
+
+    pub proof fn prove_dusart_bounds_den_equivalence()
+        ensures (crate::manifest_constants::DUSART_BOUNDS_DEN as nat) == lean_dusart_bounds_den()
+    {{}}
+
+    pub proof fn prove_dusart_bounds_validity_threshold_equivalence()
+        ensures (crate::manifest_constants::DUSART_BOUNDS_VALIDITY_THRESHOLD as nat) == lean_dusart_bounds_validity_threshold()
+    {{}}
+
     pub proof fn prove_combined_bounds() {{
         assert(lean_hagis1982_combined() == lean_hagis1982_min_prime_factors() + lean_hagis1982_offset());
         assert(lean_prasad_sunitha_combined() == lean_prasad_sunitha_bound() + lean_prasad_sunitha_offset());
@@ -438,10 +457,12 @@ def generate_ffi_lean_spec(schema, repo_root, schema_hash):
         prep_parts.append(f"  have h2_{bits} : 2^{bits} = {val} := rfl;")
 
     prep_names = ", ".join(f"h2_{j * limb_width}" for j in range(1, limb_count))
-    omega_prep = f"""macro "u512_omega_prep" : tactic => `(tactic|
+    omega_prep = f"""syntax "u512_omega_prep" : tactic
+macro_rules
+  | `(tactic| u512_omega_prep) => `(tactic|
 {chr(10).join(prep_parts)}
   rw [{prep_names}] at *
-)"""
+  )"""
 
     theorems = []
     for idx in range(limb_count):
@@ -460,7 +481,8 @@ def generate_ffi_lean_spec(schema, repo_root, schema_hash):
         )
 
     with open(lean_generated_path, "w", encoding="utf-8") as f:
-        f.write(f"""-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
+        f.write(f"""import Mathlib.Data.UInt
+-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 set_option linter.all false
 
 namespace UALBF.FFI
@@ -621,6 +643,10 @@ def main():
         generate_ffi(repo_root, schema, schema_hash)
 
         # Generate manifest constants
+        dusart_bounds_num = bounds["dusart_bounds"]["num"]
+        dusart_bounds_den = bounds["dusart_bounds"]["den"]
+        dusart_bounds_validity_threshold = bounds["dusart_bounds"]["validity_threshold"]
+
         prasad_proof = bounds["omega_bounds"]["prasad_sunitha"]["proof_bound"]
         prasad_bound = (
             prasad_proof
@@ -735,6 +761,12 @@ pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
 #[cfg(not(verus_keep_ghost))]
 pub const CRT_MODULI: [u32; {len(crt_moduli)}] = [{', '.join(map(str, crt_moduli))}];
 #[cfg(not(verus_keep_ghost))]
+pub const DUSART_BOUNDS_NUM: u64 = {dusart_bounds_num};
+#[cfg(not(verus_keep_ghost))]
+pub const DUSART_BOUNDS_DEN: u64 = {dusart_bounds_den};
+#[cfg(not(verus_keep_ghost))]
+pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = {dusart_bounds_validity_threshold};
+#[cfg(not(verus_keep_ghost))]
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 
 #[cfg(verus_keep_ghost)]
@@ -765,6 +797,9 @@ verus! {{
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = {conjectural_max_log10};
     pub const TOUCHARD_MOD_24_MODULUS: u32 = {touchard_mod};
     pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
+    pub const DUSART_BOUNDS_NUM: u64 = {dusart_bounds_num};
+    pub const DUSART_BOUNDS_DEN: u64 = {dusart_bounds_den};
+    pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = {dusart_bounds_validity_threshold};
     pub const MANIFEST_HASH: &'static str = "{bounds_hash}";
 }}
 """
@@ -801,6 +836,9 @@ verus! {{
 #define CRT_MODULUS_PRODUCT {crt_modulus_product}
 #define CRT_MODULI_LEN {len(crt_moduli)}
 #define CRT_MODULI {{ {', '.join(map(str, crt_moduli))} }}
+#define DUSART_BOUNDS_NUM {dusart_bounds_num}
+#define DUSART_BOUNDS_DEN {dusart_bounds_den}
+#define DUSART_BOUNDS_VALIDITY_THRESHOLD {dusart_bounds_validity_threshold}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"
@@ -830,6 +868,10 @@ def OVERFLOW_THRESHOLD_NUM : Nat := {overflow_num}
 def OVERFLOW_THRESHOLD_DEN : Nat := {overflow_den}
 def RAYCAST_GPU_THRESHOLD : Nat := {raycast_gpu_threshold}
 def RAYCAST_CHUNK_SIZE : Nat := {raycast_chunk_size}
+
+def DUSART_BOUNDS_NUM : Nat := {dusart_bounds_num}
+def DUSART_BOUNDS_DEN : Nat := {dusart_bounds_den}
+def DUSART_BOUNDS_VALIDITY_THRESHOLD : Nat := {dusart_bounds_validity_threshold}
 
 def CONJECTURAL_ACTIVE : Bool := {'true' if conjectural_active else 'false'}
 def CONJECTURE_NAME : String := "{conjecture_name}"

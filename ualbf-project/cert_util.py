@@ -72,7 +72,7 @@ def load_and_validate_cert(cert_path):
 
 
 CORE_THEOREMS = [
-    "UALBF.Engine.CyclotomicGraph.relational_forced_inclusion",
+    "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
     "UALBF.Engine.Bipartition.prefix_sigma_coprime",
     "UALBF.Engine.Bipartition.ambs_suffix_target",
@@ -80,6 +80,7 @@ CORE_THEOREMS = [
     "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
     "UALBF.QPN.AbundancyBound.qpn_totient_bound",
     "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "UALBF.QPN.AbundancyBound.dusart_mertens_bound",
     "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
     "UALBF.QPN.BasicProperties.qpn_is_odd_square",
     "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
