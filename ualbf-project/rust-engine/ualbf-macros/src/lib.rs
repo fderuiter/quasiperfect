@@ -84,6 +84,12 @@ inline bool ualbf_check_euler_ceiling(RNS512 num, RNS512 den, uint64_t euler_num
     return cmp(lhs, rhs) > 0;
 }
 
+inline bool ualbf_check_cdg_forced(RNS512 s_l, RNS512 n_l, RNS512 forced_num, RNS512 forced_den, uint64_t target_num, uint64_t target_den) {
+    RNS512 lhs = ualbf_mul_u64(s_l, target_den);
+    RNS512 rhs = ualbf_mul_u64(n_l, target_num);
+    return cmp(lhs, rhs) > 0;
+}
+
 inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min, uint32_t prasad_sunitha_bound, uint32_t curr_factors_len, uint32_t remaining_components) {
     uint32_t dynamic_min = baseline_min;
     if ((info_mask & 3) == 0 && (info_mask & 12) == 12) {
@@ -117,6 +123,14 @@ inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min
             let enum_u = euler_num;
             let eden_u = euler_den;
             num * eden_u > den * enum_u
+        }
+
+        pub fn cpu_check_cdg_forced(s_l: &crate::types::Uint, n_l: &crate::types::Uint, forced_num: &crate::types::Uint, forced_den: &crate::types::Uint, target_num: u64, target_den: u64) -> bool {
+            let num = crate::types::Uint::from_u64(target_num);
+            let den = crate::types::Uint::from_u64(target_den);
+            let lhs = s_l.checked_mul(*forced_num).and_then(|x| x.checked_mul(den)).unwrap_or(crate::types::Uint::MAX);
+            let rhs = n_l.checked_mul(*forced_den).and_then(|x| x.checked_mul(num)).unwrap_or(crate::types::Uint::MAX);
+            lhs > rhs
         }
 
         pub fn cpu_check_prasad_sunitha(info_mask: u32, baseline_min: usize, prasad_sunitha_bound: usize, curr_factors_len: usize, remaining_components: usize) -> bool {

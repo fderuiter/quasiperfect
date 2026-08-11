@@ -15,6 +15,20 @@ pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u12
     lhs < rhs
 }
 
+#[cfg(not(verus_keep_ghost))]
+pub fn check_cdg_forced_kill(
+    s_l: u128,
+    n_l: u128,
+    forced_num: u128,
+    forced_den: u128,
+    target_num: u128,
+    target_den: u128,
+) -> bool {
+    let lhs = (s_l * forced_num) * target_den;
+    let rhs = (n_l * forced_den) * target_num;
+    lhs > rhs
+}
+
 use vstd::prelude::*;
 
 #[cfg(verus_keep_ghost)]
@@ -81,6 +95,26 @@ verus! {
         let lhs = s_l * best_num;
         let rhs = 2 * n_l * best_den;
         lhs < rhs
+    }
+
+    pub open spec fn is_cdg_forced_pruned(s_l: nat, n_l: nat, forced_num: nat, forced_den: nat, target_num: nat, target_den: nat) -> bool {
+        s_l * forced_num * target_den > n_l * forced_den * target_num
+    }
+
+    #[verifier(nonlinear)]
+    pub fn check_cdg_forced_kill(s_l: u128, n_l: u128, forced_num: u128, forced_den: u128, target_num: u128, target_den: u128) -> (prune: bool)
+        requires
+            s_l > 0, n_l > 0, forced_num > 0, forced_den > 0, target_num > 0, target_den > 0,
+            s_l <= u128::MAX / forced_num,
+            (s_l * forced_num) <= u128::MAX / target_den,
+            n_l <= u128::MAX / forced_den,
+            (n_l * forced_den) <= u128::MAX / target_num
+        ensures
+            prune == is_cdg_forced_pruned(s_l as nat, n_l as nat, forced_num as nat, forced_den as nat, target_num as nat, target_den as nat)
+    {
+        let lhs = (s_l * forced_num) * target_den;
+        let rhs = (n_l * forced_den) * target_num;
+        lhs > rhs
     }
 
     /// 3. The sieving logic's mod-8 obstruction screening matches Lean-specified Legendre-Cattaneo properties

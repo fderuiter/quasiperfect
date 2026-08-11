@@ -217,13 +217,15 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "6e63653a1fe6abcad574199e8b84197f454b169996a1f858e6cee8a0b914ac00",
+  "verified_logic_hash": "ed83efecc6a82c2d4adc63d474ad7f211ac8e8fd43f4e39ea4aeaf51510c0e64",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
+    "check_cdg_forced_kill": "fd5dceec55e366bafd28b764e97aa3b84b9d29653293695d4bb32059f1da07b5",
     "prasad_sunitha_bound_satisfied": "8e55cd49edcfc1f202b00f41b27d896612482209565483df7f3c239072849bbe",
     "verify_prasad_sunitha": "8a144688b3e77868b23afa741f728d0f1646ab2734eb993fd0a8ecbea9394251",
     "is_starved": "13a88aad6528b0a9512c1fc20f045fe62b60f5fa7c4eaf6e3dabc52cf28279dc",
+    "is_cdg_forced_pruned": "4d58fa97e098febed1cc1e944e35fc603c9f404cb7955ba9c76453c1ddbf5ec9",
     "is_valid_mod_8": "757e6e04f11d3e5456a8e7204eba8e3ebb2c1c0b7096542751dd63f5421d7a9d",
     "screen_mod_8": "99e0f1eedd8c0a5ed8de911f482f0bf02427ecfe29ad84391aaf2284b2abede1",
     "is_prime": "3f1f4635405e8940cfb5b0df21aed8dc88b742db0826f9ca5d043bb0b0c00998",
