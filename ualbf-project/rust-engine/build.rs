@@ -921,7 +921,7 @@ fn main() {
 
     builder.file("src/c_shims.c");
     println!("cargo:rerun-if-changed=src/c_shims.c");
-    builder.compile("UALBF");
+    builder.compile("ualbf_shims");
 
     // --- 3. Link the Lean runtime ---
     let lean_lib_dir = lean_project.join(".lake/build/lib");
@@ -934,6 +934,7 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", lean_root_lib.display());
 
     // Lean runtime (provides lean_int_big_*, lean_nat_big_*, etc.)
+    println!("cargo:rustc-link-lib=static=UALBF");
     println!("cargo:rustc-link-lib=static=Init");
     println!("cargo:rustc-link-lib=static=leanrt");
 

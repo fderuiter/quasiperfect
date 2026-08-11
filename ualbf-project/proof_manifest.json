@@ -51,7 +51,7 @@
     {
       "name": "UALBF.QPN.AbundancyBound.dusart_mertens_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "proven",
+      "status": "axiom",
       "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
@@ -217,7 +217,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "d9a8ddb1fe4117ebb12c7323543f9d6e495959965eb24e856f61d3e54c044de8",
+  "verified_logic_hash": "6e63653a1fe6abcad574199e8b84197f454b169996a1f858e6cee8a0b914ac00",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
