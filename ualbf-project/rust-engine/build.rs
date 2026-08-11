@@ -766,10 +766,7 @@ fn main() {
     }
 
     // Execute targeted module compilation instead of a full project build
-    let lake_success = if is_gha {
-        println!("cargo:warning=Running under GitHub Actions. Skipping redundant lake build since Lean objects are pre-built.");
-        true
-    } else {
+    let lake_success = {
         let status = Command::new("lake")
             .arg("build")
             .arg("UALBF") // Targeted build
@@ -777,10 +774,16 @@ fn main() {
             .current_dir(&lean_project)
             .status();
 
-        // Capture and Evaluate Verification Exit Code (Requirement 2 & 3)
         match status {
             Ok(exit_status) => exit_status.success(),
-            Err(_) => false,
+            Err(_) => {
+                if is_gha {
+                    println!("cargo:warning=lake build failed or lake not found on GHA, but proceeding anyway since objects might be pre-built.");
+                    true
+                } else {
+                    false
+                }
+            }
         }
     };
 
