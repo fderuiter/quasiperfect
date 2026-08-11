@@ -912,6 +912,59 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
+    #[cfg(feature = "lattice")]
+    {
+        if crate::lattice::lll_prune_decision(curr, components) {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            if let Some(tx) = trace_tx {
+                let mut f_vec = smallvec::SmallVec::new();
+                f_vec.extend_from_slice(&curr.factors);
+
+                let ln_2 = 2.0_f64.ln();
+                let s_l_f64 = curr.s_l.to_string().parse::<f64>().unwrap_or(1.0);
+                let n_l_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
+                let a_curr = s_l_f64 / n_l_f64;
+                let target_log = ln_2 - a_curr.ln();
+
+                let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
+                let epsilon = (2.0 + 1.0 / n_f64).ln() - ln_2;
+
+                let mut m = 0;
+                let mask = &curr.active_mask;
+                let start_idx = curr.last_idx;
+                let mut block_idx = start_idx / 64;
+                if block_idx < mask.len() {
+                    let mut block = mask[block_idx] & (!0 << (start_idx % 64));
+                    loop {
+                        while block != 0 {
+                            m += 1;
+                            block &= block - 1;
+                        }
+                        block_idx += 1;
+                        if block_idx >= mask.len() {
+                            break;
+                        }
+                        block = mask[block_idx];
+                    }
+                }
+
+                let _ = tx.send(crate::trace::TraceEvent {
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::Lll {
+                        m,
+                        shortest_sq_norm: "N/A".to_string(),
+                        target_log,
+                        epsilon,
+                    },
+                    verification_status: "approximate bound",
+                });
+            }
+            return false;
+        }
+    }
+
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         let now_ms = std::time::SystemTime::now()

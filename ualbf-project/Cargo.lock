@@ -1910,6 +1910,7 @@ dependencies = [
  "proptest",
  "rand 0.8.7",
  "rayon",
+ "rug",
  "serde",
  "serde_json",
  "sha2 0.11.0",

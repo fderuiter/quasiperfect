@@ -38,6 +38,12 @@ pub enum PruneReason {
     Touchard {
         sigma_mod24: u32,
     },
+    Lll {
+        m: usize,
+        shortest_sq_norm: String,
+        target_log: f64,
+        epsilon: f64,
+    },
 }
 
 pub struct TraceEvent {
@@ -79,6 +85,14 @@ struct SerializableTraceEvent<'a> {
     curr_factors: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     remaining_components: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    m: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    shortest_sq_norm: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_log: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    epsilon: Option<f64>,
 }
 
 pub struct TraceWriter {
@@ -114,6 +128,10 @@ impl TraceWriter {
                     dynamic_min_factors: None,
                     curr_factors: None,
                     remaining_components: None,
+                    m: None,
+                    shortest_sq_norm: None,
+                    target_log: None,
+                    epsilon: None,
                 };
 
                 match &event.reason {
@@ -176,6 +194,18 @@ impl TraceWriter {
                     PruneReason::Touchard { sigma_mod24 } => {
                         ser_event.reason = "touchard";
                         ser_event.lhs = Some(sigma_mod24.to_string());
+                    }
+                    PruneReason::Lll {
+                        m,
+                        shortest_sq_norm,
+                        target_log,
+                        epsilon,
+                    } => {
+                        ser_event.reason = "lattice_lll";
+                        ser_event.m = Some(*m);
+                        ser_event.shortest_sq_norm = Some(shortest_sq_norm.clone());
+                        ser_event.target_log = Some(*target_log);
+                        ser_event.epsilon = Some(*epsilon);
                     }
                 }
 
