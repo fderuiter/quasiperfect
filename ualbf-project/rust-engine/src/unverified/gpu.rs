@@ -1,4 +1,4 @@
-use crate::metal_reflection::{DeviceConstPtr, DeviceAtomicPtr, ConstantRef};
+use crate::metal_reflection::{ConstantRef, DeviceAtomicPtr, DeviceConstPtr};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, ualbf_macros::MetalLayout)]
@@ -167,58 +167,70 @@ impl GpuPipeline for OpenClGpuPipeline {
             opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
             inputs.len(),
             inputs.as_ptr() as *mut std::ffi::c_void,
-        ).map_err(|e| format!("OpenCL buffer creation failed: {:?}", e))?;
+        )
+        .map_err(|e| format!("OpenCL buffer creation failed: {:?}", e))?;
 
         let cl_bitmap = opencl3::memory::Buffer::<u32>::create(
             &self.context,
             opencl3::memory::CL_MEM_READ_WRITE,
             word_count,
             std::ptr::null_mut(),
-        ).map_err(|e| format!("OpenCL bitmap buffer creation failed: {:?}", e))?;
+        )
+        .map_err(|e| format!("OpenCL bitmap buffer creation failed: {:?}", e))?;
 
         // Zero-initialize cl_bitmap on the host and write it
         let zero_bitmap = vec![0u32; word_count];
         let _write_event = unsafe {
-            self.queue.enqueue_write_buffer(
-                &cl_bitmap,
-                opencl3::types::CL_TRUE,
-                0,
-                &zero_bitmap,
-                &[],
-            ).map_err(|e| format!("OpenCL bitmap buffer zeroing failed: {:?}", e))?
+            self.queue
+                .enqueue_write_buffer(&cl_bitmap, opencl3::types::CL_TRUE, 0, &zero_bitmap, &[])
+                .map_err(|e| format!("OpenCL bitmap buffer zeroing failed: {:?}", e))?
         };
 
         let mut kernel = self.kernel.lock().unwrap();
 
-        kernel.set_arg(0, &cl_inputs.get()).map_err(|e| format!("Arg 0 failed: {:?}", e))?;
-        kernel.set_arg(1, &cl_bitmap.get()).map_err(|e| format!("Arg 1 failed: {:?}", e))?;
-        kernel.set_arg(2, &num_inputs).map_err(|e| format!("Arg 2 failed: {:?}", e))?;
-        kernel.set_arg(3, &num_bits).map_err(|e| format!("Arg 3 failed: {:?}", e))?;
-        kernel.set_arg(4, &num_hashes).map_err(|e| format!("Arg 4 failed: {:?}", e))?;
+        kernel
+            .set_arg(0, &cl_inputs.get())
+            .map_err(|e| format!("Arg 0 failed: {:?}", e))?;
+        kernel
+            .set_arg(1, &cl_bitmap.get())
+            .map_err(|e| format!("Arg 1 failed: {:?}", e))?;
+        kernel
+            .set_arg(2, &num_inputs)
+            .map_err(|e| format!("Arg 2 failed: {:?}", e))?;
+        kernel
+            .set_arg(3, &num_bits)
+            .map_err(|e| format!("Arg 3 failed: {:?}", e))?;
+        kernel
+            .set_arg(4, &num_hashes)
+            .map_err(|e| format!("Arg 4 failed: {:?}", e))?;
 
         let global_work_size = ((num_inputs as usize + 63) / 64) * 64;
         let local_work_size = 64usize;
 
         let execute_event = unsafe {
-            self.queue.enqueue_nd_range_kernel(
-                kernel.get(),
-                1,
-                std::ptr::null(),
-                &global_work_size as *const usize,
-                &local_work_size as *const usize,
-                &[],
-            ).map_err(|e| format!("OpenCL kernel execution failed: {:?}", e))?
+            self.queue
+                .enqueue_nd_range_kernel(
+                    kernel.get(),
+                    1,
+                    std::ptr::null(),
+                    &global_work_size as *const usize,
+                    &local_work_size as *const usize,
+                    &[],
+                )
+                .map_err(|e| format!("OpenCL kernel execution failed: {:?}", e))?
         };
 
         let mut result = vec![0u32; word_count];
         let _read_event = unsafe {
-            self.queue.enqueue_read_buffer(
-                &cl_bitmap,
-                opencl3::types::CL_TRUE,
-                0,
-                &mut result[..],
-                &[execute_event.get()],
-            ).map_err(|e| format!("OpenCL read buffer failed: {:?}", e))?
+            self.queue
+                .enqueue_read_buffer(
+                    &cl_bitmap,
+                    opencl3::types::CL_TRUE,
+                    0,
+                    &mut result[..],
+                    &[execute_event.get()],
+                )
+                .map_err(|e| format!("OpenCL read buffer failed: {:?}", e))?
         };
 
         Ok(result)
@@ -256,15 +268,13 @@ mod tests {
     #[test]
     fn test_dummy_gpu_pipeline() {
         let pipeline = DummyGpuPipeline;
-        let inputs = vec![
-            CrtInputComponent {
-                p: 3,
-                two_e: 2,
-                _padding: 0,
-                hash1: 123,
-                hash2: 456,
-            }
-        ];
+        let inputs = vec![CrtInputComponent {
+            p: 3,
+            two_e: 2,
+            _padding: 0,
+            hash1: 123,
+            hash2: 456,
+        }];
         let res = pipeline.crt_tensor_sieve(&inputs, 1024, 4);
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), Vec::<u32>::new());
