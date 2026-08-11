@@ -52,7 +52,13 @@ pub const CRT_MODULUS_PRODUCT: u32 = 1155;
 #[cfg(not(verus_keep_ghost))]
 pub const CRT_MODULI: [u32; 4] = [3, 5, 7, 11];
 #[cfg(not(verus_keep_ghost))]
-pub const MANIFEST_HASH: &str = "03621939f943cbd2642ccdcaa31840dbf415ebd424ded3d35012f277c0568c90";
+pub const DUSART_BOUNDS_NUM: u64 = 1;
+#[cfg(not(verus_keep_ghost))]
+pub const DUSART_BOUNDS_DEN: u64 = 5;
+#[cfg(not(verus_keep_ghost))]
+pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = 2973;
+#[cfg(not(verus_keep_ghost))]
+pub const MANIFEST_HASH: &str = "6857256590f78e1d6a76801ad45d6047ad39745689a3af5383faf410a6bf537f";
 
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
@@ -82,5 +88,8 @@ verus! {
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
     pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
     pub const CRT_MODULUS_PRODUCT: u32 = 1155;
-    pub const MANIFEST_HASH: &'static str = "03621939f943cbd2642ccdcaa31840dbf415ebd424ded3d35012f277c0568c90";
+    pub const DUSART_BOUNDS_NUM: u64 = 1;
+    pub const DUSART_BOUNDS_DEN: u64 = 5;
+    pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = 2973;
+    pub const MANIFEST_HASH: &'static str = "6857256590f78e1d6a76801ad45d6047ad39745689a3af5383faf410a6bf537f";
 }

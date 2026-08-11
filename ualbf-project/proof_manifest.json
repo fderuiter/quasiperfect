@@ -34,19 +34,25 @@
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
+    },
+    {
+      "name": "UALBF.QPN.AbundancyBound.dusart_mertens_bound",
+      "file": "UALBF/QPN/AbundancyBound.lean",
+      "status": "axiom",
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
@@ -211,7 +217,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "48232d04290c17181e914b0d7dcdbf20fa0c8126ed23671ee090f495915dbc2e",
+  "verified_logic_hash": "6e63653a1fe6abcad574199e8b84197f454b169996a1f858e6cee8a0b914ac00",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -328,7 +334,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "9333b8d95cc5fc790be478fc7c47977cca6acb925384633ca701f7c87e8c32f2"
+      "checksum": "d122771989150ccd3dd9755372e18426d060cdd249af2d165bfe0806c15e26da"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
@@ -364,7 +370,7 @@
     },
     {
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "file": "UALBF/QPN/BasicProperties.lean",
@@ -387,5 +393,5 @@
       "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "03621939f943cbd2642ccdcaa31840dbf415ebd424ded3d35012f277c0568c90"
+  "bounds_manifest_hash": "6857256590f78e1d6a76801ad45d6047ad39745689a3af5383faf410a6bf537f"
 }

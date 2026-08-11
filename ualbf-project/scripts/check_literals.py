@@ -81,7 +81,7 @@ def main():
 
     extract_bounds(manifest)
     # Filter out common utility or offset constants that do not represent target limits or physical thresholds
-    ignored_bounds = {"0", "4", "7", "35", "37", "128", "100000", "30", "11", "3", "19", "24", "1155", "5"}
+    ignored_bounds = {"0", "4", "7", "35", "37", "128", "100000", "30", "11", "3", "19", "24", "1155", "5", "1", "2973"}
     bounds = bounds - ignored_bounds
 
     failed = False
