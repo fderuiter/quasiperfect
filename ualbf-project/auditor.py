@@ -334,7 +334,7 @@ def generate_manifest():
                                 status = "axiom"
                             elif ax not in [
                                 "propext",
-                               "Classical.choice",
+                                "Classical.choice",
                                 "Quot.sound",
                             ]:
                                 status = "axiom"

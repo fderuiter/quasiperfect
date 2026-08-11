@@ -1072,7 +1072,6 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-
     if curr.n_l >= *stop_threshold {
         let c = count.fetch_add(1, Ordering::Relaxed) + 1;
         let now_ms = std::time::SystemTime::now()

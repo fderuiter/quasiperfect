@@ -82,7 +82,8 @@ fn lll_reduction(basis: &mut [Vec<f64>], delta: f64) {
 
         // Lovasz condition
         let left = dot_product(&b_star[k], &b_star[k]);
-        let right = (delta - mu[k][k - 1] * mu[k][k - 1]) * dot_product(&b_star[k - 1], &b_star[k - 1]);
+        let right =
+            (delta - mu[k][k - 1] * mu[k][k - 1]) * dot_product(&b_star[k - 1], &b_star[k - 1]);
         if left >= right {
             k += 1;
         } else {
@@ -279,6 +280,9 @@ mod tests {
 
         let mut out_details = None;
         let decision = lll_prune_decision(&curr, &components, &mut out_details);
-        println!("LLL Prune Decision: {}, details: {:?}", decision, out_details);
+        println!(
+            "LLL Prune Decision: {}, details: {:?}",
+            decision, out_details
+        );
     }
 }
