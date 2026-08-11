@@ -1,3 +1,18 @@
+"""
+UALBF Unbuffered Logging Verification Suite
+===========================================
+
+This test suite verifies that python and workflow execution logging are unbuffered,
+ensuring real-time telemetry and diagnostic outputs both locally and in CI.
+
+Note: Other workflows such as john-henry.yml are pure GitHub Actions script
+runners and do not execute Python, thus they are intentionally excluded from
+this verification.
+
+Additionally, this test suite incorporates robust cargo-compilation assertions
+which depend on the presence of Z3 development headers (z3.h) to compile z3-sys.
+"""
+
 import os
 import re
 

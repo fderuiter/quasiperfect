@@ -57,6 +57,15 @@ _minted/
 __pycache__/
 *.pyc
 poetry.lock
+test-env/
+test_env/
+venv/
+.venv/
+.direnv/
+env/
+.env/
+.pytest_cache/
+.mypy_cache/
 
 # Nix Build and CI Outputs
 result*

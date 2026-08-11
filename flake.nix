@@ -294,6 +294,9 @@
             # and z3.h is packaged only under the dev output path.
             # This avoids compilation failures during the Build and Verify phase.
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
+            # Explicitly export Z3_LIBRARY_PATH_OVERRIDE so z3-sys links against precompiled libz3 library files
+            # from the Nix store rather than downloading/compiling Z3 from source.
+            export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
           '';
         };
 
@@ -447,14 +450,14 @@ with open("dummy_cert.json", "w") as f:
 
             buildPhase = ''
               echo "Building Lean project with warnings treated as errors..."
-              # Pass -DwarningAsError=true to treat compiler warnings as fatal errors
+              # Pass warnings_as_errors configuration to treat compiler warnings in ualbf as fatal errors
               export HOME=$TMPDIR
               export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
               cp -r ${leanDeps}/.lake .lake
             chmod -R +w .lake
             ${rewriteManifest}
-              lake build -- -DwarningAsError=true
+              lake build -Kwarnings_as_errors
             '';
 
             installPhase = ''
@@ -491,13 +494,10 @@ with open("dummy_cert.json", "w") as f:
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [
             pkgs.m4
+            rustToolchain
           ];
           buildInputs = [
             pkgs.lean4
-            pkgs.rustc
-            pkgs.cargo
-            pkgs.clippy
-            pkgs.rustfmt
             (pkgs.python3.withPackages (ps: with ps; [
               black
               flake8
@@ -507,6 +507,10 @@ with open("dummy_cert.json", "w") as f:
               cryptography
             ]))
             pkgs.z3
+            # Include development headers of z3 so that python test subprocesses compiling z3-sys can locate z3.h
+            # This development package is critical for the 'Build and Verify' (check_run_id: 93101214645) gating checks
+            # to run successfully in the Nix sandbox.
+            pkgs.z3.dev
             pkgs.pkg-config
             pkgs.llvmPackages.libclang
             pkgs.libcxx
@@ -524,11 +528,14 @@ with open("dummy_cert.json", "w") as f:
           LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
           # We use pkgs.z3.dev as Nixpkgs separates development headers from standard package outputs
           Z3_SYS_Z3_HEADER = "${pkgs.z3.dev}/include/z3.h";
+          # We use pkgs.z3 to specify precompiled Z3 library files path for z3-sys crate
+          Z3_LIBRARY_PATH_OVERRIDE = "${pkgs.z3}/lib";
 
           shellHook = ''
             export LEAN_SYSROOT="${pkgs.lean4}"
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
+            export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
           '';
         };
       }

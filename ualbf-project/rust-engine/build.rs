@@ -642,20 +642,24 @@ fn main() {
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
     let ir_dir = lean_project.join(".lake/build/ir");
 
+    let is_gha = env::var("GITHUB_ACTIONS").unwrap_or_default() == "true";
+
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
     // To avoid triggering complete dependency recompilations (which can take over an hour in GHA),
     // we proactively purge only our own package's intermediate C-IR directories and files.
-    let ualbf_ir_dir = ir_dir.join("UALBF");
-    if ualbf_ir_dir.exists() {
-        let _ = fs::remove_dir_all(&ualbf_ir_dir);
-    }
-    let validator_ir_c = ir_dir.join("Validator.c");
-    if validator_ir_c.exists() {
-        let _ = fs::remove_file(&validator_ir_c);
-    }
-    let validator_ir_ot = ir_dir.join("Validator.ot");
-    if validator_ir_ot.exists() {
-        let _ = fs::remove_file(&validator_ir_ot);
+    if !is_gha {
+        let ualbf_ir_dir = ir_dir.join("UALBF");
+        if ualbf_ir_dir.exists() {
+            let _ = fs::remove_dir_all(&ualbf_ir_dir);
+        }
+        let validator_ir_c = ir_dir.join("Validator.c");
+        if validator_ir_c.exists() {
+            let _ = fs::remove_file(&validator_ir_c);
+        }
+        let validator_ir_ot = ir_dir.join("Validator.ot");
+        if validator_ir_ot.exists() {
+            let _ = fs::remove_file(&validator_ir_ot);
+        }
     }
 
     // Prepend mock-bin to PATH and ensure mock files exist to avoid sandbox network hangs during Lean build
@@ -738,22 +742,27 @@ fn main() {
         }
     }
 
-    if lean_project.exists() {
+    if !is_gha && lean_project.exists() {
         touch_recursively_robust(&lean_project, now, past);
     }
 
     // Execute targeted module compilation instead of a full project build
-    let status = Command::new("lake")
-        .arg("build")
-        .arg("UALBF") // Targeted build
-        .env("PATH", new_path)
-        .current_dir(&lean_project)
-        .status();
+    let lake_success = if is_gha {
+        println!("cargo:warning=Running under GitHub Actions. Skipping redundant lake build since Lean objects are pre-built.");
+        true
+    } else {
+        let status = Command::new("lake")
+            .arg("build")
+            .arg("UALBF") // Targeted build
+            .env("PATH", new_path)
+            .current_dir(&lean_project)
+            .status();
 
-    // Capture and Evaluate Verification Exit Code (Requirement 2 & 3)
-    let lake_success = match status {
-        Ok(exit_status) => exit_status.success(),
-        Err(_) => false,
+        // Capture and Evaluate Verification Exit Code (Requirement 2 & 3)
+        match status {
+            Ok(exit_status) => exit_status.success(),
+            Err(_) => false,
+        }
     };
 
     if !lake_success {

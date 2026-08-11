@@ -418,6 +418,22 @@ cd ualbf-project/rust-engine
 cargo test
 ```
 
+**Parallelized Quality & Style Checks:**
+
+To run all Python specific checks and tests (including pytest unit tests, black, flake8, mypy, and document verification) locally:
+```bash
+cd ualbf-project
+make check-python
+```
+
+*Note: Running `make check-python` executes tests that compile the Rust engine as subprocesses. This requires the Z3 development headers to be available on your system (e.g., `libz3-dev` on Debian/Ubuntu, `z3` via Homebrew on macOS, or automatically via `nix develop`).*
+
+To run only the core Rust formatting, Clippy, and Lean formatting checks locally:
+```bash
+cd ualbf-project
+make check-core
+```
+
 The test suite covers:
 
 | Module | What is tested |

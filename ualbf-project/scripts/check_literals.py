@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""
+UALBF Literals and Hardcoded Bounds Check
+=========================================
+
+This script ensures that specific forbidden hardcoded numeric literals and patterns
+are not hardcoded in either Rust source files or Lean proof scripts.
+Instead, these values should be read from manifest configurations to prevent
+configuration drift. All local testing environments must also conform to this standard.
+"""
+
 import sys
 import re
 import os
@@ -70,6 +80,7 @@ def main():
                 bounds.add(str(v))
 
     extract_bounds(manifest)
+    # Filter out common utility or offset constants that do not represent target limits or physical thresholds
     ignored_bounds = {"0", "4", "7", "35", "37", "128", "100000", "30", "11", "3", "19", "24", "1155", "5"}
     bounds = bounds - ignored_bounds
 
