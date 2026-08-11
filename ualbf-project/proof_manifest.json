@@ -1,10 +1,10 @@
 {
   "theorems": [
     {
-      "name": "UALBF.Engine.CyclotomicGraph.relational_forced_inclusion",
+      "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "4b4746a37829a622b09f2864c05f000aaeee286b4eac276b5de71c9b5d154714"
+      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
@@ -288,7 +288,7 @@
     },
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "checksum": "4b4746a37829a622b09f2864c05f000aaeee286b4eac276b5de71c9b5d154714"
+      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
     },
     {
       "file": "UALBF/Engine/Mod1155Bridge.lean",
