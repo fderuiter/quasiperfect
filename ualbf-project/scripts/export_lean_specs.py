@@ -438,10 +438,12 @@ def generate_ffi_lean_spec(schema, repo_root, schema_hash):
         prep_parts.append(f"  have h2_{bits} : 2^{bits} = {val} := rfl;")
 
     prep_names = ", ".join(f"h2_{j * limb_width}" for j in range(1, limb_count))
-    omega_prep = f"""macro "u512_omega_prep" : tactic => `(tactic|
+    omega_prep = f"""syntax "u512_omega_prep" : tactic
+macro_rules
+  | `(tactic| u512_omega_prep) => `(tactic|
 {chr(10).join(prep_parts)}
   rw [{prep_names}] at *
-)"""
+  )"""
 
     theorems = []
     for idx in range(limb_count):
@@ -460,7 +462,8 @@ def generate_ffi_lean_spec(schema, repo_root, schema_hash):
         )
 
     with open(lean_generated_path, "w", encoding="utf-8") as f:
-        f.write(f"""-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
+        f.write(f"""import Mathlib.Data.UInt
+-- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 set_option linter.all false
 
 namespace UALBF.FFI
