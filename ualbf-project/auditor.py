@@ -323,6 +323,8 @@ def generate_manifest():
                             status = "sorry"
                             has_error = True
                             break
+                        elif ax == "UALBF.QPN.AbundancyBound.dusart_mertens_axiom":
+                            status = "axiom"
                         elif ax not in [
                             "propext",
                             "Classical.choice",
