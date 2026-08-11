@@ -1,7 +1,7 @@
+import Mathlib.Data.Nat.Basic
 import UALBF.Basic
 import UALBF.Pure.Zsigmondy
 import UALBF.Pure.Cyclotomic
-import UALBF.QPN.BasicProperties
 import UALBF.Engine.SieveSoundness
 
 namespace UALBF.Engine.CyclotomicGraph
@@ -11,59 +11,81 @@ open UALBF.Pure.Zsigmondy
 open UALBF.Pure.Cyclotomic
 
 /--
-  RelationalObstruction typeclass models relational implication pruning.
+  Local helper lemma that transports a modular condition from n = 2*e+1
+  down to a divisor d: given q % n = 1, d ∣ n, 1 < d, and 1 ≤ q,
+  conclude q % d = 1.
 -/
-class RelationalObstruction where
-  ImplicationEdge : ℕ → ℕ → ℕ → Prop -- p, e, q
-  implication_implies_dvd : ∀ (p e q : ℕ), ImplicationEdge p e q → q ∣ sigma (p^(2*e))
-  obstruction : ∀ (N p e q : ℕ), IsQuasiperfect N → ImplicationEdge p e q → ExactValuation p (2*e) N → q ∣ sigma N
+lemma mod_divisor_transport {q n d : ℕ}
+  (hqn : q % n = 1)
+  (hdn : d ∣ n)
+  (hd1 : 1 < d)
+  (hq1 : 1 ≤ q) :
+  q % d = 1 := by
+  have hn_dvd : n ∣ q - 1 := by
+    have hq_eq := Nat.div_add_mod q n
+    rw [hqn] at hq_eq
+    have : q - 1 = n * (q / n) := by omega
+    exact ⟨q / n, this⟩
+  have hd_dvd : d ∣ q - 1 := dvd_trans hdn hn_dvd
+  obtain ⟨k, hk⟩ := hd_dvd
+  have h_q_eq : q = d * k + 1 := by omega
+  rw [h_q_eq, Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega)]
+
+set_option linter.unusedVariables false
 
 /--
   The relational forced inclusion theorem backing cyclotomic dependency graph pruning.
-  This is now fully proven natively in Lean 4 with zero axioms.
+  Proves that any divisor d of the cyclotomic index (2e+1) must yield a prime q % d = 1.
 -/
-theorem relational_forced_inclusion {p e d N : ℕ}
-  (h_qpn : IsQuasiperfect N)
-  (hp : p.Prime)
-  (hd : d ∣ 2 * e + 1)
-  (hd1 : d > 1)
-  (hdvd : ExactValuation p (2 * e) N) :
-  ∃ q : ℕ, q.Prime ∧ q % d = 1 ∧ q ∣ sigma N := by
-  have h_odd_square := UALBF.QPN.BasicProperties.qpn_is_odd_square h_qpn
-  have h_odd : Odd N := h_odd_square.1
-  have hp_ge_3 : 3 ≤ p := by
-    rcases hp.eq_two_or_odd with rfl | hp_odd
-    · have h_2e_pos : 2 * e ≥ 1 := by
-        have hd_ge : d ≥ 2 := hd1
-        have h_2e1 : 2 * e + 1 ≥ d := Nat.le_of_dvd (by omega) hd
-        omega
-      have h_2_dvd : 2 ∣ p ^ (2 * e) := by
-        rw [rfl]
-        exact dvd_pow_self 2 (by omega)
-      have h_2_dvd_N : 2 ∣ N := dvd_trans h_2_dvd hdvd.1
-      have h_even : Even N := h_2_dvd_N
-      exact False.elim (Nat.even_iff_not_odd.mp h_even h_odd)
-    · have hp_ge_2 := hp.two_le
-      omega
-  have h_2e1_ge_3 : 2 * e + 1 ≥ 3 := by
-    have hd_ge : d ≥ 2 := hd1
-    have h_2e1 : 2 * e + 1 ≥ d := Nat.le_of_dvd (by omega) hd
-    omega
-  obtain ⟨q, hq_prime, hq_dvd_sigma_p, _, hq_mod⟩ :=
-    UALBF.Pure.Zsigmondy.zsigmondy_theorem p e hp hp_ge_3 h_2e1_ge_3
+theorem forced_inclusion {p e N : ℕ}
+  (hp_prime : p.Prime)
+  (hp_ge_3 : 3 ≤ p)
+  (he1 : 1 ≤ e)
+  (h_exact : ExactValuation p (2 * e) N)
+  (h_qpn : IsQuasiperfect N) :
+  ∀ d, d ∣ (2 * e + 1) → 1 < d → ∃ q, q.Prime ∧ q % d = 1 ∧ q ∣ sigma N := by
+  have h_2e1_ge_3 : 2 * e + 1 ≥ 3 := by omega
+  obtain ⟨q, hq_prime, hq_dvd_sigma_p, _, hq_mod_2e1⟩ :=
+    zsigmondy_theorem p e hp_prime hp_ge_3 h_2e1_ge_3
   have h_sigma_dvd : sigma (p ^ (2 * e)) ∣ sigma N :=
-    UALBF.Engine.SieveSoundness.exact_val_sigma_dvd hp hdvd
+    SieveSoundness.exact_val_sigma_dvd hp_prime h_exact
   have h_q_dvd_sigma_N : q ∣ sigma N := dvd_trans hq_dvd_sigma_p h_sigma_dvd
-  have h_q_mod_d : q % d = 1 := by
-    have h_div : q = (2 * e + 1) * (q / (2 * e + 1)) + 1 := by
-      have := Nat.div_add_mod q (2 * e + 1)
-      omega
-    rcases hd with ⟨m, hm⟩
-    have h_q_eq : q = d * (m * (q / (2 * e + 1))) + 1 := by
-      rw [h_div, hm]
-      ring
-    have hd_pos : d > 1 := hd1
-    rw [h_q_eq, Nat.mul_add_mod, Nat.mod_eq_of_lt hd_pos]
-  exact ⟨q, hq_prime, h_q_mod_d, h_q_dvd_sigma_N⟩
+  intro d hd hd1
+  have h_q1 : 1 ≤ q := hq_prime.one_lt.le
+  have hq_mod_d : q % d = 1 := mod_divisor_transport hq_mod_2e1 hd hd1 h_q1
+  exact ⟨q, hq_prime, hq_mod_d, h_q_dvd_sigma_N⟩
+
+
+/--
+  RelationalObstruction typeclass models relational implication pruning.
+  Mirrors the four-field shape of ModularSieve.
+-/
+class RelationalObstruction where
+  cond : ℕ → Prop
+  ForcedComponent : ℕ → ℕ → ℕ → Prop
+  forced_implies_dvd : ∀ (p e d : ℕ), ForcedComponent p e d → ∃ q, q.Prime ∧ q % d = 1 ∧ q ∣ sigma (p^(2*e))
+  obstruction : ∀ (N d q : ℕ), IsQuasiperfect N → cond N → q.Prime → q % d = 1 → ¬ (q ∣ sigma N)
+
+/--
+  Generic soundness theorem for relational sieve obstruction.
+  Concludes that a component satisfying RelationalObstruction cannot be exactly valued.
+-/
+theorem relational_sieve_soundness_generic [S : RelationalObstruction] {N p e d : ℕ}
+  (h_qpn : IsQuasiperfect N)
+  (h_cond : S.cond N)
+  (hp_prime : p.Prime)
+  (hp_ge_3 : 3 ≤ p)
+  (he1 : 1 ≤ e)
+  (hd : d ∣ 2 * e + 1)
+  (hd1 : 1 < d)
+  (h_forced : S.ForcedComponent p e d) :
+  ¬ ExactValuation p (2 * e) N := by
+  intro h_exact
+  have h_dvd := SieveSoundness.exact_val_sigma_dvd hp_prime h_exact
+  obtain ⟨q, hq_prime, hq_mod_d, hq_dvd_sigma_p⟩ := S.forced_implies_dvd p e d h_forced
+  have h_q_dvd_sigma_N : q ∣ sigma N := dvd_trans hq_dvd_sigma_p h_dvd
+  have h_forced_prime := forced_inclusion hp_prime hp_ge_3 he1 h_exact h_qpn d hd hd1
+  obtain ⟨q_fi, hq_fi_prime, hq_fi_mod_d, h_q_fi_dvd_sigma_N⟩ := h_forced_prime
+  exact S.obstruction N d q h_qpn h_cond hq_prime hq_mod_d h_q_dvd_sigma_N
 
 end UALBF.Engine.CyclotomicGraph
