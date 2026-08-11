@@ -179,7 +179,7 @@
             cp -r ${leanDeps}/.lake .lake
             chmod -R +w .lake
             ${rewriteManifest}
-            lake build
+            lake build UALBF validator
           '';
 
           installPhase = ''
@@ -457,7 +457,7 @@ with open("dummy_cert.json", "w") as f:
               cp -r ${leanDeps}/.lake .lake
             chmod -R +w .lake
             ${rewriteManifest}
-              lake build -Kwarnings_as_errors
+              lake build -Kwarnings_as_errors UALBF validator
             '';
 
             installPhase = ''
