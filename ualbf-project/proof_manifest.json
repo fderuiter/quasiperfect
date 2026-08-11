@@ -94,7 +94,7 @@
       "name": "UALBF.Engine.TouchardBridge.touchard_bridge",
       "file": "UALBF/Engine/TouchardBridge.lean",
       "status": "proven",
-      "checksum": "affef3d2ac53feb516a918906c476e915799469ffdaf172e11dd709ddff2b828"
+      "checksum": "4b18e1ce4fae9f6284a31b5cd5b904962d91348d3098b49e1c41761278c61b61"
     },
     {
       "name": "UALBF.FFI.fromU512_toU512",
@@ -217,7 +217,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "ed83efecc6a82c2d4adc63d474ad7f211ac8e8fd43f4e39ea4aeaf51510c0e64",
+  "verified_logic_hash": "56f04fed1c6a3c4272db89c942a766e749694a8dcf3f1d34f0c7394b9f663e50",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -324,7 +324,7 @@
     },
     {
       "file": "UALBF/Engine/TouchardBridge.lean",
-      "checksum": "affef3d2ac53feb516a918906c476e915799469ffdaf172e11dd709ddff2b828"
+      "checksum": "4b18e1ce4fae9f6284a31b5cd5b904962d91348d3098b49e1c41761278c61b61"
     },
     {
       "file": "UALBF/FFI.lean",
