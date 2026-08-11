@@ -1,10 +1,10 @@
 {
   "theorems": [
     {
-      "name": "UALBF.Engine.CyclotomicGraph.relational_forced_inclusion",
+      "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "4b4746a37829a622b09f2864c05f000aaeee286b4eac276b5de71c9b5d154714"
+      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "2885160f7e3426a10a0af75195e464a2133f35423e39f9f93beddf9a30b8208e",
+  "verified_logic_hash": "2e5fc28e0167a7fe109f4617e045a63e9e640d01a34d830e141c81eca949d2b9",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -288,7 +288,7 @@
     },
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "checksum": "4b4746a37829a622b09f2864c05f000aaeee286b4eac276b5de71c9b5d154714"
+      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
     },
     {
       "file": "UALBF/Engine/Mod1155Bridge.lean",
