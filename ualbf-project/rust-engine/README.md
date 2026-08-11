@@ -123,6 +123,7 @@ To ensure 100% layout coverage and prevent documentation drift, the following co
 - `src/main.rs`
 - `src/types.rs`
 - `src/sieve.rs`
+- `src/cdg.rs`
 - `src/dfs_tree.rs`
 - `src/raycast.rs`
 - `src/math_utils.rs`
