@@ -1,6 +1,5 @@
 #![allow(warnings)]
 pub mod backbone;
-pub mod cdg;
 pub mod events;
 use crate::types::UintExt;
 pub mod obstruction;
@@ -21,6 +20,7 @@ pub mod residue;
 pub mod trace;
 pub mod verus_proofs;
 
+mod cdg;
 mod distributed;
 mod math_utils;
 mod policy;

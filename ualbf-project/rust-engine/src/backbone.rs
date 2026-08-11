@@ -11,87 +11,6 @@ pub struct SearchBackbone {
     pub scc_components: Vec<Vec<usize>>,
 }
 
-fn compute_sccs(adj: &[Vec<usize>]) -> (Vec<usize>, Vec<Vec<usize>>) {
-    let n = adj.len();
-    let mut scc_map = vec![0; n];
-    let mut scc_components = Vec::new();
-    let mut index = 0;
-    let mut indices = vec![None; n];
-    let mut lowlink = vec![0; n];
-    let mut on_stack = vec![false; n];
-    let mut stack = Vec::new();
-
-    fn strongconnect(
-        u: usize,
-        adj: &[Vec<usize>],
-        index: &mut usize,
-        indices: &mut [Option<usize>],
-        lowlink: &mut [usize],
-        on_stack: &mut [bool],
-        stack: &mut Vec<usize>,
-        scc_map: &mut [usize],
-        scc_components: &mut Vec<Vec<usize>>,
-    ) {
-        indices[u] = Some(*index);
-        lowlink[u] = *index;
-        *index += 1;
-        stack.push(u);
-        on_stack[u] = true;
-
-        for &v in &adj[u] {
-            if indices[v].is_none() {
-                strongconnect(
-                    v,
-                    adj,
-                    index,
-                    indices,
-                    lowlink,
-                    on_stack,
-                    stack,
-                    scc_map,
-                    scc_components,
-                );
-                lowlink[u] = lowlink[u].min(lowlink[v]);
-            } else if on_stack[v] {
-                lowlink[u] = lowlink[u].min(indices[v].unwrap());
-            }
-        }
-
-        if lowlink[u] == indices[u].unwrap() {
-            let mut component = Vec::new();
-            let scc_id = scc_components.len();
-            loop {
-                let v = stack.pop().unwrap();
-                on_stack[v] = false;
-                component.push(v);
-                scc_map[v] = scc_id;
-                if v == u {
-                    break;
-                }
-            }
-            scc_components.push(component);
-        }
-    }
-
-    for i in 0..n {
-        if indices[i].is_none() {
-            strongconnect(
-                i,
-                adj,
-                &mut index,
-                &mut indices,
-                &mut lowlink,
-                &mut on_stack,
-                &mut stack,
-                &mut scc_map,
-                &mut scc_components,
-            );
-        }
-    }
-
-    (scc_map, scc_components)
-}
-
 impl SearchBackbone {
     pub fn new(
         components: &[PrimePower],
@@ -122,12 +41,15 @@ impl SearchBackbone {
             })
             .collect();
 
-        let compatibility_matrix: Vec<Vec<u64>> = (0..n)
+        let results: Vec<(Vec<u64>, Vec<usize>)> = (0..n)
             .into_par_iter()
             .map(|i| {
                 let mut row = vec![0u64; num_u64];
                 let comp_i = &components[i];
                 let sigma_i_u64 = &pre_resolved_factors[i];
+                let divisors = crate::cdg::get_divisors_greater_than_one(comp_i.two_e + 1);
+
+                let mut forced_candidates_i = Vec::new();
 
                 for j in 0..n {
                     let comp_j = &components[j];
@@ -145,10 +67,28 @@ impl SearchBackbone {
                     if compatible {
                         row[j / 64] |= 1 << (j % 64);
                     }
+
+                    for &d in &divisors {
+                        if comp_j.p % (d as u64) == 1 {
+                            forced_candidates_i.push(j);
+                            break;
+                        }
+                    }
                 }
-                row
+
+                forced_candidates_i.sort_unstable();
+                forced_candidates_i.dedup();
+
+                (row, forced_candidates_i)
             })
             .collect();
+
+        let mut compatibility_matrix = Vec::with_capacity(n);
+        let mut forced_candidates = Vec::with_capacity(n);
+        for (row, candidates) in results {
+            compatibility_matrix.push(row);
+            forced_candidates.push(candidates);
+        }
 
         let min_n_product: Vec<Vec<Uint>> = (0..n)
             .into_par_iter()
@@ -178,8 +118,7 @@ impl SearchBackbone {
             })
             .collect();
 
-        let forced_candidates = crate::cdg::derive_forced_candidates(components);
-        let (scc_map, scc_components) = compute_sccs(&forced_candidates);
+        let (scc_map, scc_components) = crate::cdg::compute_sccs(&forced_candidates);
 
         Self {
             compatibility_matrix,
@@ -214,5 +153,47 @@ impl SearchBackbone {
             }
         }
         max_allowed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{PrimePower, Uint, UintExt};
+    use std::sync::Arc;
+
+    fn make_dummy_component(p: u64, two_e: u32, val: u64) -> PrimePower {
+        PrimePower {
+            p,
+            two_e,
+            val: Uint::from_u64(val),
+            sigma: Uint::zero(),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        }
+    }
+
+    #[test]
+    fn test_backbone_forced_candidates() {
+        let components = vec![
+            make_dummy_component(3, 2, 9),
+            make_dummy_component(7, 1, 7),
+            make_dummy_component(13, 1, 13),
+        ];
+        let lazy_cache = Arc::new(vec![
+            std::sync::OnceLock::new(),
+            std::sync::OnceLock::new(),
+            std::sync::OnceLock::new(),
+        ]);
+        let backbone = SearchBackbone::new(&components, &lazy_cache);
+
+        // Verify the O(n2) loop computed equivalent forced_candidates and scc_map
+        assert_eq!(backbone.forced_candidates[0], vec![1, 2]);
+        assert_eq!(backbone.forced_candidates[1], vec![0, 1, 2]);
+        assert_eq!(backbone.forced_candidates[2], vec![0, 1, 2]);
+
+        assert_eq!(backbone.scc_map[0], backbone.scc_map[1]);
+        assert_eq!(backbone.scc_map[1], backbone.scc_map[2]);
     }
 }

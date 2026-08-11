@@ -2,24 +2,26 @@ use crate::types::PrimePower;
 use std::collections::HashMap;
 
 /// Enumerates every divisor d > 1 of two_e + 1.
+/// Use the for d in 1..n { if n % d == 0 } trial-loop idiom.
 pub fn get_divisors_greater_than_one(n: u32) -> Vec<u32> {
     let mut divisors = Vec::new();
     if n <= 1 {
         return divisors;
     }
-    let limit = (n as f64).sqrt() as u32;
-    for d in 1..=limit {
+    // Trial-loop idiom as requested
+    for d in 1..n {
         if n % d == 0 {
             if d > 1 {
                 divisors.push(d);
             }
             let other = n / d;
-            if other != d && other > 1 {
+            if other > 1 {
                 divisors.push(other);
             }
         }
     }
     divisors.sort_unstable();
+    divisors.dedup();
     divisors
 }
 
@@ -28,7 +30,7 @@ pub fn get_divisors_greater_than_one(n: u32) -> Vec<u32> {
 /// For each component and each divisor d > 1 of (two_e + 1), we collect all component
 /// indices whose prime satisfies p % d == 1.
 ///
-/// Exposes the forced-candidate sets as Vec<Vec<usize>>, indexed by component position.
+/// Exposes the per-component forced-candidate sets as Vec<Vec<usize>>, indexed by component position.
 pub fn derive_forced_candidates(components: &[PrimePower]) -> Vec<Vec<usize>> {
     let mut forced_candidates = vec![Vec::new(); components.len()];
 
@@ -37,7 +39,7 @@ pub fn derive_forced_candidates(components: &[PrimePower]) -> Vec<Vec<usize>> {
     for (idx, comp) in components.iter().enumerate() {
         prime_to_component_indices
             .entry(comp.p)
-            .or_default()
+            .or_insert_with(Vec::new)
             .push(idx);
     }
 
@@ -48,12 +50,12 @@ pub fn derive_forced_candidates(components: &[PrimePower]) -> Vec<Vec<usize>> {
         let divisors = get_divisors_greater_than_one(n);
 
         let mut candidates = Vec::new();
-        for &d in &divisors {
+        for d in divisors {
             let d_u64 = d as u64;
             // Collect component indices whose prime satisfies p % d == 1
             for (&prime, indices) in &prime_to_component_indices {
                 if prime % d_u64 == 1 {
-                    candidates.extend_from_slice(indices);
+                    candidates.extend(indices.iter().copied());
                 }
             }
         }
@@ -64,6 +66,96 @@ pub fn derive_forced_candidates(components: &[PrimePower]) -> Vec<Vec<usize>> {
     }
 
     forced_candidates
+}
+
+/// Computes strongly connected components (SCC) of a directed graph.
+/// Implementing iterative Tarjan's SCC using an explicit work stack.
+pub fn compute_sccs(adj: &[Vec<usize>]) -> (Vec<usize>, Vec<Vec<usize>>) {
+    let n = adj.len();
+    let mut indices = vec![None; n];
+    let mut lowlink = vec![0; n];
+    let mut on_stack = vec![false; n];
+    let mut tarjan_stack = Vec::new();
+    let mut scc_map = vec![0; n];
+    let mut scc_components = Vec::new();
+    let mut next_index = 0;
+
+    for start in 0..n {
+        if indices[start].is_none() {
+            let mut dfs_stack = vec![(start, 0)];
+
+            indices[start] = Some(next_index);
+            lowlink[start] = next_index;
+            next_index += 1;
+            tarjan_stack.push(start);
+            on_stack[start] = true;
+
+            while let Some(&(u, neighbor_idx)) = dfs_stack.last() {
+                let neighbors = &adj[u];
+                if neighbor_idx < neighbors.len() {
+                    let v = neighbors[neighbor_idx];
+                    dfs_stack.last_mut().unwrap().1 += 1;
+
+                    if indices[v].is_none() {
+                        indices[v] = Some(next_index);
+                        lowlink[v] = next_index;
+                        next_index += 1;
+                        tarjan_stack.push(v);
+                        on_stack[v] = true;
+
+                        dfs_stack.push((v, 0));
+                    } else if on_stack[v] {
+                        lowlink[u] = lowlink[u].min(indices[v].unwrap());
+                    }
+                } else {
+                    dfs_stack.pop();
+
+                    if let Some(&(parent, _)) = dfs_stack.last() {
+                        lowlink[parent] = lowlink[parent].min(lowlink[u]);
+                    }
+
+                    if lowlink[u] == indices[u].unwrap() {
+                        let mut component = Vec::new();
+                        let scc_id = scc_components.len();
+                        while let Some(v) = tarjan_stack.pop() {
+                            on_stack[v] = false;
+                            component.push(v);
+                            scc_map[v] = scc_id;
+                            if v == u {
+                                break;
+                            }
+                        }
+                        component.sort_unstable();
+                        scc_components.push(component);
+                    }
+                }
+            }
+        }
+    }
+
+    (scc_map, scc_components)
+}
+
+pub struct Cdg {
+    pub forced_candidates: Vec<Vec<usize>>,
+    pub adjacency_list: Vec<Vec<usize>>,
+    pub scc_map: Vec<usize>,
+    pub scc_components: Vec<Vec<usize>>,
+}
+
+impl Cdg {
+    pub fn new(components: &[PrimePower]) -> Self {
+        let forced_candidates = derive_forced_candidates(components);
+        let adjacency_list = forced_candidates.clone();
+        let (scc_map, scc_components) = compute_sccs(&adjacency_list);
+
+        Self {
+            forced_candidates,
+            adjacency_list,
+            scc_map,
+            scc_components,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -106,29 +198,56 @@ mod tests {
             make_dummy_component(13, 1),
         ];
 
-        let forced = derive_forced_candidates(&components);
+        let cdg = Cdg::new(&components);
 
         // For C0: d=3. Primes satisfying p % 3 == 1 are:
         // - C1: 7 % 3 = 1
         // - C2: 13 % 3 = 1
         // So C0 candidates should be [1, 2]
-        assert_eq!(forced[0], vec![1, 2]);
+        assert_eq!(cdg.forced_candidates[0], vec![1, 2]);
 
         // For C1: d=2. Primes satisfying p % 2 == 1 are:
         // - C0: 3 % 2 = 1
         // - C1: 7 % 2 = 1
         // - C2: 13 % 2 = 1
         // So C1 candidates should be [0, 1, 2]
-        assert_eq!(forced[1], vec![0, 1, 2]);
+        assert_eq!(cdg.forced_candidates[1], vec![0, 1, 2]);
 
         // For C2: d=2. Candidates should also be [0, 1, 2]
-        assert_eq!(forced[2], vec![0, 1, 2]);
+        assert_eq!(cdg.forced_candidates[2], vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_scc_grouping() {
+        // Build an adjacency list representing:
+        // 0 -> 1
+        // 1 -> 2
+        // 2 -> 0 (making {0, 1, 2} an SCC)
+        // 3 -> 2 (pointing into the SCC, but not reachable from it)
+        let adj = vec![vec![1], vec![2], vec![0], vec![2]];
+
+        let (scc_map, scc_components) = compute_sccs(&adj);
+
+        // There should be 2 SCCs: {0, 1, 2} and {3}
+        assert_eq!(scc_components.len(), 2);
+        // Let's verify each node maps to its correct SCC
+        assert_eq!(scc_map[0], scc_map[1]);
+        assert_eq!(scc_map[0], scc_map[2]);
+        assert_ne!(scc_map[0], scc_map[3]);
+
+        // Verify members
+        let mut sorted_components = scc_components.clone();
+        sorted_components.sort_by_key(|c| c.len());
+        assert_eq!(sorted_components[0], vec![3]);
+        assert_eq!(sorted_components[1], vec![0, 1, 2]);
     }
 
     #[test]
     fn test_empty_components() {
         let components: Vec<PrimePower> = vec![];
-        let forced = derive_forced_candidates(&components);
-        assert!(forced.is_empty());
+        let cdg = Cdg::new(&components);
+        assert!(cdg.forced_candidates.is_empty());
+        assert!(cdg.scc_map.is_empty());
+        assert!(cdg.scc_components.is_empty());
     }
 }
