@@ -2,8 +2,8 @@
 
 use crate::schema_generated::Prefix;
 use crate::types::PrimePower;
-use lll_rs::{matrix::Matrix, vector::BigVector, lll::biglll};
-use rug::{Integer, Assign, Rational};
+use lll_rs::{lll::biglll, matrix::Matrix, vector::BigVector};
+use rug::{Assign, Integer, Rational};
 
 /// LLL-based lattice pruning module.
 ///

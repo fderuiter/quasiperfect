@@ -125,6 +125,7 @@ To ensure 100% layout coverage and prevent documentation drift, the following co
 - `src/sieve.rs`
 - `src/cdg.rs`
 - `src/dfs_tree.rs`
+- `src/lattice.rs`
 - `src/raycast.rs`
 - `src/math_utils.rs`
 - `src/lean_ffi.rs`
