@@ -31,7 +31,6 @@ pub mod state;
 mod types;
 mod universal_bounds;
 
-#[cfg(feature = "lattice")]
 pub mod lattice;
 use crate::types::Uint;
 

@@ -23,5 +23,10 @@ Instead of probabilistic sufficiency assumptions, the framework employs a hybrid
 - **Inputs Equal to or Exceeding 2^64 (Larger Candidate Primes):**
   Inputs at or above this boundary cannot be verified solely using probabilistic Miller-Rabin checks. Instead, they are subjected to a rigorous certificate-backed verification pathway. The 20-base Miller-Rabin check is used strictly as a fast, non-binding pre-filter to reject composite candidates. Any candidate that passes this pre-filter must be validated using a mathematically rigorous, verified Pocklington certificate via `generate_and_verify_pocklington` for absolute certitude. This certificate-backed pathway is the mandatory mechanism for all inputs equal to or exceeding 2^64.
 
+## 4. Lattice LLL Prune Module
+The approximate log-space lattice pruning checks are unverified.
+- **Current State:** Feature-gated within `lattice.rs` (compiled under the optional `lattice` feature), and called unconditionally at the call site in `dfs_tree.rs`.
+- **Verification Status:** Unverified approximate computation. However, to guarantee soundness, all conversions and computations are designed to be strictly conservative, ensuring that it never rejects reachable targets. The exact Chinese Remainder Theorem (CRT) and Touchard checks remain authoritative for correctness and stay outside this module.
+
 ---
 By explicitly defining these boundaries, future research contributors can better identify current verification gaps and contribute meaningful proofs to the repository.

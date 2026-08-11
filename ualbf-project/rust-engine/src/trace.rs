@@ -46,7 +46,7 @@ pub enum PruneReason {
     },
     Lll {
         m: usize,
-        shortest_sq_norm: String,
+        shortest_sq_norm: f64,
         target_log: f64,
         epsilon: f64,
     },
@@ -94,7 +94,7 @@ struct SerializableTraceEvent<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     m: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    shortest_sq_norm: Option<String>,
+    shortest_sq_norm: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     target_log: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -227,7 +227,7 @@ impl TraceWriter {
                     } => {
                         ser_event.reason = "lattice_lll";
                         ser_event.m = Some(*m);
-                        ser_event.shortest_sq_norm = Some(shortest_sq_norm.clone());
+                        ser_event.shortest_sq_norm = Some(*shortest_sq_norm);
                         ser_event.target_log = Some(*target_log);
                         ser_event.epsilon = Some(*epsilon);
                     }

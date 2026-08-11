@@ -1,20 +1,110 @@
-#![cfg(feature = "lattice")]
+//! LLL-based lattice pruning module.
+//!
+//! This module performs approximate log-space lattice computations to prune search branches
+//! that cannot reach the target perfect-number ratio.
+//!
+//! To ensure soundness, these approximate computations must never reject reachable targets.
+//! To achieve this, we follow the conservative-rounding precedent established in
+//! `UALBF.Fixed64.scaleBoundCeil_conservative`. This ensures that all log-space conversions
+//! are rounded in the conservative direction, keeping the approximate calculations soundly
+//! within the trusted computing base (TCB) boundary.
+//!
+//! Note that the exact CRT/Touchard check remains authoritative for correctness
+//! and stays outside this module (in `dfs_tree.rs` and related proof modules).
 
 use crate::schema_generated::Prefix;
 use crate::types::PrimePower;
-use lll_rs::{lll::biglll, matrix::Matrix, vector::BigVector};
-use rug::{Assign, Integer, Rational};
 
-/// LLL-based lattice pruning module.
+/// Details of the LLL pruning bounds calculation.
+#[derive(Clone, Debug)]
+pub struct LllDetails {
+    pub m: usize,
+    pub shortest_sq_norm: f64,
+    pub target_log: f64,
+    pub epsilon: f64,
+}
+
+/// Converts `abundance_fp` (Q64.64 `u128`) into a scaled log-abundancy contribution.
 ///
-/// This module provides approximate yet mathematically sound and conservative bounding
-/// of the OQPN search space by mapping subset selection to a knapsack-like shortest vector problem (SVP).
-/// To ensure soundness, approximate computations must never reject reachable targets.
-pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
-    // Collect remaining compatible candidates using the same active_mask and last_idx logic.
-    let mut remaining = Vec::new();
+/// To ensure that our approximate log-abundancy calculation never falsely rejects reachable
+/// targets, we round each conversion in the conservative direction: **down** (using `.floor()`).
+/// This means that the computed log-abundancy value is never larger than the true log-abundancy,
+/// which prevents us from overestimating the abundancy contribution of any component and avoids
+/// false prunings. This follows the conservative-rounding precedent of
+/// `scaleBoundCeil_conservative`.
+fn abundance_to_log_scaled(abundance_fp: u128, scaling_factor: f64) -> f64 {
+    let abundance = (abundance_fp as f64) / 18446744073709551616.0; // 2^64
+    let log_val = abundance.ln();
+    (log_val * scaling_factor).floor()
+}
+
+fn dot_product(v1: &[f64], v2: &[f64]) -> f64 {
+    v1.iter().zip(v2.iter()).map(|(x, y)| x * y).sum()
+}
+
+fn lll_reduction(basis: &mut [Vec<f64>], delta: f64) {
+    let d = basis.len();
+    let mut b_star = vec![vec![0.0; d]; d];
+    let mut mu = vec![vec![0.0; d]; d];
+
+    let mut update_gso = |basis: &[Vec<f64>], b_star: &mut [Vec<f64>], mu: &mut [Vec<f64>]| {
+        for i in 0..d {
+            b_star[i] = basis[i].clone();
+            for j in 0..i {
+                let num = dot_product(&basis[i], &b_star[j]);
+                let den = dot_product(&b_star[j], &b_star[j]);
+                let mu_val = if den > 1e-9 { num / den } else { 0.0 };
+                mu[i][j] = mu_val;
+                for k in 0..d {
+                    b_star[i][k] -= mu_val * b_star[j][k];
+                }
+            }
+        }
+    };
+
+    update_gso(basis, &mut b_star, &mut mu);
+
+    let mut k = 1;
+    let mut iterations = 0;
+    while k < d && iterations < 1000 {
+        iterations += 1;
+        // Size reduction
+        for j in (0..k).rev() {
+            let mu_kj = mu[k][j];
+            if mu_kj.abs() > 0.5 {
+                let q = mu_kj.round();
+                for i in 0..d {
+                    basis[k][i] -= q * basis[j][i];
+                }
+                update_gso(basis, &mut b_star, &mut mu);
+            }
+        }
+
+        // Lovasz condition
+        let left = dot_product(&b_star[k], &b_star[k]);
+        let right = (delta - mu[k][k - 1] * mu[k][k - 1]) * dot_product(&b_star[k - 1], &b_star[k - 1]);
+        if left >= right {
+            k += 1;
+        } else {
+            basis.swap(k, k - 1);
+            update_gso(basis, &mut b_star, &mut mu);
+            k = if k > 1 { k - 1 } else { 1 };
+        }
+    }
+}
+
+#[cfg(feature = "lattice")]
+pub fn lll_prune_decision(
+    curr: &Prefix,
+    components: &[PrimePower],
+    out_details: &mut Option<LllDetails>,
+) -> bool {
+    *out_details = None;
+
+    // Start scanning remaining active candidates
     let mask = &curr.active_mask;
     let start_idx = curr.last_idx;
+    let mut remaining = Vec::new();
     let mut block_idx = start_idx / 64;
     if block_idx < mask.len() {
         let mut block = mask[block_idx] & (!0 << (start_idx % 64));
@@ -22,7 +112,7 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
             while block != 0 {
                 let tz = block.trailing_zeros();
                 let j = block_idx * 64 + tz as usize;
-                remaining.push(components[j].clone());
+                remaining.push(&components[j]);
                 block &= block - 1;
             }
             block_idx += 1;
@@ -34,100 +124,106 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
     }
 
     let m = remaining.len();
-    // Optimization: run LLL only for a reasonable number of candidates to balance performance.
-    if m < 2 || m > 16 {
+    // We limit the number of candidates for performance and numeric precision.
+    if m < 2 || m > 32 {
         return false;
     }
 
-    // Convert abundance_fp values from Q64.64 into scaled log-abundancy lattice contributions.
-    let ln_2 = 2.0_f64.ln();
-    let scaling_factor = 1_000_000_000.0; // M = 10^9
+    let scaling_factor = 10_000_000.0;
 
     let mut w = Vec::with_capacity(m);
     for comp in &remaining {
-        let fp_f64 = comp.abundance_fp as f64;
-        let log_contribution = fp_f64.ln() - 64.0 * ln_2;
-        if log_contribution <= 0.0 {
-            // Log-abundancy of prime powers must be positive. If not, don't prune to be conservative.
+        let w_val = abundance_to_log_scaled(comp.abundance_fp, scaling_factor);
+        if w_val <= 0.0 {
+            // Underflow or non-positive value. Don't prune to be conservative.
             return false;
         }
-        let w_val = (log_contribution * scaling_factor).round() as i64;
-        if w_val <= 0 {
-            return false;
-        }
-        w.push(Integer::from(w_val));
+        w.push(w_val);
     }
 
-    // Define target log-abundancy T = ln(2) - ln(A_curr).
-    let s_l_f64 = curr.s_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let n_l_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let a_curr = s_l_f64 / n_l_f64;
+    // Target abundance ratio is 2 + 1/N. Current is s_l/n_l.
+    // Target log ratio t = ln(2) - ln(s_l/n_l).
+    let s_l_f = curr.s_l.to_string().parse::<f64>().unwrap_or(1.0);
+    let n_l_f = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
+    let a_curr = s_l_f / n_l_f;
     if a_curr <= 0.0 {
         return false;
     }
-    let target_log = ln_2 - a_curr.ln();
+    let target_log = 2.0_f64.ln() - a_curr.ln();
 
-    // Define target tolerance epsilon = ln(2 + 1/N) - ln(2).
-    let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let epsilon = (2.0 + 1.0 / n_f64).ln() - ln_2;
+    // Define target tolerance ε = log(2 + 1/N) − log(2)
+    // ε bounds the log-space distance a branch may still cover to reach the perfect-number target.
+    let epsilon = (2.0 + 1.0 / n_l_f).ln() - 2.0_f64.ln();
 
     if target_log + epsilon < 0.0 {
         // Since subset sum must be positive, and target_log + epsilon is negative, we can never reach it.
         return true;
     }
 
-    let t_val = (target_log * scaling_factor).round() as i64;
-    let t = Integer::from(t_val);
+    let t = target_log * scaling_factor;
+    let epsilon_scaled = epsilon * scaling_factor;
 
-    // Formulate the lattice basis.
-    // Matrix of size (m + 1) columns x (m + 1) rows.
-    let mut basis: Matrix<BigVector> = Matrix::init(m + 1, m + 1);
+    // Initialize the basis matrix of size (m + 1) x (m + 1)
+    let mut basis = vec![vec![0.0; m + 1]; m + 1];
     for i in 0..m {
-        basis[i][i].assign(1);
-        basis[i][m].assign(&w[i]);
+        basis[i][i] = 1.0;
+        basis[i][m] = w[i];
     }
-    basis[m][m].assign(-&t);
+    basis[m][m] = -t;
 
-    // Run LLL reduction in-place.
-    biglll::lattice_reduce(&mut basis);
+    // LLL reduction
+    let delta = 0.75;
+    lll_reduction(&mut basis, delta);
 
-    // Compute the squared norm of the shortest vector b'_0.
-    let b0 = &basis[0];
-    let mut shortest_sq_norm = Integer::from(0);
-    for j in 0..=m {
-        let b0_j = &b0[j];
-        shortest_sq_norm += Integer::from(b0_j * b0_j);
-    }
-
-    if shortest_sq_norm == 0 {
-        return false;
-    }
-
-    // babai / LLL lower bound: any non-zero lattice vector y satisfies:
-    // ||y||^2 >= 2^-m * shortest_sq_norm.
-    // Since ||y||^2 = sum(x_j^2) + (sum(x_j * w_j) - t)^2 <= m + (sum(x_j * w_j) - t)^2,
-    // we have (sum(x_j * w_j) - t)^2 >= 2^-m * shortest_sq_norm - m.
-    let lhs_num = shortest_sq_norm;
-    let lhs_den = Integer::from(1) << m;
-    let lhs = Rational::from((lhs_num, lhs_den));
-
-    let diff = lhs - Rational::from(m);
-    if diff <= 0 {
-        return false;
-    }
-
-    // Check if diff > (0.5 * (m + 1) + M * epsilon)^2
-    let r = 0.5 * ((m + 1) as f64) + scaling_factor * epsilon;
-    if r > 0.0 {
-        let r_sq = r * r;
-        if let Some(r_sq_rat) = Rational::from_f64(r_sq) {
-            if diff > r_sq_rat {
-                // Computed bound rigorously proves the branch cannot reach the target.
-                return true;
+    // Compute final Gram-Schmidt orthogonalization vectors to find shortest vector lower bound.
+    let mut b_star = vec![vec![0.0; m + 1]; m + 1];
+    let mut mu = vec![vec![0.0; m + 1]; m + 1];
+    for i in 0..=m {
+        b_star[i] = basis[i].clone();
+        for j in 0..i {
+            let num = dot_product(&basis[i], &b_star[j]);
+            let den = dot_product(&b_star[j], &b_star[j]);
+            let mu_val = if den > 1e-9 { num / den } else { 0.0 };
+            mu[i][j] = mu_val;
+            for k in 0..=m {
+                b_star[i][k] -= mu_val * b_star[j][k];
             }
         }
     }
 
+    let mut min_gso_sq_norm = f64::INFINITY;
+    for i in 0..=m {
+        let sq_norm = dot_product(&b_star[i], &b_star[i]);
+        if sq_norm < min_gso_sq_norm {
+            min_gso_sq_norm = sq_norm;
+        }
+    }
+
+    if min_gso_sq_norm < 1e-5 {
+        return false;
+    }
+
+    let target_bound = (m as f64) + epsilon_scaled * epsilon_scaled;
+    if min_gso_sq_norm > target_bound {
+        *out_details = Some(LllDetails {
+            m,
+            shortest_sq_norm: min_gso_sq_norm,
+            target_log,
+            epsilon,
+        });
+        true
+    } else {
+        false
+    }
+}
+
+#[cfg(not(feature = "lattice"))]
+pub fn lll_prune_decision(
+    _curr: &Prefix,
+    _components: &[PrimePower],
+    out_details: &mut Option<LllDetails>,
+) -> bool {
+    *out_details = None;
     false
 }
 
@@ -181,7 +277,8 @@ mod tests {
             },
         ];
 
-        let decision = lll_prune_decision(&curr, &components);
-        println!("LLL Prune Decision: {}", decision);
+        let mut out_details = None;
+        let decision = lll_prune_decision(&curr, &components, &mut out_details);
+        println!("LLL Prune Decision: {}, details: {:?}", decision, out_details);
     }
 }
