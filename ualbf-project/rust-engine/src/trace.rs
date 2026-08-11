@@ -8,6 +8,12 @@ use std::thread::JoinHandle;
 
 pub enum PruneReason {
     TargetBound,
+    CdgForcedCascade {
+        forced_num: Uint,
+        forced_den: Uint,
+        lhs: Uint,
+        rhs: Uint,
+    },
     UnconditionalStarvation {
         max_allowed: usize,
         static_best_remaining: u128,
@@ -93,6 +99,10 @@ struct SerializableTraceEvent<'a> {
     target_log: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     epsilon: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    forced_num: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    forced_den: Option<String>,
 }
 
 pub struct TraceWriter {
@@ -132,9 +142,23 @@ impl TraceWriter {
                     shortest_sq_norm: None,
                     target_log: None,
                     epsilon: None,
+                    forced_num: None,
+                    forced_den: None,
                 };
 
                 match &event.reason {
+                    PruneReason::CdgForcedCascade {
+                        forced_num,
+                        forced_den,
+                        lhs,
+                        rhs,
+                    } => {
+                        ser_event.reason = "cdg_forced_cascade";
+                        ser_event.forced_num = Some(forced_num.to_string());
+                        ser_event.forced_den = Some(forced_den.to_string());
+                        ser_event.lhs = Some(lhs.to_string());
+                        ser_event.rhs = Some(rhs.to_string());
+                    }
                     PruneReason::TargetBound => {
                         ser_event.reason = "target_bound";
                     }

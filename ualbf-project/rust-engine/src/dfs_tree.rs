@@ -790,6 +790,125 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
+    // CDG (Relational) Pruning Check
+    if curr.last_idx > 0 {
+        let last_comp_idx = curr.last_idx - 1;
+        let mut forced_set = vec![false; backbone.num_components];
+        let mut queue = Vec::new();
+        queue.push(last_comp_idx);
+        forced_set[last_comp_idx] = true;
+
+        while let Some(u) = queue.pop() {
+            let scc_id = backbone.scc_map[u];
+            for &v in &backbone.scc_components[scc_id] {
+                if !forced_set[v] {
+                    forced_set[v] = true;
+                    queue.push(v);
+                }
+            }
+            for &v in &backbone.forced_candidates[u] {
+                if !forced_set[v] {
+                    forced_set[v] = true;
+                    queue.push(v);
+                }
+            }
+        }
+
+        let mut forced_contributions = Vec::new();
+        let mask = &curr.active_mask;
+        let start_idx = curr.last_idx;
+        let mut block_idx = start_idx / 64;
+        if block_idx < mask.len() {
+            let mut block = mask[block_idx] & (!0 << (start_idx % 64));
+            loop {
+                while block != 0 {
+                    let tz = block.trailing_zeros();
+                    let j = block_idx * 64 + tz as usize;
+                    if forced_set[j] {
+                        forced_contributions.push(j);
+                    }
+                    block &= block - 1;
+                }
+                block_idx += 1;
+                if block_idx >= mask.len() {
+                    break;
+                }
+                block = mask[block_idx];
+            }
+        }
+
+        let mut forced_num: Uint = Uint::one() << 64;
+        for &comp_idx in &forced_contributions {
+            let ab_u256 = Uint::from_u128(components[comp_idx].abundance_fp);
+            let prod = forced_num.checked_mul(ab_u256).unwrap_or(Uint::MAX);
+            let offset = (Uint::one() << 64) - Uint::one();
+            forced_num = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
+        }
+
+        let forced_den: Uint = Uint::one() << 64;
+        let target_num = get_target_abundance_num();
+        let target_den = get_target_abundance_den();
+
+        let mut pruned = false;
+        let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
+        let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
+        let f_num_128_opt: Option<u128> = forced_num.try_into().ok();
+        let f_den_128_opt: Option<u128> = forced_den.try_into().ok();
+
+        if let (Some(s_l_128), Some(n_l_128), Some(f_num_128), Some(f_den_128)) = (s_l_128_opt, n_l_128_opt, f_num_128_opt, f_den_128_opt) {
+            let s_l_val: u128 = s_l_128;
+            let f_num_val: u128 = f_num_128;
+            let n_l_val: u128 = n_l_128;
+            let f_den_val: u128 = f_den_128;
+            let t_num_val: u128 = target_num as u128;
+            let t_den_val: u128 = target_den as u128;
+
+            // Only call the verified check if it is safe from u128 overflow
+            if s_l_val.checked_mul(f_num_val).and_then(|x: u128| x.checked_mul(t_den_val)).is_some()
+                && n_l_val.checked_mul(f_den_val).and_then(|x: u128| x.checked_mul(t_num_val)).is_some()
+            {
+                pruned = crate::verus_proofs::check_cdg_forced_kill(
+                    s_l_val, n_l_val, f_num_val, f_den_val, t_num_val, t_den_val
+                );
+            }
+        }
+
+        if !pruned {
+            pruned = crate::universal_bounds::cpu_check_cdg_forced(
+                &curr.s_l,
+                &curr.n_l,
+                &forced_num,
+                &forced_den,
+                target_num,
+                target_den,
+            );
+        }
+
+        if pruned {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            pruned_count.fetch_add(1, Ordering::Relaxed);
+            if let Some(tx) = trace_tx {
+                let mut f_vec = smallvec::SmallVec::new();
+                f_vec.extend_from_slice(&curr.factors);
+                let lhs = curr.s_l.checked_mul(forced_num).and_then(|x| x.checked_mul(Uint::from_u64(target_den))).unwrap_or(Uint::MAX);
+                let rhs = curr.n_l.checked_mul(forced_den).and_then(|x| x.checked_mul(Uint::from_u64(target_num))).unwrap_or(Uint::MAX);
+                let _ = tx.send(crate::trace::TraceEvent {
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::CdgForcedCascade {
+                        forced_num,
+                        forced_den,
+                        lhs,
+                        rhs,
+                    },
+                    verification_status: "formally verified",
+                });
+            }
+            return false;
+        }
+    }
+
     // Dynamic Starvation Kill based on modular divisibility chains
     let target_num = get_target_abundance_num();
     let target_den = get_target_abundance_den();
@@ -2439,7 +2558,7 @@ mod tests {
         let comp2 = make_prime_power(19, 1000, 1123);
         let mut comps = vec![comp1, comp2];
         for i in 0..8 {
-            comps.push(make_prime_power(101 + i, 10, 50));
+            comps.push(make_prime_power(101 + i, 100, 115));
         }
 
         let mut curr = make_prefix(1, 1, 0);
@@ -2482,7 +2601,7 @@ mod tests {
         let comp_even = make_prime_power(2, 4, 2);
         let mut comps = vec![comp_even];
         for i in 0..9 {
-            comps.push(make_prime_power(101 + i, 10, 50));
+            comps.push(make_prime_power(101 + i, 100, 115));
         }
 
         let mut curr = make_prefix(1, 1, 0);

@@ -6,6 +6,80 @@ pub struct SearchBackbone {
     pub compatibility_matrix: Vec<Vec<u64>>,
     pub min_n_product: Vec<Vec<Uint>>,
     pub num_components: usize,
+    pub forced_candidates: Vec<Vec<usize>>,
+    pub scc_map: Vec<usize>,
+    pub scc_components: Vec<Vec<usize>>,
+}
+
+fn compute_sccs(adj: &[Vec<usize>]) -> (Vec<usize>, Vec<Vec<usize>>) {
+    let n = adj.len();
+    let mut scc_map = vec![0; n];
+    let mut scc_components = Vec::new();
+    let mut index = 0;
+    let mut indices = vec![None; n];
+    let mut lowlink = vec![0; n];
+    let mut on_stack = vec![false; n];
+    let mut stack = Vec::new();
+
+    fn strongconnect(
+        u: usize,
+        adj: &[Vec<usize>],
+        index: &mut usize,
+        indices: &mut [Option<usize>],
+        lowlink: &mut [usize],
+        on_stack: &mut [bool],
+        stack: &mut Vec<usize>,
+        scc_map: &mut [usize],
+        scc_components: &mut Vec<Vec<usize>>,
+    ) {
+        indices[u] = Some(*index);
+        lowlink[u] = *index;
+        *index += 1;
+        stack.push(u);
+        on_stack[u] = true;
+
+        for &v in &adj[u] {
+            if indices[v].is_none() {
+                strongconnect(v, adj, index, indices, lowlink, on_stack, stack, scc_map, scc_components);
+                lowlink[u] = lowlink[u].min(lowlink[v]);
+            } else if on_stack[v] {
+                lowlink[u] = lowlink[u].min(indices[v].unwrap());
+            }
+        }
+
+        if lowlink[u] == indices[u].unwrap() {
+            let mut component = Vec::new();
+            let scc_id = scc_components.len();
+            loop {
+                let v = stack.pop().unwrap();
+                on_stack[v] = false;
+                component.push(v);
+                scc_map[v] = scc_id;
+                if v == u {
+                    break;
+                }
+            }
+            scc_components.push(component);
+        }
+    }
+
+    for i in 0..n {
+        if indices[i].is_none() {
+            strongconnect(
+                i,
+                adj,
+                &mut index,
+                &mut indices,
+                &mut lowlink,
+                &mut on_stack,
+                &mut stack,
+                &mut scc_map,
+                &mut scc_components,
+            );
+        }
+    }
+
+    (scc_map, scc_components)
 }
 
 impl SearchBackbone {
@@ -94,10 +168,16 @@ impl SearchBackbone {
             })
             .collect();
 
+        let forced_candidates = crate::cdg::derive_forced_candidates(components);
+        let (scc_map, scc_components) = compute_sccs(&forced_candidates);
+
         Self {
             compatibility_matrix,
             min_n_product,
             num_components: n,
+            forced_candidates,
+            scc_map,
+            scc_components,
         }
     }
 
