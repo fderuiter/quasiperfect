@@ -56,14 +56,7 @@ uint8_t ualbf_check_mod_9(uint64_t p, uint32_t two_e) {
 }
 
 uint8_t ualbf_check_touchard(uint64_t p, uint32_t two_e) {
-    uint64_t p_mod = p % 24;
-    uint64_t sum = 0;
-    uint64_t term = 1;
-    for (uint32_t i = 0; i <= two_e; i++) {
-        sum = (sum + term) % 24;
-        term = (term * p_mod) % 24;
-    }
-    return (sum % 2 == 0) ? 1 : 0;
+    return (two_e % 2 == 1 && p % 2 == 1) ? 1 : 0;
 }
 
 void* make_some(void* val) {

@@ -88,73 +88,73 @@
       "name": "UALBF.Engine.TouchardBridge.touchard_bridge",
       "file": "UALBF/Engine/TouchardBridge.lean",
       "status": "proven",
-      "checksum": "79a3ba3120802ee1a23047ed20555f2a0713da0785c1960b3b3632eaac75c77d"
+      "checksum": "affef3d2ac53feb516a918906c476e915799469ffdaf172e11dd709ddff2b828"
     },
     {
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "2885160f7e3426a10a0af75195e464a2133f35423e39f9f93beddf9a30b8208e",
+  "verified_logic_hash": "48232d04290c17181e914b0d7dcdbf20fa0c8126ed23671ee090f495915dbc2e",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -316,15 +316,15 @@
     },
     {
       "file": "UALBF/Engine/TouchardBridge.lean",
-      "checksum": "79a3ba3120802ee1a23047ed20555f2a0713da0785c1960b3b3632eaac75c77d"
+      "checksum": "affef3d2ac53feb516a918906c476e915799469ffdaf172e11dd709ddff2b828"
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "36c9d345addf0444c7cc619a9ca0d9e56c33c55347300d9feb7352cd52c55900"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
     },
     {
       "file": "UALBF/FFI_generated.lean",
-      "checksum": "2f116fedd08105303a5af6405b65bd7ae29e8d9e0041268d9ec303fcfadeddc0"
+      "checksum": "69e9fbb82e4ed6290e4e289d78c3cef63730c31bd941601242c47745c42d5f53"
     },
     {
       "file": "UALBF/ManifestConstants.lean",

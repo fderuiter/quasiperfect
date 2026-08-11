@@ -1,3 +1,4 @@
+import Mathlib.Data.UInt
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 set_option linter.all false
 
@@ -44,7 +45,9 @@ def U512.w6 (u : @& U512) : UInt64 :=
 def U512.w7 (u : @& U512) : UInt64 :=
   ((u / 2^448) % 2^64).toUInt64
 
-macro "u512_omega_prep" : tactic => `(tactic|
+syntax "u512_omega_prep" : tactic
+macro_rules
+  | `(tactic| u512_omega_prep) => `(tactic|
   have h2_64 : 2^64 = 18446744073709551616 := rfl;
   have h2_128 : 2^128 = 340282366920938463463374607431768211456 := rfl;
   have h2_192 : 2^192 = 6277101735386680763835789423207666416102355444464034512896 := rfl;
@@ -53,7 +56,7 @@ macro "u512_omega_prep" : tactic => `(tactic|
   have h2_384 : 2^384 = 39402006196394479212279040100143613805079739270465446667948293404245721771497210611414266254884915640806627990306816 := rfl;
   have h2_448 : 2^448 = 726838724295606890549323807888004534353641360687318060281490199180639288113397923326191050713763565560762521606266177933534601628614656 := rfl;
   rw [h2_64, h2_128, h2_192, h2_256, h2_320, h2_384, h2_448] at *
-)
+  )
 
 @[simp] theorem U512.w0_mk (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) : U512.w0 (U512.mk w0 w1 w2 w3 w4 w5 w6 w7) = w0 := by
   apply UInt64.ext
