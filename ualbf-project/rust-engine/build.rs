@@ -807,10 +807,17 @@ fn main() {
         Ok(())
     }
     println!("cargo:warning=Diagnostic: ir_dir is: {}", ir_dir.display());
-    println!("cargo:warning=Diagnostic: ir_dir exists: {}", ir_dir.exists());
+    println!(
+        "cargo:warning=Diagnostic: ir_dir exists: {}",
+        ir_dir.exists()
+    );
     if ir_dir.exists() {
         visit_dirs(&ir_dir, &mut c_files).unwrap();
-        println!("cargo:warning=Diagnostic: Found {} C-IR files in {}", c_files.len(), ir_dir.display());
+        println!(
+            "cargo:warning=Diagnostic: Found {} C-IR files in {}",
+            c_files.len(),
+            ir_dir.display()
+        );
         for f in &c_files {
             println!("cargo:warning=Diagnostic: C-IR file: {}", f.display());
         }

@@ -855,7 +855,9 @@ pub fn check_and_evaluate_node(
         let f_num_128_opt: Option<u128> = forced_num.try_into().ok();
         let f_den_128_opt: Option<u128> = forced_den.try_into().ok();
 
-        if let (Some(s_l_128), Some(n_l_128), Some(f_num_128), Some(f_den_128)) = (s_l_128_opt, n_l_128_opt, f_num_128_opt, f_den_128_opt) {
+        if let (Some(s_l_128), Some(n_l_128), Some(f_num_128), Some(f_den_128)) =
+            (s_l_128_opt, n_l_128_opt, f_num_128_opt, f_den_128_opt)
+        {
             let s_l_val: u128 = s_l_128;
             let f_num_val: u128 = f_num_128;
             let n_l_val: u128 = n_l_128;
@@ -864,11 +866,17 @@ pub fn check_and_evaluate_node(
             let t_den_val: u128 = target_den as u128;
 
             // Only call the verified check if it is safe from u128 overflow
-            if s_l_val.checked_mul(f_num_val).and_then(|x: u128| x.checked_mul(t_den_val)).is_some()
-                && n_l_val.checked_mul(f_den_val).and_then(|x: u128| x.checked_mul(t_num_val)).is_some()
+            if s_l_val
+                .checked_mul(f_num_val)
+                .and_then(|x: u128| x.checked_mul(t_den_val))
+                .is_some()
+                && n_l_val
+                    .checked_mul(f_den_val)
+                    .and_then(|x: u128| x.checked_mul(t_num_val))
+                    .is_some()
             {
                 pruned = crate::verus_proofs::check_cdg_forced_kill(
-                    s_l_val, n_l_val, f_num_val, f_den_val, t_num_val, t_den_val
+                    s_l_val, n_l_val, f_num_val, f_den_val, t_num_val, t_den_val,
                 );
             }
         }
@@ -890,8 +898,16 @@ pub fn check_and_evaluate_node(
             if let Some(tx) = trace_tx {
                 let mut f_vec = smallvec::SmallVec::new();
                 f_vec.extend_from_slice(&curr.factors);
-                let lhs = curr.s_l.checked_mul(forced_num).and_then(|x| x.checked_mul(Uint::from_u64(target_den))).unwrap_or(Uint::MAX);
-                let rhs = curr.n_l.checked_mul(forced_den).and_then(|x| x.checked_mul(Uint::from_u64(target_num))).unwrap_or(Uint::MAX);
+                let lhs = curr
+                    .s_l
+                    .checked_mul(forced_num)
+                    .and_then(|x| x.checked_mul(Uint::from_u64(target_den)))
+                    .unwrap_or(Uint::MAX);
+                let rhs = curr
+                    .n_l
+                    .checked_mul(forced_den)
+                    .and_then(|x| x.checked_mul(Uint::from_u64(target_num)))
+                    .unwrap_or(Uint::MAX);
                 let _ = tx.send(crate::trace::TraceEvent {
                     factors: f_vec,
                     n_l: curr.n_l,

@@ -40,7 +40,17 @@ fn compute_sccs(adj: &[Vec<usize>]) -> (Vec<usize>, Vec<Vec<usize>>) {
 
         for &v in &adj[u] {
             if indices[v].is_none() {
-                strongconnect(v, adj, index, indices, lowlink, on_stack, stack, scc_map, scc_components);
+                strongconnect(
+                    v,
+                    adj,
+                    index,
+                    indices,
+                    lowlink,
+                    on_stack,
+                    stack,
+                    scc_map,
+                    scc_components,
+                );
                 lowlink[u] = lowlink[u].min(lowlink[v]);
             } else if on_stack[v] {
                 lowlink[u] = lowlink[u].min(indices[v].unwrap());

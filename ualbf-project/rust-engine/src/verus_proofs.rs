@@ -16,7 +16,14 @@ pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u12
 }
 
 #[cfg(not(verus_keep_ghost))]
-pub fn check_cdg_forced_kill(s_l: u128, n_l: u128, forced_num: u128, forced_den: u128, target_num: u128, target_den: u128) -> bool {
+pub fn check_cdg_forced_kill(
+    s_l: u128,
+    n_l: u128,
+    forced_num: u128,
+    forced_den: u128,
+    target_num: u128,
+    target_den: u128,
+) -> bool {
     let lhs = (s_l * forced_num) * target_den;
     let rhs = (n_l * forced_den) * target_num;
     lhs > rhs
