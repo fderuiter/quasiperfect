@@ -766,10 +766,12 @@ fn main() {
     }
 
     // Execute targeted module compilation instead of a full project build
-    let lake_success = if is_gha {
+    let has_prebuilt = ir_dir.exists() && lean_project.join(".lake/build/lib/libUALBF.a").exists();
+    let lake_success = if is_gha && has_prebuilt {
         println!("cargo:warning=Running under GitHub Actions. Skipping redundant lake build since Lean objects are pre-built.");
         true
     } else {
+        println!("cargo:warning=Lean objects are missing or GHA override is inactive. Building Lean UALBF library...");
         let status = Command::new("lake")
             .arg("build")
             .arg("UALBF") // Targeted build
