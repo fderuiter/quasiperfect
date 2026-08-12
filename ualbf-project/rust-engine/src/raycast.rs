@@ -192,6 +192,9 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 /// let sigma_cache: SigmaCache = Default::default();
 /// phase4_exact_ray_casting(&prefix, &target_min, &target_max, &illegal_z_valuations, &pruned_count, &sigma_cache, None);
 /// ```
+///
+/// NOTE: The unsound cofactor bounds fallback logic has been fully removed
+/// to ensure absolute correctness and strict mathematical soundness.
 fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &SigmaCache) -> bool {
     let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
     let mut z_factors = z_fact.factors().to_vec();
