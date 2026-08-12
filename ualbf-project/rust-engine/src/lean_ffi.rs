@@ -410,6 +410,7 @@ pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
         lean_initialize_thread();
+        IS_LEAN_THREAD_INIT.with(|init| init.set(true));
         init_u512_class();
         let res = initialize_ualbf_UALBF(1);
         rs_lean_dec(res);
