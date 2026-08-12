@@ -457,6 +457,8 @@ mod tests {
 
     #[test]
     fn test_checked_sieve_bounds_and_overflow() {
+        crate::lean_ffi::initialize_lean_runtime();
+
         // 1. Test index overflow handling
         assert!(get_sieve_index(usize::MAX, 10, 1).is_none());
         assert!(get_sieve_index(usize::MAX, u32::MAX, 1).is_none());
