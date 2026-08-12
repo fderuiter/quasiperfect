@@ -1314,6 +1314,7 @@ fn explore_prefix_sequential(
     };
 
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
+    crate::lean_ffi::initialize_lean_runtime();
     unsafe {
         crate::lean_ffi::ualbf_dfs_loop(ctx_ptr, std::ptr::null_mut());
     }
