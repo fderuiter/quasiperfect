@@ -426,9 +426,7 @@ pub fn initialize_lean_runtime() {
 }
 
 pub fn initialize_lean_worker_thread() {
-    unsafe {
-        lean_initialize_thread();
-    }
+    initialize_lean_runtime();
 }
 
 pub fn check_mod_8(q: u64) -> bool {
