@@ -2245,6 +2245,7 @@ mod tests {
     /// the same value is returned on every subsequent call.
     #[test]
     fn test_get_min_prime_factors_nonzero() {
+        crate::lean_ffi::initialize_lean_runtime();
         let value = get_min_prime_factors();
         assert!(
             value > 0,
@@ -2256,6 +2257,7 @@ mod tests {
     /// get_prasad_sunitha_bound must return a positive (non-zero) value.
     #[test]
     fn test_get_prasad_sunitha_bound_nonzero() {
+        crate::lean_ffi::initialize_lean_runtime();
         let value = get_prasad_sunitha_bound();
         assert!(
             value > 0,
@@ -2571,6 +2573,7 @@ mod tests {
 
     #[test]
     fn test_touchard_dynamic_reachability_combining_9_and_19() {
+        crate::lean_ffi::initialize_lean_runtime();
         let comp1 = make_prime_power(7, 49, 57);
         let comp2 = make_prime_power(19, 1000, 1123);
         let mut comps = vec![comp1, comp2];
@@ -2615,6 +2618,7 @@ mod tests {
 
     #[test]
     fn test_touchard_dynamic_reachability_prunes_invalid_even_residues() {
+        crate::lean_ffi::initialize_lean_runtime();
         let comp_even = make_prime_power(2, 4, 2);
         let mut comps = vec![comp_even];
         for i in 0..9 {
