@@ -128,8 +128,9 @@ impl LeanObjectWrapper {
 
 impl Drop for LeanObjectWrapper {
     fn drop(&mut self) {
-        unsafe {
-            if !self.0.is_null() {
+        if !self.0.is_null() {
+            initialize_lean_runtime();
+            unsafe {
                 rs_lean_dec(self.0);
             }
         }
