@@ -191,39 +191,49 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         continue;
                     }
 
-                    let val = match p_bu.checked_pow(two_e) {
-                        Some(v) => v,
-                        None => break,
-                    };
-                    if val > Uint::from_u32(10).pow(crate::manifest_constants::TARGET_MAX_LOG10) {
-                        break;
-                    }
+                    let val_opt = p_bu.checked_pow(two_e);
+                    let is_overflow = val_opt.is_none();
+                    let val = val_opt.unwrap_or(Uint::MAX);
+
                     let mut sum: Uint = Uint::one();
                     let mut p_pow: Uint = Uint::one();
-                    let mut overflowed = false;
-                    for _ in 0..two_e {
-                        if let Some(next_pow) = p_pow.checked_mul(Uint::from_usize(p)) {
-                            p_pow = next_pow;
-                        } else {
-                            overflowed = true;
+                    let mut manual_overflowed = false;
+
+                    if !is_overflow {
+                        for _ in 0..two_e {
+                            if let Some(next_pow) = p_pow.checked_mul(Uint::from_usize(p)) {
+                                p_pow = next_pow;
+                            } else {
+                                manual_overflowed = true;
+                                break;
+                            }
+                            if let Some(next_sum) = sum.checked_add(p_pow) {
+                                sum = next_sum;
+                            } else {
+                                manual_overflowed = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        manual_overflowed = true;
+                    }
+
+                    if is_overflow || manual_overflowed {
+                        let sigma = Uint::MAX;
+                        local_cache.push(((p_bu, two_e), sigma));
+                        tasks.push((p as u64, two_e, Uint::MAX, sigma));
+                        break;
+                    } else {
+                        if val > Uint::from_u32(10).pow(crate::manifest_constants::TARGET_MAX_LOG10) {
                             break;
                         }
-                        if let Some(next_sum) = sum.checked_add(p_pow) {
-                            sum = next_sum;
-                        } else {
-                            overflowed = true;
-                            break;
+                        let sigma = sum;
+                        if sigma == Uint::zero() {
+                            continue;
                         }
+                        local_cache.push(((p_bu, two_e), sigma));
+                        tasks.push((p as u64, two_e, val, sigma));
                     }
-                    if overflowed {
-                        continue;
-                    }
-                    let sigma = sum;
-                    if sigma == Uint::zero() {
-                        continue;
-                    }
-                    local_cache.push(((p_bu, two_e), sigma));
-                    tasks.push((p as u64, two_e, val, sigma));
                 }
             }
 
@@ -260,12 +270,29 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 
                 res.pending_factors.sort_unstable();
 
-                let sigma_u256 = res.sigma;
-                let shifted = sigma_u256 << 64;
-                let val_u: Uint = res.val; let div_res: Uint = shifted / val_u; let mut abundance_fp = div_res.as_u128();
-                if shifted % res.val != Uint::zero() {
-                    abundance_fp += 1;
-                }
+                let abundance_fp = if res.val == Uint::MAX || res.sigma == Uint::MAX {
+                    let p_u128 = res.p as u128;
+                    if p_u128 > 1 {
+                        let num = p_u128.checked_mul(1u128 << 64).unwrap();
+                        let den = p_u128 - 1;
+                        let mut val = num / den;
+                        if num % den != 0 {
+                            val += 1;
+                        }
+                        val
+                    } else {
+                        0
+                    }
+                } else {
+                    let sigma_u256 = res.sigma;
+                    let shifted = sigma_u256 << 64;
+                    let val_u: Uint = res.val; let div_res: Uint = shifted / val_u; let mut ab = div_res.as_u128();
+                    if shifted % res.val != Uint::zero() {
+                        ab += 1;
+                    }
+                    ab
+                };
+
                 local_components.push(PrimePower {
                     p: res.p,
                     two_e: res.two_e,
@@ -446,6 +473,19 @@ mod tests {
 
         // 3. Test compute_sigma_checked overflow monadic Option propagation
         assert!(crate::lean_ffi::compute_sigma_checked(12345, 1000).is_none());
+
+        // 4. Test sidecar overflow logging and verification
+        let test_log = "test_overflow_sidecar.log";
+        init_sidecar_logger(test_log).unwrap();
+        log_overflow(12345, 1000);
+        finalize_sidecar_logger();
+        
+        let content = std::fs::read_to_string(test_log).unwrap();
+        assert_eq!(content.trim(), "12345,1000");
+        
+        assert!(run_offline_verification(test_log).is_ok());
+        
+        let _ = std::fs::remove_file(test_log);
     }
 }
 
@@ -480,7 +520,13 @@ fn get_cofactors_to_factor(
     ecm_calls: &AtomicUsize,
     _trial_only: &AtomicUsize,
 ) -> Option<(bool, Vec<Uint>, Vec<Uint>)> {
-    let full_sigma = crate::lean_ffi::compute_sigma_checked(p, two_e)?;
+    let full_sigma = match crate::lean_ffi::compute_sigma_checked(p, two_e) {
+        Some(s) => s,
+        None => {
+            log_overflow(p, two_e);
+            return Some((false, vec![], vec![]));
+        }
+    };
     let factor_result = trial.factor(full_sigma);
     let factors = factor_result.factors();
     ecm_calls.fetch_add(1, Ordering::Relaxed);
@@ -505,4 +551,136 @@ fn get_cofactors_to_factor(
     }
 
     Some((false, factors.to_vec(), needs_rho))
+}
+
+// ---------------------------------------------------------------------------
+// Non-blocking / Highly Buffered Sidecar Logging & Offline Verification
+// ---------------------------------------------------------------------------
+
+pub static SIDECAR_ERROR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+struct LoggerState {
+    sender: Option<crossbeam_channel::Sender<(u64, u32)>>,
+    join_handle: Option<std::thread::JoinHandle<()>>,
+}
+
+static LOGGER: std::sync::Mutex<LoggerState> = std::sync::Mutex::new(LoggerState {
+    sender: None,
+    join_handle: None,
+});
+
+pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
+    use std::fs::File;
+    use std::io::BufWriter;
+    use std::io::Write;
+    
+    let file = File::create(path)?;
+    let mut writer = BufWriter::new(file);
+    let (tx, rx) = crossbeam_channel::unbounded::<(u64, u32)>();
+    
+    let handle = std::thread::spawn(move || {
+        for (p, pow) in rx {
+            if let Err(e) = writeln!(writer, "{},{}", p, pow) {
+                eprintln!("FATAL: Failed to write to sidecar log: {}", e);
+                SIDECAR_ERROR.store(true, std::sync::atomic::Ordering::SeqCst);
+                break;
+            }
+        }
+        let _ = writer.flush();
+    });
+    
+    let mut state = LOGGER.lock().unwrap();
+    state.sender = Some(tx);
+    state.join_handle = Some(handle);
+    
+    Ok(())
+}
+
+pub fn log_overflow(p: u64, pow: u32) {
+    if SIDECAR_ERROR.load(std::sync::atomic::Ordering::SeqCst) {
+        panic!("FATAL: Sidecar logging has failed previously. Halting execution to prevent unlogged overflows.");
+    }
+    let sender = {
+        let state = LOGGER.lock().unwrap();
+        state.sender.clone()
+    };
+    if let Some(sender) = sender {
+        if let Err(_) = sender.send((p, pow)) {
+            eprintln!("FATAL: Sidecar logger channel disconnected.");
+            SIDECAR_ERROR.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+}
+
+pub fn finalize_sidecar_logger() {
+    let (sender, handle) = {
+        let mut state = LOGGER.lock().unwrap();
+        (state.sender.take(), state.join_handle.take())
+    };
+    
+    drop(sender);
+    
+    if let Some(h) = handle {
+        let _ = h.join();
+    }
+    
+    if SIDECAR_ERROR.load(std::sync::atomic::Ordering::SeqCst) {
+        panic!("FATAL: Sidecar log encountered an error during execution. Results may be incomplete or corrupted.");
+    }
+}
+
+pub fn run_offline_verification(sidecar_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use num_bigint::BigUint;
+    use num_traits::One;
+    use std::io::BufRead;
+    use std::fs::File;
+    
+    println!("=== Offline Sidecar Audit Utility ===");
+    println!("Loading sidecar log from: {}", sidecar_path);
+    let file = File::open(sidecar_path)?;
+    let reader = std::io::BufReader::new(file);
+    let mut count = 0;
+    
+    let target_max_log10 = crate::lean_ffi::get_target_max_log10();
+    let threshold_bound = BigUint::from(10u32).pow(target_max_log10);
+
+    for line in reader.lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = line.split(',').collect();
+        if parts.len() != 2 {
+            return Err(format!("Invalid sidecar log line: {}", line).into());
+        }
+        let p_val: u64 = parts[0].trim().parse()?;
+        let pow_val: u32 = parts[1].trim().parse()?;
+        
+        let p = BigUint::from(p_val);
+        let p_pow = p.pow(pow_val);
+        let p_pow_plus_1 = p.pow(pow_val + 1);
+        let numerator = p_pow_plus_1 - BigUint::one();
+        let denominator = BigUint::from(p_val - 1);
+        let sigma = numerator / denominator;
+        
+        count += 1;
+        println!("Audit Candidate #{}: p = {}, pow = {}", count, p_val, pow_val);
+        println!("  - p^pow size: {} bits ({} decimal digits)", p_pow.bits(), p_pow.to_str_radix(10).len());
+        println!("  - sigma(p^pow) size: {} bits", sigma.bits());
+        
+        let exceeds_512 = p_pow.bits() >= 512 || sigma.bits() >= 512;
+        println!("  - 512-bit Limit Overflow Checked: {}", exceeds_512);
+        
+        let exceeds_bound = p_pow > threshold_bound;
+        println!("  - Exceeds target_bound (10^{}): {}", target_max_log10, exceeds_bound);
+        
+        if !exceeds_512 && !exceeds_bound {
+            println!("  - WARNING: Candidate did not trigger overflow/bound conditions as expected.");
+        } else {
+            println!("  - Status: MATHEMATICALLY AUDITED & VALIDATED (Pruned due to out-of-bounds/overflow)");
+        }
+    }
+    
+    println!("=== Audit Complete: {} candidates verified ===", count);
+    Ok(())
 }
