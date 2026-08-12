@@ -218,10 +218,8 @@ fn init_u512_class() {
 pub const ZERO_U512: crate::lean_ffi::U512Data = [0; crate::lean_ffi::LIMB_COUNT];
 
 pub fn alloc_u512(data: crate::lean_ffi::U512Data) -> *mut lean_object {
+    initialize_lean_runtime();
     unsafe {
-        if U512_CLASS.is_null() {
-            initialize_lean_runtime();
-        }
         let ptr = Box::into_raw(Box::new(data));
         rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
     }
