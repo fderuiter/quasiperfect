@@ -427,22 +427,27 @@ pub fn initialize_lean_worker_thread() {
 }
 
 pub fn check_mod_8(q: u64) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_8(q) != 0 }
 }
 
 pub fn check_mod_3(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_3(p, two_e) != 0 }
 }
 
 pub fn check_mod_5(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_5(p, two_e) != 0 }
 }
 
 pub fn check_mod_9(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_9(p, two_e) != 0 }
 }
 
 pub fn check_touchard(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_touchard(p, two_e) != 0 }
 }
 
@@ -596,6 +601,7 @@ pub fn compute_sigma(p: u64, pow: u32) -> Uint {
 }
 
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
+    initialize_lean_runtime();
     if p > 1 && (pow as f64) * (p as f64).log2() >= 512.0 {
         return None;
     }

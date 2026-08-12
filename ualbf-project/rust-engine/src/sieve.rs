@@ -403,6 +403,7 @@ mod tests {
     #[test]
     #[cfg_attr(unverified_build, ignore)]
     fn test_phase1_sieve_logic() {
+        crate::lean_ffi::initialize_lean_runtime();
         let limit = 50;
         let max_e = 2;
         let result = phase1_global_annihilation_sieve(limit, max_e);
