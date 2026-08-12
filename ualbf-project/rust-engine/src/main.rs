@@ -456,11 +456,15 @@ fn main() {
 
     let total_start = std::time::Instant::now();
     crate::lean_ffi::initialize_lean_runtime();
-    
+
     // Initialize sidecar logger
-    let sidecar_path = std::env::var("UALBF_SIDECAR_PATH").unwrap_or_else(|_| "overflow_sidecar.log".to_string());
+    let sidecar_path =
+        std::env::var("UALBF_SIDECAR_PATH").unwrap_or_else(|_| "overflow_sidecar.log".to_string());
     if let Err(e) = sieve::init_sidecar_logger(&sidecar_path) {
-        eprintln!("FATAL: Failed to initialize sidecar logger at {}: {}", sidecar_path, e);
+        eprintln!(
+            "FATAL: Failed to initialize sidecar logger at {}: {}",
+            sidecar_path, e
+        );
         std::process::exit(1);
     }
 

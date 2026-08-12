@@ -479,12 +479,12 @@ mod tests {
         init_sidecar_logger(test_log).unwrap();
         log_overflow(12345, 1000);
         finalize_sidecar_logger();
-        
+
         let content = std::fs::read_to_string(test_log).unwrap();
         assert_eq!(content.trim(), "12345,1000");
-        
+
         assert!(run_offline_verification(test_log).is_ok());
-        
+
         let _ = std::fs::remove_file(test_log);
     }
 }
@@ -573,11 +573,11 @@ pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
     use std::fs::File;
     use std::io::BufWriter;
     use std::io::Write;
-    
+
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
     let (tx, rx) = crossbeam_channel::unbounded::<(u64, u32)>();
-    
+
     let handle = std::thread::spawn(move || {
         for (p, pow) in rx {
             if let Err(e) = writeln!(writer, "{},{}", p, pow) {
@@ -588,11 +588,11 @@ pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
         }
         let _ = writer.flush();
     });
-    
+
     let mut state = LOGGER.lock().unwrap();
     state.sender = Some(tx);
     state.join_handle = Some(handle);
-    
+
     Ok(())
 }
 
@@ -617,13 +617,13 @@ pub fn finalize_sidecar_logger() {
         let mut state = LOGGER.lock().unwrap();
         (state.sender.take(), state.join_handle.take())
     };
-    
+
     drop(sender);
-    
+
     if let Some(h) = handle {
         let _ = h.join();
     }
-    
+
     if SIDECAR_ERROR.load(std::sync::atomic::Ordering::SeqCst) {
         panic!("FATAL: Sidecar log encountered an error during execution. Results may be incomplete or corrupted.");
     }
@@ -632,15 +632,15 @@ pub fn finalize_sidecar_logger() {
 pub fn run_offline_verification(sidecar_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     use num_bigint::BigUint;
     use num_traits::One;
-    use std::io::BufRead;
     use std::fs::File;
-    
+    use std::io::BufRead;
+
     println!("=== Offline Sidecar Audit Utility ===");
     println!("Loading sidecar log from: {}", sidecar_path);
     let file = File::open(sidecar_path)?;
     let reader = std::io::BufReader::new(file);
     let mut count = 0;
-    
+
     let target_max_log10 = crate::lean_ffi::get_target_max_log10();
     let threshold_bound = BigUint::from(10u32).pow(target_max_log10);
 
@@ -655,32 +655,44 @@ pub fn run_offline_verification(sidecar_path: &str) -> Result<(), Box<dyn std::e
         }
         let p_val: u64 = parts[0].trim().parse()?;
         let pow_val: u32 = parts[1].trim().parse()?;
-        
+
         let p = BigUint::from(p_val);
         let p_pow = p.pow(pow_val);
         let p_pow_plus_1 = p.pow(pow_val + 1);
         let numerator = p_pow_plus_1 - BigUint::one();
         let denominator = BigUint::from(p_val - 1);
         let sigma = numerator / denominator;
-        
+
         count += 1;
-        println!("Audit Candidate #{}: p = {}, pow = {}", count, p_val, pow_val);
-        println!("  - p^pow size: {} bits ({} decimal digits)", p_pow.bits(), p_pow.to_str_radix(10).len());
+        println!(
+            "Audit Candidate #{}: p = {}, pow = {}",
+            count, p_val, pow_val
+        );
+        println!(
+            "  - p^pow size: {} bits ({} decimal digits)",
+            p_pow.bits(),
+            p_pow.to_str_radix(10).len()
+        );
         println!("  - sigma(p^pow) size: {} bits", sigma.bits());
-        
+
         let exceeds_512 = p_pow.bits() >= 512 || sigma.bits() >= 512;
         println!("  - 512-bit Limit Overflow Checked: {}", exceeds_512);
-        
+
         let exceeds_bound = p_pow > threshold_bound;
-        println!("  - Exceeds target_bound (10^{}): {}", target_max_log10, exceeds_bound);
-        
+        println!(
+            "  - Exceeds target_bound (10^{}): {}",
+            target_max_log10, exceeds_bound
+        );
+
         if !exceeds_512 && !exceeds_bound {
-            println!("  - WARNING: Candidate did not trigger overflow/bound conditions as expected.");
+            println!(
+                "  - WARNING: Candidate did not trigger overflow/bound conditions as expected."
+            );
         } else {
             println!("  - Status: MATHEMATICALLY AUDITED & VALIDATED (Pruned due to out-of-bounds/overflow)");
         }
     }
-    
+
     println!("=== Audit Complete: {} candidates verified ===", count);
     Ok(())
 }
