@@ -34,19 +34,25 @@
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
+    },
+    {
+      "name": "UALBF.QPN.AbundancyBound.dusart_mertens_bound",
+      "file": "UALBF/QPN/AbundancyBound.lean",
+      "status": "axiom",
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
@@ -211,65 +217,65 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "e49b02cf962534c731fdb4445083a5fc82d00608faa78ee371a4dc6189929a4f",
+  "verified_logic_hash": "e48500959fec26a57a7f1508c5bdc466de91b91218596fb56d1f39f4a00d23dd",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
-    "proof_verify_zsigmondy_preconditions": "ed45d5d03968b2496cc4690ac6634c43fb656411b227e337359fcc2441f6d756",
-    "check_starvation_kill": "480fa9fd95be8aafe3aa439421f309f2d7e87c98f8b51be370f72533efe888cd",
-    "u512_to_nat": "a0ec05cddc1890748c76dc3891283e471eae5ecfa7cf20b8ef06387fb0e15660",
-    "lemma_divisibility_transitive": "1fe566ef3a33abd1a93365dd22eeb045aff7c6a6116806d748b0da8f0d73e135",
-    "verified_ualbf_cyclotomic_eval": "489a142c51353ffe15fa2a9d6dbcea8582e8c2446458f93c7de39ee72555bc97",
-    "is_prime": "2e523ccf6880028fd13c95369752a207f653e6ddd3b74259ef58097664b10134",
-    "try_scale_bound_ceil": "0a45e55bd960de9a9676a15e27c8395ccd3c9045c20fadbd00cd8542afc0af22",
-    "lemma_pocklington_certificate": "2c0d07712fc07aeb402c6961c2dfab1445e4ae1d3c64920a1af00a4dd63b5c09",
-    "scale_bound_ceil": "391e9484d875a80b7ebc3c98614bf5d24cc5a3071e6f71d35df6c11745ee8662",
-    "lemma_modpow_mod_divisibility": "0e57eaca7a42c901b720828b9d741f0af6d0c9f70c7f22672e401eb8f051d180",
-    "lemma_f_squared_gt_n_minus_1": "daa06a40b508366cb4ccf87fdfba91c90d49834aea329431fd5fa7db0757dc4b",
-    "prasad_sunitha_bound_satisfied": "397a138a9211a5dc2e4f0093f9aed50beac7cfecff58ca6d6608904ac0f6797e",
-    "is_order_mod_p": "1c04524ba3fa6ba49bb34e1db554defc5c8c71b4b93891954e5a9ce5eb7cffd4",
-    "nat_to_u512": "7b191fb67cbd6e4055f970eb09069bded541414aa5729fe111b54a3b72fbb862",
-    "lemma_modpow_add_mul": "da6e9a8e6c9132f00d54f7756a8e724dcbec3dd8edb386ce3397c9bea87c7f92",
-    "verified_get_u512": "7a1b7c4f2f69b5923dab4fdaa6b8de061a244b218becc8281e9e0d70d6fd33bd",
-    "lemma_composite_has_prime_factor_le_sqrt": "cbd15034e2f170cab2ed6cf58acc5e6bd18b1adfa6dcd2be1bf578bae94450e1",
-    "sigma_spec": "78d7ef726b1abefc4b0adff4f1efa5d3f9ac55757564c39cff529804062cca09",
-    "lemma_coprime_implies_multiplicative": "2f0870efb0173d4e6aae7e0c7150c42b53ef0a6a50b2e0d1e2f5f5cc544fb02e",
     "check_cdg_forced_kill": "dffe6175e40a9de24809599c358f3ecd65dce8d42f2f6825f07622ce57995aaf",
-    "sigma_spec_val": "b393f988cd27971188e2d24a630a4ea8cff32698873b4ca18c218ff493ce52d1",
-    "lemma_smallest_factor_is_prime": "81a1aa2b1cfe48c03dba72b60b8ef3830225a7cabe05ffea0b9a6af2ffdb436f",
-    "verify_prasad_sunitha": "abfb923f3e52f816d371097cf15258ddde072f9f28e2f0871e60592964c2ad52",
-    "lemma_divisibility_bounds": "56e96d3ca64d22de283bea5261079058c986ef7d750200aa8dd125ae94693da8",
-    "lemma_disjoint_by_construction": "97ca3f53793ab660305512004e9951c38c73945688e952f45ccc0d186bd5a30f",
-    "lemma_square_comparison_contradiction": "67ee0ee174872546da212a3983abe942d666ea819b8f162d3a9b62248114eb66",
-    "lemma_order_exists": "5b265658667eded28f25da04395c2eb9574fc6cf93542f89ee2ed69d8b61aa3b",
+    "check_starvation_kill": "480fa9fd95be8aafe3aa439421f309f2d7e87c98f8b51be370f72533efe888cd",
     "cyclotomic_eval_spec": "c26eca844086dea43e1b4d1375525e2e0a3445fb3b92a6ad9c75b9f2f46fb9d0",
-    "lemma_sigma_multiplicative": "d6eb0016633ccf5a5408d407fd23db25b53799f0c4ac812de59ac6693e6ff2d7",
-    "verified_alloc_u512": "b7837bbda7ff807545c16086096ee49d44f0ea0b8a950a84aa965122839c8694",
-    "lemma_order_prime_factor": "6b407b8b043c304b1439164f105b2a0a02aeed1cfb7a027471e244993d584fe0",
-    "scale_bound_spec": "a7fbb2e00659e62945f3bf9b2e3fb04618ff4b4a3d8e6ac01638e3525eabee1d",
-    "pow2_64": "663068e1cc50b5e90c124c762640fa7e83a582f676e86ae83f839ae1247caf29",
-    "lean_abundancy_starvation_theorem": "ace35eacac17015f6d97148b01b95bf3b2e8b7a6968b823b973e0879883cb63a",
-    "lemma_coprime_implies_multiplicative_nonlinear": "7eae3613982b5cb0353931b6ef00f9683fe237cab711a8acfbc3c1778ed814f8",
-    "pocklington_spec": "8e079773f2540925b8fd4400908ae55fe530bb7d7da4c8407b79a1027916fc73",
-    "lemma_fermat_little_theorem": "45e34debf4960ec35a99bed27764bb0de541cf7e236ab2e0cb0dbeefe58f191e",
-    "rns512_gcd_spec": "d8cc50260a9efafbef9272ef4fdad016a39f2a13bebe804f0812c528d2df9818",
-    "rns512_mont_mul_spec": "88ef0ee3d6c30f1312750e0d29a794ab9025981eddb4108da90284458012b78a",
     "cyclotomic_eval_spec_aux": "62a530295af8acb4d0ad5de223d5393508bfb4c8144850af11977766d7b576b8",
-    "rns512_valid_bounds": "6a6d98ea26c8f61c9805939461b8d84ee8ad2ca891bc8ac52a0fa7a570ed286d",
-    "passes_raycast_sieve_spec": "47f733f3fab2a29b4a2426f246da62ba5d6aff98f5ab7c0a64310dc32fc16b4c",
-    "modpow_spec": "026a7d7c0ba705cef433d657ea29035f463796d82df08aa24c334980d98bae23",
-    "lemma_order_le_p_minus_1": "82271caa6f099b3521172dca57b19b492d5051d5af97012fee60ae1f4795f6f4",
-    "screen_mod_8": "47abe8f2a2b49b319d66d025cf113b7009149b5074c56d29f1f5ecff1a70174a",
-    "verified_passes_raycast_sieve": "16651d143d7c472aa605778d42c862a8279b8b85d4ef75d8b6b03a20b5abe2f9",
-    "verified_free_u512": "7c7385da4560e49358e61c79a48a886a22acedb538db883148e49823bc2414b3",
-    "pow_spec_val": "d8aeacbbdf4948c9aedd1660b532f4e4b8f1b59f96d27fec4cce93f8e81485cb",
-    "zsigmondy_preconditions_satisfied": "e5a3f74ab796c732d35bb8fbaab346cf1ae69b4e3086f2e4e2f8a799e3fb06f9",
+    "disjoint_factor_sets": "462f1288069bb9092fb4590d3eae122e8e18c633faecc5f62b0ab8ee133d78b3",
+    "is_cdg_forced_pruned": "cc07f012cd96c9cf673fa4f13e82d30991b7a442f17940827d0a3916b1e292dd",
+    "is_order_mod_p": "1c04524ba3fa6ba49bb34e1db554defc5c8c71b4b93891954e5a9ce5eb7cffd4",
+    "is_prime": "2e523ccf6880028fd13c95369752a207f653e6ddd3b74259ef58097664b10134",
     "is_starved": "918d6022e4a64e82a953d691484002f5e6737ed878811556f61817e8064defd4",
     "is_valid_mod_8": "0f3cd795cfc97209e5f8c197dd26596e276648c51f343f1078a9e99185169d32",
-    "is_cdg_forced_pruned": "cc07f012cd96c9cf673fa4f13e82d30991b7a442f17940827d0a3916b1e292dd",
+    "lean_abundancy_starvation_theorem": "ace35eacac17015f6d97148b01b95bf3b2e8b7a6968b823b973e0879883cb63a",
+    "lemma_composite_has_prime_factor_le_sqrt": "cbd15034e2f170cab2ed6cf58acc5e6bd18b1adfa6dcd2be1bf578bae94450e1",
+    "lemma_coprime_implies_multiplicative": "2f0870efb0173d4e6aae7e0c7150c42b53ef0a6a50b2e0d1e2f5f5cc544fb02e",
+    "lemma_coprime_implies_multiplicative_nonlinear": "7eae3613982b5cb0353931b6ef00f9683fe237cab711a8acfbc3c1778ed814f8",
+    "lemma_disjoint_by_construction": "97ca3f53793ab660305512004e9951c38c73945688e952f45ccc0d186bd5a30f",
+    "lemma_divisibility_bounds": "56e96d3ca64d22de283bea5261079058c986ef7d750200aa8dd125ae94693da8",
+    "lemma_divisibility_transitive": "1fe566ef3a33abd1a93365dd22eeb045aff7c6a6116806d748b0da8f0d73e135",
+    "lemma_f_squared_gt_n_minus_1": "daa06a40b508366cb4ccf87fdfba91c90d49834aea329431fd5fa7db0757dc4b",
+    "lemma_fermat_little_theorem": "45e34debf4960ec35a99bed27764bb0de541cf7e236ab2e0cb0dbeefe58f191e",
+    "lemma_modpow_add_mul": "da6e9a8e6c9132f00d54f7756a8e724dcbec3dd8edb386ce3397c9bea87c7f92",
+    "lemma_modpow_mod_divisibility": "0e57eaca7a42c901b720828b9d741f0af6d0c9f70c7f22672e401eb8f051d180",
+    "lemma_order_exists": "5b265658667eded28f25da04395c2eb9574fc6cf93542f89ee2ed69d8b61aa3b",
+    "lemma_order_le_p_minus_1": "82271caa6f099b3521172dca57b19b492d5051d5af97012fee60ae1f4795f6f4",
+    "lemma_order_prime_factor": "6b407b8b043c304b1439164f105b2a0a02aeed1cfb7a027471e244993d584fe0",
+    "lemma_pocklington_certificate": "2c0d07712fc07aeb402c6961c2dfab1445e4ae1d3c64920a1af00a4dd63b5c09",
+    "lemma_sigma_multiplicative": "d6eb0016633ccf5a5408d407fd23db25b53799f0c4ac812de59ac6693e6ff2d7",
+    "lemma_smallest_factor_is_prime": "81a1aa2b1cfe48c03dba72b60b8ef3830225a7cabe05ffea0b9a6af2ffdb436f",
+    "lemma_square_comparison_contradiction": "67ee0ee174872546da212a3983abe942d666ea819b8f162d3a9b62248114eb66",
+    "modpow_spec": "026a7d7c0ba705cef433d657ea29035f463796d82df08aa24c334980d98bae23",
+    "nat_to_u512": "7b191fb67cbd6e4055f970eb09069bded541414aa5729fe111b54a3b72fbb862",
+    "passes_raycast_sieve_spec": "47f733f3fab2a29b4a2426f246da62ba5d6aff98f5ab7c0a64310dc32fc16b4c",
+    "pocklington_spec": "8e079773f2540925b8fd4400908ae55fe530bb7d7da4c8407b79a1027916fc73",
+    "pow2_64": "663068e1cc50b5e90c124c762640fa7e83a582f676e86ae83f839ae1247caf29",
+    "pow_spec_val": "d8aeacbbdf4948c9aedd1660b532f4e4b8f1b59f96d27fec4cce93f8e81485cb",
+    "prasad_sunitha_bound_satisfied": "397a138a9211a5dc2e4f0093f9aed50beac7cfecff58ca6d6608904ac0f6797e",
+    "prime_factors": "344832e56ed5cc7e04ac24f49d6b07051f1ca404a8d22d66f02372b074995e86",
+    "proof_verify_zsigmondy_preconditions": "ed45d5d03968b2496cc4690ac6634c43fb656411b227e337359fcc2441f6d756",
+    "rns512_gcd_spec": "d8cc50260a9efafbef9272ef4fdad016a39f2a13bebe804f0812c528d2df9818",
+    "rns512_mont_mul_spec": "88ef0ee3d6c30f1312750e0d29a794ab9025981eddb4108da90284458012b78a",
+    "rns512_valid_bounds": "6a6d98ea26c8f61c9805939461b8d84ee8ad2ca891bc8ac52a0fa7a570ed286d",
+    "scale_bound_ceil": "391e9484d875a80b7ebc3c98614bf5d24cc5a3071e6f71d35df6c11745ee8662",
+    "scale_bound_spec": "a7fbb2e00659e62945f3bf9b2e3fb04618ff4b4a3d8e6ac01638e3525eabee1d",
+    "screen_mod_8": "47abe8f2a2b49b319d66d025cf113b7009149b5074c56d29f1f5ecff1a70174a",
+    "sigma_spec": "78d7ef726b1abefc4b0adff4f1efa5d3f9ac55757564c39cff529804062cca09",
+    "sigma_spec_val": "b393f988cd27971188e2d24a630a4ea8cff32698873b4ca18c218ff493ce52d1",
+    "try_scale_bound_ceil": "0a45e55bd960de9a9676a15e27c8395ccd3c9045c20fadbd00cd8542afc0af22",
+    "u512_to_nat": "a0ec05cddc1890748c76dc3891283e471eae5ecfa7cf20b8ef06387fb0e15660",
+    "verified_alloc_u512": "b7837bbda7ff807545c16086096ee49d44f0ea0b8a950a84aa965122839c8694",
+    "verified_free_u512": "7c7385da4560e49358e61c79a48a886a22acedb538db883148e49823bc2414b3",
+    "verified_get_u512": "7a1b7c4f2f69b5923dab4fdaa6b8de061a244b218becc8281e9e0d70d6fd33bd",
+    "verified_passes_raycast_sieve": "16651d143d7c472aa605778d42c862a8279b8b85d4ef75d8b6b03a20b5abe2f9",
     "verified_ualbf_compute_sigma": "d7c6c1e76dca52c280255de5db33a9e60f1a4876913916f621b87bac20635b3b",
-    "disjoint_factor_sets": "462f1288069bb9092fb4590d3eae122e8e18c633faecc5f62b0ab8ee133d78b3",
+    "verified_ualbf_cyclotomic_eval": "489a142c51353ffe15fa2a9d6dbcea8582e8c2446458f93c7de39ee72555bc97",
+    "verify_prasad_sunitha": "abfb923f3e52f816d371097cf15258ddde072f9f28e2f0871e60592964c2ad52",
     "verify_starvation_pruning": "5b7881a3d0d05bbbfbe765aed35cf608ac9f60897fdfacd786223fcf9be5b3dd",
-    "prime_factors": "344832e56ed5cc7e04ac24f49d6b07051f1ca404a8d22d66f02372b074995e86"
+    "zsigmondy_preconditions_satisfied": "e5a3f74ab796c732d35bb8fbaab346cf1ae69b4e3086f2e4e2f8a799e3fb06f9"
   },
   "proof_files": [
     {
@@ -330,7 +336,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "c166f85b053f2e5ccfe637a0df9ee4a61fa03c3751b8de9b533effce59647569"
+      "checksum": "05fb6d941d1b16b85edc335f2c5e1a334eedab89de541cf6afbe446f7c4d6acb"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
@@ -366,7 +372,7 @@
     },
     {
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "00b7029481ea100cbf8f7fedeb65cc54476c1e933db828bb0aa089571ed7391c"
     },
     {
       "file": "UALBF/QPN/BasicProperties.lean",
@@ -389,5 +395,5 @@
       "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951"
+  "bounds_manifest_hash": "0352596ccd6e874753d5378cdc3d6d774624a029548ccfdc118fce1f810aefe2"
 }

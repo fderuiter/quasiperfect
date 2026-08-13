@@ -431,7 +431,7 @@ def generate_manifest():
     with open(verus_proofs_path, "r", encoding="utf-8") as f:
         verus_hashes = compute_verus_hashes(f.read())
 
-    manifest["verus_hashes"] = verus_hashes
+    manifest["verus_hashes"] = {k: verus_hashes[k] for k in sorted(verus_hashes.keys())}
 
     # Scan and hash all 23 proof files
     proof_files = []
