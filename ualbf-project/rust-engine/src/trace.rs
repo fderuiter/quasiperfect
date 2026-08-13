@@ -227,9 +227,21 @@ impl TraceWriter {
                     } => {
                         ser_event.reason = "lattice_lll";
                         ser_event.m = Some(*m);
-                        ser_event.shortest_sq_norm = Some(*shortest_sq_norm);
-                        ser_event.target_log = Some(*target_log);
-                        ser_event.epsilon = Some(*epsilon);
+                        ser_event.shortest_sq_norm = if shortest_sq_norm.is_finite() {
+                            Some(*shortest_sq_norm)
+                        } else {
+                            None
+                        };
+                        ser_event.target_log = if target_log.is_finite() {
+                            Some(*target_log)
+                        } else {
+                            None
+                        };
+                        ser_event.epsilon = if epsilon.is_finite() {
+                            Some(*epsilon)
+                        } else {
+                            None
+                        };
                     }
                 }
 
