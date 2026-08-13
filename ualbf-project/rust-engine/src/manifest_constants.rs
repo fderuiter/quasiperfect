@@ -52,14 +52,7 @@ pub const CRT_MODULUS_PRODUCT: u32 = 1155;
 #[cfg(not(verus_keep_ghost))]
 pub const CRT_MODULI: [u32; 4] = [3, 5, 7, 11];
 #[cfg(not(verus_keep_ghost))]
-// Pierre Dusart's Mertens' product theorem constants (2016)
-pub const DUSART_BOUNDS_NUM: u64 = 1;
-#[cfg(not(verus_keep_ghost))]
-pub const DUSART_BOUNDS_DEN: u64 = 5;
-#[cfg(not(verus_keep_ghost))]
-pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = 2973;
-#[cfg(not(verus_keep_ghost))]
-pub const MANIFEST_HASH: &str = "0352596ccd6e874753d5378cdc3d6d774624a029548ccfdc118fce1f810aefe2";
+pub const MANIFEST_HASH: &str = "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951";
 
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
@@ -89,9 +82,5 @@ verus! {
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
     pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
     pub const CRT_MODULUS_PRODUCT: u32 = 1155;
-    // Pierre Dusart's Mertens' product theorem constants (2016)
-    pub const DUSART_BOUNDS_NUM: u64 = 1;
-    pub const DUSART_BOUNDS_DEN: u64 = 5;
-    pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = 2973;
-    pub const MANIFEST_HASH: &'static str = "0352596ccd6e874753d5378cdc3d6d774624a029548ccfdc118fce1f810aefe2";
+    pub const MANIFEST_HASH: &'static str = "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951";
 }
