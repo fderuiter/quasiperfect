@@ -231,6 +231,7 @@ pub unsafe fn get_u512_ptr(obj: *mut lean_object) -> *const crate::lean_ffi::U51
 }
 
 pub fn get_u512(obj: *mut lean_object) -> crate::lean_ffi::U512Data {
+    initialize_lean_runtime();
     unsafe {
         let ptr = rs_lean_get_external_data(obj) as *mut crate::lean_ffi::U512Data;
         *ptr
@@ -259,7 +260,7 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
     unsafe { rs_lean_ctor_get(obj, 0) }
 }
 
-static LEAN_INIT: Once = Once::new();
+static LEAN_INIT_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 
 pub fn get_logic_hash() -> String {
     initialize_lean_runtime();
@@ -407,22 +408,46 @@ thread_local! {
 }
 
 pub fn initialize_lean_runtime() {
-    LEAN_INIT.call_once(|| unsafe {
-        lean_initialize_runtime_module();
-        lean_initialize_thread();
-        IS_LEAN_THREAD_INIT.with(|init| init.set(true));
-        init_u512_class();
-        let res = initialize_ualbf_UALBF(1);
-        rs_lean_dec(res);
-    });
-    IS_LEAN_THREAD_INIT.with(|init| {
-        if !init.get() {
-            unsafe {
-                lean_initialize_thread();
-            }
-            init.set(true);
+    if IS_LEAN_THREAD_INIT.with(|init| init.get()) {
+        return;
+    }
+    let state = LEAN_INIT_STATE.load(std::sync::atomic::Ordering::Acquire);
+    if state == 2 {
+        unsafe {
+            lean_initialize_thread();
         }
-    });
+        IS_LEAN_THREAD_INIT.with(|init| init.set(true));
+        return;
+    }
+
+    if state == 1 {
+        unsafe {
+            lean_initialize_thread();
+        }
+        IS_LEAN_THREAD_INIT.with(|init| init.set(true));
+        return;
+    }
+
+    match LEAN_INIT_STATE.compare_exchange(
+        0,
+        1,
+        std::sync::atomic::Ordering::SeqCst,
+        std::sync::atomic::Ordering::Acquire,
+    ) {
+        Ok(_) => unsafe {
+            lean_initialize_runtime_module();
+            lean_initialize_thread();
+            IS_LEAN_THREAD_INIT.with(|init| init.set(true));
+            init_u512_class();
+            let res = initialize_ualbf_UALBF(1);
+            rs_lean_dec(res);
+            LEAN_INIT_STATE.store(2, std::sync::atomic::Ordering::Release);
+        },
+        Err(_) => unsafe {
+            lean_initialize_thread();
+            IS_LEAN_THREAD_INIT.with(|init| init.set(true));
+        },
+    }
 }
 
 pub fn initialize_lean_worker_thread() {
