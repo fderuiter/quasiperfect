@@ -566,39 +566,13 @@ pub fn check_and_evaluate_node(
     let target_num = get_target_abundance_num();
     let target_den = get_target_abundance_den();
 
-    let mut pruned = false;
-    let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
-    let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
-    if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
-        let mut best_num = static_best_remaining as u128 * target_den as u128;
-        let mut best_den = (1u128 << 63) * target_num as u128;
-
-        while s_l_128.checked_mul(best_num).is_none()
-            || n_l_128
-                .checked_mul(best_den)
-                .and_then(|x| x.checked_mul(2))
-                .is_none()
-        {
-            best_num = (best_num >> 1) + 1;
-            best_den >>= 1;
-            if best_den == 0 {
-                break;
-            }
-        }
-
-        if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
-            if s_l_128.checked_mul(best_num).is_some()
-                && n_l_128
-                    .checked_mul(best_den)
-                    .and_then(|x| x.checked_mul(2))
-                    .is_some()
-            {
-                pruned = crate::verus_proofs::check_starvation_kill(
-                    s_l_128, n_l_128, best_num, best_den,
-                );
-            }
-        }
-    }
+    let mut pruned = crate::pruning_dispatch::dispatch_starvation_check(
+        curr.s_l,
+        curr.n_l,
+        static_best_remaining,
+        target_num,
+        target_den,
+    );
 
     if pruned {
         let static_best_u256 = Uint::from_u128((static_best_remaining) as u128);
@@ -855,48 +829,9 @@ pub fn check_and_evaluate_node(
         let target_num = get_target_abundance_num();
         let target_den = get_target_abundance_den();
 
-        let mut pruned = false;
-        let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
-        let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
-        let f_num_128_opt: Option<u128> = forced_num.try_into().ok();
-        let f_den_128_opt: Option<u128> = forced_den.try_into().ok();
-
-        if let (Some(s_l_128), Some(n_l_128), Some(f_num_128), Some(f_den_128)) =
-            (s_l_128_opt, n_l_128_opt, f_num_128_opt, f_den_128_opt)
-        {
-            let s_l_val: u128 = s_l_128;
-            let f_num_val: u128 = f_num_128;
-            let n_l_val: u128 = n_l_128;
-            let f_den_val: u128 = f_den_128;
-            let t_num_val: u128 = target_num as u128;
-            let t_den_val: u128 = target_den as u128;
-
-            // Only call the verified check if it is safe from u128 overflow
-            if s_l_val
-                .checked_mul(f_num_val)
-                .and_then(|x: u128| x.checked_mul(t_den_val))
-                .is_some()
-                && n_l_val
-                    .checked_mul(f_den_val)
-                    .and_then(|x: u128| x.checked_mul(t_num_val))
-                    .is_some()
-            {
-                pruned = crate::verus_proofs::check_cdg_forced_kill(
-                    s_l_val, n_l_val, f_num_val, f_den_val, t_num_val, t_den_val,
-                );
-            }
-        }
-
-        if !pruned {
-            pruned = crate::universal_bounds::cpu_check_cdg_forced(
-                &curr.s_l,
-                &curr.n_l,
-                &forced_num,
-                &forced_den,
-                target_num,
-                target_den,
-            );
-        }
+        let pruned = crate::pruning_dispatch::dispatch_cdg_forced_check(
+            curr.s_l, curr.n_l, forced_num, forced_den, target_num, target_den,
+        );
 
         if pruned {
             abundance_pruned.fetch_add(1, Ordering::Relaxed);
@@ -935,39 +870,13 @@ pub fn check_and_evaluate_node(
     let target_num = get_target_abundance_num();
     let target_den = get_target_abundance_den();
 
-    let mut pruned = false;
-    let s_l_128_opt: Option<u128> = curr.s_l.try_into().ok();
-    let n_l_128_opt: Option<u128> = curr.n_l.try_into().ok();
-    if let (Some(s_l_128), Some(n_l_128)) = (s_l_128_opt, n_l_128_opt) {
-        let mut best_num = dynamic_best_achievable_fp as u128 * target_den as u128;
-        let mut best_den = (1u128 << 63) * target_num as u128;
-
-        while s_l_128.checked_mul(best_num).is_none()
-            || n_l_128
-                .checked_mul(best_den)
-                .and_then(|x| x.checked_mul(2))
-                .is_none()
-        {
-            best_num = (best_num >> 1) + 1;
-            best_den >>= 1;
-            if best_den == 0 {
-                break;
-            }
-        }
-
-        if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
-            if s_l_128.checked_mul(best_num).is_some()
-                && n_l_128
-                    .checked_mul(best_den)
-                    .and_then(|x| x.checked_mul(2))
-                    .is_some()
-            {
-                pruned = crate::verus_proofs::check_starvation_kill(
-                    s_l_128, n_l_128, best_num, best_den,
-                );
-            }
-        }
-    }
+    let mut pruned = crate::pruning_dispatch::dispatch_starvation_check(
+        curr.s_l,
+        curr.n_l,
+        dynamic_best_achievable_fp,
+        target_num,
+        target_den,
+    );
 
     if pruned {
         let dyn_best_u256 = Uint::from_u128((dynamic_best_achievable_fp) as u128);

@@ -17,6 +17,7 @@ mod dfs_tree;
 mod lean_ffi;
 mod manifest_constants;
 mod profile;
+pub mod pruning_dispatch;
 pub mod residue;
 pub mod trace;
 pub mod verus_proofs;
