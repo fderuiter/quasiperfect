@@ -106,18 +106,6 @@ fn sigma_power(base: Uint, two_e: u32) -> Option<Uint> {
     Some(sum)
 }
 
-fn cofactor_sigma_bounds(c: Uint) -> Option<(Uint, Uint)> {
-    let c2 = c.checked_mul(c)?;
-    let sqrt_c = isqrt_uint(c);
-    let two_c = Uint::from_u32(2).checked_mul(c)?;
-    let two_c_sqrt = two_c.checked_mul(sqrt_c)?;
-    let min_bound = c2.checked_add(two_c_sqrt)?;
-    let hundred = Uint::from_u32(100);
-    let c2_div_100 = c2.checked_div(hundred)?;
-    let max_bound = c2.checked_add(c2_div_100)?;
-    Some((min_bound, max_bound))
-}
-
 fn isqrt(n: Int) -> Option<Int> {
     if n < Int::zero() {
         return None;
@@ -204,6 +192,9 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 /// let sigma_cache: SigmaCache = Default::default();
 /// phase4_exact_ray_casting(&prefix, &target_min, &target_max, &illegal_z_valuations, &pruned_count, &sigma_cache, None);
 /// ```
+///
+/// NOTE: The unsound cofactor bounds fallback logic has been fully removed
+/// to ensure absolute correctness and strict mathematical soundness.
 fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &SigmaCache) -> bool {
     let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
     let mut z_factors = z_fact.factors().to_vec();
@@ -300,19 +291,7 @@ fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &S
             }
 
             if !prime_verified {
-                if let Some((min_bound, max_bound)) = cofactor_sigma_bounds(cofactor) {
-                    if required_cofactor_s_r < min_bound || required_cofactor_s_r > max_bound {
-                        return false;
-                    }
-
-                    if !crate::math_utils::verified_is_prime(cofactor) {
-                        return false;
-                    }
-
-                    s_r = required_s_r;
-                } else {
-                    return false;
-                }
+                return false;
             }
         }
     }
@@ -632,13 +611,6 @@ mod additional_tests {
     }
 
     #[test]
-    fn test_cofactor_sigma_bounds_overflow() {
-        let max = Uint::MAX;
-        let res = cofactor_sigma_bounds(max);
-        assert_eq!(res, None);
-    }
-
-    #[test]
     fn test_kth_root_normal() {
         assert_eq!(kth_root(Uint::from_u32(16), 2), Some(Uint::from_u32(4)));
         assert_eq!(kth_root(Uint::from_u32(27), 3), Some(Uint::from_u32(3)));
@@ -649,13 +621,6 @@ mod additional_tests {
         // sigma_power(3, 2) = 1 + 3 + 9 = 13
         assert_eq!(sigma_power(Uint::from_u32(3), 2), Some(Uint::from_u32(13)));
     }
-
-    #[test]
-    fn test_cofactor_sigma_bounds_normal() {
-        let bounds = cofactor_sigma_bounds(Uint::from_u32(5));
-        assert!(bounds.is_some());
-    }
-
     #[test]
     fn test_prime_divisor_sum_exact_match() {
         // Let's test a prime cofactor: q = 5.
@@ -742,40 +707,6 @@ mod additional_tests {
             }
         });
         assert!(result_prime_fail.is_err(), "Non-prime factors must panic");
-    }
-
-    #[test]
-    fn test_cofactor_unconditional_primality_correction() {
-        let cofactor = Uint::from_u32(1_000_000);
-        let required_cofactor_s_r = Uint::from_u64(1_005_000_000_000);
-
-        // 1. Verify cofactor is <= 256 bits
-        assert!((cofactor >> 256) == Uint::zero());
-
-        // 2. Verify cofactor is composite
-        assert!(!crate::math_utils::verified_is_prime(cofactor));
-
-        // 3. Verify required_cofactor_s_r is within cofactor_sigma_bounds
-        let (min_bound, max_bound) = cofactor_sigma_bounds(cofactor).unwrap();
-        assert!(required_cofactor_s_r >= min_bound);
-        assert!(required_cofactor_s_r <= max_bound);
-
-        // 4. Mimic the phase4 check:
-        // Previously, the size bypass would allow this to succeed because cofactor <= 256 bits,
-        // and we wouldn't call verified_is_prime(cofactor).
-        // With the correction, we unconditionally call verified_is_prime(cofactor),
-        // which correctly fails and we reject the candidate.
-        let mut check_passed = false;
-        if required_cofactor_s_r >= min_bound && required_cofactor_s_r <= max_bound {
-            // New logic: unconditional check
-            if crate::math_utils::verified_is_prime(cofactor) {
-                check_passed = true;
-            }
-        }
-        assert!(
-            !check_passed,
-            "Composite cofactor must be rejected even if <= 256 bits"
-        );
     }
 
     #[test]

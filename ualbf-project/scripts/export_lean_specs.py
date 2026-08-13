@@ -278,6 +278,7 @@ verus! {{
     pub open spec fn lean_conjectural_active() -> bool {{ {str(conjectural_active).lower()} }}
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat {{ {conjectural_max_log10_ceiling} }}
     pub open spec fn lean_crt_modulus_product() -> nat {{ {crt_modulus_product} }}
+    // Pierre Dusart's Mertens' product theorem constants (2016)
     pub open spec fn lean_dusart_bounds_num() -> nat {{ {dusart_bounds_num} }}
     pub open spec fn lean_dusart_bounds_den() -> nat {{ {dusart_bounds_den} }}
     pub open spec fn lean_dusart_bounds_validity_threshold() -> nat {{ {dusart_bounds_validity_threshold} }}
@@ -643,6 +644,8 @@ def main():
         generate_ffi(repo_root, schema, schema_hash)
 
         # Generate manifest constants
+        # Pierre Dusart's Mertens' product theorem constants (2016)
+        # synchronized across Rust, C, and Lean for bounds checking.
         dusart_bounds_num = bounds["dusart_bounds"]["num"]
         dusart_bounds_den = bounds["dusart_bounds"]["den"]
         dusart_bounds_validity_threshold = bounds["dusart_bounds"]["validity_threshold"]
@@ -761,6 +764,7 @@ pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
 #[cfg(not(verus_keep_ghost))]
 pub const CRT_MODULI: [u32; {len(crt_moduli)}] = [{', '.join(map(str, crt_moduli))}];
 #[cfg(not(verus_keep_ghost))]
+// Pierre Dusart's Mertens' product theorem constants (2016)
 pub const DUSART_BOUNDS_NUM: u64 = {dusart_bounds_num};
 #[cfg(not(verus_keep_ghost))]
 pub const DUSART_BOUNDS_DEN: u64 = {dusart_bounds_den};
@@ -797,6 +801,7 @@ verus! {{
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = {conjectural_max_log10};
     pub const TOUCHARD_MOD_24_MODULUS: u32 = {touchard_mod};
     pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
+    // Pierre Dusart's Mertens' product theorem constants (2016)
     pub const DUSART_BOUNDS_NUM: u64 = {dusart_bounds_num};
     pub const DUSART_BOUNDS_DEN: u64 = {dusart_bounds_den};
     pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = {dusart_bounds_validity_threshold};
@@ -836,6 +841,7 @@ verus! {{
 #define CRT_MODULUS_PRODUCT {crt_modulus_product}
 #define CRT_MODULI_LEN {len(crt_moduli)}
 #define CRT_MODULI {{ {', '.join(map(str, crt_moduli))} }}
+// Pierre Dusart's Mertens' product theorem constants (2016)
 #define DUSART_BOUNDS_NUM {dusart_bounds_num}
 #define DUSART_BOUNDS_DEN {dusart_bounds_den}
 #define DUSART_BOUNDS_VALIDITY_THRESHOLD {dusart_bounds_validity_threshold}
@@ -869,6 +875,7 @@ def OVERFLOW_THRESHOLD_DEN : Nat := {overflow_den}
 def RAYCAST_GPU_THRESHOLD : Nat := {raycast_gpu_threshold}
 def RAYCAST_CHUNK_SIZE : Nat := {raycast_chunk_size}
 
+-- Pierre Dusart's Mertens' product theorem constants (2016)
 def DUSART_BOUNDS_NUM : Nat := {dusart_bounds_num}
 def DUSART_BOUNDS_DEN : Nat := {dusart_bounds_den}
 def DUSART_BOUNDS_VALIDITY_THRESHOLD : Nat := {dusart_bounds_validity_threshold}

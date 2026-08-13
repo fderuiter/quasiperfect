@@ -160,6 +160,7 @@ static TARGET_ABUNDANCE_NUM: OnceLock<u64> = OnceLock::new();
 static TARGET_ABUNDANCE_DEN: OnceLock<u64> = OnceLock::new();
 
 pub fn init_bounds() {
+    crate::lean_ffi::initialize_lean_runtime();
     let min_pf = crate::lean_ffi::get_baseline_min_prime_factors();
     if min_pf == 0 {
         panic!("Failed to resolve baseline min prime factors from proof bridge");
@@ -188,6 +189,7 @@ pub fn init_bounds() {
 }
 
 pub fn get_min_prime_factors() -> usize {
+    crate::lean_ffi::initialize_lean_runtime();
     *MIN_PRIME_FACTORS.get_or_init(|| {
         let v = crate::lean_ffi::get_baseline_min_prime_factors();
         if v == 0 {
@@ -198,6 +200,7 @@ pub fn get_min_prime_factors() -> usize {
 }
 
 pub fn get_prasad_sunitha_bound() -> usize {
+    crate::lean_ffi::initialize_lean_runtime();
     *PRASAD_SUNITHA_BOUND.get_or_init(|| {
         let v = crate::lean_ffi::get_prasad_sunitha_bound();
         if v == 0 {
@@ -208,6 +211,7 @@ pub fn get_prasad_sunitha_bound() -> usize {
 }
 
 pub fn get_div_5_coprime_3_bound() -> usize {
+    crate::lean_ffi::initialize_lean_runtime();
     *DIV_5_COPRIME_3_BOUND.get_or_init(|| {
         let v = crate::lean_ffi::get_div_5_coprime_3_bound();
         if v == 0 {
@@ -218,6 +222,7 @@ pub fn get_div_5_coprime_3_bound() -> usize {
 }
 
 pub fn get_target_abundance_num() -> u64 {
+    crate::lean_ffi::initialize_lean_runtime();
     *TARGET_ABUNDANCE_NUM.get_or_init(|| {
         let v = crate::lean_ffi::get_target_abundance_num();
         if v == 0 {
@@ -228,6 +233,7 @@ pub fn get_target_abundance_num() -> u64 {
 }
 
 pub fn get_target_abundance_den() -> u64 {
+    crate::lean_ffi::initialize_lean_runtime();
     *TARGET_ABUNDANCE_DEN.get_or_init(|| {
         let v = crate::lean_ffi::get_target_abundance_den();
         if v == 0 {
@@ -1314,6 +1320,7 @@ fn explore_prefix_sequential(
     };
 
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
+    crate::lean_ffi::initialize_lean_runtime();
     unsafe {
         crate::lean_ffi::ualbf_dfs_loop(ctx_ptr, std::ptr::null_mut());
     }
@@ -2244,6 +2251,7 @@ mod tests {
     /// the same value is returned on every subsequent call.
     #[test]
     fn test_get_min_prime_factors_nonzero() {
+        crate::lean_ffi::initialize_lean_runtime();
         let value = get_min_prime_factors();
         assert!(
             value > 0,
@@ -2255,6 +2263,7 @@ mod tests {
     /// get_prasad_sunitha_bound must return a positive (non-zero) value.
     #[test]
     fn test_get_prasad_sunitha_bound_nonzero() {
+        crate::lean_ffi::initialize_lean_runtime();
         let value = get_prasad_sunitha_bound();
         assert!(
             value > 0,
@@ -2570,6 +2579,7 @@ mod tests {
 
     #[test]
     fn test_touchard_dynamic_reachability_combining_9_and_19() {
+        crate::lean_ffi::initialize_lean_runtime();
         let comp1 = make_prime_power(7, 49, 57);
         let comp2 = make_prime_power(19, 1000, 1123);
         let mut comps = vec![comp1, comp2];
@@ -2614,6 +2624,7 @@ mod tests {
 
     #[test]
     fn test_touchard_dynamic_reachability_prunes_invalid_even_residues() {
+        crate::lean_ffi::initialize_lean_runtime();
         let comp_even = make_prime_power(2, 4, 2);
         let mut comps = vec![comp_even];
         for i in 0..9 {
