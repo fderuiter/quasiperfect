@@ -4,6 +4,40 @@ use crate::schema_generated::Prefix;
 use crate::types::PrimePower;
 use lll_rs::{lll::biglll, matrix::Matrix, vector::BigVector};
 use rug::{Assign, Integer, Rational};
+use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LatticeWitness {
+    pub dimension: usize,
+    pub w: Vec<String>,
+    pub t: String,
+    pub transformation_matrix: Vec<Vec<String>>,
+    pub epsilon: f64,
+    pub target_log: f64,
+}
+
+static LATTICE_WITNESSES: Mutex<Vec<LatticeWitness>> = Mutex::new(Vec::new());
+
+pub fn clear_lattice_witnesses() {
+    if let Ok(mut lock) = LATTICE_WITNESSES.lock() {
+        lock.clear();
+    }
+}
+
+pub fn get_lattice_witnesses() -> Vec<LatticeWitness> {
+    if let Ok(lock) = LATTICE_WITNESSES.lock() {
+        lock.clone()
+    } else {
+        Vec::new()
+    }
+}
+
+pub fn add_lattice_witness(witness: LatticeWitness) {
+    if let Ok(mut lock) = LATTICE_WITNESSES.lock() {
+        lock.push(witness);
+    }
+}
 
 /// LLL-based lattice pruning module.
 ///
@@ -79,6 +113,10 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
     let t_val = (target_log * scaling_factor).round() as i64;
     let t = Integer::from(t_val);
 
+    if t == 0 {
+        return false;
+    }
+
     // Formulate the lattice basis.
     // Matrix of size (m + 1) columns x (m + 1) rows.
     let mut basis: Matrix<BigVector> = Matrix::init(m + 1, m + 1);
@@ -123,6 +161,40 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
         if let Some(r_sq_rat) = Rational::from_f64(r_sq) {
             if diff > r_sq_rat {
                 // Computed bound rigorously proves the branch cannot reach the target.
+                // Reconstruct U matrix
+                let mut u_matrix = Vec::with_capacity(m + 1);
+                let mut valid_reconstruction = true;
+                for i in 0..=m {
+                    let mut row = Vec::with_capacity(m + 1);
+                    for j in 0..m {
+                        row.push(basis[i][j].to_string());
+                    }
+                    let mut sum = Integer::from(0);
+                    for k in 0..m {
+                        sum += Integer::from(&basis[i][k] * &w[k]);
+                    }
+                    sum -= &basis[i][m];
+                    let (u_im, remainder) = sum.div_rem(t.clone());
+                    if remainder != 0 {
+                        valid_reconstruction = false;
+                        break;
+                    }
+                    row.push(u_im.to_string());
+                    u_matrix.push(row);
+                }
+
+                if valid_reconstruction {
+                    let witness = LatticeWitness {
+                        dimension: m + 1,
+                        w: w.iter().map(|x| x.to_string()).collect(),
+                        t: t.to_string(),
+                        transformation_matrix: u_matrix,
+                        epsilon,
+                        target_log,
+                    };
+                    add_lattice_witness(witness);
+                }
+
                 return true;
             }
         }

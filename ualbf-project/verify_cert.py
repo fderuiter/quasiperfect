@@ -89,6 +89,155 @@ def verify_theorem_checksum(thm, manifest_path=None):
         return computed == thm.get("checksum", "")
 
 
+from fractions import Fraction
+import math
+
+def exact_det(matrix):
+    """
+    Computes the exact determinant of a square matrix with integer/fraction entries
+    using Gaussian elimination over fractions.Fraction.
+    """
+    n = len(matrix)
+    A = [[Fraction(x) for x in row] for row in matrix]
+    det = Fraction(1)
+    for i in range(n):
+        # Find pivot
+        pivot_row = i
+        while pivot_row < n and A[pivot_row][i] == 0:
+            pivot_row += 1
+        if pivot_row == n:
+            return Fraction(0)
+        if pivot_row != i:
+            # Swap rows
+            A[i], A[pivot_row] = A[pivot_row], A[i]
+            det *= -1
+        
+        pivot = A[i][i]
+        det *= pivot
+        
+        # Eliminate below
+        for r in range(i + 1, n):
+            factor = A[r][i] / pivot
+            for c in range(i, n):
+                A[r][c] -= factor * A[i][c]
+                
+    return det
+
+
+def mat_mul(U, B_init):
+    """
+    Multiplies two square matrices U and B_init of size (m+1) x (m+1).
+    """
+    n = len(U)
+    res = [[0]*n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            val = 0
+            for k in range(n):
+                val += U[i][k] * B_init[k][j]
+            res[i][j] = val
+    return res
+
+
+def verify_lattice_witnesses(cert, manifest_path):
+    print("\n--- Verifying Lattice Pruning Witnesses ---")
+    lattice_witnesses = cert.get("lattice_witnesses")
+    if not lattice_witnesses:
+        print("✓ No lattice pruning witnesses to verify in certificate.")
+        return
+
+    # Load bounds manifest to get limits and precision tolerance
+    bounds_path = os.path.join(os.path.dirname(manifest_path) if os.path.dirname(manifest_path) else ".", "bounds_manifest.json")
+    if not os.path.exists(bounds_path):
+        bounds_path = "bounds_manifest.json"
+    if not os.path.exists(bounds_path):
+        print("ERROR: Bounds manifest not found for lattice validation.")
+        sys.exit(1)
+
+    try:
+        with open(bounds_path, "r", encoding="utf-8") as f:
+            bounds_data = json.load(f)
+    except Exception as e:
+        print(f"ERROR: Failed to parse bounds manifest: {e}")
+        sys.exit(1)
+
+    # Scaled mathematical limit defined in the bounds manifest
+    target_min_log10 = bounds_data["search_bounds"]["target_min_log10"]["value"]
+    # Epsilon tolerance limit: ln(2 + 10^-target_min_log10) - ln(2)
+    ln_2 = math.log(2.0)
+    epsilon_manifest = math.log(2.0 + 10.0**(-target_min_log10)) - ln_2
+    
+    tolerance = bounds_data.get("lattice_precision_tolerance", 1e-9)
+
+    print(f"Using bounds manifest target_min_log10 = {target_min_log10} (epsilon limit = {epsilon_manifest:.4e})")
+    print(f"Precision tolerance = {tolerance}")
+
+    for idx, witness in enumerate(lattice_witnesses):
+        dim = witness.get("dimension")
+        w_str = witness.get("w")
+        t_str = witness.get("t")
+        u_str = witness.get("transformation_matrix")
+        epsilon = witness.get("epsilon")
+        target_log = witness.get("target_log")
+
+        if dim is None or w_str is None or t_str is None or u_str is None or epsilon is None:
+            print(f"ERROR: Witness {idx} is missing mandatory fields.")
+            sys.exit(1)
+
+        m = dim - 1
+        
+        # Verify matrix dimensions
+        if len(u_str) != dim or any(len(row) != dim for row in u_str):
+            print(f"ERROR: Witness {idx} transformation matrix is not of size {dim}x{dim}.")
+            sys.exit(1)
+
+        # Convert entries to integers
+        try:
+            w = [int(x) for x in w_str]
+            t = int(t_str)
+            U = [[int(x) for x in row] for row in u_str]
+        except ValueError as e:
+            print(f"ERROR: Witness {idx} has non-integer entries: {e}")
+            sys.exit(1)
+
+        # 1. Verify unimodularity of U
+        det = exact_det(U)
+        if abs(det) != 1:
+            print(f"ERROR: Witness {idx} transformation matrix is NOT unimodular (det = {det}).")
+            sys.exit(1)
+
+        # 2. Reconstruct B_initial
+        B_init = [[0]*dim for _ in range(dim)]
+        for i in range(m):
+            B_init[i][i] = 1
+            B_init[i][m] = w[i]
+        B_init[m][m] = -t
+
+        # 3. Compute B_reduced = U * B_initial
+        B_reduced = mat_mul(U, B_init)
+
+        # 4. Compute shortest vector norm of b_0
+        b0 = B_reduced[0]
+        shortest_sq_norm = sum(x*x for x in b0)
+
+        # 5. Compute Schmidt lower bound
+        diff = shortest_sq_norm / (2**m) - m
+
+        # 6. Check against scaled mathematical limits from the bounds manifest
+        if epsilon > epsilon_manifest + 1e-9:
+            print(f"ERROR: Witness {idx} epsilon {epsilon:.4e} exceeds manifest limit {epsilon_manifest:.4e}.")
+            sys.exit(1)
+
+        r = 0.5 * dim + 1_000_000_000.0 * epsilon
+        r_sq = r * r
+
+        if diff <= 0 or (diff + tolerance) < r_sq:
+            print(f"ERROR: Witness {idx} Schmidt bound {diff:.4f} is invalid (required >= {r_sq:.4f}).")
+            sys.exit(1)
+
+    print(f"✓ Successfully verified {len(lattice_witnesses)} lattice pruning witnesses (unimodular & Schmidt bounds valid).")
+
+
 def verify_certificate(cert_path, manifest_path):
     """
     Verify a formal exhaustion certificate against its manifest and local source artifacts.
@@ -351,6 +500,8 @@ def verify_certificate(cert_path, manifest_path):
             f"✓ Bound Verified: 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}"
         )
         print("✓ Telemetry matches execution reality.")
+
+    verify_lattice_witnesses(cert, manifest_path)
 
     return cert
 
