@@ -119,7 +119,7 @@
             src = ./ualbf-project/lean4-proofs;
             filter = path: type: builtins.match ".*(lake-manifest.json|lakefile.lean|lean-toolchain|lakefile.toml)$" path != null || type == "directory";
           };
-          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq pkgs.curl ];
+          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq pkgs.curl pkgs.nodejs ];
           buildPhase = ''
             export HOME=$TMPDIR
             export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
@@ -156,7 +156,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-JzoxPKsQ9uNNlHZo9dbhpo63MWjfOoCWbYLhVZV1LCk=";
+          outputHash = "sha256-1sVnBsyVWcqdsrPmpnQwx5+SMS4DSV+1rcJ7YoZJOyc=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
