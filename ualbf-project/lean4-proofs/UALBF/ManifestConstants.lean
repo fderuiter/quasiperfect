@@ -22,6 +22,7 @@ def OVERFLOW_THRESHOLD_DEN : Nat := 1000000
 def RAYCAST_GPU_THRESHOLD : Nat := 100000
 def RAYCAST_CHUNK_SIZE : Nat := 10000000
 
+-- Pierre Dusart's Mertens' product theorem constants (2016)
 def DUSART_BOUNDS_NUM : Nat := 1
 def DUSART_BOUNDS_DEN : Nat := 5
 def DUSART_BOUNDS_VALIDITY_THRESHOLD : Nat := 2973

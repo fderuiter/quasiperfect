@@ -1410,6 +1410,7 @@ fn test_solve_mod_2_k_custom_5() {
 #[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_solve_crt_128bit() {
+    crate::lean_ffi::initialize_lean_runtime();
     let m1 = Int::from_u128(0xFFFFFFFFFFFFFFFF);
     let m2 = Int::from_u128(0xFFFFFFFFFFFFFFFE);
     let r1 = Int::from_u128(12345);
@@ -1422,6 +1423,7 @@ fn test_solve_crt_128bit() {
 #[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_basic() {
+    crate::lean_ffi::initialize_lean_runtime();
     // x^2 = 2 (mod 7), x = 3 or 4
     // Lift x=3 to mod 49: x^2 = 2 (mod 49). x = 10
     let root = Int::from_u128(3);
@@ -1435,6 +1437,7 @@ fn test_hensels_lift_basic() {
 #[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_k3() {
+    crate::lean_ffi::initialize_lean_runtime();
     // Lift x=3 to mod 343: x^2 = 2 (mod 343). x = 108
     let root = Int::from_u128(3);
     let n = Int::from_u128(2);
@@ -1447,6 +1450,7 @@ fn test_hensels_lift_k3() {
 #[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_residue_failure() {
+    crate::lean_ffi::initialize_lean_runtime();
     // trigger a residue failure
     // We want `mod_inverse_big(two_r, current_mod)` to return None.
     // two_r = (2 * current_r) % current_mod.

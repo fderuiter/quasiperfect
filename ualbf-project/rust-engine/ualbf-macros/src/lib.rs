@@ -106,6 +106,23 @@ inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min
     }
     return false;
 }
+
+inline bool ualbf_check_dusart_bound(RNS512 s_l, RNS512 n_l, uint64_t p_last, uint64_t validity_threshold, uint64_t dusart_num, uint64_t dusart_den, uint64_t target_num, uint64_t target_den) {
+    if (p_last < validity_threshold) {
+        return false;
+    }
+    uint64_t den_p_last = dusart_den * p_last;
+    uint64_t factor_num = den_p_last + dusart_num;
+    uint64_t factor_den = den_p_last;
+
+    RNS512 lhs = ualbf_mul_u64(s_l, factor_num);
+    lhs = ualbf_mul_u64(lhs, target_den);
+
+    RNS512 rhs = ualbf_mul_u64(n_l, factor_den);
+    rhs = ualbf_mul_u64(rhs, target_num);
+
+    return cmp(lhs, rhs) < 0;
+}
 "#;
 
     // Generate the identical Rust code
@@ -145,6 +162,38 @@ inline bool ualbf_check_prasad_sunitha(uint32_t info_mask, uint32_t baseline_min
                 }
             }
             false
+        }
+
+        pub fn cpu_check_dusart_bound(
+            s_l: &crate::types::Uint,
+            n_l: &crate::types::Uint,
+            p_last: u64,
+            validity_threshold: u64,
+            dusart_num: u64,
+            dusart_den: u64,
+            target_num: u64,
+            target_den: u64,
+        ) -> bool {
+            if p_last < validity_threshold {
+                return false;
+            }
+            let den_p_last = dusart_den.checked_mul(p_last).unwrap_or(u64::MAX);
+            let factor_num = den_p_last.checked_add(dusart_num).unwrap_or(u64::MAX);
+            let factor_den = den_p_last;
+
+            let factor_num_u = crate::types::Uint::from_u64(factor_num);
+            let factor_den_u = crate::types::Uint::from_u64(factor_den);
+            let target_num_u = crate::types::Uint::from_u64(target_num);
+            let target_den_u = crate::types::Uint::from_u64(target_den);
+
+            let lhs = s_l.checked_mul(factor_num_u)
+                .and_then(|x| x.checked_mul(target_den_u))
+                .unwrap_or(crate::types::Uint::MAX);
+            let rhs = n_l.checked_mul(factor_den_u)
+                .and_then(|x| x.checked_mul(target_num_u))
+                .unwrap_or(crate::types::Uint::MAX);
+
+            lhs < rhs
         }
     };
 
