@@ -442,8 +442,32 @@ fn sha256_digest_file(path: &std::path::Path) -> std::io::Result<String> {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    for arg in &args {
+        if arg.starts_with("--verify-sidecar=") {
+            let path = arg.trim_start_matches("--verify-sidecar=");
+            if let Err(e) = sieve::run_offline_verification(path) {
+                eprintln!("Verification failed: {}", e);
+                std::process::exit(1);
+            }
+            std::process::exit(0);
+        }
+    }
+
     let total_start = std::time::Instant::now();
     crate::lean_ffi::initialize_lean_runtime();
+
+    // Initialize sidecar logger
+    let sidecar_path =
+        std::env::var("UALBF_SIDECAR_PATH").unwrap_or_else(|_| "overflow_sidecar.log".to_string());
+    if let Err(e) = sieve::init_sidecar_logger(&sidecar_path) {
+        eprintln!(
+            "FATAL: Failed to initialize sidecar logger at {}: {}",
+            sidecar_path, e
+        );
+        std::process::exit(1);
+    }
+
     let config = policy::get_safe_config();
     // ── Formal Certification Initialization ──
     let manifest_path = config.proof_manifest.clone();
@@ -774,6 +798,7 @@ fn main() {
         println!("Executing Startup Invariant Validation checks on FFI bounds sequence...");
         if let Err(err_msg) = validate_suffix_bounds_sequence(&suffix_abundance) {
             eprintln!("{}", err_msg);
+            sieve::finalize_sidecar_logger();
             std::process::exit(1);
         }
         println!("Startup Invariant Validation Successful: Monotonicity and fixed-point boundary limits are verified.");
@@ -797,6 +822,7 @@ fn main() {
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
         distributed::run_controller(&addr, work_units);
+        sieve::finalize_sidecar_logger();
         std::process::exit(0); // For now just exit after completion
     } else if mode == "worker" {
         let addr = config.controller_addr.clone();
@@ -870,6 +896,7 @@ fn main() {
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {
         println!("=== Certificate Generation Skipped due to custom bounds ===");
+        sieve::finalize_sidecar_logger();
         return;
     }
 
@@ -992,4 +1019,5 @@ fn main() {
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
     fs::write("formal_certificate.json", &cert_json).expect("Failed to write certificate");
     println!("=== Certificate Generated: formal_certificate.json ===");
+    sieve::finalize_sidecar_logger();
 }

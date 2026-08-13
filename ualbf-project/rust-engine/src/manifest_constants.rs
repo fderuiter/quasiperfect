@@ -52,6 +52,7 @@ pub const CRT_MODULUS_PRODUCT: u32 = 1155;
 #[cfg(not(verus_keep_ghost))]
 pub const CRT_MODULI: [u32; 4] = [3, 5, 7, 11];
 #[cfg(not(verus_keep_ghost))]
+// Pierre Dusart's Mertens' product theorem constants (2016)
 pub const DUSART_BOUNDS_NUM: u64 = 1;
 #[cfg(not(verus_keep_ghost))]
 pub const DUSART_BOUNDS_DEN: u64 = 5;
@@ -88,6 +89,7 @@ verus! {
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
     pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
     pub const CRT_MODULUS_PRODUCT: u32 = 1155;
+    // Pierre Dusart's Mertens' product theorem constants (2016)
     pub const DUSART_BOUNDS_NUM: u64 = 1;
     pub const DUSART_BOUNDS_DEN: u64 = 5;
     pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = 2973;

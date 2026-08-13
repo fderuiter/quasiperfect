@@ -32,6 +32,10 @@ def test_specification_parity():
 
     crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
 
+    dusart_bounds_num = bounds["dusart_bounds"]["num"]
+    dusart_bounds_den = bounds["dusart_bounds"]["den"]
+    dusart_bounds_validity_threshold = bounds["dusart_bounds"]["validity_threshold"]
+
     # 2. Parse manifest_constants.rs (active engine constants)
     constants_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -71,6 +75,16 @@ def test_specification_parity():
     assert (
         engine_constants.get("CRT_MODULUS_PRODUCT") == crt_modulus_product
     ), "Active constant mismatch for CRT modulus product"
+    assert (
+        engine_constants.get("DUSART_BOUNDS_NUM") == dusart_bounds_num
+    ), "Active constant mismatch for Dusart bounds num"
+    assert (
+        engine_constants.get("DUSART_BOUNDS_DEN") == dusart_bounds_den
+    ), "Active constant mismatch for Dusart bounds den"
+    assert (
+        engine_constants.get("DUSART_BOUNDS_VALIDITY_THRESHOLD")
+        == dusart_bounds_validity_threshold
+    ), "Active constant mismatch for Dusart bounds validity threshold"
 
     # 3. Parse lean_export.rs (generated specifications)
     specs_path = os.path.join(
@@ -123,11 +137,21 @@ def test_specification_parity():
     assert (
         spec_constants.get("lean_crt_modulus_product") == crt_modulus_product
     ), "Spec mismatch for CRT modulus product"
+    assert (
+        spec_constants.get("lean_dusart_bounds_num") == dusart_bounds_num
+    ), "Spec mismatch for Dusart bounds num"
+    assert (
+        spec_constants.get("lean_dusart_bounds_den") == dusart_bounds_den
+    ), "Spec mismatch for Dusart bounds den"
+    assert (
+        spec_constants.get("lean_dusart_bounds_validity_threshold")
+        == dusart_bounds_validity_threshold
+    ), "Spec mismatch for Dusart bounds validity threshold"
 
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
+    reason="Decouple Python checks from core builds under GHA environment",
 )
 def test_conjectural_bounds_conflict_fails_build():
     """
@@ -163,7 +187,7 @@ def test_conjectural_bounds_conflict_fails_build():
         bounds_data["conjectural_bounds"] = {
             "active": True,
             "conjecture_name": "ABC Conjecture",
-            "target_max_log10_ceiling": 30
+            "target_max_log10_ceiling": 30,
         }
         bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
 
@@ -171,17 +195,13 @@ def test_conjectural_bounds_conflict_fails_build():
         subprocess.run(
             ["python3", "scripts/export_lean_specs.py"],
             cwd=str(project_dir),
-            check=True
+            check=True,
         )
 
         # 2. Run auditor.py with MOCK_LEAN=1 to update proof_manifest.json
         env = os.environ.copy()
         env["MOCK_LEAN"] = "1"
-        subprocess.run(
-            ["python3", "auditor.py"],
-            cwd=str(project_dir),
-            env=env
-        )
+        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env)
 
         # Touch build.rs to force rerun
         build_rs_path = project_dir / "rust-engine/build.rs"
@@ -193,7 +213,7 @@ def test_conjectural_bounds_conflict_fails_build():
             ["cargo", "check"],
             cwd=str(project_dir / "rust-engine"),
             capture_output=True,
-            text=True
+            text=True,
         )
 
         assert res.returncode != 0
@@ -213,4 +233,3 @@ def test_conjectural_bounds_conflict_fails_build():
         build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
-

@@ -28,6 +28,7 @@ verus! {
     pub open spec fn lean_conjectural_active() -> bool { false }
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat { 30 }
     pub open spec fn lean_crt_modulus_product() -> nat { 1155 }
+    // Pierre Dusart's Mertens' product theorem constants (2016)
     pub open spec fn lean_dusart_bounds_num() -> nat { 1 }
     pub open spec fn lean_dusart_bounds_den() -> nat { 5 }
     pub open spec fn lean_dusart_bounds_validity_threshold() -> nat { 2973 }

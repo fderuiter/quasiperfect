@@ -217,7 +217,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "56f04fed1c6a3c4272db89c942a766e749694a8dcf3f1d34f0c7394b9f663e50",
+  "verified_logic_hash": "5ac8ca743cc53b308a9d9f1d5b458e87062c7fbd5f4fbd896fc0d532d8b437ef",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -336,7 +336,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "d122771989150ccd3dd9755372e18426d060cdd249af2d165bfe0806c15e26da"
+      "checksum": "c9de0833b6ded5a50019eb77d144d2769cb6b9052cb69f0bc17e87263902a0f8"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
