@@ -377,10 +377,6 @@ class TestPayloadFormat:
             "trace_hash": trace_hash,
             "factorization_depth": factorization_depth,
         }
-        if "cert" in locals() and "path_ranges" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["path_ranges"]
-        elif "cert" in locals() and "inner_paths" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
@@ -1025,7 +1021,6 @@ class TestPathContinuityValidation:
 
     def test_path_ranges_multiple_gaps(self, tmp_path, monkeypatch):
         """Test detection of multiple gaps in the path chain."""
-        manifest = make_manifest()
         # [2] to [3] is missing, [4] to [] is missing
         path_ranges = [
             {"start_bound": [], "end_bound": [2]},
