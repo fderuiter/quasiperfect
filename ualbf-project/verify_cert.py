@@ -17,9 +17,7 @@ def verify_trace_file(cert, trace_path):
         print(f"ERROR: Trace file '{trace_path}' not found.")
         sys.exit(1)
 
-    with open(trace_path, "rb") as f:
-        trace_data = f.read()
-    computed_hash = hashlib.sha256(trace_data).hexdigest()
+    computed_hash = cert_util.hash_file(trace_path)
     expected_hash = cert["telemetry"].get("trace_hash")
     if expected_hash and computed_hash != expected_hash:
         print(
@@ -79,8 +77,7 @@ def verify_theorem_checksum(thm, manifest_path=None):
         file_path = os.path.join("lean4-proofs", thm["file"])
 
     if os.path.exists(file_path):
-        with open(file_path, "rb") as f:
-            computed = hashlib.sha256(f.read()).hexdigest()
+        computed = cert_util.hash_file(file_path)
         return computed == thm.get("checksum", "")
     else:
         # Fallback to metadata-based hash if the physical file does not exist anywhere
@@ -331,7 +328,7 @@ def verify_certificate(cert_path, manifest_path):
         manifest_content = f.read()
 
     # Verify manifest hash
-    manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+    manifest_hash = cert_util.hash_file(manifest_path)
     if manifest_hash != cert.get("manifest_hash"):
         print(
             f"ERROR: Manifest hash mismatch!\nExpected: {cert.get('manifest_hash')}\nGot:      {manifest_hash}"
@@ -415,8 +412,7 @@ def verify_certificate(cert_path, manifest_path):
                 f"ERROR: Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest."
             )
             sys.exit(1)
-        with open(bounds_path, "rb") as f:
-            computed_bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        computed_bounds_hash = cert_util.hash_file(bounds_path)
         if computed_bounds_hash != bounds_manifest_hash:
             print(
                 f"ERROR: Bounds manifest hash mismatch!\nExpected: {bounds_manifest_hash}\nGot:      {computed_bounds_hash}"
@@ -457,7 +453,7 @@ def verify_certificate(cert_path, manifest_path):
             if b"sorry" in content:
                 print(f"ERROR: 'sorry' bypass detected in {pf['file']}")
                 sys.exit(1)
-            computed = hashlib.sha256(content).hexdigest()
+            computed = cert_util.hash_file(file_path)
             if computed != pf["checksum"]:
                 print(f"ERROR: Checksum mismatch for file '{pf['file']}'")
                 print(f"Expected: {pf['checksum']}")
@@ -485,8 +481,7 @@ def verify_certificate(cert_path, manifest_path):
                 file_path = os.path.join("lean4-proofs", thm["file"])
 
             if os.path.exists(file_path):
-                with open(file_path, "rb") as f:
-                    computed = hashlib.sha256(f.read()).hexdigest()
+                computed = cert_util.hash_file(file_path)
             else:
                 payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
                 computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -538,14 +533,22 @@ def verify_telemetry_paths(certs_list: list) -> None:
     all_path_ranges = []
     for i, cert in enumerate(certs_list):
         tel = cert.get("telemetry", {})
-        if "path_ranges" not in tel and "inner_paths" not in tel:
+        if (
+            "path_ranges" not in tel
+            and "inner_paths" not in tel
+            and "explored_ranges" not in tel
+        ):
             print(
                 f"ERROR: Inner telemetry path ranges are missing from certificate {i}."
             )
             sys.exit(1)
-        path_ranges = (
-            tel.get("path_ranges") if "path_ranges" in tel else tel.get("inner_paths")
-        )
+        if "path_ranges" in tel:
+            path_ranges = tel.get("path_ranges")
+        elif "inner_paths" in tel:
+            path_ranges = tel.get("inner_paths")
+        else:
+            path_ranges = tel.get("explored_ranges")
+
         if not isinstance(path_ranges, list):
             print(
                 f"ERROR: Inner telemetry path ranges in certificate {i} must be a list."
@@ -740,6 +743,7 @@ if __name__ == "__main__":
             path_ranges = (
                 c["telemetry"].get("path_ranges")
                 or c["telemetry"].get("inner_paths")
+                or c["telemetry"].get("explored_ranges")
                 or []
             )
             all_path_ranges.extend(path_ranges)

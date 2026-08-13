@@ -9,10 +9,12 @@ try:
     hash_tcb = verification_lib.hash_tcb
     hash_extension_tcb = verification_lib.hash_extension_tcb
     check_path_continuity = verification_lib.check_path_continuity
+    hash_file = verification_lib.hash_file
 except ImportError:
     hash_tcb = None
     hash_extension_tcb = None
     check_path_continuity = None
+    hash_file = None
     _has_verification_lib = False
 
 

@@ -466,6 +466,19 @@ pub fn hash_extension_tcb(repo_root: &str) -> PyResult<String> {
         .map_err(|e| PyException::new_err(format!("Failed to hash extension TCB: {}", e)))
 }
 
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn hash_file(path: &str) -> PyResult<String> {
+    use pyo3::exceptions::PyIOError;
+    use sha2::{Digest, Sha256};
+
+    let bytes = std::fs::read(path)
+        .map_err(|e| PyIOError::new_err(format!("Failed to read file '{}': {}", path, e)))?;
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    Ok(hex::encode(hasher.finalize()))
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct RangeWorkUnit {
     pub start_bound: Vec<u64>,
@@ -557,6 +570,7 @@ fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(hash_tcb, m)?)?;
     m.add_function(wrap_pyfunction!(hash_extension_tcb, m)?)?;
     m.add_function(wrap_pyfunction!(check_path_continuity, m)?)?;
+    m.add_function(wrap_pyfunction!(hash_file, m)?)?;
     Ok(())
 }
 
