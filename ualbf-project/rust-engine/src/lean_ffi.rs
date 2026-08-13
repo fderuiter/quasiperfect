@@ -128,8 +128,9 @@ impl LeanObjectWrapper {
 
 impl Drop for LeanObjectWrapper {
     fn drop(&mut self) {
-        unsafe {
-            if !self.0.is_null() {
+        if !self.0.is_null() {
+            initialize_lean_runtime();
+            unsafe {
                 rs_lean_dec(self.0);
             }
         }
@@ -218,6 +219,7 @@ fn init_u512_class() {
 pub const ZERO_U512: crate::lean_ffi::U512Data = [0; crate::lean_ffi::LIMB_COUNT];
 
 pub fn alloc_u512(data: crate::lean_ffi::U512Data) -> *mut lean_object {
+    initialize_lean_runtime();
     unsafe {
         let ptr = Box::into_raw(Box::new(data));
         rs_lean_alloc_external(U512_CLASS, ptr as *mut c_void)
@@ -260,6 +262,7 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
 static LEAN_INIT: Once = Once::new();
 
 pub fn get_logic_hash() -> String {
+    initialize_lean_runtime();
     unsafe {
         let obj = ualbf_logic_hash;
         let cstr = lean_string_cstr(obj);
@@ -406,6 +409,8 @@ thread_local! {
 pub fn initialize_lean_runtime() {
     LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
+        lean_initialize_thread();
+        IS_LEAN_THREAD_INIT.with(|init| init.set(true));
         init_u512_class();
         let res = initialize_ualbf_UALBF(1);
         rs_lean_dec(res);
@@ -421,28 +426,31 @@ pub fn initialize_lean_runtime() {
 }
 
 pub fn initialize_lean_worker_thread() {
-    unsafe {
-        lean_initialize_thread();
-    }
+    initialize_lean_runtime();
 }
 
 pub fn check_mod_8(q: u64) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_8(q) != 0 }
 }
 
 pub fn check_mod_3(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_3(p, two_e) != 0 }
 }
 
 pub fn check_mod_5(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_5(p, two_e) != 0 }
 }
 
 pub fn check_mod_9(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_mod_9(p, two_e) != 0 }
 }
 
 pub fn check_touchard(p: u64, two_e: u32) -> bool {
+    initialize_lean_runtime();
     unsafe { ualbf_check_touchard(p, two_e) != 0 }
 }
 
@@ -465,12 +473,14 @@ pub fn try_scale_bound_ceil(bound: u128, p: u128) -> Result<u128, FfiError> {
 }
 
 pub fn get_static_suffix_bound(k: u32) -> u128 {
+    initialize_lean_runtime();
     let w0 = unsafe { ualbf_static_suffix_bound_w0(k) };
     let w1 = unsafe { ualbf_static_suffix_bound_w1(k) };
     ((w1 as u128) << 64) | (w0 as u128)
 }
 
 pub fn get_euler_ceiling() -> (Uint, Uint) {
+    initialize_lean_runtime();
     unsafe {
         use crate::types::UintExt;
         let num = ualbf_euler_ceiling_num;
@@ -489,6 +499,7 @@ pub fn get_euler_ceiling() -> (Uint, Uint) {
 }
 
 pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uint) -> bool {
+    initialize_lean_runtime();
     let n_l_obj = n_l.to_lean();
     let x_l_obj = x_l_abs.to_lean();
     let s_l_obj = s_l.to_lean();
@@ -505,12 +516,14 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 }
 
 pub fn check_crt_1155(z_val: &Uint, x_l_val: &Uint) -> bool {
+    initialize_lean_runtime();
     let z_obj = z_val.to_lean();
     let x_l_obj = x_l_val.to_lean();
     unsafe { ualbf_check_crt_1155(z_obj.as_ptr(), x_l_obj.as_ptr()) != 0 }
 }
 
 pub fn get_baseline_min_prime_factors() -> usize {
+    initialize_lean_runtime();
     unsafe {
         let val = ualbf_baseline_min_prime_factors;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_baseline_min_prime_factors") {
@@ -528,6 +541,7 @@ pub fn get_baseline_min_prime_factors() -> usize {
 }
 
 pub fn get_prasad_sunitha_bound() -> usize {
+    initialize_lean_runtime();
     unsafe {
         let val = ualbf_prasad_sunitha_bound;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_prasad_sunitha_bound") {
@@ -545,6 +559,7 @@ pub fn get_prasad_sunitha_bound() -> usize {
 }
 
 pub fn get_div_5_coprime_3_bound() -> usize {
+    initialize_lean_runtime();
     if crate::policy::get_proof_mode() == "pure" {
         return get_baseline_min_prime_factors();
     }
@@ -565,6 +580,7 @@ pub fn get_div_5_coprime_3_bound() -> usize {
 }
 
 pub fn get_target_abundance_num() -> u64 {
+    initialize_lean_runtime();
     unsafe {
         let val = ualbf_target_abundance_num;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_target_abundance_num") {
@@ -576,6 +592,7 @@ pub fn get_target_abundance_num() -> u64 {
 }
 
 pub fn get_target_abundance_den() -> u64 {
+    initialize_lean_runtime();
     unsafe {
         let val = ualbf_target_abundance_den;
         if let Err(e) = check_verified_bit(val as u64, 63, "get_target_abundance_den") {
@@ -596,6 +613,7 @@ pub fn compute_sigma(p: u64, pow: u32) -> Uint {
 }
 
 pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
+    initialize_lean_runtime();
     if p > 1 && (pow as f64) * (p as f64).log2() >= 512.0 {
         return None;
     }
@@ -614,6 +632,7 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
 }
 
 pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> {
+    initialize_lean_runtime();
     unsafe {
         let a_obj = a_abs.to_lean();
         let m_obj = m.to_lean();
