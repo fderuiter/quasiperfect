@@ -1213,4 +1213,174 @@ class TestDirectMappingAndSchemaEnforcement:
         assert res["manifest_hash"] == manifest_hash
 
 
+def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
+    """
+    Test Post-Execution Schmidt-Bound Lattice Certification.
+    Verify:
+    1. Valid lattice witness successfully passes offline verification.
+    2. Non-unimodular transformation matrix is rejected with exit(1).
+    3. Invalid Schmidt bound is rejected with exit(1).
+    4. Out-of-bounds epsilon is rejected with exit(1).
+    """
+    import os
+    import json
+    import pytest
+    from verify_cert import verify_certificate
+
+    # 1. Create a mock bounds manifest with target_min_log10 = 37 and tolerance = 1e-9
+    bounds_manifest = {
+        "search_bounds": {
+            "target_min_log10": {
+                "value": 37,
+                "is_axiomatic": False
+            }
+        },
+        "lattice_precision_tolerance": 1e-9
+    }
+    bounds_content = json.dumps(bounds_manifest).encode("utf-8")
+    bounds_hash = hashlib.sha256(bounds_content).hexdigest()
+    bounds_path = os.path.join(str(tmp_path), "bounds_manifest.json")
+    with open(bounds_path, "wb") as f:
+        f.write(bounds_content)
+
+    # 2. Create a mock manifest containing bounds_manifest_hash
+    manifest = make_manifest()
+    manifest["bounds_manifest_hash"] = bounds_hash
+    manifest_content = json.dumps(manifest)
+    manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
+    with open(manifest_path, "w") as f:
+        f.write(manifest_content)
+
+    # Re-sign helper to build valid certified payload
+    def build_signed_cert_with_witnesses(witnesses):
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+        cert = build_cert(manifest_hash)
+        cert["manifest_hash"] = manifest_hash
+        cert["lattice_witnesses"] = witnesses
+
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 37),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+        }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+        return cert
+
+    # Construct a mathematically valid witness:
+    # Let m = 2 (dim = 3).
+    # w = [100, 200], t = 50.
+    # B_init = [[1, 0, 100], [0, 1, 200], [0, 0, -50]]
+    # Let U be a simple unimodular matrix (identity)
+    # B_reduced = U * B_init = B_init
+    # b0 = [1, 0, 100]
+    # norm(b0)^2 = 1 + 10000 = 10001
+    # diff = 10001 / 4 - 2 = 2500.25 - 2 = 2498.25
+    # epsilon = 1e-15, dim = 3 (m = 2)
+    # r = 1.5 + 1e9 * 1e-15 = 1.500001
+    # r_sq = 2.25
+    # diff = 2498.25 > 2.25, so diff is valid!
+    valid_witnesses = [{
+        "dimension": 3,
+        "w": ["100", "200"],
+        "t": "50",
+        "transformation_matrix": [
+            ["1", "0", "0"],
+            ["0", "1", "0"],
+            ["0", "0", "1"]
+        ],
+        "epsilon": 1e-15,
+        "target_log": 0.1
+    }]
+
+    # Case 1: Valid witnesses pass
+    cert_valid = build_signed_cert_with_witnesses(valid_witnesses)
+    cert_valid_path = os.path.join(str(tmp_path), "cert_valid.json")
+    with open(cert_valid_path, "w") as f:
+        json.dump(cert_valid, f)
+
+    os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+    verify_certificate(cert_valid_path, manifest_path)  # Must not exit/error!
+
+    # Case 2: Non-unimodular transformation matrix is rejected
+    non_unimodular_witnesses = [{
+        "dimension": 3,
+        "w": ["100", "200"],
+        "t": "50",
+        "transformation_matrix": [
+            ["2", "0", "0"],  # Det of this U is 2, not 1 or -1!
+            ["0", "1", "0"],
+            ["0", "0", "1"]
+        ],
+        "epsilon": 1e-15,
+        "target_log": 0.1
+    }]
+    cert_invalid_uni = build_signed_cert_with_witnesses(non_unimodular_witnesses)
+    cert_invalid_uni_path = os.path.join(str(tmp_path), "cert_invalid_uni.json")
+    with open(cert_invalid_uni_path, "w") as f:
+        json.dump(cert_invalid_uni, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_uni_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 3: Invalid Schmidt bound is rejected
+    # (Let's make U result in a very small shortest vector, e.g. b0 has norm 0 or diff <= r_sq)
+    # Let w = [0, 0], t = 1, epsilon = 0.1 (not allowed directly but let's make diff small)
+    # B_init = [[1, 0, 0], [0, 1, 0], [0, 0, -1]]
+    # U = identity, so B_reduced = B_init, b0 = [1, 0, 0] -> norm(b0)^2 = 1.
+    # diff = 1/4 - 2 = -1.75 <= 0, which is invalid!
+    invalid_bound_witnesses = [{
+        "dimension": 3,
+        "w": ["0", "0"],
+        "t": "1",
+        "transformation_matrix": [
+            ["1", "0", "0"],
+            ["0", "1", "0"],
+            ["0", "0", "1"]
+        ],
+        "epsilon": 1e-15,
+        "target_log": 0.1
+    }]
+    cert_invalid_bound = build_signed_cert_with_witnesses(invalid_bound_witnesses)
+    cert_invalid_bound_path = os.path.join(str(tmp_path), "cert_invalid_bound.json")
+    with open(cert_invalid_bound_path, "w") as f:
+        json.dump(cert_invalid_bound, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_bound_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 4: Out-of-bounds epsilon is rejected
+    out_of_bounds_epsilon_witnesses = [{
+        "dimension": 3,
+        "w": ["100", "200"],
+        "t": "50",
+        "transformation_matrix": [
+            ["1", "0", "0"],
+            ["0", "1", "0"],
+            ["0", "0", "1"]
+        ],
+        "epsilon": 0.5,  # Exceeds epsilon_manifest (~0.0) massively!
+        "target_log": 0.1
+    }]
+    cert_invalid_eps = build_signed_cert_with_witnesses(out_of_bounds_epsilon_witnesses)
+    cert_invalid_eps_path = os.path.join(str(tmp_path), "cert_invalid_eps.json")
+    with open(cert_invalid_eps_path, "w") as f:
+        json.dump(cert_invalid_eps, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_eps_path, manifest_path)
+    assert excinfo.value.code == 1
+
+
 
