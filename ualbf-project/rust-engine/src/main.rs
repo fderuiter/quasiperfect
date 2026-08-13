@@ -125,6 +125,8 @@ struct Certificate {
     engine_version: String,
     commit_hash: String,
     verification_mode: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lattice_witnesses: Option<serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -811,6 +813,9 @@ fn main() {
     // Check illegal valuations
 
     // Launch fused perfectly-balanced parallel pipeline!
+    #[cfg(feature = "lattice")]
+    crate::lattice::clear_lattice_witnesses();
+
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
     let mut explored_ranges_out = Vec::new();
@@ -1001,6 +1006,18 @@ fn main() {
         None
     };
 
+    #[cfg(feature = "lattice")]
+    let lattice_witnesses = {
+        let witnesses = crate::lattice::get_lattice_witnesses();
+        if witnesses.is_empty() {
+            None
+        } else {
+            serde_json::to_value(witnesses).ok()
+        }
+    };
+    #[cfg(not(feature = "lattice"))]
+    let lattice_witnesses = None;
+
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
@@ -1014,6 +1031,7 @@ fn main() {
         engine_version: env!("CARGO_PKG_VERSION").to_string(),
         commit_hash: option_env!("GIT_HASH").unwrap_or("unknown").to_string(),
         verification_mode: config.proof_mode.clone(),
+        lattice_witnesses,
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");

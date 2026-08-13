@@ -59,7 +59,7 @@ pub const DUSART_BOUNDS_DEN: u64 = 5;
 #[cfg(not(verus_keep_ghost))]
 pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = 2973;
 #[cfg(not(verus_keep_ghost))]
-pub const MANIFEST_HASH: &str = "6857256590f78e1d6a76801ad45d6047ad39745689a3af5383faf410a6bf537f";
+pub const MANIFEST_HASH: &str = "0352596ccd6e874753d5378cdc3d6d774624a029548ccfdc118fce1f810aefe2";
 
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
@@ -93,5 +93,5 @@ verus! {
     pub const DUSART_BOUNDS_NUM: u64 = 1;
     pub const DUSART_BOUNDS_DEN: u64 = 5;
     pub const DUSART_BOUNDS_VALIDITY_THRESHOLD: u64 = 2973;
-    pub const MANIFEST_HASH: &'static str = "6857256590f78e1d6a76801ad45d6047ad39745689a3af5383faf410a6bf537f";
+    pub const MANIFEST_HASH: &'static str = "0352596ccd6e874753d5378cdc3d6d774624a029548ccfdc118fce1f810aefe2";
 }
