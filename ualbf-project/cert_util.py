@@ -1,3 +1,4 @@
+import hashlib
 import os
 
 import sys
@@ -16,8 +17,6 @@ except ImportError:
     check_path_continuity = None
 
     def hash_file(path):
-        import hashlib
-
         with open(path, "rb") as f:
             return hashlib.sha256(f.read()).hexdigest()
 
