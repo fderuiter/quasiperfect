@@ -551,12 +551,21 @@ pub fn check_path_continuity(path_ranges_json: &str) -> PyResult<String> {
 }
 
 #[cfg(feature = "python")]
+#[pyfunction]
+pub fn extract_verus_hashes(content: &str) -> PyResult<std::collections::HashMap<String, String>> {
+    use pyo3::exceptions::PyValueError;
+    extract_verus_hashes_from_str(content)
+        .map_err(|e| PyValueError::new_err(format!("Failed to extract verus hashes: {}", e)))
+}
+
+#[cfg(feature = "python")]
 #[pymodule]
 fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(validate_certificate, m)?)?;
     m.add_function(wrap_pyfunction!(hash_tcb, m)?)?;
     m.add_function(wrap_pyfunction!(hash_extension_tcb, m)?)?;
     m.add_function(wrap_pyfunction!(check_path_continuity, m)?)?;
+    m.add_function(wrap_pyfunction!(extract_verus_hashes, m)?)?;
     Ok(())
 }
 

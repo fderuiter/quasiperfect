@@ -57,6 +57,14 @@ def theorem_checksum(name, rel_file, status):
 
 
 def compute_verus_hashes(verus_content):
+    # Try using the compiled verification_lib Python module directly if available
+    # to avoid needing cargo or executing subprocesses in sandboxed environments (like the latex-paper Nix build)
+    if getattr(cert_util, "extract_verus_hashes", None) is not None:
+        try:
+            return cert_util.extract_verus_hashes(verus_content)
+        except Exception:
+            pass
+
     # Write verus_content to a temp file
     with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as f:
         f.write(verus_content)
