@@ -26,7 +26,3 @@
 #define CRT_MODULUS_PRODUCT 1155
 #define CRT_MODULI_LEN 4
 #define CRT_MODULI { 3, 5, 7, 11 }
-// Pierre Dusart's Mertens' product theorem constants (2016)
-#define DUSART_BOUNDS_NUM 1
-#define DUSART_BOUNDS_DEN 5
-#define DUSART_BOUNDS_VALIDITY_THRESHOLD 2973

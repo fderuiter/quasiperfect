@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "0352596ccd6e874753d5378cdc3d6d774624a029548ccfdc118fce1f810aefe2";
+    "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951";
 
 use vstd::prelude::*;
 
@@ -28,10 +28,6 @@ verus! {
     pub open spec fn lean_conjectural_active() -> bool { false }
     pub open spec fn lean_conjectural_max_log10_ceiling() -> nat { 30 }
     pub open spec fn lean_crt_modulus_product() -> nat { 1155 }
-    // Pierre Dusart's Mertens' product theorem constants (2016)
-    pub open spec fn lean_dusart_bounds_num() -> nat { 1 }
-    pub open spec fn lean_dusart_bounds_den() -> nat { 5 }
-    pub open spec fn lean_dusart_bounds_validity_threshold() -> nat { 2973 }
 
     pub open spec fn lean_hagis1982_min_prime_factors() -> nat { 7 }
     pub open spec fn lean_hagis1982_offset() -> nat { 0 }
@@ -125,18 +121,6 @@ verus! {
 
     pub proof fn prove_crt_modulus_product_equivalence()
         ensures (crate::manifest_constants::CRT_MODULUS_PRODUCT as nat) == lean_crt_modulus_product()
-    {}
-
-    pub proof fn prove_dusart_bounds_num_equivalence()
-        ensures (crate::manifest_constants::DUSART_BOUNDS_NUM as nat) == lean_dusart_bounds_num()
-    {}
-
-    pub proof fn prove_dusart_bounds_den_equivalence()
-        ensures (crate::manifest_constants::DUSART_BOUNDS_DEN as nat) == lean_dusart_bounds_den()
-    {}
-
-    pub proof fn prove_dusart_bounds_validity_threshold_equivalence()
-        ensures (crate::manifest_constants::DUSART_BOUNDS_VALIDITY_THRESHOLD as nat) == lean_dusart_bounds_validity_threshold()
     {}
 
     pub proof fn prove_combined_bounds() {

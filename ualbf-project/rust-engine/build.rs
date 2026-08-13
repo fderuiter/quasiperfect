@@ -127,22 +127,12 @@ struct ConjecturalBounds {
 }
 
 #[derive(Deserialize)]
-struct DusartBounds {
-    num: u64,
-    den: u64,
-    validity_threshold: u64,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
-}
-
-#[derive(Deserialize)]
 struct BoundsManifest {
     omega_bounds: OmegaBounds,
     search_bounds: SearchBounds,
     euler_ceiling: EulerCeiling,
     overflow_threshold: OverflowThreshold,
     conjectural_bounds: Option<ConjecturalBounds>,
-    dusart_bounds: DusartBounds,
 }
 
 /// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
@@ -354,12 +344,6 @@ fn main() {
                 "CONJECTURAL_MAX_LOG10_CEILING",
                 "lean_conjectural_max_log10_ceiling",
             ));
-            mapping.push(("DUSART_BOUNDS_NUM", "lean_dusart_bounds_num"));
-            mapping.push(("DUSART_BOUNDS_DEN", "lean_dusart_bounds_den"));
-            mapping.push((
-                "DUSART_BOUNDS_VALIDITY_THRESHOLD",
-                "lean_dusart_bounds_validity_threshold",
-            ));
 
             for (const_name, spec_name) in &mapping {
                 let const_val = constants_map.get(*const_name).expect(&format!(
@@ -419,7 +403,7 @@ fn main() {
         );
     }
 
-    let allowed_axioms = ["UALBF.QPN.AbundancyBound.dusart_mertens_bound"];
+    let allowed_axioms: [&str; 0] = [];
     for thm in &proof_manifest.theorems {
         let is_whitelisted = thm.status == "proven"
             || (thm.status == "axiom" && allowed_axioms.contains(&thm.name.as_str()));
@@ -546,9 +530,6 @@ fn main() {
     }
 
     // Citation validation
-    if manifest.dusart_bounds.is_axiomatic && manifest.dusart_bounds.citation.is_none() {
-        panic!("FATAL: Dusart bounds marked axiomatic but lacks citation metadata.");
-    }
     if manifest.omega_bounds.hagis1982.is_axiomatic
         && manifest.omega_bounds.hagis1982.citation.is_none()
     {

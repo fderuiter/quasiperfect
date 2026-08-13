@@ -32,10 +32,6 @@ def test_specification_parity():
 
     crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
 
-    dusart_bounds_num = bounds["dusart_bounds"]["num"]
-    dusart_bounds_den = bounds["dusart_bounds"]["den"]
-    dusart_bounds_validity_threshold = bounds["dusart_bounds"]["validity_threshold"]
-
     # 2. Parse manifest_constants.rs (active engine constants)
     constants_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -75,16 +71,6 @@ def test_specification_parity():
     assert (
         engine_constants.get("CRT_MODULUS_PRODUCT") == crt_modulus_product
     ), "Active constant mismatch for CRT modulus product"
-    assert (
-        engine_constants.get("DUSART_BOUNDS_NUM") == dusart_bounds_num
-    ), "Active constant mismatch for Dusart bounds num"
-    assert (
-        engine_constants.get("DUSART_BOUNDS_DEN") == dusart_bounds_den
-    ), "Active constant mismatch for Dusart bounds den"
-    assert (
-        engine_constants.get("DUSART_BOUNDS_VALIDITY_THRESHOLD")
-        == dusart_bounds_validity_threshold
-    ), "Active constant mismatch for Dusart bounds validity threshold"
 
     # 3. Parse lean_export.rs (generated specifications)
     specs_path = os.path.join(
@@ -137,16 +123,6 @@ def test_specification_parity():
     assert (
         spec_constants.get("lean_crt_modulus_product") == crt_modulus_product
     ), "Spec mismatch for CRT modulus product"
-    assert (
-        spec_constants.get("lean_dusart_bounds_num") == dusart_bounds_num
-    ), "Spec mismatch for Dusart bounds num"
-    assert (
-        spec_constants.get("lean_dusart_bounds_den") == dusart_bounds_den
-    ), "Spec mismatch for Dusart bounds den"
-    assert (
-        spec_constants.get("lean_dusart_bounds_validity_threshold")
-        == dusart_bounds_validity_threshold
-    ), "Spec mismatch for Dusart bounds validity threshold"
 
 
 @pytest.mark.skipif(

@@ -263,10 +263,7 @@ def generate_manifest():
     if has_lean:
         if "MOCK_LEAN" in os.environ:
             for thm in CORE_THEOREMS:
-                if thm == "UALBF.QPN.AbundancyBound.dusart_mertens_bound":
-                    theorem_statuses[thm] = "axiom"
-                else:
-                    theorem_statuses[thm] = "proven"
+                theorem_statuses[thm] = "proven"
         else:
             lean_file = "find_axioms.lean"
             lean_path = os.path.join(cwd, lean_file)
@@ -330,8 +327,6 @@ def generate_manifest():
                                 status = "sorry"
                                 has_error = True
                                 break
-                            elif ax == "UALBF.QPN.AbundancyBound.dusart_mertens_axiom":
-                                status = "axiom"
                             elif ax not in [
                                 "propext",
                                 "Classical.choice",
