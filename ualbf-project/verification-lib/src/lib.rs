@@ -953,8 +953,8 @@ fn parse_tokens(tokens: proc_macro2::TokenStream) -> Vec<Element> {
                                     if group.delimiter() == proc_macro2::Delimiter::Brace =>
                                 {
                                     let mut sub_stream = proc_macro2::TokenStream::new();
-                                    for idx in item_start_idx..=j {
-                                        sub_stream.extend(std::iter::once(trees[idx].clone()));
+                                    for item in &trees[item_start_idx..=j] {
+                                        sub_stream.extend(std::iter::once(item.clone()));
                                     }
                                     elements.push(Element::Function {
                                         name: fn_name.clone(),
@@ -966,8 +966,8 @@ fn parse_tokens(tokens: proc_macro2::TokenStream) -> Vec<Element> {
                                 }
                                 proc_macro2::TokenTree::Punct(punct) if punct.as_char() == ';' => {
                                     let mut sub_stream = proc_macro2::TokenStream::new();
-                                    for idx in item_start_idx..=j {
-                                        sub_stream.extend(std::iter::once(trees[idx].clone()));
+                                    for item in &trees[item_start_idx..=j] {
+                                        sub_stream.extend(std::iter::once(item.clone()));
                                     }
                                     elements.push(Element::Function {
                                         name: fn_name.clone(),
@@ -1039,31 +1039,30 @@ fn parse_tokens(tokens: proc_macro2::TokenStream) -> Vec<Element> {
                     {
                         if punct.as_char() == '!'
                             && group.delimiter() == proc_macro2::Delimiter::Brace
+                            && has_forbidden_cfg(&group.stream())
                         {
-                            if has_forbidden_cfg(&group.stream()) {
-                                panic!("FATAL: Bypass macros are not allowed inside verus! blocks or other macro blocks");
-                            }
+                            panic!("FATAL: Bypass macros are not allowed inside verus! blocks or other macro blocks");
                         }
                     }
                 }
 
                 i += 1;
             }
-            proc_macro2::TokenTree::Punct(punct) => {
-                if punct.as_char() == ';' {
-                    i += 1;
-                    item_start_idx = i;
-                } else {
-                    i += 1;
-                }
+            proc_macro2::TokenTree::Punct(punct) if punct.as_char() == ';' => {
+                i += 1;
+                item_start_idx = i;
             }
-            proc_macro2::TokenTree::Group(group) => {
-                if group.delimiter() == proc_macro2::Delimiter::Brace {
-                    i += 1;
-                    item_start_idx = i;
-                } else {
-                    i += 1;
-                }
+            proc_macro2::TokenTree::Punct(_) => {
+                i += 1;
+            }
+            proc_macro2::TokenTree::Group(group)
+                if group.delimiter() == proc_macro2::Delimiter::Brace =>
+            {
+                i += 1;
+                item_start_idx = i;
+            }
+            proc_macro2::TokenTree::Group(_) => {
+                i += 1;
             }
             _ => {
                 i += 1;

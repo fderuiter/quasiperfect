@@ -61,14 +61,16 @@ def compute_verus_hashes(verus_content):
     with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as f:
         f.write(verus_content)
         temp_path = f.name
-        
+
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         cli_path = os.path.join(base_dir, "target", "release", "verification_cli")
         if not os.path.exists(cli_path):
-            cli_path = os.path.join(base_dir, "verification-lib", "target", "release", "verification_cli")
+            cli_path = os.path.join(
+                base_dir, "verification-lib", "target", "release", "verification_cli"
+            )
         repo_root = base_dir
-        
+
         if os.path.exists(cli_path):
             result = subprocess.run(
                 [cli_path, "verus-hashes", temp_path], capture_output=True, text=True
@@ -92,10 +94,10 @@ def compute_verus_hashes(verus_content):
                 capture_output=True,
                 text=True,
             )
-            
+
         if result.returncode != 0:
             raise RuntimeError(f"Failed to compute verus_hashes: {result.stderr}")
-            
+
         return json.loads(result.stdout.strip())
     finally:
         if os.path.exists(temp_path):
