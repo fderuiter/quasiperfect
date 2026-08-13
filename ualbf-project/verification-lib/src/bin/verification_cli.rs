@@ -18,6 +18,23 @@ fn main() {
 
     let command = &args[1];
     match command.as_str() {
+        "verus-hashes" => {
+            if args.len() != 3 {
+                eprintln!("Usage: verification_cli verus-hashes <path_to_verus_proofs>");
+                std::process::exit(1);
+            }
+            let file_path = PathBuf::from(&args[2]);
+            match verification_lib::extract_verus_hashes_from_file(&file_path) {
+                Ok(hashes) => {
+                    let json = serde_json::to_string_pretty(&hashes).unwrap();
+                    println!("{}", json);
+                }
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
         "hash-tcb" => {
             if args.len() < 3 || args.len() > 4 {
                 eprintln!("Usage: verification_cli hash-tcb <repo_root> [--core|--extension]");

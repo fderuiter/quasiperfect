@@ -7,6 +7,7 @@ import os
 import hashlib
 import cert_util
 import time
+import tempfile
 from verify_metadata import (
     extract_fqns_from_lean_content,
     strip_comments,
@@ -56,80 +57,49 @@ def theorem_checksum(name, rel_file, status):
 
 
 def compute_verus_hashes(verus_content):
-    verus_hashes = {}
-    current_fn = ""
-    current_body = ""
-    in_spec = False
-    brace_count = 0
-    module_stack = []
-    global_brace_depth = 0
-
-    for line in verus_content.splitlines():
-        trimmed = line.strip()
-
-        if (
-            not in_spec
-            and "{" in trimmed
-            and (trimmed.startswith("mod ") or trimmed.startswith("pub mod "))
-        ):
-            if trimmed.startswith("pub mod "):
-                mod_name = trimmed.removeprefix("pub mod ")
-            else:
-                mod_name = trimmed.removeprefix("mod ")
-            mod_name = mod_name.split("{", 1)[0].strip()
-            if mod_name:
-                module_stack.append((mod_name, global_brace_depth))
-
-        if not in_spec and any(
-            kw in line
-            for kw in [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub fn ",
-                "pub proof fn ",
-            ]
-        ):
-            for kw in [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub proof fn ",
-                "pub fn ",
-            ]:
-                if kw in line:
-                    parts = line.split(kw, 1)
-                    break
-            bare_fn_name = parts[1].split("(", 1)[0].strip()
-            mod_prefix = "::".join([m[0] for m in module_stack])
-            qualified_name = (
-                bare_fn_name if not mod_prefix else f"{mod_prefix}::{bare_fn_name}"
+    # Write verus_content to a temp file
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".rs", delete=False) as f:
+        f.write(verus_content)
+        temp_path = f.name
+        
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        cli_path = os.path.join(base_dir, "target", "release", "verification_cli")
+        if not os.path.exists(cli_path):
+            cli_path = os.path.join(base_dir, "verification-lib", "target", "release", "verification_cli")
+        repo_root = base_dir
+        
+        if os.path.exists(cli_path):
+            result = subprocess.run(
+                [cli_path, "verus-hashes", temp_path], capture_output=True, text=True
             )
-            current_fn = qualified_name
-            current_body = line
-            in_spec = True
-            brace_count = line.count("{") - line.count("}")
-            if brace_count == 0 and "{" in line:
-                verus_hashes[current_fn] = hashlib.sha256(
-                    current_body.encode("utf-8")
-                ).hexdigest()
-                in_spec = False
-            continue
-        elif in_spec:
-            current_body += "\n" + line
-            brace_count += line.count("{") - line.count("}")
-            if brace_count == 0:
-                verus_hashes[current_fn] = hashlib.sha256(
-                    current_body.encode("utf-8")
-                ).hexdigest()
-                in_spec = False
         else:
-            global_brace_depth += line.count("{")
-            global_brace_depth -= line.count("}")
-            while module_stack and global_brace_depth <= module_stack[-1][1]:
-                module_stack.pop()
-
-    return verus_hashes
+            result = subprocess.run(
+                [
+                    "cargo",
+                    "run",
+                    "--release",
+                    "--features",
+                    "signing",
+                    "--manifest-path",
+                    os.path.join(repo_root, "verification-lib", "Cargo.toml"),
+                    "--bin",
+                    "verification_cli",
+                    "--",
+                    "verus-hashes",
+                    temp_path,
+                ],
+                capture_output=True,
+                text=True,
+            )
+            
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to compute verus_hashes: {result.stderr}")
+            
+        return json.loads(result.stdout.strip())
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 
 def check_lean_environment():

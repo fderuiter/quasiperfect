@@ -1907,7 +1907,9 @@ dependencies = [
  "num-traits",
  "primal",
  "prime_factorization",
+ "proc-macro2",
  "proptest",
+ "quote",
  "rand 0.8.7",
  "rayon",
  "rug",
@@ -1915,6 +1917,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "smallvec",
+ "syn",
  "tracing",
  "ualbf-macros",
  "verification-lib",
@@ -1963,11 +1966,13 @@ version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
  "hex",
+ "proc-macro2",
  "pyo3",
  "rand 0.8.7",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "syn",
 ]
 
 [[package]]

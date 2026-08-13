@@ -826,3 +826,308 @@ pub extern "C" fn rust_free_string(ptr: *mut std::ffi::c_char) {
         }
     }
 }
+
+#[derive(Debug)]
+enum Element {
+    Module {
+        name: String,
+        body: Vec<Element>,
+    },
+    Function {
+        name: String,
+        tokens: proc_macro2::TokenStream,
+    },
+}
+
+fn has_forbidden_cfg(tokens: &proc_macro2::TokenStream) -> bool {
+    let trees: Vec<proc_macro2::TokenTree> = tokens.clone().into_iter().collect();
+    for i in 0..trees.len() {
+        if let proc_macro2::TokenTree::Ident(ident) = &trees[i] {
+            let name = ident.to_string();
+            if name == "cfg_attr" {
+                return true;
+            }
+            if name == "cfg" {
+                if i + 1 < trees.len() {
+                    if let proc_macro2::TokenTree::Group(group) = &trees[i + 1] {
+                        if group.delimiter() == proc_macro2::Delimiter::Parenthesis {
+                            let s = group.stream().to_string();
+                            let s_clean: String =
+                                s.chars().filter(|c| !c.is_whitespace()).collect();
+                            if s_clean != "verus_keep_ghost" && s_clean != "not(verus_keep_ghost)" {
+                                return true;
+                            }
+                        } else {
+                            return true;
+                        }
+                    } else {
+                        return true;
+                    }
+                } else {
+                    return true;
+                }
+            }
+        }
+        if let proc_macro2::TokenTree::Group(group) = &trees[i] {
+            if has_forbidden_cfg(&group.stream()) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn parse_tokens(tokens: proc_macro2::TokenStream) -> Vec<Element> {
+    let trees: Vec<proc_macro2::TokenTree> = tokens.into_iter().collect();
+    let mut elements = Vec::new();
+    let mut i = 0;
+    let mut item_start_idx = 0;
+
+    while i < trees.len() {
+        match &trees[i] {
+            proc_macro2::TokenTree::Ident(ident) => {
+                let name = ident.to_string();
+                if name == "verus" && i + 2 < trees.len() {
+                    if let (
+                        proc_macro2::TokenTree::Punct(punct),
+                        proc_macro2::TokenTree::Group(group),
+                    ) = (&trees[i + 1], &trees[i + 2])
+                    {
+                        if punct.as_char() == '!'
+                            && group.delimiter() == proc_macro2::Delimiter::Brace
+                        {
+                            if has_forbidden_cfg(&group.stream()) {
+                                panic!("FATAL: Bypass macros are not allowed inside verus! blocks or other macro blocks");
+                            }
+                            let inner_elements = parse_tokens(group.stream());
+                            elements.extend(inner_elements);
+                            i += 3;
+                            item_start_idx = i;
+                            continue;
+                        }
+                    }
+                }
+
+                if name == "mod" && i + 1 < trees.len() {
+                    if let proc_macro2::TokenTree::Ident(mod_name_ident) = &trees[i + 1] {
+                        let mod_name = mod_name_ident.to_string();
+                        let mut j = i + 2;
+                        while j < trees.len() {
+                            match &trees[j] {
+                                proc_macro2::TokenTree::Group(group)
+                                    if group.delimiter() == proc_macro2::Delimiter::Brace =>
+                                {
+                                    let inner_elements = parse_tokens(group.stream());
+                                    elements.push(Element::Module {
+                                        name: mod_name.clone(),
+                                        body: inner_elements,
+                                    });
+                                    i = j + 1;
+                                    item_start_idx = i;
+                                    break;
+                                }
+                                proc_macro2::TokenTree::Punct(punct) if punct.as_char() == ';' => {
+                                    i = j + 1;
+                                    item_start_idx = i;
+                                    break;
+                                }
+                                _ => {
+                                    j += 1;
+                                }
+                            }
+                        }
+                        if j >= trees.len() {
+                            i += 2;
+                        }
+                        continue;
+                    }
+                }
+
+                if name == "fn" && i + 1 < trees.len() {
+                    if let proc_macro2::TokenTree::Ident(fn_name_ident) = &trees[i + 1] {
+                        let fn_name = fn_name_ident.to_string();
+                        let mut j = i + 2;
+                        while j < trees.len() {
+                            match &trees[j] {
+                                proc_macro2::TokenTree::Group(group)
+                                    if group.delimiter() == proc_macro2::Delimiter::Brace =>
+                                {
+                                    let mut sub_stream = proc_macro2::TokenStream::new();
+                                    for idx in item_start_idx..=j {
+                                        sub_stream.extend(std::iter::once(trees[idx].clone()));
+                                    }
+                                    elements.push(Element::Function {
+                                        name: fn_name.clone(),
+                                        tokens: sub_stream,
+                                    });
+                                    i = j + 1;
+                                    item_start_idx = i;
+                                    break;
+                                }
+                                proc_macro2::TokenTree::Punct(punct) if punct.as_char() == ';' => {
+                                    let mut sub_stream = proc_macro2::TokenStream::new();
+                                    for idx in item_start_idx..=j {
+                                        sub_stream.extend(std::iter::once(trees[idx].clone()));
+                                    }
+                                    elements.push(Element::Function {
+                                        name: fn_name.clone(),
+                                        tokens: sub_stream,
+                                    });
+                                    i = j + 1;
+                                    item_start_idx = i;
+                                    break;
+                                }
+                                _ => {
+                                    j += 1;
+                                }
+                            }
+                        }
+                        if j >= trees.len() {
+                            i += 2;
+                        }
+                        continue;
+                    }
+                }
+
+                if [
+                    "struct",
+                    "enum",
+                    "union",
+                    "impl",
+                    "trait",
+                    "type",
+                    "macro_rules!",
+                    "use",
+                    "extern",
+                    "const",
+                    "static",
+                ]
+                .contains(&name.as_str())
+                {
+                    let mut j = i + 1;
+                    while j < trees.len() {
+                        match &trees[j] {
+                            proc_macro2::TokenTree::Group(group)
+                                if group.delimiter() == proc_macro2::Delimiter::Brace =>
+                            {
+                                i = j + 1;
+                                item_start_idx = i;
+                                break;
+                            }
+                            proc_macro2::TokenTree::Punct(punct) if punct.as_char() == ';' => {
+                                i = j + 1;
+                                item_start_idx = i;
+                                break;
+                            }
+                            _ => {
+                                j += 1;
+                            }
+                        }
+                    }
+                    if j >= trees.len() {
+                        i += 1;
+                    }
+                    continue;
+                }
+
+                // Check other macro blocks
+                if i + 2 < trees.len() {
+                    if let (
+                        proc_macro2::TokenTree::Punct(punct),
+                        proc_macro2::TokenTree::Group(group),
+                    ) = (&trees[i + 1], &trees[i + 2])
+                    {
+                        if punct.as_char() == '!'
+                            && group.delimiter() == proc_macro2::Delimiter::Brace
+                        {
+                            if has_forbidden_cfg(&group.stream()) {
+                                panic!("FATAL: Bypass macros are not allowed inside verus! blocks or other macro blocks");
+                            }
+                        }
+                    }
+                }
+
+                i += 1;
+            }
+            proc_macro2::TokenTree::Punct(punct) => {
+                if punct.as_char() == ';' {
+                    i += 1;
+                    item_start_idx = i;
+                } else {
+                    i += 1;
+                }
+            }
+            proc_macro2::TokenTree::Group(group) => {
+                if group.delimiter() == proc_macro2::Delimiter::Brace {
+                    i += 1;
+                    item_start_idx = i;
+                } else {
+                    i += 1;
+                }
+            }
+            _ => {
+                i += 1;
+            }
+        }
+    }
+
+    elements
+}
+
+fn collect_hashes(
+    elements: Vec<Element>,
+    module_stack: &mut Vec<String>,
+    hashes: &mut std::collections::HashMap<String, String>,
+) {
+    for elem in elements {
+        match elem {
+            Element::Module { name, body } => {
+                module_stack.push(name);
+                collect_hashes(body, module_stack, hashes);
+                module_stack.pop();
+            }
+            Element::Function { name, tokens } => {
+                let qualified_name = if module_stack.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{}::{}", module_stack.join("::"), name)
+                };
+                let token_str = tokens.to_string();
+                use sha2::{Digest, Sha256};
+                let mut hasher = Sha256::new();
+                hasher.update(token_str.as_bytes());
+                let hash_hex = hex::encode(hasher.finalize());
+                hashes.insert(qualified_name, hash_hex);
+            }
+        }
+    }
+}
+
+pub fn extract_verus_hashes_from_str(
+    content: &str,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    // Check syntax validity using syn
+    let _parsed_file = syn::parse_file(content).map_err(|e| format!("Syntax error: {}", e))?;
+
+    if !content.contains("verus!") {
+        return Ok(std::collections::HashMap::new());
+    }
+
+    let tokens: proc_macro2::TokenStream = content
+        .parse()
+        .map_err(|e| format!("TokenStream parse error: {}", e))?;
+    let elements = parse_tokens(tokens);
+
+    let mut hashes = std::collections::HashMap::new();
+    let mut module_stack = Vec::new();
+    collect_hashes(elements, &mut module_stack, &mut hashes);
+
+    Ok(hashes)
+}
+
+pub fn extract_verus_hashes_from_file(
+    path: &std::path::Path,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    extract_verus_hashes_from_str(&content)
+}
