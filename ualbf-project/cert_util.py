@@ -14,7 +14,13 @@ except ImportError:
     hash_tcb = None
     hash_extension_tcb = None
     check_path_continuity = None
-    hash_file = None
+
+    def hash_file(path):
+        import hashlib
+
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+
     _has_verification_lib = False
 
 
