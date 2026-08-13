@@ -231,6 +231,7 @@ pub unsafe fn get_u512_ptr(obj: *mut lean_object) -> *const crate::lean_ffi::U51
 }
 
 pub fn get_u512(obj: *mut lean_object) -> crate::lean_ffi::U512Data {
+    initialize_lean_runtime();
     unsafe {
         let ptr = rs_lean_get_external_data(obj) as *mut crate::lean_ffi::U512Data;
         *ptr
