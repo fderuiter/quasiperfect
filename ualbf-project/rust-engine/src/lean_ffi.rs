@@ -408,6 +408,9 @@ thread_local! {
 }
 
 pub fn initialize_lean_runtime() {
+    if IS_LEAN_THREAD_INIT.with(|init| init.get()) {
+        return;
+    }
     LEAN_INIT.call_once(|| unsafe {
         lean_initialize_runtime_module();
         lean_initialize_thread();
