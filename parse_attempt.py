@@ -3,6 +3,7 @@ import urllib.request
 import json
 import re
 
+
 def get_parsed_attempt():
     attempts = []
     # Fetch comments up to 5 pages (up to 500 comments)
@@ -12,14 +13,11 @@ def get_parsed_attempt():
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
         if token:
             headers["Authorization"] = f"token {token}"
-            
-        req = urllib.request.Request(
-            url,
-            headers=headers
-        )
+
+        req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req) as response:
-                data = json.loads(response.read().decode('utf-8'))
+                data = json.loads(response.read().decode("utf-8"))
                 for comment in data:
                     body = comment.get("body", "")
                     match = re.search(r"\[CI/CD Fix Attempt\s+(\d+)\]", body)
@@ -27,10 +25,11 @@ def get_parsed_attempt():
                         attempts.append(int(match.group(1)))
         except Exception:
             pass
-            
+
     if attempts:
         return str(max(attempts))
     return None
+
 
 if __name__ == "__main__":
     attempt = get_parsed_attempt()
