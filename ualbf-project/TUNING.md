@@ -127,6 +127,9 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **lattice_precision_tolerance**
   - **Description**: Precision tolerance threshold for floating point and lattice-based computations in the engine.
 
+- **lattice_precision_tolerance**
+  - **Description**: Tolerance threshold used during high-precision lattice calculations in certificate verification.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128
