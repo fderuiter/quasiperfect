@@ -235,8 +235,8 @@ def verify_lattice_witnesses(cert, manifest_path):
         b0 = B_reduced[0]
         shortest_sq_norm = sum(x * x for x in b0)
 
-        # 5. Compute Schmidt lower bound
-        diff = shortest_sq_norm / (2**m) - m
+        # 5. Compute Schmidt lower bound using exact rational representation
+        diff_exact = Fraction(shortest_sq_norm, 1 << m) - Fraction(m)
 
         # 6. Check against scaled mathematical limits from the bounds manifest
         if epsilon > epsilon_manifest + 1e-9:
@@ -245,12 +245,15 @@ def verify_lattice_witnesses(cert, manifest_path):
             )
             sys.exit(1)
 
-        r = 0.5 * dim + 1_000_000_000.0 * epsilon
-        r_sq = r * r
+        r_exact = Fraction(dim, 2) + Fraction(1000000000) * Fraction(epsilon)
+        r_sq_exact = r_exact * r_exact
 
-        if diff <= 0 or (diff + tolerance) < r_sq:
+        # Evaluate whether exact Schmidt bound meets the minimum required search radius without applying any positive tolerance offset
+        if diff_exact <= 0 or diff_exact < r_sq_exact:
+            diff_val = float(diff_exact)
+            r_sq_val = float(r_sq_exact)
             print(
-                f"ERROR: Witness {idx} Schmidt bound {diff:.4f} is invalid (required >= {r_sq:.4f})."
+                f"ERROR: Witness {idx} Schmidt bound {diff_val:.4f} is invalid (required >= {r_sq_val:.4f})."
             )
             sys.exit(1)
 
