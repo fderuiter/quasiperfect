@@ -1382,5 +1382,35 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
         verify_certificate(cert_invalid_eps_path, manifest_path)
     assert excinfo.value.code == 1
 
+    # Case 5: Borderline Schmidt bound within tolerance but strictly below exact radius is rejected
+    # (Shows zero-tolerance exact rational verification)
+    # dim = 3, m = 2. We set shortest_sq_norm = 17, so diff = 17/4 - 2 = 2.25.
+    # We choose epsilon = 3.3333333333333335e-20.
+    # Then r_exact = 1.5 + 10^9 * epsilon = 1.5000000000333333
+    # r_sq_exact = 2.250000000100000000001111111... > 2.25
+    # The true difference is r_sq_exact - diff_exact ≈ 1e-10 < tolerance (1e-9).
+    # This borderline case must be rejected.
+    borderline_witnesses = [{
+        "dimension": 3,
+        "w": ["4", "0"],
+        "t": "1",
+        "transformation_matrix": [
+            ["1", "0", "0"],
+            ["0", "1", "0"],
+            ["0", "0", "1"]
+        ],
+        "epsilon": 3.3333333333333335e-20,
+        "target_log": 0.1
+    }]
+    cert_borderline = build_signed_cert_with_witnesses(borderline_witnesses)
+    cert_borderline_path = os.path.join(str(tmp_path), "cert_borderline.json")
+    with open(cert_borderline_path, "w") as f:
+        json.dump(cert_borderline, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_borderline_path, manifest_path)
+    assert excinfo.value.code == 1
+
+
 
 
