@@ -17,6 +17,7 @@ mod dfs_tree;
 mod lean_ffi;
 mod manifest_constants;
 mod profile;
+pub mod pruning_dispatch;
 pub mod residue;
 pub mod trace;
 pub mod verus_proofs;
@@ -286,6 +287,7 @@ mod tests {
             engine_version: "1.0.0".to_string(),
             commit_hash: "dummy_commit".to_string(),
             verification_mode: "pure".to_string(),
+            lattice_witnesses: None,
         };
         let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
         assert_eq!(json_val["verification_mode"], "pure");

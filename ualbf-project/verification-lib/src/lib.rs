@@ -7,6 +7,7 @@ pub use sha2;
 
 pub const CORE_TCB_FILES: &[&str] = &[
     "dfs_tree.rs",
+    "pruning_dispatch.rs",
     "sieve.rs",
     "verus_proofs.rs",
     "manifest_constants.rs",
@@ -26,6 +27,7 @@ macro_rules! compute_core_tcb_hash_at_compile_time {
         use $crate::sha2::{Digest, Sha256};
         let mut logic_hasher = Sha256::new();
         logic_hasher.update(include_bytes!("dfs_tree.rs"));
+        logic_hasher.update(include_bytes!("pruning_dispatch.rs"));
         logic_hasher.update(include_bytes!("sieve.rs"));
         logic_hasher.update(include_bytes!("verus_proofs.rs"));
         logic_hasher.update(include_bytes!("manifest_constants.rs"));
