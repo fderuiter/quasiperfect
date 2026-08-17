@@ -370,6 +370,50 @@ def verify_lattice_witnesses(cert, manifest_path):
         # 3. Compute B_reduced = U * B_initial
         B_reduced = mat_mul(U, B_init)
 
+        # Gram-Schmidt Orthogonalization (GSO) and LLL Verification
+        n = len(B_reduced)
+        b = [[Fraction(x) for x in row] for row in B_reduced]
+        b_star = []
+        mu = [[Fraction(0)] * n for _ in range(n)]
+
+        for i in range(n):
+            b_i_star = list(b[i])
+            for j in range(i):
+                num = sum(b[i][k] * b_star[j][k] for k in range(dim))
+                den = sum(b_star[j][k] * b_star[j][k] for k in range(dim))
+                if den == 0:
+                    print(f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}.")
+                    sys.exit(1)
+                mu[i][j] = Fraction(num, den)
+                for k in range(dim):
+                    b_i_star[k] -= mu[i][j] * b_star[j][k]
+            b_star.append(b_i_star)
+
+        # Verify standard LLL size-reduction condition: |mu_{i, j}| <= 1/2
+        for i in range(n):
+            for j in range(i):
+                if abs(mu[i][j]) > Fraction(1, 2):
+                    print(
+                        f"ERROR: Witness {idx} is not LLL size-reduced: mu[{i}][{j}] = {mu[i][j]} (absolute value exceeds 1/2)."
+                    )
+                    sys.exit(1)
+
+        # Verify Lovasz condition: delta * ||b_{i-1}^*||^2 <= ||b_i^*||^2 + mu_{i, i-1}^2 * ||b_{i-1}^*||^2
+        # delta parameter is exactly 3/4 (0.75)
+        delta = Fraction(3, 4)
+        for i in range(1, n):
+            s_prev = sum(b_star[i-1][k] * b_star[i-1][k] for k in range(dim))
+            s_curr = sum(b_star[i][k] * b_star[i][k] for k in range(dim))
+            mu_val = mu[i][i-1]
+            lhs = delta * s_prev
+            rhs = s_curr + (mu_val * mu_val) * s_prev
+            if lhs > rhs:
+                print(
+                    f"ERROR: Witness {idx} violates Lovasz condition at index {i}: "
+                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{i,i-1}^2 * ||b_{i-1}^*||^2 = {rhs}."
+                )
+                sys.exit(1)
+
         # 4. Compute shortest vector norm of b_0
         b0 = B_reduced[0]
         shortest_sq_norm = sum(x * x for x in b0)
