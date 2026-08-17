@@ -461,6 +461,17 @@ macro_rules
   omega"""
         )
 
+    # Binary divide-and-conquer shift-addition algorithm generator
+    L = [f"u.w{i}.toNat" for i in range(limb_count)]
+    current_width = limb_width
+    while len(L) > 1:
+        next_L = []
+        for i in range(0, len(L), 2):
+            next_L.append(f"({L[i]} + ({L[i+1]} <<< {current_width}))")
+        L = next_L
+        current_width *= 2
+    from_u512_fast_expr = L[0]
+
     with open(lean_generated_path, "w", encoding="utf-8") as f:
         f.write(f"""import Mathlib.Data.UInt
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
@@ -483,23 +494,10 @@ instance : Inhabited U512 where
 
 {chr(10).join(theorems)}
 
-@[extern "rust_u512_to_hex"]
-opaque U512.toHex (u : @& U512) : String
+def fromU512Fast (u : U512) : Nat :=
+  {from_u512_fast_expr}
 
-def parseHexChar (c : Char) : Nat :=
-  if '0' <= c && c <= '9' then c.toNat - '0'.toNat
-  else if 'a' <= c && c <= 'f' then 10 + (c.toNat - 'a'.toNat)
-  else if 'A' <= c && c <= 'F' then 10 + (c.toNat - 'A'.toNat)
-  else 0
-
-def parseHex (s : String) : Nat :=
-  let s := if s.startsWith "0x" || s.startsWith "0X" then s.drop 2 else s
-  s.foldl (fun acc c => acc * 16 + parseHexChar c) 0
-
-def fromHexU512 (u : U512) : Nat :=
-  parseHex (u.toHex)
-
-@[implemented_by fromHexU512]
+@[implemented_by fromU512Fast]
 def fromU512 (u : U512) : Nat :=
   {from_u512_expr}
 
