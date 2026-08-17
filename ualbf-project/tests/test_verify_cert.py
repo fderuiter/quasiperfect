@@ -1276,27 +1276,27 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
         cert["public_key"] = pub_hex
         return cert
 
-    # Construct a mathematically valid witness:
+    # Construct a mathematically valid witness (fully LLL-reduced and satisfying Schmidt bound):
     # Let m = 2 (dim = 3).
-    # w = [100, 200], t = 50.
-    # B_init = [[1, 0, 100], [0, 1, 200], [0, 0, -50]]
-    # Let U be a simple unimodular matrix (identity)
-    # B_reduced = U * B_init = B_init
-    # b0 = [1, 0, 100]
-    # norm(b0)^2 = 1 + 10000 = 10001
-    # diff = 10001 / 4 - 2 = 2500.25 - 2 = 2498.25
+    # w = [80, 130], t = 150.
+    # B_init = [[1, 0, 80], [0, 1, 130], [0, 0, -150]]
+    # Let U be: [[-3, 3, 1], [4, 1, 3], [-2, 0, -1]]
+    # B_reduced = U * B_init = [[-3, 3, 0], [4, 1, 0], [-2, 0, -10]]
+    # b0 = [-3, 3, 0]
+    # norm(b0)^2 = 18
+    # diff = 18 / 4 - 2 = 4.5 - 2 = 2.5
     # epsilon = 1e-15, dim = 3 (m = 2)
     # r = 1.5 + 1e9 * 1e-15 = 1.500001
-    # r_sq = 2.25
-    # diff = 2498.25 > 2.25, so diff is valid!
+    # r_sq = 2.250003000001
+    # diff = 2.5 >= 2.250003000001, so diff is valid!
     valid_witnesses = [{
         "dimension": 3,
-        "w": ["100", "200"],
-        "t": "50",
+        "w": ["80", "130"],
+        "t": "150",
         "transformation_matrix": [
-            ["1", "0", "0"],
-            ["0", "1", "0"],
-            ["0", "0", "1"]
+            ["-3", "3", "1"],
+            ["4", "1", "3"],
+            ["-2", "0", "-1"]
         ],
         "epsilon": 1e-15,
         "target_log": 0.1
@@ -1409,6 +1409,50 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
 
     with pytest.raises(SystemExit) as excinfo:
         verify_certificate(cert_borderline_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 6: Basis is not size-reduced is rejected
+    non_sizered_witnesses = [{
+        "dimension": 3,
+        "w": ["100", "200"],
+        "t": "50",
+        "transformation_matrix": [
+            ["1", "0", "0"],
+            ["0", "1", "0"],
+            ["0", "0", "1"]
+        ],
+        "epsilon": 1e-15,
+        "target_log": 0.1
+    }]
+    cert_non_sizered = build_signed_cert_with_witnesses(non_sizered_witnesses)
+    cert_non_sizered_path = os.path.join(str(tmp_path), "cert_non_sizered.json")
+    with open(cert_non_sizered_path, "w") as f:
+        json.dump(cert_non_sizered, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_non_sizered_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 7: Basis size-reduced but violates Lovasz condition is rejected
+    non_lovasz_witnesses = [{
+        "dimension": 3,
+        "w": ["4", "0"],
+        "t": "2",
+        "transformation_matrix": [
+            ["1", "0", "0"],
+            ["0", "1", "0"],
+            ["0", "0", "1"]
+        ],
+        "epsilon": 1e-15,
+        "target_log": 0.1
+    }]
+    cert_non_lovasz = build_signed_cert_with_witnesses(non_lovasz_witnesses)
+    cert_non_lovasz_path = os.path.join(str(tmp_path), "cert_non_lovasz.json")
+    with open(cert_non_lovasz_path, "w") as f:
+        json.dump(cert_non_lovasz, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_non_lovasz_path, manifest_path)
     assert excinfo.value.code == 1
 
 
