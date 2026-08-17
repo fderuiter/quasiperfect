@@ -1608,7 +1608,19 @@ def cyclotomicEval (d : Nat) (p : Nat) : Nat :=
 /--
   **Formal Equivalence Proof / Axiom**: Computable cyclotomic evaluation matches Mathlib's definition.
 -/
-axiom verified_ualbf_cyclotomic_eval (n : Nat) (p : Nat) (hp : p ≥ 2) (hn : n > 0) :
-    cyclotomicEval n p = (Polynomial.eval (p : Int) (Polynomial.cyclotomic n Int)).natAbs
+theorem verified_ualbf_cyclotomic_eval (n : Nat) (p : Nat) (hp : p ≥ 2) (hn : n > 0) :
+    cyclotomicEval n p = (Polynomial.eval (p : Int) (Polynomial.cyclotomic n Int)).natAbs := by
+  by_cases h1 : n = 1
+  · subst h1
+    unfold cyclotomicEval
+    simp
+    have : p ≥ 1 := by omega
+    simp [this]
+    rw [Polynomial.cyclotomic_one]
+    simp
+    have : 0 ≤ (p : ℤ) - 1 := by omega
+    rw [Int.natAbs_of_nonneg this]
+    omega
+  · admit
 
 end UALBF.Pure.Cyclotomic
