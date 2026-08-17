@@ -688,13 +688,31 @@ pub fn native_cyclotomic_eval(d: u32, p: &Uint) -> Option<Uint> {
             Some(Uint::zero())
         }
     } else {
-        let num = p.checked_pow(d)?;
+        let num = match p.checked_pow(d) {
+            Some(n) => n,
+            None => {
+                crate::sieve::log_overflow(p.as_u64(), d);
+                return None;
+            }
+        };
         let num_sub = if num >= Uint::one() {
-            num.checked_sub(Uint::one())?
+            match num.checked_sub(Uint::one()) {
+                Some(sub) => sub,
+                None => {
+                    crate::sieve::log_overflow(p.as_u64(), d);
+                    return None;
+                }
+            }
         } else {
             Uint::zero()
         };
-        let den = native_cyclotomic_eval_aux(d, p, d - 1)?;
+        let den = match native_cyclotomic_eval_aux(d, p, d - 1) {
+            Some(dn) => dn,
+            None => {
+                crate::sieve::log_overflow(p.as_u64(), d);
+                return None;
+            }
+        };
         if den > Uint::zero() && num_sub % den == Uint::zero() {
             Some(num_sub / den)
         } else {
