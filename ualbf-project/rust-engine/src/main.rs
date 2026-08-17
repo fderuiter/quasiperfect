@@ -24,15 +24,15 @@ pub mod verus_proofs;
 
 mod distributed;
 mod math_utils;
+pub mod metal_reflection;
 mod policy;
 mod raycast;
 mod schema_generated;
 mod sieve;
 pub mod state;
-pub mod metal_reflection;
-pub mod unverified;
 mod types;
 mod universal_bounds;
+pub mod unverified;
 
 #[cfg(feature = "lattice")]
 pub mod lattice;
@@ -780,8 +780,9 @@ fn main() {
     let sigma_cache = sieve_result.sigma_cache;
 
     // Run parallel CRT tensor convolutions and Bloom filter candidate generation on the GPU execution path, generating mathematical witnesses
-    let _gpu_bitmap = crate::unverified::gpu::run_gpu_sieve_and_generate_witnesses(&valid_components, 1048576, 4)
-        .expect("GPU CRT Tensor Sieve and Bloom filter generation failed");
+    let _gpu_bitmap =
+        crate::unverified::gpu::run_gpu_sieve_and_generate_witnesses(&valid_components, 1048576, 4)
+            .expect("GPU CRT Tensor Sieve and Bloom filter generation failed");
 
     // Precompute suffix-max abundance product array for DFS pruning.
     // We dynamically calculate the maximum possible depth before the 256-bit product overflows target_bound.

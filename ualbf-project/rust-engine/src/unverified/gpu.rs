@@ -35,7 +35,7 @@ pub fn add_gpu_witness(witness: GpuBloomWitness) {
 }
 
 pub fn get_component_hashes(p: u64, two_e: u32) -> (u64, u64) {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(&p.to_be_bytes());
     hasher.update(&two_e.to_be_bytes());
@@ -45,78 +45,92 @@ pub fn get_component_hashes(p: u64, two_e: u32) -> (u64, u64) {
     (hash1, hash2)
 }
 
-pub fn run_gpu_sieve_and_generate_witnesses(components: &[crate::types::PrimePower], num_bits: u64, num_hashes: u32) -> Result<Vec<u32>, String> {
+pub fn run_gpu_sieve_and_generate_witnesses(
+    components: &[crate::types::PrimePower],
+    num_bits: u64,
+    num_hashes: u32,
+) -> Result<Vec<u32>, String> {
     clear_gpu_witnesses();
     let word_count = ((num_bits + 31) / 32) as usize;
-    
+
     println!("GPU|INFO|Executing parallel GPU-accelerated CRT Tensor Sieve & Bloom filter...");
-    
+
     use std::sync::Arc;
     let bitmap_atomics: Arc<Vec<std::sync::atomic::AtomicU32>> = Arc::new(
-        (0..word_count).map(|_| std::sync::atomic::AtomicU32::new(0)).collect()
+        (0..word_count)
+            .map(|_| std::sync::atomic::AtomicU32::new(0))
+            .collect(),
     );
-    
+
     use rayon::prelude::*;
-    let witnesses: Vec<GpuBloomWitness> = components.par_iter().map(|comp| {
-        let (hash1, hash2) = get_component_hashes(comp.p, comp.two_e);
-        
-        let moduli = [3, 5, 7, 11];
-        let mut residues = Vec::new();
-        let mut obstructing_modulus = 0;
-        let mut is_obstructed = false;
-        
-        for &q in &moduli {
-            let mut sum = 0u32;
-            let mut term = 1u32;
-            let p_mod = (comp.p % q as u64) as u32;
-            for _ in 0..=comp.two_e {
-                sum = (sum + term) % q;
-                term = (term * p_mod) % q;
-            }
-            residues.push(sum);
-            if sum == 0 && !is_obstructed {
-                is_obstructed = true;
-                obstructing_modulus = q;
-            }
-        }
-        
-        let mut bloom_indices = Vec::new();
-        if !is_obstructed {
-            for i in 0..num_hashes {
-                let cur = hash1.wrapping_add((i as u64).wrapping_mul(hash2))
-                    .wrapping_add(((i as u64).wrapping_mul((i as u64).wrapping_sub(1))) / 2);
-                let max_bits = if num_bits == 0 { 1 } else { num_bits };
-                let bit_idx = cur % max_bits;
-                bloom_indices.push(bit_idx);
-                
-                let word_idx = (bit_idx / 32) as usize;
-                let bit_mask = 1u32 << (bit_idx % 32);
-                if word_idx < word_count {
-                    bitmap_atomics[word_idx].fetch_or(bit_mask, std::sync::atomic::Ordering::Relaxed);
+    let witnesses: Vec<GpuBloomWitness> = components
+        .par_iter()
+        .map(|comp| {
+            let (hash1, hash2) = get_component_hashes(comp.p, comp.two_e);
+
+            let moduli = [3, 5, 7, 11];
+            let mut residues = Vec::new();
+            let mut obstructing_modulus = 0;
+            let mut is_obstructed = false;
+
+            for &q in &moduli {
+                let mut sum = 0u32;
+                let mut term = 1u32;
+                let p_mod = (comp.p % q as u64) as u32;
+                for _ in 0..=comp.two_e {
+                    sum = (sum + term) % q;
+                    term = (term * p_mod) % q;
+                }
+                residues.push(sum);
+                if sum == 0 && !is_obstructed {
+                    is_obstructed = true;
+                    obstructing_modulus = q;
                 }
             }
-        }
-        
-        GpuBloomWitness {
-            p: comp.p,
-            two_e: comp.two_e,
-            is_obstructed,
-            obstructing_modulus,
-            residues,
-            bloom_indices,
-        }
-    }).collect();
-    
+
+            let mut bloom_indices = Vec::new();
+            if !is_obstructed {
+                for i in 0..num_hashes {
+                    let cur = hash1
+                        .wrapping_add((i as u64).wrapping_mul(hash2))
+                        .wrapping_add(((i as u64).wrapping_mul((i as u64).wrapping_sub(1))) / 2);
+                    let max_bits = if num_bits == 0 { 1 } else { num_bits };
+                    let bit_idx = cur % max_bits;
+                    bloom_indices.push(bit_idx);
+
+                    let word_idx = (bit_idx / 32) as usize;
+                    let bit_mask = 1u32 << (bit_idx % 32);
+                    if word_idx < word_count {
+                        bitmap_atomics[word_idx]
+                            .fetch_or(bit_mask, std::sync::atomic::Ordering::Relaxed);
+                    }
+                }
+            }
+
+            GpuBloomWitness {
+                p: comp.p,
+                two_e: comp.two_e,
+                is_obstructed,
+                obstructing_modulus,
+                residues,
+                bloom_indices,
+            }
+        })
+        .collect();
+
     for w in witnesses {
         add_gpu_witness(w);
     }
-    
+
     let mut final_bitmap = vec![0u32; word_count];
     for i in 0..word_count {
         final_bitmap[i] = bitmap_atomics[i].load(std::sync::atomic::Ordering::Relaxed);
     }
-    
-    println!("GPU|SUCCESS|CRT Tensor Sieve completed. Generated {} mathematical witnesses.", components.len());
+
+    println!(
+        "GPU|SUCCESS|CRT Tensor Sieve completed. Generated {} mathematical witnesses.",
+        components.len()
+    );
     Ok(final_bitmap)
 }
 
