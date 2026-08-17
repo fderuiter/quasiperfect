@@ -209,3 +209,236 @@ def test_conjectural_bounds_conflict_fails_build():
         build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
+
+
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Decouple Python checks from core builds under GHA environment",
+)
+def test_prime_split_threshold_valid_higher_success():
+    """
+    Test that configuring a higher valid prime split threshold (67) builds successfully,
+    freezes Lean proofs baseline to 61, and accepts dynamic 67 in manifest_constants.rs.
+    """
+    import subprocess
+    import shutil
+    from pathlib import Path
+
+    project_dir = Path(__file__).parent.parent
+    bounds_path = project_dir / "bounds_manifest.json"
+    proof_path = project_dir / "proof_manifest.json"
+    lean_export_path = project_dir / "rust-engine/src/lean_export.rs"
+    manifest_constants_h = project_dir / "rust-engine/src/manifest_constants.h"
+    manifest_constants_rs = project_dir / "rust-engine/src/manifest_constants.rs"
+    manifest_constants_lean = project_dir / "lean4-proofs/UALBF/ManifestConstants.lean"
+
+    # Backup files
+    bounds_backup = bounds_path.read_text(encoding="utf-8")
+    proof_backup = proof_path.read_text(encoding="utf-8")
+    lean_export_backup = lean_export_path.read_text(encoding="utf-8")
+    constants_h_backup = manifest_constants_h.read_text(encoding="utf-8")
+    constants_rs_backup = manifest_constants_rs.read_text(encoding="utf-8")
+    constants_lean_backup = manifest_constants_lean.read_text(encoding="utf-8")
+
+    try:
+        # Change prime_split_threshold to 67
+        bounds_data = json.loads(bounds_backup)
+        bounds_data["search_bounds"]["prime_split_threshold"]["value"] = 67
+        bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
+
+        # 1. Regenerate specifications
+        subprocess.run(
+            ["python3", "scripts/export_lean_specs.py"],
+            cwd=str(project_dir),
+            check=True,
+        )
+
+        # 2. Run auditor with MOCK_LEAN=1
+        env = os.environ.copy()
+        env["MOCK_LEAN"] = "1"
+        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
+
+        # Touch build.rs
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
+        # 3. Cargo check must succeed
+        res = subprocess.run(
+            ["cargo", "check"],
+            cwd=str(project_dir / "rust-engine"),
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 0, f"Cargo check failed with:\n{res.stderr}"
+
+        # 4. Check that lean_export.rs has lean_prime_split_threshold returning 61
+        export_content = lean_export_path.read_text(encoding="utf-8")
+        assert "pub open spec fn lean_prime_split_threshold() -> nat { 61 }" in export_content
+
+        # 5. Check that ManifestConstants.lean has PRIME_SPLIT_THRESHOLD returning 61
+        lean_content = manifest_constants_lean.read_text(encoding="utf-8")
+        assert "def PRIME_SPLIT_THRESHOLD : Nat := 61" in lean_content
+
+        # 6. Check that manifest_constants.rs has PRIME_SPLIT_THRESHOLD returning 67
+        rs_content = manifest_constants_rs.read_text(encoding="utf-8")
+        assert "pub const PRIME_SPLIT_THRESHOLD: u64 = 67;" in rs_content
+
+    finally:
+        # Restore backups
+        bounds_path.write_text(bounds_backup, encoding="utf-8")
+        proof_path.write_text(proof_backup, encoding="utf-8")
+        lean_export_path.write_text(lean_export_backup, encoding="utf-8")
+        manifest_constants_h.write_text(constants_h_backup, encoding="utf-8")
+        manifest_constants_rs.write_text(constants_rs_backup, encoding="utf-8")
+        manifest_constants_lean.write_text(constants_lean_backup, encoding="utf-8")
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
+
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Decouple Python checks from core builds under GHA environment",
+)
+def test_prime_split_threshold_invalid_below_61_fails():
+    """
+    Test that setting prime split threshold below 61 (e.g. 59) fails the build.
+    """
+    import subprocess
+    from pathlib import Path
+
+    project_dir = Path(__file__).parent.parent
+    bounds_path = project_dir / "bounds_manifest.json"
+    proof_path = project_dir / "proof_manifest.json"
+    lean_export_path = project_dir / "rust-engine/src/lean_export.rs"
+    manifest_constants_h = project_dir / "rust-engine/src/manifest_constants.h"
+    manifest_constants_rs = project_dir / "rust-engine/src/manifest_constants.rs"
+    manifest_constants_lean = project_dir / "lean4-proofs/UALBF/ManifestConstants.lean"
+
+    # Backup files
+    bounds_backup = bounds_path.read_text(encoding="utf-8")
+    proof_backup = proof_path.read_text(encoding="utf-8")
+    lean_export_backup = lean_export_path.read_text(encoding="utf-8")
+    constants_h_backup = manifest_constants_h.read_text(encoding="utf-8")
+    constants_rs_backup = manifest_constants_rs.read_text(encoding="utf-8")
+    constants_lean_backup = manifest_constants_lean.read_text(encoding="utf-8")
+
+    try:
+        # Change prime_split_threshold to 59
+        bounds_data = json.loads(bounds_backup)
+        bounds_data["search_bounds"]["prime_split_threshold"]["value"] = 59
+        bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
+
+        # Regenerate specifications
+        subprocess.run(
+            ["python3", "scripts/export_lean_specs.py"],
+            cwd=str(project_dir),
+            check=True,
+        )
+
+        # Run auditor with MOCK_LEAN=1
+        env = os.environ.copy()
+        env["MOCK_LEAN"] = "1"
+        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
+
+        # Touch build.rs
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
+        # Cargo check must fail
+        res = subprocess.run(
+            ["cargo", "check"],
+            cwd=str(project_dir / "rust-engine"),
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode != 0
+        assert "The configured prime split threshold (59) is below the baseline of 61" in res.stderr
+
+    finally:
+        # Restore backups
+        bounds_path.write_text(bounds_backup, encoding="utf-8")
+        proof_path.write_text(proof_backup, encoding="utf-8")
+        lean_export_path.write_text(lean_export_backup, encoding="utf-8")
+        manifest_constants_h.write_text(constants_h_backup, encoding="utf-8")
+        manifest_constants_rs.write_text(constants_rs_backup, encoding="utf-8")
+        manifest_constants_lean.write_text(constants_lean_backup, encoding="utf-8")
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
+
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Decouple Python checks from core builds under GHA environment",
+)
+def test_prime_split_threshold_invalid_composite_fails():
+    """
+    Test that setting prime split threshold to a composite odd number (e.g. 69) fails the build.
+    """
+    import subprocess
+    from pathlib import Path
+
+    project_dir = Path(__file__).parent.parent
+    bounds_path = project_dir / "bounds_manifest.json"
+    proof_path = project_dir / "proof_manifest.json"
+    lean_export_path = project_dir / "rust-engine/src/lean_export.rs"
+    manifest_constants_h = project_dir / "rust-engine/src/manifest_constants.h"
+    manifest_constants_rs = project_dir / "rust-engine/src/manifest_constants.rs"
+    manifest_constants_lean = project_dir / "lean4-proofs/UALBF/ManifestConstants.lean"
+
+    # Backup files
+    bounds_backup = bounds_path.read_text(encoding="utf-8")
+    proof_backup = proof_path.read_text(encoding="utf-8")
+    lean_export_backup = lean_export_path.read_text(encoding="utf-8")
+    constants_h_backup = manifest_constants_h.read_text(encoding="utf-8")
+    constants_rs_backup = manifest_constants_rs.read_text(encoding="utf-8")
+    constants_lean_backup = manifest_constants_lean.read_text(encoding="utf-8")
+
+    try:
+        # Change prime_split_threshold to 69
+        bounds_data = json.loads(bounds_backup)
+        bounds_data["search_bounds"]["prime_split_threshold"]["value"] = 69
+        bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
+
+        # Regenerate specifications
+        subprocess.run(
+            ["python3", "scripts/export_lean_specs.py"],
+            cwd=str(project_dir),
+            check=True,
+        )
+
+        # Run auditor with MOCK_LEAN=1
+        env = os.environ.copy()
+        env["MOCK_LEAN"] = "1"
+        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
+
+        # Touch build.rs
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
+        # Cargo check must fail
+        res = subprocess.run(
+            ["cargo", "check"],
+            cwd=str(project_dir / "rust-engine"),
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode != 0
+        assert "The configured prime split threshold (69) is not prime" in res.stderr
+
+    finally:
+        # Restore backups
+        bounds_path.write_text(bounds_backup, encoding="utf-8")
+        proof_path.write_text(proof_backup, encoding="utf-8")
+        lean_export_path.write_text(lean_export_backup, encoding="utf-8")
+        manifest_constants_h.write_text(constants_h_backup, encoding="utf-8")
+        manifest_constants_rs.write_text(constants_rs_backup, encoding="utf-8")
+        manifest_constants_lean.write_text(constants_lean_backup, encoding="utf-8")
+        build_rs_path = project_dir / "rust-engine/build.rs"
+        if build_rs_path.exists():
+            build_rs_path.touch()
+
