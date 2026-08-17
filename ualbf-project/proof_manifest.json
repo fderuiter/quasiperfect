@@ -94,67 +94,67 @@
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "9afc79c165ffae92c949cac6efe84420a631bce13fc3eef79e9573414d901e2e",
+  "verified_logic_hash": "b6f3dbc5974ace9bdd6cd4cbc41c3b12ad163d424495629244173b8eaa4c062b",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -306,7 +306,7 @@
     },
     {
       "file": "UALBF/Engine/SearchMonad.lean",
-      "checksum": "2b871fb2f39a446395c5f989e379b8d854fea4d656669d8f31dab6f026e39763"
+      "checksum": "55103be5da5576ba2f0061d5abdd828c9ab43210f00c0406307dfef933c5fd97"
     },
     {
       "file": "UALBF/Engine/SearchState.lean",
@@ -322,7 +322,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "file": "UALBF/FFI_generated.lean",
