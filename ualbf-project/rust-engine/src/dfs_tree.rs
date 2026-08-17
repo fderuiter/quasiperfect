@@ -109,7 +109,7 @@ impl SuffixPrimeCollector {
                         .iter_mut()
                         .find(|entry| entry.p == comp.p)
                     {
-                        if comp.two_e < existing.two_e {
+                        if comp.two_e > existing.two_e {
                             existing.two_e = comp.two_e;
                             existing.abundance_fp = comp.abundance_fp;
                         }
@@ -609,12 +609,12 @@ pub fn check_and_evaluate_node(
             if f < 64 {}
         }
 
-        // Set-based collector to isolate the minimal exponent power of each unique prime
+        // Set-based collector to isolate the maximal exponent power of each unique prime
         let mut collector = SuffixPrimeCollector::new();
         collector.collect_from_mask(&curr.active_mask, curr.last_idx, components);
 
-        // Sorting minimal valuations in ascending order before computing prefix products
-        let best_abundances = collector.get_abundances_sorted_ascending();
+        // Sorting unique prime abundances in descending order when calculating the dynamic starvation bound
+        let best_abundances = collector.get_abundances_sorted_descending();
 
         // Support differential validation under valid sorted conditions
         #[cfg(any(debug_assertions, test))]
@@ -660,12 +660,9 @@ pub fn check_and_evaluate_node(
                 if current_p != 0 && current_best > (1u128 << 64) {
                     legacy_abundances.push(current_best);
                 }
-                legacy_abundances.sort_unstable_by(|a, b| b.cmp(a));
 
-                let mut new_descending = best_abundances.clone();
-                new_descending.sort_unstable_by(|a, b| b.cmp(a));
                 assert_eq!(
-                    new_descending, legacy_abundances,
+                    best_abundances, legacy_abundances,
                     "Differential validation failed: set-tracker does not match contiguous-grouping!"
                 );
             }
@@ -2424,10 +2421,10 @@ mod tests {
                 components.push(pool[pool_idx].clone());
             }
 
-            let mut expected_min_powers = std::collections::HashMap::new();
+            let mut expected_max_powers = std::collections::HashMap::new();
             for comp in &components {
-                let entry = expected_min_powers.entry(comp.p).or_insert(comp.clone());
-                if comp.two_e < entry.two_e {
+                let entry = expected_max_powers.entry(comp.p).or_insert(comp.clone());
+                if comp.two_e > entry.two_e {
                     *entry = comp.clone();
                 }
             }
@@ -2440,9 +2437,9 @@ mod tests {
 
             collector.collect_from_mask(&mask, 0, &components);
 
-            assert_eq!(collector.unique_primes.len(), expected_min_powers.len());
+            assert_eq!(collector.unique_primes.len(), expected_max_powers.len());
             for entry in &collector.unique_primes {
-                let expected = expected_min_powers.get(&entry.p).expect("Prime base should be in expected");
+                let expected = expected_max_powers.get(&entry.p).expect("Prime base should be in expected");
                 assert_eq!(entry.two_e, expected.two_e);
                 assert_eq!(entry.abundance_fp, expected.abundance_fp);
             }
@@ -2480,7 +2477,6 @@ mod tests {
             if current_p != 0 && current_best > (1u128 << 64) {
                 abundances_legacy.push(current_best);
             }
-            abundances_legacy.sort_unstable_by(|a, b| b.cmp(a));
 
             assert_eq!(abundances_new, abundances_legacy);
         }
