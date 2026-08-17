@@ -1,5 +1,5 @@
 import os
-
+import hashlib
 import sys
 
 _has_verification_lib = True
@@ -9,11 +9,213 @@ try:
     hash_tcb = verification_lib.hash_tcb
     hash_extension_tcb = verification_lib.hash_extension_tcb
     check_path_continuity = verification_lib.check_path_continuity
+    compute_verus_hashes = verification_lib.compute_verus_hashes
 except ImportError:
     hash_tcb = None
     hash_extension_tcb = None
     check_path_continuity = None
     _has_verification_lib = False
+
+    def clean_source_py(content: str) -> str:
+        cleaned = []
+        chars = list(content)
+        i = 0
+        n = len(chars)
+
+        state = "Normal"
+        depth = 0
+
+        while i < n:
+            if state == "Normal":
+                if i + 1 < n and chars[i] == '/' and chars[i + 1] == '/':
+                    state = "InLineComment"
+                    i += 2
+                elif i + 1 < n and chars[i] == '/' and chars[i + 1] == '*':
+                    state = "InBlockComment"
+                    depth = 1
+                    i += 2
+                elif chars[i] == '"':
+                    state = "InString"
+                    cleaned.append('"')
+                    i += 1
+                elif chars[i] == "'":
+                    state = "InChar"
+                    cleaned.append("'")
+                    i += 1
+                else:
+                    cleaned.append(chars[i])
+                    i += 1
+            elif state == "InString":
+                if chars[i] == '\\':
+                    cleaned.append('\\')
+                    if i + 1 < n:
+                        cleaned.append(chars[i + 1])
+                        i += 2
+                    else:
+                        i += 1
+                elif chars[i] == '"':
+                    state = "Normal"
+                    cleaned.append('"')
+                    i += 1
+                else:
+                    cleaned.append(chars[i])
+                    i += 1
+            elif state == "InChar":
+                if chars[i] == '\\':
+                    cleaned.append('\\')
+                    if i + 1 < n:
+                        cleaned.append(chars[i + 1])
+                        i += 2
+                    else:
+                        i += 1
+                elif chars[i] == "'":
+                    state = "Normal"
+                    cleaned.append("'")
+                    i += 1
+                else:
+                    cleaned.append(chars[i])
+                    i += 1
+            elif state == "InLineComment":
+                if chars[i] == '\n':
+                    state = "Normal"
+                    cleaned.append('\n')
+                    i += 1
+                else:
+                    i += 1
+            elif state == "InBlockComment":
+                if i + 1 < n and chars[i] == '/' and chars[i + 1] == '*':
+                    depth += 1
+                    i += 2
+                elif i + 1 < n and chars[i] == '*' and chars[i + 1] == '/':
+                    depth -= 1
+                    if depth == 0:
+                        state = "Normal"
+                    i += 2
+                elif chars[i] == '\n':
+                    cleaned.append('\n')
+                    i += 1
+                else:
+                    i += 1
+        return "".join(cleaned)
+
+    def count_non_literal_braces_py(line: str) -> tuple[int, int]:
+        chars = list(line)
+        open_count = 0
+        close_count = 0
+        in_string = False
+        in_char = False
+        i = 0
+        n = len(chars)
+
+        while i < n:
+            if in_string:
+                if chars[i] == '\\':
+                    i += 2
+                elif chars[i] == '"':
+                    in_string = False
+                    i += 1
+                else:
+                    i += 1
+            elif in_char:
+                if chars[i] == '\\':
+                    i += 2
+                elif chars[i] == "'":
+                    in_char = False
+                    i += 1
+                else:
+                    i += 1
+            else:
+                if chars[i] == '"':
+                    in_string = True
+                    i += 1
+                elif chars[i] == "'":
+                    in_char = True
+                    i += 1
+                elif chars[i] == '{':
+                    open_count += 1
+                    i += 1
+                elif chars[i] == '}':
+                    close_count += 1
+                    i += 1
+                else:
+                    i += 1
+        return open_count, close_count
+
+    def compute_verus_hashes_fallback(content: str) -> dict[str, str]:
+        cleaned = clean_source_py(content)
+        verus_hashes = {}
+        current_fn = ""
+        current_body = ""
+        in_spec = False
+        brace_count = 0
+        module_stack = []
+        module_brace_depth = 0
+
+        kw_list = [
+            "pub spec fn ",
+            "pub open spec fn ",
+            "pub uninterp spec fn ",
+            "pub proof fn ",
+            "pub fn ",
+        ]
+
+        for line in cleaned.splitlines():
+            trimmed = line.strip()
+
+            # Track module declarations
+            if not in_spec:
+                if "{" in trimmed and (trimmed.startswith("mod ") or trimmed.startswith("pub mod ")):
+                    if trimmed.startswith("pub mod "):
+                        mod_name = trimmed.removeprefix("pub mod ")
+                    else:
+                        mod_name = trimmed.removeprefix("mod ")
+                    mod_name = mod_name.split("{", 1)[0].strip()
+                    if mod_name:
+                        module_stack.append(mod_name)
+                        if "{" in trimmed:
+                            module_brace_depth += 1
+
+            matched_kw = None
+            if not in_spec:
+                for kw in kw_list:
+                    if kw in line:
+                        matched_kw = kw
+                        break
+
+            if not in_spec and matched_kw is not None:
+                parts = line.split(matched_kw, 1)
+                if len(parts) > 1:
+                    bare_fn_name = parts[1].split("(", 1)[0].strip()
+                    qualified_name = bare_fn_name if not module_stack else f"{'::'.join(module_stack)}::{bare_fn_name}"
+                    current_fn = qualified_name
+                    in_spec = True
+                    current_body = line
+                    
+                    open_b, close_b = count_non_literal_braces_py(line)
+                    brace_count = open_b - close_b
+                    if brace_count == 0 and "{" in line:
+                        verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                        in_spec = False
+            elif in_spec:
+                current_body += "\n" + line
+                open_b, close_b = count_non_literal_braces_py(line)
+                brace_count += open_b - close_b
+                if brace_count == 0:
+                    verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                    in_spec = False
+            elif not in_spec and module_brace_depth > 0:
+                open_b, close_b = count_non_literal_braces_py(line)
+                module_brace_depth += open_b
+                if close_b > 0:
+                    for _ in range(close_b):
+                        if module_brace_depth > 0:
+                            module_brace_depth -= 1
+                            if module_stack:
+                                module_stack.pop()
+
+        return verus_hashes
+
+    compute_verus_hashes = compute_verus_hashes_fallback
 
 
 class CertificateError(Exception):
