@@ -128,7 +128,7 @@ def build_cert(
     target_max_log10: int = 37,
     target_min_log10: int = 35,
     tamper_sig: bool = False,
-    path_ranges: list = None,
+    path_ranges: list | None = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
     payload = (
@@ -377,10 +377,11 @@ class TestPayloadFormat:
             "trace_hash": trace_hash,
             "factorization_depth": factorization_depth,
         }
-        if "cert" in locals() and "path_ranges" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["path_ranges"]
-        elif "cert" in locals() and "inner_paths" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["inner_paths"]
+        local_cert = locals().get("cert")
+        if local_cert is not None and "path_ranges" in local_cert["telemetry"]:
+            map_obj["path_ranges"] = local_cert["telemetry"]["path_ranges"]
+        elif local_cert is not None and "inner_paths" in local_cert["telemetry"]:
+            map_obj["path_ranges"] = local_cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
@@ -1025,7 +1026,6 @@ class TestPathContinuityValidation:
 
     def test_path_ranges_multiple_gaps(self, tmp_path, monkeypatch):
         """Test detection of multiple gaps in the path chain."""
-        manifest = make_manifest()
         # [2] to [3] is missing, [4] to [] is missing
         path_ranges = [
             {"start_bound": [], "end_bound": [2]},
@@ -1064,7 +1064,7 @@ class TestPathContinuityValidation:
             path_ranges.append({"start_bound": [i], "end_bound": [i + 1]})
         path_ranges.append({"start_bound": [9999], "end_bound": []})
 
-        import verification_lib
+        import verification_lib  # type: ignore
 
         path_ranges_json = json.dumps(path_ranges)
 
@@ -1083,7 +1083,7 @@ class TestPathContinuityValidation:
 class TestDirectMappingAndSchemaEnforcement:
     def test_null_byte_injection(self):
         """No certificate content preceding a null-byte can be parsed separately; fails immediately."""
-        import verification_lib
+        import verification_lib  # type: ignore
 
         raw_json_with_null = '{"manifest_hash": "abc", "\0": "tampered"}'
         with pytest.raises(ValueError, match="Null byte detected"):
@@ -1127,7 +1127,7 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["public_key"] = pub_hex
 
         # Check it passes first
-        import verification_lib
+        import verification_lib  # type: ignore
 
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         res = verification_lib.validate_certificate(json.dumps(cert))
@@ -1178,7 +1178,7 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
 
-        import verification_lib
+        import verification_lib  # type: ignore
 
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         with pytest.raises(
@@ -1494,7 +1494,7 @@ def test_verify_gpu_witnesses_cases(tmp_path):
     import struct
     import hashlib
     import pytest
-    from verify_cert import verify_certificate, verify_gpu_witnesses
+    from verify_cert import verify_certificate
 
     # Helper to calculate hashes & indices
     def get_component_hashes(p: int, two_e: int) -> tuple[int, int]:
