@@ -9,6 +9,26 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+fn is_prime(n: u64) -> bool {
+    if n <= 1 {
+        return false;
+    }
+    if n == 2 {
+        return true;
+    }
+    if n % 2 == 0 {
+        return false;
+    }
+    let mut i = 3;
+    while i * i <= n {
+        if n % i == 0 {
+            return false;
+        }
+        i += 2;
+    }
+    true
+}
+
 #[derive(Deserialize)]
 struct Theorem {
     name: String,
@@ -96,6 +116,7 @@ struct SearchBounds {
     prefix_stop_threshold: BoundValueU64,
     pollard_rho: PollardRhoBounds,
     raycast: RaycastBounds,
+    prime_split_threshold: Option<BoundValueU64>,
 }
 
 #[derive(Deserialize)]
@@ -180,6 +201,34 @@ fn main() {
 
     let manifest_content =
         fs::read_to_string(&manifest_path).expect("Failed to read bounds_manifest.json");
+
+    let manifest: BoundsManifest =
+        serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
+
+    // --- Validate configured prime split threshold ---
+    if let Some(ref prime_split) = manifest.search_bounds.prime_split_threshold {
+        let val = prime_split.value;
+        if val < 61 {
+            panic!(
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) is below the baseline of 61. The threshold must be a prime number greater than or equal to 61.",
+                val
+            );
+        }
+        if val % 2 == 0 {
+            panic!(
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) is not an odd prime. The threshold must be a prime number greater than or equal to 61.",
+                val
+            );
+        }
+        if !is_prime(val) {
+            panic!(
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) is not prime. The threshold must be a prime number greater than or equal to 61.",
+                val
+            );
+        }
+    } else {
+        panic!("FATAL: prime_split_threshold not found in bounds_manifest.json!");
+    }
 
     // --- REQUIREMENT 1 & 3: Mathematical Bound Synchronization Guardrail ---
     // Calculate the SHA256 hash of the current bounds_manifest.json
@@ -354,7 +403,22 @@ fn main() {
                     "Specification function {} not found in lean_export.rs",
                     spec_name
                 ));
-                if const_val != spec_val {
+                if *const_name == "PRIME_SPLIT_THRESHOLD" {
+                    let c_val: u64 = const_val
+                        .parse()
+                        .expect("Failed to parse PRIME_SPLIT_THRESHOLD");
+                    let s_val: u64 = spec_val
+                        .parse()
+                        .expect("Failed to parse lean_prime_split_threshold");
+                    if c_val < s_val {
+                        panic!(
+                            "FATAL: Mathematical Bound Desynchronization!\n\
+                             The runtime constant 'PRIME_SPLIT_THRESHOLD' ({}) is below the baseline Lean split threshold ({}) in lean_export.rs.\n\
+                             This violates the formal refinement proof safety conditions.",
+                            c_val, s_val
+                        );
+                    }
+                } else if const_val != spec_val {
                     panic!(
                         "FATAL: Mathematical Bound Desynchronization!\n\
                          The runtime constant '{}' ({}) in manifest_constants.rs diverges from its spec function '{}' ({}) in lean_export.rs.\n\
@@ -367,9 +431,6 @@ fn main() {
     } else {
         println!("cargo:warning=lean_export.rs not found, skipping manifest hash check. Please ensure specifications are exported.");
     }
-
-    let manifest: BoundsManifest =
-        serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
 
     // --- REQUIREMENT 2 & 3: Conjectural Bounds Safety Guardrails ---
     if let Some(ref cb) = manifest.conjectural_bounds {

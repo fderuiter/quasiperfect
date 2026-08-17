@@ -238,18 +238,6 @@ pub fn get_u512(obj: *mut lean_object) -> crate::lean_ffi::U512Data {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn rust_u512_to_hex(obj: *mut lean_object) -> *mut lean_object {
-    unsafe {
-        let w = *get_u512_ptr(obj);
-        let bytes = words_to_bytes::<8, 64>(&w);
-        let val = Uint::from_le_slice(&bytes).unwrap();
-        let hex_str = format!("{:x}", val);
-        let c_str = std::ffi::CString::new(hex_str).unwrap();
-        lean_mk_string(c_str.as_ptr())
-    }
-}
-
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
     unsafe { rs_lean_is_scalar(obj) }
@@ -700,13 +688,31 @@ pub fn native_cyclotomic_eval(d: u32, p: &Uint) -> Option<Uint> {
             Some(Uint::zero())
         }
     } else {
-        let num = p.checked_pow(d)?;
+        let num = match p.checked_pow(d) {
+            Some(n) => n,
+            None => {
+                crate::sieve::log_overflow(p.as_u64(), d);
+                return None;
+            }
+        };
         let num_sub = if num >= Uint::one() {
-            num.checked_sub(Uint::one())?
+            match num.checked_sub(Uint::one()) {
+                Some(sub) => sub,
+                None => {
+                    crate::sieve::log_overflow(p.as_u64(), d);
+                    return None;
+                }
+            }
         } else {
             Uint::zero()
         };
-        let den = native_cyclotomic_eval_aux(d, p, d - 1)?;
+        let den = match native_cyclotomic_eval_aux(d, p, d - 1) {
+            Some(dn) => dn,
+            None => {
+                crate::sieve::log_overflow(p.as_u64(), d);
+                return None;
+            }
+        };
         if den > Uint::zero() && num_sub % den == Uint::zero() {
             Some(num_sub / den)
         } else {
@@ -808,33 +814,6 @@ mod tests {
             std::mem::align_of::<Uint>() >= 1,
             "Rust engine Uint alignment is sufficient"
         );
-    }
-
-    #[test]
-    fn test_rust_u512_to_hex() {
-        setup();
-        let w = [1, 2, 3, 4, 5, 6, 7, 8];
-        let bytes = words_to_bytes::<8, 64>(&w);
-        let val = Uint::from_le_slice(&bytes).unwrap();
-        let hex_str = format!("{:x}", val);
-        assert!(hex_str.ends_with("00000000000000020000000000000001"));
-
-        if !cfg!(unverified_build) {
-            let obj = alloc_u512(w);
-            let str_obj = rust_u512_to_hex(obj);
-            assert!(!str_obj.is_null());
-            unsafe {
-                rs_lean_dec(str_obj);
-                rs_lean_dec(obj);
-            }
-        } else {
-            let obj = alloc_u512(w);
-            let str_obj = rust_u512_to_hex(obj);
-            assert_eq!(str_obj as usize, 1);
-            unsafe {
-                let _ = Box::from_raw(obj as *mut [u64; 8]);
-            }
-        }
     }
 
     /// get_baseline_min_prime_factors must return a positive value.
