@@ -545,6 +545,61 @@ def generate_ffi(repo_root, schema, schema_hash):
             )
         )
 
+    # Enforce Canonical Name and Signature Verification at Build-Time
+    crt_export = None
+    for exp in exports:
+        if exp[0] == "ualbf_check_crt_1155":
+            crt_export = exp
+            break
+
+    if crt_export is None:
+        import sys
+        print(
+            "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
+            "Expected canonical export function 'ualbf_check_crt_1155' was not found.\n"
+            "Target file location: lean4-proofs/UALBF/FFI.lean\n"
+            "Please ensure the modulo-1155 Chinese Remainder Theorem check is annotated with @[export ualbf_check_crt_1155].",
+            file=sys.stderr
+        )
+        sys.exit(1)
+
+    name, args_str, ret_type = crt_export
+    args_str_norm = " ".join(args_str.strip().split())
+    ret_type_norm = ret_type.strip()
+
+    param_matches = re.findall(r"\(([^:]+):\s*([^)]+)\)", args_str_norm)
+    params = []
+    for p_names, p_type in param_matches:
+        p_type = p_type.strip()
+        for p_name in p_names.split():
+            params.append((p_name, p_type))
+
+    valid_sig = True
+    if len(params) != 2:
+        valid_sig = False
+    else:
+        for p_name, p_type in params:
+            if p_type != "@& U512":
+                valid_sig = False
+
+    if ret_type_norm != "Bool":
+        valid_sig = False
+
+    if not valid_sig:
+        import sys
+        print(
+            "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
+            f"The signature of '{name}' is invalid.\n"
+            f"Found signature: def ualbf_check_crt_1155_impl {args_str.strip()} : {ret_type_norm}\n"
+            "Expected canonical name: ualbf_check_crt_1155\n"
+            "Expected argument types: '@& U512' for both arguments\n"
+            "Expected return type: 'Bool'\n"
+            "Target file location: lean4-proofs/UALBF/FFI.lean\n"
+            "Please ensure the function accepts two parameters of type '@& U512' and returns 'Bool'.",
+            file=sys.stderr
+        )
+        sys.exit(1)
+
     out = []
     out.append("// AUTO-GENERATED from Lean metadata. DO NOT EDIT.\n")
     out.append(f'pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str = "{schema_hash}";\n')
