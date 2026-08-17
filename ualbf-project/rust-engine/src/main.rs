@@ -29,6 +29,8 @@ mod raycast;
 mod schema_generated;
 mod sieve;
 pub mod state;
+pub mod metal_reflection;
+pub mod unverified;
 mod types;
 mod universal_bounds;
 
@@ -128,6 +130,8 @@ struct Certificate {
     verification_mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lattice_witnesses: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpu_witnesses: Option<serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -288,6 +292,7 @@ mod tests {
             commit_hash: "dummy_commit".to_string(),
             verification_mode: "pure".to_string(),
             lattice_witnesses: None,
+            gpu_witnesses: None,
         };
         let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
         assert_eq!(json_val["verification_mode"], "pure");
@@ -774,6 +779,10 @@ fn main() {
     let valid_components = sieve_result.components;
     let sigma_cache = sieve_result.sigma_cache;
 
+    // Run parallel CRT tensor convolutions and Bloom filter candidate generation on the GPU execution path, generating mathematical witnesses
+    let _gpu_bitmap = crate::unverified::gpu::run_gpu_sieve_and_generate_witnesses(&valid_components, 1048576, 4)
+        .expect("GPU CRT Tensor Sieve and Bloom filter generation failed");
+
     // Precompute suffix-max abundance product array for DFS pruning.
     // We dynamically calculate the maximum possible depth before the 256-bit product overflows target_bound.
     let mut max_factors_needed = 0;
@@ -1020,6 +1029,15 @@ fn main() {
     #[cfg(not(feature = "lattice"))]
     let lattice_witnesses = None;
 
+    let gpu_witnesses = {
+        let witnesses = crate::unverified::gpu::get_gpu_witnesses();
+        if witnesses.is_empty() {
+            None
+        } else {
+            serde_json::to_value(witnesses).ok()
+        }
+    };
+
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
@@ -1034,6 +1052,7 @@ fn main() {
         commit_hash: option_env!("GIT_HASH").unwrap_or("unknown").to_string(),
         verification_mode: config.proof_mode.clone(),
         lattice_witnesses,
+        gpu_witnesses,
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
