@@ -706,10 +706,12 @@ pub fn check_and_evaluate_node(
         (get_min_prime_factors(), static_best_remaining)
     };
 
-    let c3 = curr.factors.contains(&3) as u8;
-    let c5 = curr.factors.contains(&5) as u8;
-    let s3 = (curr.last_idx > max_idx_3) as u8;
-    let s5 = (curr.last_idx > max_idx_5) as u8;
+    let factor_3_present = curr.factors.contains(&3);
+    let factor_5_present = curr.factors.contains(&5);
+    let factor_3_starved = !factor_3_present && (curr.last_idx > max_idx_3);
+    let factor_5_starved = !factor_5_present && (curr.last_idx > max_idx_5);
+    let can_still_commit_3 = curr.last_idx <= max_idx_3;
+    let can_still_commit_5 = curr.last_idx <= max_idx_5;
 
     // Overflow Kill: Instantly drop if running fraction > target_num/target_den
     if crate::universal_bounds::cpu_check_abundancy_overflow(
@@ -904,23 +906,22 @@ pub fn check_and_evaluate_node(
     let prasad_sunitha_bound = get_prasad_sunitha_bound();
     let baseline_min_val = get_min_prime_factors();
     let div_5_coprime_3_bound = get_div_5_coprime_3_bound();
-    let info_mask = (c3 as u32) | ((c5 as u32) << 1) | ((s3 as u32) << 2) | ((s5 as u32) << 3);
     let remaining_components = components.len().saturating_sub(curr.last_idx);
 
     let mut hypothetical = curr.factors.to_vec();
-    if s3 == 0 {
+    if can_still_commit_3 {
         hypothetical.push(3);
     }
-    if s5 == 0 {
+    if can_still_commit_5 {
         hypothetical.push(5);
     }
     let pad = remaining_components.saturating_sub(hypothetical.len() - curr.factors.len());
     for _ in 0..pad {
         hypothetical.push(7); // arbitrary non-3/5 prime to simulate maximum possible length
     }
-    let baseline_min = if (info_mask & 3) == 0 && (info_mask & 12) == 12 {
+    let baseline_min = if factor_3_starved && factor_5_starved {
         prasad_sunitha_bound
-    } else if (info_mask & 1) == 0 && (info_mask & 2) == 2 && (info_mask & 4) == 4 {
+    } else if factor_3_starved {
         div_5_coprime_3_bound
     } else {
         baseline_min_val
@@ -943,13 +944,7 @@ pub fn check_and_evaluate_node(
                 n_l: curr.n_l,
                 s_l: curr.s_l,
                 reason: crate::trace::PruneReason::MinFactors {
-                    dynamic_min_factors: if (info_mask & 3) == 0 && (info_mask & 12) == 12 {
-                        prasad_sunitha_bound
-                    } else if (info_mask & 1) == 0 && (info_mask & 2) == 2 && (info_mask & 4) == 4 {
-                        div_5_coprime_3_bound
-                    } else {
-                        baseline_min_val
-                    },
+                    dynamic_min_factors: baseline_min,
                     curr_factors: curr.factors.len(),
                     remaining_components,
                 },
@@ -2566,6 +2561,214 @@ mod tests {
                         .load(Ordering::Relaxed),
                     1
                 );
+            }
+        );
+    }
+
+    #[test]
+    fn test_refactored_boolean_bounds_selection() {
+        crate::lean_ffi::initialize_lean_runtime();
+        // Setup a set of components that are not even
+        let mut comps = vec![];
+        for i in 0..10 {
+            comps.push(make_prime_power(101 + i, 100, 110));
+        }
+
+        let tb = Uint::from_u128(u128::MAX);
+
+        // Case 1: factor 3 is starved, factor 5 is absent but NOT starved.
+        // max_idx_3 = 2, max_idx_5 = 10.
+        // If last_idx = 4, then last_idx (4) > max_idx_3 (2) => starved.
+        // And last_idx (4) <= max_idx_5 (10) => NOT starved.
+        // Since factors are empty, 5 is absent.
+        // Thus, the Hagis-Cohen bound of 11 should be used.
+        let mut curr = make_prefix(25, 27, 4);
+        curr.active_mask = vec![0x3FF; 1]; // All active up to index 9
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 2,
+            max_idx_5 = 10,
+            saved_states = vec![],
+            |ptr| {
+                let (tx, rx) = crossbeam_channel::unbounded();
+                unsafe {
+                    let ctx = &mut *(ptr as *mut DfsContext);
+                    ctx.trace_tx = Some(tx);
+                    let should_explore = __rust_dfs_check_evaluate(ptr, 0);
+                    // Since remaining factors count (length) is short (factors is empty, so len=0),
+                    // it should be pruned because 0 < 11 (the bound).
+                    assert!(!should_explore);
+                    if let Ok(event) = rx.try_recv() {
+                        match event.reason {
+                            crate::trace::PruneReason::MinFactors {
+                                dynamic_min_factors,
+                                ..
+                            } => {
+                                assert_eq!(dynamic_min_factors, 11, "Expected Hagis-Cohen bound of 11 when factor 3 is starved and factor 5 is absent");
+                            }
+                            crate::trace::PruneReason::TargetBound => {
+                                panic!("Case 1: Pruned by TargetBound")
+                            }
+                            crate::trace::PruneReason::CdgForcedCascade { .. } => {
+                                panic!("Case 1: Pruned by CdgForcedCascade")
+                            }
+                            crate::trace::PruneReason::UnconditionalStarvation { .. } => {
+                                panic!("Case 1: Pruned by UnconditionalStarvation")
+                            }
+                            crate::trace::PruneReason::OverflowKill { .. } => {
+                                panic!("Case 1: Pruned by OverflowKill")
+                            }
+                            crate::trace::PruneReason::EulerCeiling { .. } => {
+                                panic!("Case 1: Pruned by EulerCeiling")
+                            }
+                            crate::trace::PruneReason::DynamicStarvation { .. } => {
+                                panic!("Case 1: Pruned by DynamicStarvation")
+                            }
+                            crate::trace::PruneReason::Raycast => {
+                                panic!("Case 1: Pruned by Raycast")
+                            }
+                            crate::trace::PruneReason::Touchard { .. } => {
+                                panic!("Case 1: Pruned by Touchard")
+                            }
+                            crate::trace::PruneReason::Lll { .. } => {
+                                panic!("Case 1: Pruned by Lll")
+                            }
+                        }
+                    } else {
+                        panic!("Expected a trace event to be emitted in Case 1");
+                    }
+                }
+            }
+        );
+
+        // Case 2: both factor 3 and factor 5 are starved.
+        // max_idx_3 = 2, max_idx_5 = 3.
+        // If last_idx = 4, then last_idx (4) > max_idx_3 (2) => starved.
+        // And last_idx (4) > max_idx_5 (3) => starved.
+        // Thus, Prasad-Sunitha bound of 15 should be used.
+        let mut curr = make_prefix(25, 27, 4);
+        curr.active_mask = vec![0x3FF; 1];
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 2,
+            max_idx_5 = 3,
+            saved_states = vec![],
+            |ptr| {
+                let (tx, rx) = crossbeam_channel::unbounded();
+                unsafe {
+                    let ctx = &mut *(ptr as *mut DfsContext);
+                    ctx.trace_tx = Some(tx);
+                    let should_explore = __rust_dfs_check_evaluate(ptr, 0);
+                    assert!(!should_explore);
+                    if let Ok(event) = rx.try_recv() {
+                        match event.reason {
+                            crate::trace::PruneReason::MinFactors {
+                                dynamic_min_factors,
+                                ..
+                            } => {
+                                assert_eq!(dynamic_min_factors, 15, "Expected Prasad-Sunitha bound of 15 when both factor 3 and 5 are starved");
+                            }
+                            crate::trace::PruneReason::TargetBound => {
+                                panic!("Case 2: Pruned by TargetBound")
+                            }
+                            crate::trace::PruneReason::CdgForcedCascade { .. } => {
+                                panic!("Case 2: Pruned by CdgForcedCascade")
+                            }
+                            crate::trace::PruneReason::UnconditionalStarvation { .. } => {
+                                panic!("Case 2: Pruned by UnconditionalStarvation")
+                            }
+                            crate::trace::PruneReason::OverflowKill { .. } => {
+                                panic!("Case 2: Pruned by OverflowKill")
+                            }
+                            crate::trace::PruneReason::EulerCeiling { .. } => {
+                                panic!("Case 2: Pruned by EulerCeiling")
+                            }
+                            crate::trace::PruneReason::DynamicStarvation { .. } => {
+                                panic!("Case 2: Pruned by DynamicStarvation")
+                            }
+                            crate::trace::PruneReason::Raycast => {
+                                panic!("Case 2: Pruned by Raycast")
+                            }
+                            crate::trace::PruneReason::Touchard { .. } => {
+                                panic!("Case 2: Pruned by Touchard")
+                            }
+                            crate::trace::PruneReason::Lll { .. } => {
+                                panic!("Case 2: Pruned by Lll")
+                            }
+                        }
+                    } else {
+                        panic!("Expected a trace event to be emitted in Case 2");
+                    }
+                }
+            }
+        );
+
+        // Case 3: neither is starved.
+        // max_idx_3 = 10, max_idx_5 = 10.
+        // If last_idx = 4, then last_idx (4) <= max_idx_3 (10) => NOT starved.
+        // And last_idx (4) <= max_idx_5 (10) => NOT starved.
+        // Thus, baseline min factor (9) should be used.
+        let mut curr = make_prefix(25, 27, 4);
+        curr.active_mask = vec![0x3FF; 1];
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 10,
+            max_idx_5 = 10,
+            saved_states = vec![],
+            |ptr| {
+                let (tx, rx) = crossbeam_channel::unbounded();
+                unsafe {
+                    let ctx = &mut *(ptr as *mut DfsContext);
+                    ctx.trace_tx = Some(tx);
+                    let should_explore = __rust_dfs_check_evaluate(ptr, 0);
+                    assert!(!should_explore);
+                    if let Ok(event) = rx.try_recv() {
+                        match event.reason {
+                            crate::trace::PruneReason::MinFactors {
+                                dynamic_min_factors,
+                                ..
+                            } => {
+                                let expected_baseline = get_min_prime_factors();
+                                assert_eq!(dynamic_min_factors, expected_baseline, "Expected baseline bound of {} when neither factor 3 nor 5 is starved", expected_baseline);
+                            }
+                            crate::trace::PruneReason::TargetBound => {
+                                panic!("Case 3: Pruned by TargetBound")
+                            }
+                            crate::trace::PruneReason::CdgForcedCascade { .. } => {
+                                panic!("Case 3: Pruned by CdgForcedCascade")
+                            }
+                            crate::trace::PruneReason::UnconditionalStarvation { .. } => {
+                                panic!("Case 3: Pruned by UnconditionalStarvation")
+                            }
+                            crate::trace::PruneReason::OverflowKill { .. } => {
+                                panic!("Case 3: Pruned by OverflowKill")
+                            }
+                            crate::trace::PruneReason::EulerCeiling { .. } => {
+                                panic!("Case 3: Pruned by EulerCeiling")
+                            }
+                            crate::trace::PruneReason::DynamicStarvation { .. } => {
+                                panic!("Case 3: Pruned by DynamicStarvation")
+                            }
+                            crate::trace::PruneReason::Raycast => {
+                                panic!("Case 3: Pruned by Raycast")
+                            }
+                            crate::trace::PruneReason::Touchard { .. } => {
+                                panic!("Case 3: Pruned by Touchard")
+                            }
+                            crate::trace::PruneReason::Lll { .. } => {
+                                panic!("Case 3: Pruned by Lll")
+                            }
+                        }
+                    } else {
+                        panic!("Expected a trace event to be emitted in Case 3");
+                    }
+                }
             }
         );
     }
