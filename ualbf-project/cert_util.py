@@ -27,10 +27,10 @@ except ImportError:
 
         while i < n:
             if state == "Normal":
-                if i + 1 < n and chars[i] == '/' and chars[i + 1] == '/':
+                if i + 1 < n and chars[i] == "/" and chars[i + 1] == "/":
                     state = "InLineComment"
                     i += 2
-                elif i + 1 < n and chars[i] == '/' and chars[i + 1] == '*':
+                elif i + 1 < n and chars[i] == "/" and chars[i + 1] == "*":
                     state = "InBlockComment"
                     depth = 1
                     i += 2
@@ -46,8 +46,8 @@ except ImportError:
                     cleaned.append(chars[i])
                     i += 1
             elif state == "InString":
-                if chars[i] == '\\':
-                    cleaned.append('\\')
+                if chars[i] == "\\":
+                    cleaned.append("\\")
                     if i + 1 < n:
                         cleaned.append(chars[i + 1])
                         i += 2
@@ -61,8 +61,8 @@ except ImportError:
                     cleaned.append(chars[i])
                     i += 1
             elif state == "InChar":
-                if chars[i] == '\\':
-                    cleaned.append('\\')
+                if chars[i] == "\\":
+                    cleaned.append("\\")
                     if i + 1 < n:
                         cleaned.append(chars[i + 1])
                         i += 2
@@ -76,23 +76,23 @@ except ImportError:
                     cleaned.append(chars[i])
                     i += 1
             elif state == "InLineComment":
-                if chars[i] == '\n':
+                if chars[i] == "\n":
                     state = "Normal"
-                    cleaned.append('\n')
+                    cleaned.append("\n")
                     i += 1
                 else:
                     i += 1
             elif state == "InBlockComment":
-                if i + 1 < n and chars[i] == '/' and chars[i + 1] == '*':
+                if i + 1 < n and chars[i] == "/" and chars[i + 1] == "*":
                     depth += 1
                     i += 2
-                elif i + 1 < n and chars[i] == '*' and chars[i + 1] == '/':
+                elif i + 1 < n and chars[i] == "*" and chars[i + 1] == "/":
                     depth -= 1
                     if depth == 0:
                         state = "Normal"
                     i += 2
-                elif chars[i] == '\n':
-                    cleaned.append('\n')
+                elif chars[i] == "\n":
+                    cleaned.append("\n")
                     i += 1
                 else:
                     i += 1
@@ -109,7 +109,7 @@ except ImportError:
 
         while i < n:
             if in_string:
-                if chars[i] == '\\':
+                if chars[i] == "\\":
                     i += 2
                 elif chars[i] == '"':
                     in_string = False
@@ -117,7 +117,7 @@ except ImportError:
                 else:
                     i += 1
             elif in_char:
-                if chars[i] == '\\':
+                if chars[i] == "\\":
                     i += 2
                 elif chars[i] == "'":
                     in_char = False
@@ -131,10 +131,10 @@ except ImportError:
                 elif chars[i] == "'":
                     in_char = True
                     i += 1
-                elif chars[i] == '{':
+                elif chars[i] == "{":
                     open_count += 1
                     i += 1
-                elif chars[i] == '}':
+                elif chars[i] == "}":
                     close_count += 1
                     i += 1
                 else:
@@ -164,7 +164,9 @@ except ImportError:
 
             # Track module declarations
             if not in_spec:
-                if "{" in trimmed and (trimmed.startswith("mod ") or trimmed.startswith("pub mod ")):
+                if "{" in trimmed and (
+                    trimmed.startswith("mod ") or trimmed.startswith("pub mod ")
+                ):
                     if trimmed.startswith("pub mod "):
                         mod_name = trimmed.removeprefix("pub mod ")
                     else:
@@ -186,22 +188,30 @@ except ImportError:
                 parts = line.split(matched_kw, 1)
                 if len(parts) > 1:
                     bare_fn_name = parts[1].split("(", 1)[0].strip()
-                    qualified_name = bare_fn_name if not module_stack else f"{'::'.join(module_stack)}::{bare_fn_name}"
+                    qualified_name = (
+                        bare_fn_name
+                        if not module_stack
+                        else f"{'::'.join(module_stack)}::{bare_fn_name}"
+                    )
                     current_fn = qualified_name
                     in_spec = True
                     current_body = line
-                    
+
                     open_b, close_b = count_non_literal_braces_py(line)
                     brace_count = open_b - close_b
                     if brace_count == 0 and "{" in line:
-                        verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                        verus_hashes[current_fn] = hashlib.sha256(
+                            current_body.encode("utf-8")
+                        ).hexdigest()
                         in_spec = False
             elif in_spec:
                 current_body += "\n" + line
                 open_b, close_b = count_non_literal_braces_py(line)
                 brace_count += open_b - close_b
                 if brace_count == 0:
-                    verus_hashes[current_fn] = hashlib.sha256(current_body.encode("utf-8")).hexdigest()
+                    verus_hashes[current_fn] = hashlib.sha256(
+                        current_body.encode("utf-8")
+                    ).hexdigest()
                     in_spec = False
             elif not in_spec and module_brace_depth > 0:
                 open_b, close_b = count_non_literal_braces_py(line)
