@@ -461,6 +461,17 @@ macro_rules
   omega"""
         )
 
+    # Binary divide-and-conquer shift-addition algorithm generator
+    L = [f"u.w{i}.toNat" for i in range(limb_count)]
+    current_width = limb_width
+    while len(L) > 1:
+        next_L = []
+        for i in range(0, len(L), 2):
+            next_L.append(f"({L[i]} + ({L[i+1]} <<< {current_width}))")
+        L = next_L
+        current_width *= 2
+    from_u512_fast_expr = L[0]
+
     with open(lean_generated_path, "w", encoding="utf-8") as f:
         f.write(f"""import Mathlib.Data.UInt
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
@@ -483,23 +494,10 @@ instance : Inhabited U512 where
 
 {chr(10).join(theorems)}
 
-@[extern "rust_u512_to_hex"]
-opaque U512.toHex (u : @& U512) : String
+def fromU512Fast (u : U512) : Nat :=
+  {from_u512_fast_expr}
 
-def parseHexChar (c : Char) : Nat :=
-  if '0' <= c && c <= '9' then c.toNat - '0'.toNat
-  else if 'a' <= c && c <= 'f' then 10 + (c.toNat - 'a'.toNat)
-  else if 'A' <= c && c <= 'F' then 10 + (c.toNat - 'A'.toNat)
-  else 0
-
-def parseHex (s : String) : Nat :=
-  let s := if s.startsWith "0x" || s.startsWith "0X" then s.drop 2 else s
-  s.foldl (fun acc c => acc * 16 + parseHexChar c) 0
-
-def fromHexU512 (u : U512) : Nat :=
-  parseHex (u.toHex)
-
-@[implemented_by fromHexU512]
+@[implemented_by fromU512Fast]
 def fromU512 (u : U512) : Nat :=
   {from_u512_expr}
 
@@ -544,6 +542,61 @@ def generate_ffi(repo_root, schema, schema_hash):
                 r'@\[extern\s+"([^"]+)"\]\n(?:opaque|def)\s+(\S+)\s+(.*?)\n', content
             )
         )
+
+    # Enforce Canonical Name and Signature Verification at Build-Time
+    crt_export = None
+    for exp in exports:
+        if exp[0] == "ualbf_check_crt_1155":
+            crt_export = exp
+            break
+
+    if crt_export is None:
+        import sys
+        print(
+            "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
+            "Expected canonical export function 'ualbf_check_crt_1155' was not found.\n"
+            "Target file location: lean4-proofs/UALBF/FFI.lean\n"
+            "Please ensure the modulo-1155 Chinese Remainder Theorem check is annotated with @[export ualbf_check_crt_1155].",
+            file=sys.stderr
+        )
+        sys.exit(1)
+
+    name, args_str, ret_type = crt_export
+    args_str_norm = " ".join(args_str.strip().split())
+    ret_type_norm = ret_type.strip()
+
+    param_matches = re.findall(r"\(([^:]+):\s*([^)]+)\)", args_str_norm)
+    params = []
+    for p_names, p_type in param_matches:
+        p_type = p_type.strip()
+        for p_name in p_names.split():
+            params.append((p_name, p_type))
+
+    valid_sig = True
+    if len(params) != 2:
+        valid_sig = False
+    else:
+        for p_name, p_type in params:
+            if p_type != "@& U512":
+                valid_sig = False
+
+    if ret_type_norm != "Bool":
+        valid_sig = False
+
+    if not valid_sig:
+        import sys
+        print(
+            "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
+            f"The signature of '{name}' is invalid.\n"
+            f"Found signature: def ualbf_check_crt_1155_impl {args_str.strip()} : {ret_type_norm}\n"
+            "Expected canonical name: ualbf_check_crt_1155\n"
+            "Expected argument types: '@& U512' for both arguments\n"
+            "Expected return type: 'Bool'\n"
+            "Target file location: lean4-proofs/UALBF/FFI.lean\n"
+            "Please ensure the function accepts two parameters of type '@& U512' and returns 'Bool'.",
+            file=sys.stderr
+        )
+        sys.exit(1)
 
     out = []
     out.append("// AUTO-GENERATED from Lean metadata. DO NOT EDIT.\n")
