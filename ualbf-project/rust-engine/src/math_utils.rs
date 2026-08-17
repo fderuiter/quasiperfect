@@ -912,10 +912,29 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
 /// # Examples
 ///
 /// ```
+/// # use crate::math_utils::small_divisors_pub;
 /// assert_eq!(small_divisors_pub(1), vec![1]);
 /// assert_eq!(small_divisors_pub(12), vec![1, 2, 3, 4, 6, 12]);
-/// assert_eq!(small_divisors_pub(13), vec![13, 1].into_iter().collect::<Vec<_>>().iter().cloned().collect::<Vec<u32>>()); // demonstrate prime handling
+/// assert_eq!(small_divisors_pub(13), vec![1, 13]);
 /// ```
+pub fn small_divisors_pub(n: u32) -> Vec<u32> {
+    if n == 0 {
+        return Vec::new();
+    }
+    let mut divisors = Vec::new();
+    let limit = (n as f64).sqrt() as u32;
+    for i in 1..=limit {
+        if n % i == 0 {
+            divisors.push(i);
+            if i * i != n {
+                divisors.push(n / i);
+            }
+        }
+    }
+    divisors.sort_unstable();
+    divisors
+}
+
 /// Factorizes σ(p, two_e) by evaluating its cyclotomic components and factoring each result.
 ///
 /// For each divisor `d` of `two_e + 1` (excluding `1`), this function attempts to evaluate the
@@ -937,6 +956,8 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
 /// # Examples
 ///
 /// ```
+/// # use crate::math_utils::{factor_sigma_cyclotomic, FactorizationResult};
+/// # use crate::Uint;
 /// let p = 3u64;
 /// let two_e = 2u32;
 /// let res = factor_sigma_cyclotomic(p, two_e);
@@ -948,6 +969,87 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
 ///     _ => panic!("expected complete factorization for this example"),
 /// }
 /// ```
+pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
+    if two_e == 0 {
+        let full_sigma = match crate::lean_ffi::compute_sigma_checked(p, two_e) {
+            Some(s) => s,
+            None => return FactorizationResult::Failure(Uint::zero()),
+        };
+        return quick_factor_u256(full_sigma);
+    }
+
+    let n = match two_e.checked_add(1) {
+        Some(v) => v,
+        None => {
+            let full_sigma = match crate::lean_ffi::compute_sigma_checked(p, two_e) {
+                Some(s) => s,
+                None => return FactorizationResult::Failure(Uint::zero()),
+            };
+            return quick_factor_u256(full_sigma);
+        }
+    };
+
+    let divisors = small_divisors_pub(n);
+
+    let mut evals = Vec::new();
+    let mut fallback = false;
+
+    for &d in &divisors {
+        if d > 1 {
+            match crate::lean_ffi::native_cyclotomic_eval(d, &Uint::from_u64(p)) {
+                Some(v) => evals.push(v),
+                None => {
+                    fallback = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if fallback {
+        let full_sigma = match crate::lean_ffi::compute_sigma_checked(p, two_e) {
+            Some(s) => s,
+            None => return FactorizationResult::Failure(Uint::zero()),
+        };
+        return quick_factor_u256(full_sigma);
+    }
+
+    let mut all_known_factors = smallvec::SmallVec::<[Uint; 8]>::new();
+    let mut remaining_product = Uint::one();
+    let mut any_partial = false;
+
+    for v in evals {
+        if v <= Uint::one() {
+            continue;
+        }
+        match quick_factor_u256(v) {
+            FactorizationResult::Complete(factors) => {
+                all_known_factors.extend(factors);
+            }
+            FactorizationResult::Partial { known_factors, remaining } => {
+                all_known_factors.extend(known_factors);
+                remaining_product *= remaining;
+                any_partial = true;
+            }
+            FactorizationResult::Failure(u) => {
+                remaining_product *= u;
+                any_partial = true;
+            }
+        }
+    }
+
+    all_known_factors.sort_unstable();
+
+    if any_partial {
+        FactorizationResult::Partial {
+            known_factors: all_known_factors,
+            remaining: remaining_product,
+        }
+    } else {
+        FactorizationResult::Complete(all_known_factors)
+    }
+}
+
 /// Computes the modular inverse of `a` modulo `m`, returning `None` if no inverse exists or if `m <= 0`.
 ///
 /// The result `x` satisfies `0 <= x < m` and `(a * x) % m == 1` when present.
@@ -1308,6 +1410,50 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_cyclotomic_integration() {
+        // Test small_divisors_pub
+        assert_eq!(small_divisors_pub(0), Vec::<u32>::new());
+        assert_eq!(small_divisors_pub(1), vec![1]);
+        assert_eq!(small_divisors_pub(12), vec![1, 2, 3, 4, 6, 12]);
+        assert_eq!(small_divisors_pub(13), vec![1, 13]);
+
+        // Test factor_sigma_cyclotomic
+        match factor_sigma_cyclotomic(3, 2) {
+            FactorizationResult::Complete(facs) => {
+                assert_eq!(facs.to_vec(), vec![Uint::from_u64(13)]);
+            }
+            _ => panic!("Expected complete factorization"),
+        }
+
+        match factor_sigma_cyclotomic(2, 4) {
+            FactorizationResult::Complete(facs) => {
+                assert_eq!(facs.to_vec(), vec![Uint::from_u64(31)]);
+            }
+            _ => panic!("Expected complete factorization"),
+        }
+
+        match factor_sigma_cyclotomic(3, 4) {
+            FactorizationResult::Complete(facs) => {
+                assert_eq!(facs.to_vec(), vec![Uint::from_u64(11), Uint::from_u64(11)]);
+            }
+            _ => panic!("Expected complete factorization"),
+        }
+
+        match factor_sigma_cyclotomic(2, 5) {
+            FactorizationResult::Complete(facs) => {
+                assert_eq!(facs.to_vec(), vec![Uint::from_u64(3), Uint::from_u64(3), Uint::from_u64(7)]);
+            }
+            _ => panic!("Expected complete factorization"),
+        }
+
+        match factor_sigma_cyclotomic(5, 0) {
+            FactorizationResult::Complete(facs) => {
+                assert_eq!(facs.to_vec(), Vec::<Uint>::new());
+            }
+            _ => panic!("Expected complete factorization"),
+        }
+    }
+
     #[test]
     fn test_mod_negate_big() {
         let m = Int::from_u32(10);

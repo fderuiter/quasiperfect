@@ -163,23 +163,10 @@ macro_rules
   u512_omega_prep
   omega
 
-@[extern "rust_u512_to_hex"]
-opaque U512.toHex (u : @& U512) : String
+def fromU512Fast (u : U512) : Nat :=
+  (((u.w0.toNat + (u.w1.toNat <<< 64)) + ((u.w2.toNat + (u.w3.toNat <<< 64)) <<< 128)) + (((u.w4.toNat + (u.w5.toNat <<< 64)) + ((u.w6.toNat + (u.w7.toNat <<< 64)) <<< 128)) <<< 256))
 
-def parseHexChar (c : Char) : Nat :=
-  if '0' <= c && c <= '9' then c.toNat - '0'.toNat
-  else if 'a' <= c && c <= 'f' then 10 + (c.toNat - 'a'.toNat)
-  else if 'A' <= c && c <= 'F' then 10 + (c.toNat - 'A'.toNat)
-  else 0
-
-def parseHex (s : String) : Nat :=
-  let s := if s.startsWith "0x" || s.startsWith "0X" then s.drop 2 else s
-  s.foldl (fun acc c => acc * 16 + parseHexChar c) 0
-
-def fromHexU512 (u : U512) : Nat :=
-  parseHex (u.toHex)
-
-@[implemented_by fromHexU512]
+@[implemented_by fromU512Fast]
 def fromU512 (u : U512) : Nat :=
   u.w0.toNat +
   u.w1.toNat * (2 ^ 64) +
