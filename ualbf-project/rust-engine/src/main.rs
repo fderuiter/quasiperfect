@@ -446,25 +446,22 @@ fn sha256_digest_file(path: &std::path::Path) -> std::io::Result<String> {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    for arg in &args {
-        if arg.starts_with("--verify-sidecar=") {
-            let path = arg.trim_start_matches("--verify-sidecar=");
-            if let Err(e) = sieve::run_offline_verification(path) {
-                eprintln!("Verification failed: {}", e);
-                std::process::exit(1);
-            }
-            std::process::exit(0);
+    let config = policy::get_safe_config();
+
+    if let Some(path) = &config.verify_sidecar {
+        if let Err(e) = sieve::run_offline_verification(path) {
+            eprintln!("Verification failed: {}", e);
+            std::process::exit(1);
         }
+        std::process::exit(0);
     }
 
     let total_start = std::time::Instant::now();
     crate::lean_ffi::initialize_lean_runtime();
 
     // Initialize sidecar logger
-    let sidecar_path =
-        std::env::var("UALBF_SIDECAR_PATH").unwrap_or_else(|_| "overflow_sidecar.log".to_string());
-    if let Err(e) = sieve::init_sidecar_logger(&sidecar_path) {
+    let sidecar_path = &config.sidecar_path;
+    if let Err(e) = sieve::init_sidecar_logger(sidecar_path) {
         eprintln!(
             "FATAL: Failed to initialize sidecar logger at {}: {}",
             sidecar_path, e
@@ -472,7 +469,6 @@ fn main() {
         std::process::exit(1);
     }
 
-    let config = policy::get_safe_config();
     // ── Formal Certification Initialization ──
     let manifest_path = config.proof_manifest.clone();
 

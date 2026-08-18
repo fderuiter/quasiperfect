@@ -228,10 +228,7 @@ fn save_checkpoint(
 pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     let listener = TcpListener::bind(addr).unwrap();
 
-    let heartbeat_timeout = std::env::var("UALBF_HEARTBEAT_TIMEOUT_SEC")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(15);
+    let heartbeat_timeout = crate::policy::get_safe_config().heartbeat_timeout_sec;
 
     let active_workers: Arc<Mutex<HashMap<usize, ActiveWorkerState>>> =
         Arc::new(Mutex::new(HashMap::new()));
@@ -479,10 +476,7 @@ pub fn run_worker(
                     }
                 });
 
-                let heartbeat_interval = std::env::var("UALBF_HEARTBEAT_INTERVAL_SEC")
-                    .ok()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(5);
+                let heartbeat_interval = crate::policy::get_safe_config().heartbeat_interval_sec;
 
                 let (hb_tx, hb_rx) = crossbeam_channel::unbounded::<()>();
                 let mut hb_stream = stream.try_clone().unwrap();
