@@ -376,9 +376,11 @@ def generate_manifest():
         checksum = theorem_checksum(thm, rel_file, status)
 
         # Retrieve or compute normalized statement hash
-        stmt = theorem_statements.get(thm)
-        if not stmt and os.path.exists(file_path):
+        stmt = None
+        if os.path.exists(file_path):
             stmt = cert_util.extract_statement_from_file(file_path, thm)
+        if not stmt:
+            stmt = theorem_statements.get(thm)
 
         if stmt:
             stmt_hash = cert_util.compute_statement_hash(stmt)
