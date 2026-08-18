@@ -215,10 +215,9 @@ def test_conjectural_bounds_conflict_fails_build():
     os.environ.get("GITHUB_ACTIONS") == "true",
     reason="Decouple Python checks from core builds under GHA environment",
 )
-def test_prime_split_threshold_valid_higher_success():
+def test_prime_split_threshold_valid_higher_fails():
     """
-    Test that configuring a higher valid prime split threshold (67) builds successfully,
-    freezes Lean proofs baseline to 61, and accepts dynamic 67 in manifest_constants.rs.
+    Test that configuring a prime split threshold deviating from baseline (67) fails both export tooling and build system.
     """
     import subprocess
     import shutil
@@ -246,43 +245,33 @@ def test_prime_split_threshold_valid_higher_success():
         bounds_data["search_bounds"]["prime_split_threshold"]["value"] = 67
         bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
 
-        # 1. Regenerate specifications
-        subprocess.run(
+        # 1. Regenerate specifications - MUST FAIL
+        res_export = subprocess.run(
             ["python3", "scripts/export_lean_specs.py"],
             cwd=str(project_dir),
-            check=True,
+            capture_output=True,
+            text=True,
         )
-
-        # 2. Run auditor with MOCK_LEAN=1
-        env = os.environ.copy()
-        env["MOCK_LEAN"] = "1"
-        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
+        assert res_export.returncode != 0
+        assert (
+            "Safety Constraint Violation: prime_split_threshold (67) does not equal the specification baseline value of 61"
+            in res_export.stderr
+        )
 
         # Touch build.rs
         build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
 
-        # 3. Cargo check must succeed
+        # 2. Cargo check must fail
         res = subprocess.run(
             ["cargo", "check"],
             cwd=str(project_dir / "rust-engine"),
             capture_output=True,
             text=True,
         )
-        assert res.returncode == 0, f"Cargo check failed with:\n{res.stderr}"
-
-        # 4. Check that lean_export.rs has lean_prime_split_threshold returning 61
-        export_content = lean_export_path.read_text(encoding="utf-8")
-        assert "pub open spec fn lean_prime_split_threshold() -> nat { 61 }" in export_content
-
-        # 5. Check that ManifestConstants.lean has PRIME_SPLIT_THRESHOLD returning 61
-        lean_content = manifest_constants_lean.read_text(encoding="utf-8")
-        assert "def PRIME_SPLIT_THRESHOLD : Nat := 61" in lean_content
-
-        # 6. Check that manifest_constants.rs has PRIME_SPLIT_THRESHOLD returning 67
-        rs_content = manifest_constants_rs.read_text(encoding="utf-8")
-        assert "pub const PRIME_SPLIT_THRESHOLD: u64 = 67;" in rs_content
+        assert res.returncode != 0
+        assert "does not equal the baseline value of 61" in res.stderr
 
     finally:
         # Restore backups
@@ -330,17 +319,18 @@ def test_prime_split_threshold_invalid_below_61_fails():
         bounds_data["search_bounds"]["prime_split_threshold"]["value"] = 59
         bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
 
-        # Regenerate specifications
-        subprocess.run(
+        # Regenerate specifications - MUST FAIL
+        res_export = subprocess.run(
             ["python3", "scripts/export_lean_specs.py"],
             cwd=str(project_dir),
-            check=True,
+            capture_output=True,
+            text=True,
         )
-
-        # Run auditor with MOCK_LEAN=1
-        env = os.environ.copy()
-        env["MOCK_LEAN"] = "1"
-        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
+        assert res_export.returncode != 0
+        assert (
+            "Safety Constraint Violation: prime_split_threshold (59) does not equal the specification baseline value of 61"
+            in res_export.stderr
+        )
 
         # Touch build.rs
         build_rs_path = project_dir / "rust-engine/build.rs"
@@ -355,7 +345,7 @@ def test_prime_split_threshold_invalid_below_61_fails():
             text=True,
         )
         assert res.returncode != 0
-        assert "The configured prime split threshold (59) is below the baseline of 61" in res.stderr
+        assert "does not equal the baseline value of 61" in res.stderr
 
     finally:
         # Restore backups
@@ -403,17 +393,18 @@ def test_prime_split_threshold_invalid_composite_fails():
         bounds_data["search_bounds"]["prime_split_threshold"]["value"] = 69
         bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
 
-        # Regenerate specifications
-        subprocess.run(
+        # Regenerate specifications - MUST FAIL
+        res_export = subprocess.run(
             ["python3", "scripts/export_lean_specs.py"],
             cwd=str(project_dir),
-            check=True,
+            capture_output=True,
+            text=True,
         )
-
-        # Run auditor with MOCK_LEAN=1
-        env = os.environ.copy()
-        env["MOCK_LEAN"] = "1"
-        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
+        assert res_export.returncode != 0
+        assert (
+            "Safety Constraint Violation: prime_split_threshold (69) does not equal the specification baseline value of 61"
+            in res_export.stderr
+        )
 
         # Touch build.rs
         build_rs_path = project_dir / "rust-engine/build.rs"
@@ -428,7 +419,7 @@ def test_prime_split_threshold_invalid_composite_fails():
             text=True,
         )
         assert res.returncode != 0
-        assert "The configured prime split threshold (69) is not prime" in res.stderr
+        assert "does not equal the baseline value of 61" in res.stderr
 
     finally:
         # Restore backups
@@ -441,4 +432,3 @@ def test_prime_split_threshold_invalid_composite_fails():
         build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
-
