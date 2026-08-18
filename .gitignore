@@ -34,7 +34,7 @@ lake-packages/
 
 # LaTeX
 *.aux
-main.log
+*.log
 *.out
 *.blg
 *.bbl
