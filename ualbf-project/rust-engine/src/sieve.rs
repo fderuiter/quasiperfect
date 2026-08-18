@@ -490,6 +490,73 @@ mod tests {
 
         let _ = std::fs::remove_file(test_log);
     }
+
+    #[test]
+    fn test_multi_threaded_sidecar_logging() {
+        let test_log = "test_multi_threaded_sidecar.log";
+        init_sidecar_logger(test_log).unwrap();
+
+        let num_threads = 10;
+        let records_per_thread = 50;
+        let mut handles = vec![];
+
+        for t in 0..num_threads {
+            let handle = std::thread::spawn(move || {
+                for i in 0..records_per_thread {
+                    let p = 100000 + (t * records_per_thread + i) as u64;
+                    let pow = 1000 + i as u32;
+                    log_overflow(p, pow);
+                }
+            });
+            handles.push(handle);
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        finalize_sidecar_logger();
+
+        let content = std::fs::read_to_string(test_log).unwrap();
+        let lines: Vec<&str> = content.lines().filter(|s| !s.trim().is_empty()).collect();
+        assert_eq!(lines.len(), num_threads * records_per_thread as usize);
+
+        assert!(run_offline_verification(test_log).is_ok());
+        let _ = std::fs::remove_file(test_log);
+    }
+
+    #[test]
+    fn test_logger_reinitialization_and_generation() {
+        let initial_gen = GLOBAL_GENERATION.load(Ordering::SeqCst);
+
+        let log1 = "test_reinit_1.log";
+        init_sidecar_logger(log1).unwrap();
+        let gen1 = GLOBAL_GENERATION.load(Ordering::SeqCst);
+        assert!(gen1 > initial_gen);
+
+        log_overflow(12345, 1000);
+        finalize_sidecar_logger();
+
+        let log2 = "test_reinit_2.log";
+        init_sidecar_logger(log2).unwrap();
+        let gen2 = GLOBAL_GENERATION.load(Ordering::SeqCst);
+        assert!(gen2 > gen1);
+
+        log_overflow(67890, 2000);
+        finalize_sidecar_logger();
+
+        let content1 = std::fs::read_to_string(log1).unwrap();
+        assert_eq!(content1.trim(), "12345,1000");
+
+        let content2 = std::fs::read_to_string(log2).unwrap();
+        assert_eq!(content2.trim(), "67890,2000");
+
+        assert!(run_offline_verification(log1).is_ok());
+        assert!(run_offline_verification(log2).is_ok());
+
+        let _ = std::fs::remove_file(log1);
+        let _ = std::fs::remove_file(log2);
+    }
 }
 
 /// Gather mod‑8 screening results and cofactor information for the cyclotomic divisors of sigma(p^(2e)).
@@ -561,16 +628,24 @@ fn get_cofactors_to_factor(
 // ---------------------------------------------------------------------------
 
 pub static SIDECAR_ERROR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+pub static GLOBAL_GENERATION: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 struct LoggerState {
+    generation: u64,
     sender: Option<crossbeam_channel::Sender<(u64, u32)>>,
     join_handle: Option<std::thread::JoinHandle<()>>,
 }
 
 static LOGGER: std::sync::Mutex<LoggerState> = std::sync::Mutex::new(LoggerState {
+    generation: 0,
     sender: None,
     join_handle: None,
 });
+
+thread_local! {
+    static THREAD_SENDER: std::cell::RefCell<(u64, Option<crossbeam_channel::Sender<(u64, u32)>>)> =
+        std::cell::RefCell::new((u64::MAX, None));
+}
 
 pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
     use std::fs::File;
@@ -583,6 +658,9 @@ pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
 
     let handle = std::thread::spawn(move || {
         for (p, pow) in rx {
+            if (p, pow) == (0, 0) {
+                break;
+            }
             if let Err(e) = writeln!(writer, "{},{}", p, pow) {
                 eprintln!("FATAL: Failed to write to sidecar log: {}", e);
                 SIDECAR_ERROR.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -592,7 +670,11 @@ pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
         let _ = writer.flush();
     });
 
+    SIDECAR_ERROR.store(false, std::sync::atomic::Ordering::SeqCst);
+
     let mut state = LOGGER.lock().unwrap();
+    let new_gen = GLOBAL_GENERATION.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    state.generation = new_gen;
     state.sender = Some(tx);
     state.join_handle = Some(handle);
 
@@ -603,16 +685,25 @@ pub fn log_overflow(p: u64, pow: u32) {
     if SIDECAR_ERROR.load(std::sync::atomic::Ordering::SeqCst) {
         panic!("FATAL: Sidecar logging has failed previously. Halting execution to prevent unlogged overflows.");
     }
-    let sender = {
-        let state = LOGGER.lock().unwrap();
-        state.sender.clone()
-    };
-    if let Some(sender) = sender {
-        if let Err(_) = sender.send((p, pow)) {
-            eprintln!("FATAL: Sidecar logger channel disconnected.");
-            SIDECAR_ERROR.store(true, std::sync::atomic::Ordering::SeqCst);
+
+    let global_gen = GLOBAL_GENERATION.load(std::sync::atomic::Ordering::SeqCst);
+
+    THREAD_SENDER.with(|cache| {
+        let mut cache_ref = cache.borrow_mut();
+        if cache_ref.0 != global_gen {
+            let state = LOGGER.lock().unwrap();
+            cache_ref.0 = state.generation;
+            cache_ref.1 = state.sender.clone();
         }
-    }
+
+        if let Some(ref sender) = cache_ref.1 {
+            if sender.send((p, pow)).is_err() {
+                eprintln!("FATAL: Sidecar logger channel disconnected.");
+                SIDECAR_ERROR.store(true, std::sync::atomic::Ordering::SeqCst);
+                panic!("FATAL: Sidecar logger channel disconnected.");
+            }
+        }
+    });
 }
 
 pub fn finalize_sidecar_logger() {
@@ -620,6 +711,10 @@ pub fn finalize_sidecar_logger() {
         let mut state = LOGGER.lock().unwrap();
         (state.sender.take(), state.join_handle.take())
     };
+
+    if let Some(ref sender) = sender {
+        let _ = sender.send((0, 0));
+    }
 
     drop(sender);
 
