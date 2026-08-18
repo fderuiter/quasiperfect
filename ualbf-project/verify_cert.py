@@ -410,7 +410,7 @@ def verify_lattice_witnesses(cert, manifest_path):
             if lhs > rhs:
                 print(
                     f"ERROR: Witness {idx} violates Lovasz condition at index {i}: "
-                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{i, i - 1}^2 * ||b_{i-1}^*||^2 = {rhs}."
+                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{{{i}, {i-1}}}^2 * ||b_{i-1}^*||^2 = {rhs}."
                 )
                 sys.exit(1)
 

@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "2e0a16164749c9e34ead0d66ae400880a844b5f732f0c6b30a61206773313e56",
+  "verified_logic_hash": "c923ee9e53b7291bbc286535c7a370f5fc895931b85ae54f13763b18d4340c9f",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -241,7 +241,7 @@
     "lemma_pocklington_certificate": "4c18755e2796218d2dc167b161ee2be96223bcdbf2b75c3e1c7ab7274105cb21",
     "verified_alloc_u512": "725a44210587084ad50473e06994a60da9cb63463c4fd92a9e0a5fd93180789a",
     "verified_get_u512": "3d0b2b77ca741a04cfbf52fffe7492f1cdd4cf18afbdb8d12e38c8f672b5b6d1",
-    "verified_free_u512": "7bda685a71aff6c86621aece41294d820378408135bb4e71ba1f81ecdbd70179",
+    "verified_free_u512": "d53f5bca387920db013e709a9cdb5f267318857ceb57505ca1755e87b0927ab3",
     "pow2_64": "f5af310449d93b35707c205bbb1f8c9e0ef77725cdb4dae9fe1d67d6fcea4adb",
     "u512_to_nat": "2515c2db85b32ffba43960532624bc0c6a371d52d528926e06de6e8da935a77d",
     "nat_to_u512": "ab0f53d68438140908c8ad64a6963494608dd4eb6a7c6736ac21b37f80d1d003",
@@ -265,7 +265,7 @@
     "verify_starvation_pruning": "3fe33985a5f6827b419338c23cc10bb0e50ea2d8bb4dc4ce39c1ccc6a8e95e9c",
     "rns512_gcd_spec": "326bf8dad421fb30d03432967c2fa2e50077f926b6b04d96fed84e8ac39fede6",
     "rns512_mont_mul_spec": "8bf52d4e2e0e21a29f600c907229fd2c9ec76c010f5524ea15ce97c3c5ed48c7",
-    "rns512_valid_bounds": "264300a3dd1bf2703e735521a0537589711879377b3bb3408210f3acd0f2c5bf",
+    "rns512_valid_bounds": "bfe913f82b1159919d12287b03b1ebd1c7816b606e1e3c4b892fbb217d90f5e7",
     "passes_raycast_sieve_spec": "3383c2d72949bc8cc1a32bd399ddaf5e51dff95c539e7a29da11e308e1617182",
     "verified_passes_raycast_sieve": "98d0f8bdeafdb39be4a396c79598aad9adc84bebf35f50b70916cf1768740764",
     "zsigmondy_preconditions_satisfied": "f105d37de697516ec3aa368672cb12427ad608ff9da21baa85cf61f17c35709f",
