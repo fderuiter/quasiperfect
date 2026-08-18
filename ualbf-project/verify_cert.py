@@ -37,7 +37,10 @@ def verify_trace_file(cert, trace_path):
             for line in lines:
                 record = json.loads(line)
                 if not record.get("reason"):
-                    print(f"ERROR: Invalid trace record missing reason: {line}", file=sys.stderr)
+                    print(
+                        f"ERROR: Invalid trace record missing reason: {line}",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
 
                 # Check for abundancy bound variables if unconditional starvation
