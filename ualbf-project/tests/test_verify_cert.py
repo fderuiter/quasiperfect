@@ -373,10 +373,11 @@ class TestPayloadFormat:
             "trace_hash": trace_hash,
             "factorization_depth": factorization_depth,
         }
-        if "cert" in locals() and "path_ranges" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["path_ranges"]
-        elif "cert" in locals() and "inner_paths" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["inner_paths"]
+        loc_cert = locals().get("cert")
+        if loc_cert and "path_ranges" in loc_cert.get("telemetry", {}):
+            map_obj["path_ranges"] = loc_cert["telemetry"]["path_ranges"]
+        elif loc_cert and "inner_paths" in loc_cert.get("telemetry", {}):
+            map_obj["path_ranges"] = loc_cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
