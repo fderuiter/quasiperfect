@@ -27,9 +27,6 @@ def verify_trace_file(cert, trace_path):
         )
         sys.exit(1)
 
-    # Simple check for trace covering the search space
-    # (Checking the union of searched and pruned ranges covers the defined search space)
-    # The presence of deterministic valid trace records confirms mathematical hypotheses per Lean proof constraints.
     try:
         with open(trace_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
@@ -39,7 +36,6 @@ def verify_trace_file(cert, trace_path):
                     print(f"ERROR: Invalid trace record missing reason: {line}")
                     sys.exit(1)
 
-                # Check for abundancy bound variables if unconditional starvation
                 if record["reason"] == "unconditional_starvation":
                     if (
                         "max_allowed" not in record
@@ -58,6 +54,39 @@ def verify_trace_file(cert, trace_path):
     print(
         f"✓ Trace cryptographically bound to certificate and structurally valid ({len(lines)} records)."
     )
+
+
+def verify_sidecar_file(cert, sidecar_path):
+    print("\n--- Verifying Sidecar Log Digest ---")
+    tel = cert.get("telemetry", {})
+    expected_hash = (
+        tel.get("sidecar_hash")
+        or tel.get("sidecar_log_digest")
+        or cert.get("sidecar_hash")
+        or cert.get("sidecar_log_digest")
+    )
+
+    if not expected_hash:
+        print("INFO: Certificate does not contain sidecar log digest.")
+        return
+
+    if not os.path.exists(sidecar_path):
+        print(
+            f"ERROR: Sidecar log file '{sidecar_path}' not found, but certificate requires sidecar digest ({expected_hash})."
+        )
+        sys.exit(1)
+
+    with open(sidecar_path, "rb") as f:
+        sidecar_data = f.read()
+    computed_hash = hashlib.sha256(sidecar_data).hexdigest()
+
+    if computed_hash != expected_hash:
+        print(
+            f"ERROR: Sidecar log hash mismatch!\nExpected: {expected_hash}\nGot:      {computed_hash}"
+        )
+        sys.exit(1)
+
+    print(f"✓ Sidecar log digest verified ({computed_hash}).")
 
 
 def verify_theorem_checksum(thm, manifest_path=None):
@@ -501,8 +530,10 @@ def verify_certificate(cert_path, manifest_path):
             )
             with open(file_path, "rb") as f:
                 content = f.read()
-            if b"sorry" in content:
-                print(f"ERROR: 'sorry' bypass detected in {pf['file']}")
+            if b"sorry" in content or b"admit" in content:
+                print(
+                    f"ERROR: Unverified tactic ('sorry' or 'admit') detected in {pf['file']}"
+                )
                 sys.exit(1)
             computed = hashlib.sha256(content).hexdigest()
             if computed != pf["checksum"]:
@@ -689,6 +720,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("--trace", default="trace.jsonl", help="Path to trace.jsonl")
     parser.add_argument(
+        "--sidecar", default="overflow_sidecar.log", help="Path to overflow_sidecar.log"
+    )
+    parser.add_argument(
         "--min-rigor",
         type=float,
         default=None,
@@ -869,3 +903,5 @@ if __name__ == "__main__":
         verify_trace_file(cert, args.trace)
     else:
         print("\nWARNING: Trace file not provided or not found, skipping trace audit.")
+
+    verify_sidecar_file(cert, args.sidecar)

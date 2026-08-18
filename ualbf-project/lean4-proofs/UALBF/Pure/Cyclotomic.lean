@@ -1610,17 +1610,34 @@ def cyclotomicEval (d : Nat) (p : Nat) : Nat :=
 -/
 theorem verified_ualbf_cyclotomic_eval (n : Nat) (p : Nat) (hp : p ≥ 2) (hn : n > 0) :
     cyclotomicEval n p = (Polynomial.eval (p : Int) (Polynomial.cyclotomic n Int)).natAbs := by
-  by_cases h1 : n = 1
-  · subst h1
-    unfold cyclotomicEval
-    simp
-    have : p ≥ 1 := by omega
-    simp [this]
-    rw [Polynomial.cyclotomic_one]
-    simp
-    have : 0 ≤ (p : ℤ) - 1 := by omega
-    rw [Int.natAbs_of_nonneg this]
-    omega
-  · admit
+  induction n using Nat.strong_induction_on with
+  | h n ih =>
+    by_cases h0 : n = 0
+    · omega
+    · by_cases h1 : n = 1
+      · subst h1
+        unfold cyclotomicEval
+        simp
+        have : p ≥ 1 := by omega
+        simp [this]
+        rw [Polynomial.cyclotomic_one]
+        simp
+        have : 0 ≤ (p : ℤ) - 1 := by omega
+        rw [Int.natAbs_of_nonneg this]
+        omega
+      · have hn2 : n ≥ 2 := by omega
+        unfold cyclotomicEval
+        have h_n0 : (n == 0) = false := by simp [h0]
+        have h_n1 : (n == 1) = false := by simp [h1]
+        rw [h_n0, h_n1]
+        simp only [cond_false]
+        have hp1 : (p ^ n >= 1) = true := by
+          have : 1 ≤ p ^ n := Nat.one_le_pow n p (by omega)
+          simp [this]
+        rw [hp1]
+        simp only [cond_true]
+        split
+        · rfl
+        · rfl
 
 end UALBF.Pure.Cyclotomic
