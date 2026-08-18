@@ -61,7 +61,7 @@ def test_guarded_rebuild_success():
 
         # Run cargo check in rust-engine
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
@@ -128,7 +128,7 @@ def test_guarded_rebuild_failure():
 
         # Run cargo check in rust-engine
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,

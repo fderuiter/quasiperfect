@@ -1,0 +1,59 @@
+[package]
+
+name = "primal"
+version = "0.3.3"
+authors = ["Huon Wilson <dbau.pp@gmail.com>"]
+edition = "2018"
+
+homepage = "https://github.com/huonw/primal"
+repository = "https://github.com/huonw/primal"
+documentation = "https://docs.rs/primal/"
+license = "MIT OR Apache-2.0"
+keywords = ["math", "mathematics", "primes", "number-theory"]
+readme = "README.md"
+description = """
+`primal` puts raw power into prime numbers. This crates includes:
+optimised prime sieves, checking for primality, enumerating primes,
+factorising numbers, and state-of-the-art estimation of upper and
+lower bounds for π(n) (the number of primes below n) and p_k (the k-th
+prime).
+"""
+
+[dependencies]
+primal-check = { path = "primal-check", version = "0.3" }
+primal-estimate = { path = "primal-estimate", version = "0.3" }
+primal-sieve = { path = "primal-sieve", version = "0.3" }
+
+[dev-dependencies]
+primal-slowsieve = { path = "primal-slowsieve", version = "0.3" }
+criterion = { version = "0.3.4", features = ["html_reports"] }
+
+[[bench]]
+name = "bench"
+harness = false
+
+[features]
+unstable = ["primal-sieve/unstable"]
+
+[workspace]
+members = [
+    "primal-bit",
+    "primal-check",
+    "primal-estimate",
+    "primal-sieve",
+    "primal-slowsieve",
+    "generators",
+]
+
+[workspace.metadata.release]
+sign-tag = true
+tag-name = "{{crate_name}}-{{version}}"
+
+[package.metadata.release]
+sign-tag = true
+tag-name = "{{crate_name}}-{{version}}"
+
+# Make sure all our slow_tests still check overflows in --release tests.
+# (This doesn't affect downstream dependents building these libraries.)
+[profile.release]
+overflow-checks = true

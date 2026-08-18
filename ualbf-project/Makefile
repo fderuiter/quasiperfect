@@ -27,7 +27,7 @@ check: check-core check-python
 
 check-core:
 	cargo fmt --check
-	cargo clippy --workspace -- -D warnings
+	cargo clippy --workspace --offline -- -D warnings
 	./scripts/check_lean_fmt.sh
 
 check-python:
@@ -53,7 +53,7 @@ verify-sync:
 
 
 verification-lib:
-	cd verification-lib && cargo build --release --features signing
+	cd verification-lib && cargo build --offline --release --features signing
 
 mock-ui:
 	mkdir -p build/mock-bin
@@ -71,7 +71,7 @@ rust: lean
 	./scripts/export_lean_specs.py
 	python3 auditor.py
 	echo "Building WITH signing capabilities (Verified Build)"; \
-	cd rust-engine && cargo build --release --features signing;
+	cd rust-engine && cargo build --offline --release --features signing;
 
 
 clean:

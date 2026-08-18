@@ -186,7 +186,7 @@ def test_conjectural_bounds_conflict_fails_build():
 
         # 3. Run cargo check
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             capture_output=True,
             text=True,
@@ -265,7 +265,7 @@ def test_prime_split_threshold_valid_higher_success():
 
         # 3. Cargo check must succeed
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             capture_output=True,
             text=True,
@@ -349,7 +349,7 @@ def test_prime_split_threshold_invalid_below_61_fails():
 
         # Cargo check must fail
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             capture_output=True,
             text=True,
@@ -422,7 +422,7 @@ def test_prime_split_threshold_invalid_composite_fails():
 
         # Cargo check must fail
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             capture_output=True,
             text=True,

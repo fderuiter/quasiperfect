@@ -519,7 +519,7 @@ class CursesGUI:
     # ═══════════════════════════════════════════════════════════════════
 
     def _run_engine(self, release: bool):
-        cmd = ["cargo", "run"]
+        cmd = ["cargo", "run", "--offline"]
         if release:
             cmd.append("--release")
 

@@ -1,0 +1,47 @@
+macro_rules! err_prefix {
+    () => {
+        "(bnum)"
+    };
+}
+
+pub(crate) use err_prefix;
+
+macro_rules! err_msg {
+    ($msg: expr) => {
+        concat!(crate::errors::err_prefix!(), " ", $msg)
+    };
+}
+
+pub(crate) use err_msg;
+
+macro_rules! div_by_zero_message {
+    () => {
+        "attempt to divide by zero"
+    };
+}
+
+pub(crate) use div_by_zero_message;
+
+macro_rules! rem_by_zero_message {
+    () => {
+        "attempt to calculate the remainder with a divisor of zero"
+    };
+}
+
+pub(crate) use rem_by_zero_message;
+
+macro_rules! non_positive_log_message {
+    () => {
+        "argument of integer logarithm must be positive"
+    };
+}
+
+pub(crate) use non_positive_log_message;
+
+macro_rules! invalid_log_base_message {
+    () => {
+        "base of integer logarithm must be at least 2"
+    };
+}
+
+pub(crate) use invalid_log_base_message;

@@ -39,7 +39,7 @@ def main():
 
     # Filter out common build directories
     # Note: hidden directories like .pytest_cache are natively skipped by glob.glob unless include_hidden is set.
-    exclude_dirs = [".lake", "target", "node_modules", "build", ".git", "venv", ".venv", ".direnv", "lean-built", "result", "test-env", "test_env", "env", ".env"]
+    exclude_dirs = [".lake", "target", "node_modules", "build", ".git", "venv", ".venv", ".direnv", "lean-built", "result", "test-env", "test_env", "env", ".env", "vendor"]
     filtered_md_files = []
     for md_file in all_md_files:
         if not any(part in exclude_dirs for part in md_file.split(os.sep)):

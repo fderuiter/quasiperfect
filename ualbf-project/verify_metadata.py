@@ -652,6 +652,7 @@ def get_all_repo_paths(repo_root):
         "test_env",
         "env",
         ".env",
+        "vendor",
     }
     for root, dirs, files in os.walk(repo_root):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]

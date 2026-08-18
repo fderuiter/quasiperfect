@@ -1,0 +1,46 @@
+name: cargo test
+
+on:
+  push:
+    branches-ignore:
+      - master # master is a protected branch so tests will be run when we create a PR
+  pull_request:
+    branches-ignore:
+      - master # master is a protected branch so tests will be run when we create a PR
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  unit_tests_stable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install latest stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      - name: Run unit tests with all features, no features, default features, and each individual feature
+        run: cargo hack test --lib --each-feature --optional-deps
+  doc_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install latest stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run doc tests with default features
+        run: cargo test --doc
+      - name: Run doc tests with no default features
+        run: cargo test --doc --no-default-features
+      - name: Run doc tests with all features
+        run: cargo test --doc --all-features
+  unit_tests_nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install latest nightly Rust
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      - name: Run unit tests with all features, no features, default features, and each individual feature
+        run: cargo +nightly hack test --lib --each-feature --optional-deps

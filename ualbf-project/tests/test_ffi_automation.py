@@ -98,7 +98,7 @@ def test_ffi_automation_out_of_sync_fails_cargo():
         # Run cargo check in rust-engine
         env = os.environ.copy()
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,

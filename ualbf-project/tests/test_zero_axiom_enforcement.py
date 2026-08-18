@@ -199,7 +199,7 @@ def test_build_script_panics_on_legacy_axiom():
         # Run cargo check in the real rust-engine
         env = os.environ.copy()
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
@@ -233,7 +233,7 @@ def test_runtime_panics_on_legacy_axiom():
         
     # If binary doesn't exist, we build it once using cargo build in ualbf-project/rust-engine
     if not engine_bin.exists():
-        subprocess.run(["cargo", "build"], cwd=str(project_dir / "rust-engine"), check=True)
+        subprocess.run(["cargo", "build", "--offline"], cwd=str(project_dir / "rust-engine"), check=True)
         engine_bin = project_dir / "target/debug/ualbf_engine"
         if not engine_bin.exists():
             engine_bin = project_dir / "rust-engine/target/debug/ualbf_engine"
@@ -378,7 +378,7 @@ def test_build_script_panics_on_undefined_status():
             
         env = os.environ.copy()
         res = subprocess.run(
-            ["cargo", "check"],
+            ["cargo", "check", "--offline"],
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
