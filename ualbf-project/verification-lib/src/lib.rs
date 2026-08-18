@@ -18,21 +18,89 @@ pub const CORE_TCB_FILES: &[&str] = &[
 
 pub const EXTENSION_TCB_FILES: &[&str] = &[];
 
+pub fn normalize_tcb_file_content(file_name: &str, content: &[u8]) -> Vec<u8> {
+    if file_name.ends_with("proof_manifest.json") {
+        if let Ok(s) = std::str::from_utf8(content) {
+            let zeros = "0".repeat(64);
+            let mut result = s.to_string();
+
+            if let Some(pos) = result.find("\"verified_logic_hash\"") {
+                if let Some(colon_pos) = result[pos..].find(':') {
+                    let absolute_colon = pos + colon_pos;
+                    if let Some(quote1) = result[absolute_colon..].find('"') {
+                        let val_start = absolute_colon + quote1 + 1;
+                        if let Some(quote2) = result[val_start..].find('"') {
+                            let val_end = val_start + quote2;
+                            result.replace_range(val_start..val_end, &zeros);
+                        }
+                    }
+                }
+            }
+
+            if let Some(pos) = result.find("\"verified_extension_hash\"") {
+                if let Some(colon_pos) = result[pos..].find(':') {
+                    let absolute_colon = pos + colon_pos;
+                    if let Some(quote1) = result[absolute_colon..].find('"') {
+                        let val_start = absolute_colon + quote1 + 1;
+                        if let Some(quote2) = result[val_start..].find('"') {
+                            let val_end = val_start + quote2;
+                            result.replace_range(val_start..val_end, &zeros);
+                        }
+                    }
+                }
+            }
+
+            return result.into_bytes();
+        }
+    }
+    content.to_vec()
+}
+
 #[macro_export]
 macro_rules! compute_core_tcb_hash_at_compile_time {
     () => {{
         use $crate::sha2::{Digest, Sha256};
         let mut logic_hasher = Sha256::new();
-        logic_hasher.update(include_bytes!("dfs_tree.rs"));
-        logic_hasher.update(include_bytes!("pruning_dispatch.rs"));
-        logic_hasher.update(include_bytes!("sieve.rs"));
-        logic_hasher.update(include_bytes!("verus_proofs.rs"));
-        logic_hasher.update(include_bytes!("manifest_constants.rs"));
-        logic_hasher.update(include_bytes!("lean_ffi.rs"));
-        logic_hasher.update(include_bytes!("unverified/dummy_ffi.c"));
-        logic_hasher.update(include_bytes!("../../proof_manifest.json"));
-        logic_hasher.update(include_bytes!("../build.rs"));
-        logic_hasher.update(include_bytes!("../../bounds_manifest.json"));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "dfs_tree.rs",
+            include_bytes!("dfs_tree.rs"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "pruning_dispatch.rs",
+            include_bytes!("pruning_dispatch.rs"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "sieve.rs",
+            include_bytes!("sieve.rs"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "verus_proofs.rs",
+            include_bytes!("verus_proofs.rs"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "manifest_constants.rs",
+            include_bytes!("manifest_constants.rs"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "lean_ffi.rs",
+            include_bytes!("lean_ffi.rs"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "unverified/dummy_ffi.c",
+            include_bytes!("unverified/dummy_ffi.c"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "proof_manifest.json",
+            include_bytes!("../../proof_manifest.json"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "build.rs",
+            include_bytes!("../build.rs"),
+        ));
+        logic_hasher.update(&$crate::normalize_tcb_file_content(
+            "bounds_manifest.json",
+            include_bytes!("../../bounds_manifest.json"),
+        ));
         $crate::hex::encode(logic_hasher.finalize())
     }};
 }
@@ -53,6 +121,7 @@ pub fn compute_verified_core_hash_runtime(repo_root: &std::path::Path) -> std::i
         let path = base_dir.join(file);
         let path = path.canonicalize().unwrap_or(path);
         let content = std::fs::read(&path)?;
+        let content = normalize_tcb_file_content(file, &content);
         logic_hasher.update(&content);
     }
     Ok(hex::encode(logic_hasher.finalize()))
