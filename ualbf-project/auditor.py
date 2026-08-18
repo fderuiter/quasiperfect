@@ -456,6 +456,12 @@ def generate_manifest():
     if result.returncode != 0:
         raise RuntimeError(f"Failed to compute verified_logic_hash: {result.stderr}")
 
+    if not cli_path:
+        for cand in candidate_cli_paths:
+            if os.path.exists(cand):
+                cli_path = cand
+                break
+
     logic_hash = result.stdout.strip()
     manifest["verified_logic_hash"] = logic_hash
 
