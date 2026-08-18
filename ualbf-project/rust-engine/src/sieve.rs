@@ -399,6 +399,9 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 mod tests {
     use super::*;
     use crate::math_utils::quick_factor_u256;
+    use std::sync::Mutex;
+
+    static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     #[cfg_attr(unverified_build, ignore)]
@@ -458,6 +461,7 @@ mod tests {
 
     #[test]
     fn test_checked_sieve_bounds_and_overflow() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         crate::lean_ffi::initialize_lean_runtime();
 
         // 1. Test index overflow handling
@@ -493,6 +497,7 @@ mod tests {
 
     #[test]
     fn test_multi_threaded_sidecar_logging() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         let test_log = "test_multi_threaded_sidecar.log";
         init_sidecar_logger(test_log).unwrap();
 
@@ -527,6 +532,7 @@ mod tests {
 
     #[test]
     fn test_logger_reinitialization_and_generation() {
+        let _guard = TEST_MUTEX.lock().unwrap();
         let initial_gen = GLOBAL_GENERATION.load(Ordering::SeqCst);
 
         let log1 = "test_reinit_1.log";
