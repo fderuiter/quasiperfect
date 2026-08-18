@@ -39,6 +39,9 @@ def mock_run(args, *extra_args, **kwargs):
 
 subprocess.run = mock_run
 
+ROOT_NAMESPACE = "UALBF"
+ROOT_NAMESPACE_PREFIX = f"{ROOT_NAMESPACE}."
+
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 
 
@@ -178,6 +181,15 @@ def check_lean_environment():
 
 
 def generate_manifest():
+    # Require all core theorem registrations to include the required root namespace prefix
+    for thm in CORE_THEOREMS:
+        if not thm.startswith(ROOT_NAMESPACE_PREFIX):
+            print(
+                f"Error: Registered theorem '{thm}' is missing required root namespace prefix '{ROOT_NAMESPACE_PREFIX}'. Halting audit.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
 
@@ -292,7 +304,11 @@ def generate_manifest():
                     theorem_statuses[thm] = "error"
                     has_error = True
                     print(f"Error resolving {thm}: {result.stderr}", file=sys.stderr)
-                    continue
+                    print(
+                        f"Error: Registered theorem '{thm}' could not be resolved during axiom verification. Halting audit.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
 
                 idx = output.find(thm + " depends on axioms:")
                 if idx == -1:
@@ -310,6 +326,11 @@ def generate_manifest():
                             f"Error resolving {thm}: unknown identifier or error",
                             file=sys.stderr,
                         )
+                        print(
+                            f"Error: Registered theorem '{thm}' could not be resolved during axiom verification. Halting audit.",
+                            file=sys.stderr,
+                        )
+                        sys.exit(1)
                     else:
                         # Proven with absolutely 0 axioms (very rare but possible/valid)
                         theorem_statuses[thm] = "proven"
@@ -339,18 +360,29 @@ def generate_manifest():
                     else:
                         theorem_statuses[thm] = "error"
                         has_error = True
+                        print(
+                            f"Error: Registered theorem '{thm}' could not be resolved during axiom verification. Halting audit.",
+                            file=sys.stderr,
+                        )
+                        sys.exit(1)
 
     for thm in CORE_THEOREMS:
-        # map name to file
-        # improve heuristic to find actual file
+        # map name to file without fallback to top-level module default
         parts = thm.split(".")
-        rel_file = "UALBF.lean"
-        for i in range(len(parts) - 1, 0, -1):
+        rel_file = None
+        for i in range(len(parts) - 1, 1, -1):
             possible_rel = "/".join(parts[:i]) + ".lean"
             possible_path = os.path.join(cwd, possible_rel)
             if os.path.exists(possible_path):
                 rel_file = possible_rel
                 break
+
+        if rel_file is None:
+            print(
+                f"Error: Source file path resolution failed for fully-qualified theorem '{thm}'. No physical proof file found (fallback to top-level module default prohibited). Halting audit.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
         if not has_lean:
             status = existing_statuses.get(thm, "unverified")
