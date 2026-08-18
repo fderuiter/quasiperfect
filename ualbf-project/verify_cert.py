@@ -937,7 +937,9 @@ if __name__ == "__main__":
             "node_certificates": loaded_certs,
             "is_conditional": any_conditional,
             "conjecture": conjecture_info,
-            "compositeness_witnesses": all_comp_witnesses if all_comp_witnesses else None,
+            "compositeness_witnesses": (
+                all_comp_witnesses if all_comp_witnesses else None
+            ),
         }
 
         with open("meta_certificate.json", "w", encoding="utf-8") as f:
