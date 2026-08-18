@@ -9,6 +9,26 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+fn is_prime(n: u64) -> bool {
+    if n <= 1 {
+        return false;
+    }
+    if n == 2 {
+        return true;
+    }
+    if n % 2 == 0 {
+        return false;
+    }
+    let mut i = 3;
+    while i * i <= n {
+        if n % i == 0 {
+            return false;
+        }
+        i += 2;
+    }
+    true
+}
+
 #[derive(Deserialize)]
 struct Theorem {
     name: String,
@@ -96,6 +116,7 @@ struct SearchBounds {
     prefix_stop_threshold: BoundValueU64,
     pollard_rho: PollardRhoBounds,
     raycast: RaycastBounds,
+    prime_split_threshold: Option<BoundValueU64>,
 }
 
 #[derive(Deserialize)]
@@ -180,6 +201,34 @@ fn main() {
 
     let manifest_content =
         fs::read_to_string(&manifest_path).expect("Failed to read bounds_manifest.json");
+
+    let manifest: BoundsManifest =
+        serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
+
+    // --- Validate configured prime split threshold ---
+    if let Some(ref prime_split) = manifest.search_bounds.prime_split_threshold {
+        let val = prime_split.value;
+        if val < 61 {
+            panic!(
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) is below the baseline of 61. The threshold must be a prime number greater than or equal to 61.",
+                val
+            );
+        }
+        if val % 2 == 0 {
+            panic!(
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) is not an odd prime. The threshold must be a prime number greater than or equal to 61.",
+                val
+            );
+        }
+        if !is_prime(val) {
+            panic!(
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) is not prime. The threshold must be a prime number greater than or equal to 61.",
+                val
+            );
+        }
+    } else {
+        panic!("FATAL: prime_split_threshold not found in bounds_manifest.json!");
+    }
 
     // --- REQUIREMENT 1 & 3: Mathematical Bound Synchronization Guardrail ---
     // Calculate the SHA256 hash of the current bounds_manifest.json
@@ -354,7 +403,22 @@ fn main() {
                     "Specification function {} not found in lean_export.rs",
                     spec_name
                 ));
-                if const_val != spec_val {
+                if *const_name == "PRIME_SPLIT_THRESHOLD" {
+                    let c_val: u64 = const_val
+                        .parse()
+                        .expect("Failed to parse PRIME_SPLIT_THRESHOLD");
+                    let s_val: u64 = spec_val
+                        .parse()
+                        .expect("Failed to parse lean_prime_split_threshold");
+                    if c_val < s_val {
+                        panic!(
+                            "FATAL: Mathematical Bound Desynchronization!\n\
+                             The runtime constant 'PRIME_SPLIT_THRESHOLD' ({}) is below the baseline Lean split threshold ({}) in lean_export.rs.\n\
+                             This violates the formal refinement proof safety conditions.",
+                            c_val, s_val
+                        );
+                    }
+                } else if const_val != spec_val {
                     panic!(
                         "FATAL: Mathematical Bound Desynchronization!\n\
                          The runtime constant '{}' ({}) in manifest_constants.rs diverges from its spec function '{}' ({}) in lean_export.rs.\n\
@@ -367,9 +431,6 @@ fn main() {
     } else {
         println!("cargo:warning=lean_export.rs not found, skipping manifest hash check. Please ensure specifications are exported.");
     }
-
-    let manifest: BoundsManifest =
-        serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
 
     // --- REQUIREMENT 2 & 3: Conjectural Bounds Safety Guardrails ---
     if let Some(ref cb) = manifest.conjectural_bounds {
@@ -427,102 +488,7 @@ fn main() {
         {
             panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
         }
-        let mut runtime_verus_hashes = HashMap::new();
-        let mut current_fn = String::new();
-        let mut current_body = String::new();
-        let mut in_spec = false;
-        let mut brace_count = 0;
-        let mut module_stack: Vec<String> = Vec::new();
-        let mut module_brace_depth = 0;
-
-        for line in verus_content.lines() {
-            let trimmed = line.trim();
-            if !in_spec {
-                if trimmed.contains('{')
-                    && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod "))
-                {
-                    let mod_name = if trimmed.starts_with("pub mod ") {
-                        trimmed.strip_prefix("pub mod ").unwrap_or("")
-                    } else {
-                        trimmed.strip_prefix("mod ").unwrap_or("")
-                    };
-                    let mod_name = mod_name.split('{').next().unwrap_or("").trim();
-                    if !mod_name.is_empty() {
-                        module_stack.push(mod_name.to_string());
-                        if trimmed.contains('{') {
-                            module_brace_depth += 1;
-                        }
-                    }
-                }
-            }
-
-            let kw_list = [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub proof fn ",
-                "pub fn ",
-            ];
-            let mut matched_kw = None;
-            if !in_spec {
-                for kw in kw_list.iter() {
-                    if line.contains(kw) {
-                        matched_kw = Some(*kw);
-                        break;
-                    }
-                }
-            }
-
-            if !in_spec && matched_kw.is_some() {
-                let kw = matched_kw.unwrap();
-                let parts: Vec<&str> = line.split(kw).collect();
-                if parts.len() > 1 {
-                    let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
-                    let qualified_name = if module_stack.is_empty() {
-                        bare_fn_name.clone()
-                    } else {
-                        format!("{}::{}", module_stack.join("::"), bare_fn_name)
-                    };
-                    current_fn = qualified_name;
-                    in_spec = true;
-                    current_body = line.to_string();
-                    brace_count = line.chars().filter(|&c| c == '{').count() as i32
-                        - line.chars().filter(|&c| c == '}').count() as i32;
-                    if brace_count == 0 && line.contains('{') {
-                        let mut hasher = sha2::Sha256::new();
-                        sha2::Digest::update(&mut hasher, current_body.as_bytes());
-                        runtime_verus_hashes
-                            .insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                        in_spec = false;
-                    }
-                }
-            } else if in_spec {
-                current_body.push('\n');
-                current_body.push_str(line);
-                brace_count += line.chars().filter(|&c| c == '{').count() as i32
-                    - line.chars().filter(|&c| c == '}').count() as i32;
-                if brace_count == 0 {
-                    let mut hasher = sha2::Sha256::new();
-                    sha2::Digest::update(&mut hasher, current_body.as_bytes());
-                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                    in_spec = false;
-                }
-            } else if !in_spec && module_brace_depth > 0 {
-                let open_braces = line.chars().filter(|&c| c == '{').count();
-                let close_braces = line.chars().filter(|&c| c == '}').count();
-                module_brace_depth += open_braces;
-                if close_braces > 0 {
-                    for _ in 0..close_braces {
-                        if module_brace_depth > 0 {
-                            module_brace_depth -= 1;
-                            if !module_stack.is_empty() {
-                                module_stack.pop();
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let runtime_verus_hashes = verification_lib::compute_verus_hashes(&verus_content);
 
         if runtime_verus_hashes != proof_manifest.verus_hashes {
             panic!("FATAL: Runtime Verus specification hashes do not match the proof manifest!");

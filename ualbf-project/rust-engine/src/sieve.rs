@@ -530,7 +530,7 @@ fn get_cofactors_to_factor(
             return Some((false, vec![], vec![]));
         }
     };
-    let factor_result = trial.factor(full_sigma);
+    let factor_result = crate::math_utils::factor_sigma_cyclotomic(p, two_e);
     let factors = factor_result.factors();
     ecm_calls.fetch_add(1, Ordering::Relaxed);
 

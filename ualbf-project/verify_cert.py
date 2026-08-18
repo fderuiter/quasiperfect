@@ -3,6 +3,7 @@ import json
 import sys
 import hashlib
 import os
+import struct
 
 import cert_util
 
@@ -140,6 +141,142 @@ def mat_mul(U, B_init):
     return res
 
 
+def verify_gpu_witnesses(cert):
+    print("\n--- Verifying GPU-Accelerated CRT & Bloom Filter Witnesses ---")
+    gpu_witnesses = cert.get("gpu_witnesses")
+    if not gpu_witnesses:
+        print("✓ No GPU-accelerated witnesses to verify in certificate.")
+        return
+
+    # Deterministic hash function equivalent to the one in Rust
+    def get_component_hashes(p: int, two_e: int) -> tuple[int, int]:
+        data = struct.pack(">Q I", p, two_e)
+        h = hashlib.sha256(data).digest()
+        hash1 = struct.unpack(">Q", h[0:8])[0]
+        hash2 = struct.unpack(">Q", h[8:16])[0]
+        return hash1, hash2
+
+    # Inline ualbf_bloom_get_index equivalent
+    def ualbf_bloom_get_index(hash1: int, hash2: int, num_bits: int, i: int) -> int:
+        cur = hash1 + i * hash2 + (i * (i - 1)) // 2
+        max_bits = 1 if num_bits == 0 else num_bits
+        return cur % max_bits
+
+    moduli = [3, 5, 7, 11]
+    num_bits = 1048576
+    num_hashes = 4
+
+    print(
+        f"Verifying {len(gpu_witnesses)} CRT Tensor & Bloom filter candidate generation records..."
+    )
+
+    for idx, witness in enumerate(gpu_witnesses):
+        p = witness.get("p")
+        two_e = witness.get("two_e")
+        is_obstructed = witness.get("is_obstructed")
+        obstructing_modulus = witness.get("obstructing_modulus")
+        residues = witness.get("residues")
+        bloom_indices = witness.get("bloom_indices")
+
+        if (
+            p is None
+            or two_e is None
+            or is_obstructed is None
+            or obstructing_modulus is None
+            or residues is None
+            or bloom_indices is None
+        ):
+            print(f"ERROR: GPU Witness {idx} is missing mandatory fields.")
+            sys.exit(1)
+
+        if len(residues) != len(moduli):
+            print(
+                f"ERROR: GPU Witness {idx} has invalid residues count {len(residues)}."
+            )
+            sys.exit(1)
+
+        # 1. Algebraic Verification of Term Sums Modulo 3, 5, 7, 11
+        for m_idx, q in enumerate(moduli):
+            # Compute exact divisor sum modulo q: \sum_{j=0}^{two_e} p^j \pmod q
+            sum_val = 0
+            term = 1
+            p_mod = p % q
+            for _ in range(two_e + 1):
+                sum_val = (sum_val + term) % q
+                term = (term * p_mod) % q
+
+            if sum_val != residues[m_idx]:
+                print(
+                    f"ERROR: GPU Witness {idx} algebraic mismatch!\n"
+                    f"Component: p={p}, two_e={two_e}\n"
+                    f"Expected σ mod {q} = {sum_val}\n"
+                    f"Witness reported = {residues[m_idx]}"
+                )
+                sys.exit(1)
+
+        # 2. Verify Obstruction Logic
+        has_zero_residue = any(r == 0 for r in residues)
+        if is_obstructed:
+            if not has_zero_residue:
+                print(
+                    f"ERROR: GPU Witness {idx} is marked as obstructed but has no zero residues."
+                )
+                sys.exit(1)
+            # Find the first zero residue modulus
+            expected_obstructing_mod = next(
+                moduli[i] for i, r in enumerate(residues) if r == 0
+            )
+            if obstructing_modulus != expected_obstructing_mod:
+                print(
+                    f"ERROR: GPU Witness {idx} reported obstructing modulus {obstructing_modulus}, "
+                    f"but expected {expected_obstructing_mod}."
+                )
+                sys.exit(1)
+            if len(bloom_indices) > 0:
+                print(
+                    f"ERROR: GPU Witness {idx} is obstructed but contains Bloom filter indices."
+                )
+                sys.exit(1)
+        else:
+            if has_zero_residue:
+                print(
+                    f"ERROR: GPU Witness {idx} is marked as not obstructed but has a zero residue."
+                )
+                sys.exit(1)
+            if obstructing_modulus != 0:
+                print(
+                    f"ERROR: GPU Witness {idx} is not obstructed but reported obstructing modulus {obstructing_modulus}."
+                )
+                sys.exit(1)
+
+            # 3. Verify Bloom Filter Index Calculations
+            hash1, hash2 = get_component_hashes(p, two_e)
+            expected_indices = []
+            for i in range(num_hashes):
+                expected_indices.append(
+                    ualbf_bloom_get_index(hash1, hash2, num_bits, i)
+                )
+
+            if len(bloom_indices) != num_hashes:
+                print(
+                    f"ERROR: GPU Witness {idx} has invalid bloom_indices count {len(bloom_indices)}, "
+                    f"expected {num_hashes}."
+                )
+                sys.exit(1)
+
+            for i in range(num_hashes):
+                if bloom_indices[i] != expected_indices[i]:
+                    print(
+                        f"ERROR: GPU Witness {idx} Bloom filter index mismatch at hash {i}!\n"
+                        f"Expected {expected_indices[i]}, witness reported {bloom_indices[i]}."
+                    )
+                    sys.exit(1)
+
+    print(
+        f"✓ All {len(gpu_witnesses)} GPU-accelerated mathematical witnesses verified successfully."
+    )
+
+
 def verify_lattice_witnesses(cert, manifest_path):
     print("\n--- Verifying Lattice Pruning Witnesses ---")
     lattice_witnesses = cert.get("lattice_witnesses")
@@ -230,6 +367,52 @@ def verify_lattice_witnesses(cert, manifest_path):
 
         # 3. Compute B_reduced = U * B_initial
         B_reduced = mat_mul(U, B_init)
+
+        # Gram-Schmidt Orthogonalization (GSO) and LLL Verification
+        n = len(B_reduced)
+        b = [[Fraction(x) for x in row] for row in B_reduced]
+        b_star = []
+        mu = [[Fraction(0)] * n for _ in range(n)]
+
+        for i in range(n):
+            b_i_star = list(b[i])
+            for j in range(i):
+                num = sum(b[i][k] * b_star[j][k] for k in range(dim))
+                den = sum(b_star[j][k] * b_star[j][k] for k in range(dim))
+                if den == 0:
+                    print(
+                        f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}."
+                    )
+                    sys.exit(1)
+                mu[i][j] = Fraction(num, den)
+                for k in range(dim):
+                    b_i_star[k] -= mu[i][j] * b_star[j][k]
+            b_star.append(b_i_star)
+
+        # Verify standard LLL size-reduction condition: |mu_{i, j}| <= 1/2
+        for i in range(n):
+            for j in range(i):
+                if abs(mu[i][j]) > Fraction(1, 2):
+                    print(
+                        f"ERROR: Witness {idx} is not LLL size-reduced: mu[{i}][{j}] = {mu[i][j]} (absolute value exceeds 1/2)."
+                    )
+                    sys.exit(1)
+
+        # Verify Lovasz condition: delta * ||b_{i-1}^*||^2 <= ||b_i^*||^2 + mu_{i, i-1}^2 * ||b_{i-1}^*||^2
+        # delta parameter is exactly 3/4 (0.75)
+        delta = Fraction(3, 4)
+        for i in range(1, n):
+            s_prev = sum(b_star[i - 1][k] * b_star[i - 1][k] for k in range(dim))
+            s_curr = sum(b_star[i][k] * b_star[i][k] for k in range(dim))
+            mu_val = mu[i][i - 1]
+            lhs = delta * s_prev
+            rhs = s_curr + (mu_val * mu_val) * s_prev
+            if lhs > rhs:
+                print(
+                    f"ERROR: Witness {idx} violates Lovasz condition at index {i}: "
+                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{{{i}, {i-1}}}^2 * ||b_{i-1}^*||^2 = {rhs}."
+                )
+                sys.exit(1)
 
         # 4. Compute shortest vector norm of b_0
         b0 = B_reduced[0]
@@ -526,6 +709,7 @@ def verify_certificate(cert_path, manifest_path):
         print("✓ Telemetry matches execution reality.")
 
     verify_lattice_witnesses(cert, manifest_path)
+    verify_gpu_witnesses(cert)
 
     return cert
 
