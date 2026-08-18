@@ -282,7 +282,7 @@ verus! {{
     pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
 
     pub proof fn prove_prime_split_threshold_equivalence()
-        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) >= lean_prime_split_threshold()
+        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) == lean_prime_split_threshold()
     {{}}
 
     pub proof fn prove_prasad_sunitha_bound_equivalence()
@@ -705,13 +705,9 @@ def main():
         )
 
         # Validation checks on configuration parameters
-        if prime_split_threshold < 7:
+        if prime_split_threshold != 61:
             raise ValueError(
-                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be at least 7 to satisfy mathematical safety invariants."
-            )
-        if prime_split_threshold % 2 == 0:
-            raise ValueError(
-                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be an odd prime."
+                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must strictly equal static proof baseline 61 to ensure formal Lean proof coverage alignment."
             )
 
         pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"][

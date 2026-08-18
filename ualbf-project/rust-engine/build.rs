@@ -208,21 +208,9 @@ fn main() {
     // --- Validate configured prime split threshold ---
     if let Some(ref prime_split) = manifest.search_bounds.prime_split_threshold {
         let val = prime_split.value;
-        if val < 61 {
+        if val != 61 {
             panic!(
-                "FATAL: Invalid configuration! The configured prime split threshold ({}) is below the baseline of 61. The threshold must be a prime number greater than or equal to 61.",
-                val
-            );
-        }
-        if val % 2 == 0 {
-            panic!(
-                "FATAL: Invalid configuration! The configured prime split threshold ({}) is not an odd prime. The threshold must be a prime number greater than or equal to 61.",
-                val
-            );
-        }
-        if !is_prime(val) {
-            panic!(
-                "FATAL: Invalid configuration! The configured prime split threshold ({}) is not prime. The threshold must be a prime number greater than or equal to 61.",
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) must strictly equal static proof baseline 61 to ensure formal Lean proof coverage alignment.",
                 val
             );
         }
@@ -410,10 +398,10 @@ fn main() {
                     let s_val: u64 = spec_val
                         .parse()
                         .expect("Failed to parse lean_prime_split_threshold");
-                    if c_val < s_val {
+                    if c_val != s_val || c_val != 61 {
                         panic!(
                             "FATAL: Mathematical Bound Desynchronization!\n\
-                             The runtime constant 'PRIME_SPLIT_THRESHOLD' ({}) is below the baseline Lean split threshold ({}) in lean_export.rs.\n\
+                             The runtime constant 'PRIME_SPLIT_THRESHOLD' ({}) diverges from static Lean split threshold ({}) or baseline 61 in lean_export.rs.\n\
                              This violates the formal refinement proof safety conditions.",
                             c_val, s_val
                         );
