@@ -1,14 +1,12 @@
-#[cfg(feature = "signing")]
 use std::env;
-#[cfg(feature = "signing")]
 use std::path::PathBuf;
-#[cfg(feature = "signing")]
 use verification_lib::{
     compute_verified_core_hash_runtime, compute_verified_extension_hash_runtime, format_payload,
-    verify_signature,
 };
 
 #[cfg(feature = "signing")]
+use verification_lib::verify_signature;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
@@ -86,25 +84,33 @@ fn main() {
             println!("{}", payload);
         }
         "verify-signature" => {
-            if args.len() != 5 {
-                eprintln!(
-                    "Usage: verification_cli verify-signature <pubkey_hex> <sig_hex> <payload>"
-                );
-                std::process::exit(1);
+            #[cfg(feature = "signing")]
+            {
+                if args.len() != 5 {
+                    eprintln!(
+                        "Usage: verification_cli verify-signature <pubkey_hex> <sig_hex> <payload>"
+                    );
+                    std::process::exit(1);
+                }
+                match verify_signature(&args[2], &args[3], &args[4]) {
+                    Ok(true) => {
+                        println!("true");
+                        std::process::exit(0);
+                    }
+                    Ok(false) => {
+                        println!("false");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("Error verifying signature: {}", e);
+                        std::process::exit(1);
+                    }
+                }
             }
-            match verify_signature(&args[2], &args[3], &args[4]) {
-                Ok(true) => {
-                    println!("true");
-                    std::process::exit(0);
-                }
-                Ok(false) => {
-                    println!("false");
-                    std::process::exit(1);
-                }
-                Err(e) => {
-                    eprintln!("Error verifying signature: {}", e);
-                    std::process::exit(1);
-                }
+            #[cfg(not(feature = "signing"))]
+            {
+                eprintln!("verify-signature requires the 'signing' feature.");
+                std::process::exit(1);
             }
         }
         _ => {
@@ -112,10 +118,4 @@ fn main() {
             std::process::exit(1);
         }
     }
-}
-
-#[cfg(not(feature = "signing"))]
-fn main() {
-    eprintln!("CLI requires the 'signing' feature.");
-    std::process::exit(1);
 }
