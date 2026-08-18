@@ -1026,7 +1026,10 @@ pub fn factor_sigma_cyclotomic(p: u64, two_e: u32) -> FactorizationResult {
             FactorizationResult::Complete(factors) => {
                 all_known_factors.extend(factors);
             }
-            FactorizationResult::Partial { known_factors, remaining } => {
+            FactorizationResult::Partial {
+                known_factors,
+                remaining,
+            } => {
                 all_known_factors.extend(known_factors);
                 remaining_product *= remaining;
                 any_partial = true;
@@ -1441,7 +1444,10 @@ mod tests {
 
         match factor_sigma_cyclotomic(2, 5) {
             FactorizationResult::Complete(facs) => {
-                assert_eq!(facs.to_vec(), vec![Uint::from_u64(3), Uint::from_u64(3), Uint::from_u64(7)]);
+                assert_eq!(
+                    facs.to_vec(),
+                    vec![Uint::from_u64(3), Uint::from_u64(3), Uint::from_u64(7)]
+                );
             }
             _ => panic!("Expected complete factorization"),
         }
