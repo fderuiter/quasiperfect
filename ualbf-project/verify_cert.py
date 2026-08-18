@@ -482,10 +482,19 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     has_physical_files = True
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    proof_dir = None
+    if manifest_path:
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        if os.path.exists(os.path.join(manifest_dir, "lean4-proofs")):
+            proof_dir = os.path.join(manifest_dir, "lean4-proofs")
+        elif any(os.path.exists(os.path.join(manifest_dir, pf.get("file", ""))) for pf in proof_files):
+            proof_dir = manifest_dir
+    if not proof_dir or not os.path.exists(proof_dir):
+        proof_dir = os.path.join(base_dir, "lean4-proofs")
+
     for pf in proof_files:
-        file_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", pf["file"]
-        )
+        file_path = os.path.join(proof_dir, pf["file"])
         if not os.path.exists(file_path):
             has_physical_files = False
             break
@@ -495,10 +504,29 @@ def verify_certificate(cert_path, manifest_path):
             "INFO: Physical source files are missing; skipping physical proof file content checksum validation in production."
         )
     else:
+        # Check for unmanifested .lean proof files on disk
+        disk_files = set()
+        for root, _, files in os.walk(proof_dir):
+            if ".lake" in root:
+                continue
+            for file in files:
+                if (
+                    file.endswith(".lean")
+                    and file != "lakefile.lean"
+                    and file != "find_axioms.lean"
+                ):
+                    full_p = os.path.join(root, file)
+                    rel_p = os.path.relpath(full_p, proof_dir)
+                    disk_files.add(rel_p)
+
+        registered_files = {pf["file"] for pf in proof_files}
+        for df in sorted(disk_files):
+            if df not in registered_files:
+                print(f"ERROR: Unmanifested proof source file found on disk: {df}")
+                sys.exit(1)
+
         for pf in proof_files:
-            file_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", pf["file"]
-            )
+            file_path = os.path.join(proof_dir, pf["file"])
             with open(file_path, "rb") as f:
                 content = f.read()
             if b"sorry" in content:
