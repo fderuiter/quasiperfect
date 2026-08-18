@@ -191,9 +191,9 @@ pub fn parse_config() -> EngineConfig {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::sync::Mutex;
-    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+    pub(crate) static TEST_MUTEX: Mutex<()> = Mutex::new(());
     use super::*;
     use std::env;
 

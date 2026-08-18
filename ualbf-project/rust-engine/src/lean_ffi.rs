@@ -883,6 +883,7 @@ mod tests {
     /// Verify the dummy stub value for div_5_coprime_3_bound.
     #[test]
     fn test_dummy_div_5_coprime_3_bound_value() {
+        let _guard = crate::policy::tests::TEST_MUTEX.lock().unwrap();
         setup();
         let value = get_div_5_coprime_3_bound();
         assert_eq!(value, 11, "expected div_5_coprime_3_bound to match 11");
@@ -916,6 +917,7 @@ mod tests {
     /// Repeated calls to get_div_5_coprime_3_bound must return the same value.
     #[test]
     fn test_get_div_5_coprime_3_bound_idempotent() {
+        let _guard = crate::policy::tests::TEST_MUTEX.lock().unwrap();
         setup();
         let first = get_div_5_coprime_3_bound();
         let second = get_div_5_coprime_3_bound();
@@ -1111,6 +1113,7 @@ mod tests {
 
     #[test]
     fn test_dynamic_bounds_under_proof_modes() {
+        let _guard = crate::policy::tests::TEST_MUTEX.lock().unwrap();
         setup();
         std::env::remove_var("UALBF_PROOF_MODE");
         let div_5_bound_axiomatic = get_div_5_coprime_3_bound();
