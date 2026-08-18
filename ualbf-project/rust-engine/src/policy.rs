@@ -132,6 +132,9 @@ where
         "--color",
         "--logfile",
         "--shuffle-seed",
+        "--skip",
+        "--jobs",
+        "-j",
     ];
 
     let mut i = 1;
@@ -198,15 +201,26 @@ where
                 | "--shuffle"
                 | "--shuffle-seed"
                 | "--ensure-time"
+                | "--report-time"
+                | "--skip"
+                | "--jobs"
+                | "-j"
                 | "--help"
                 | "--version"
+                | "--verbose"
                 | "-"
                 | "--"
                 | "-h"
                 | "-q"
-                | "-v"
-                | "-Z" => {
+                | "-v" => {
                     // Ignore cargo test / libtest harness flags
+                }
+                k if k.starts_with("-Z")
+                    || k.starts_with("-C")
+                    || k.starts_with("-L")
+                    || k.starts_with("--cap-lints") =>
+                {
+                    // Ignore compiler and unstable test harness flags
                 }
                 _ => {
                     panic!(
@@ -548,5 +562,23 @@ mod tests {
         let vars = vec![("UALBF_PROOF_MODE".to_string(), "axiomatic".to_string())];
         let cfg = parse_config_from(args, vars);
         assert_eq!(cfg.proof_mode, "pure");
+    }
+
+    #[test]
+    fn test_harness_flags_ignored() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let args = vec![
+            "engine".to_string(),
+            "--skip".to_string(),
+            "some_test".to_string(),
+            "-Zunstable-options".to_string(),
+            "--report-time".to_string(),
+            "-j".to_string(),
+            "4".to_string(),
+            "--verbose".to_string(),
+        ];
+        let vars = vec![];
+        let cfg = parse_config_from(args, vars);
+        assert_eq!(cfg.proof_mode, "axiomatic");
     }
 }
