@@ -7,6 +7,7 @@ pub struct SearchBackbone {
     pub min_n_product: Vec<Vec<Uint>>,
     pub num_components: usize,
     pub forced_candidates: Vec<Vec<usize>>,
+    pub adjacency: Vec<Vec<usize>>,
     pub scc_map: Vec<usize>,
     pub scc_components: Vec<Vec<usize>>,
 }
@@ -104,6 +105,7 @@ impl SearchBackbone {
             min_n_product,
             num_components: n,
             forced_candidates: cdg.forced_candidates,
+            adjacency: cdg.adjacency,
             scc_map: cdg.scc_map,
             scc_components: cdg.scc_components,
         }

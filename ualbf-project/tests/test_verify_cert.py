@@ -1456,5 +1456,145 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     assert excinfo.value.code == 1
 
 
+from verify_cert import verify_trace_file
+
+
+class TestGraphTopologyVerification:
+    def test_valid_topology_manifest_passes(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[1], [2], []],
+            "scc_map": [0, 1, 2],
+            "scc_components": [[0], [1], [2]],
+            "forced_candidates": [[1], [2], []]
+        }
+        reachable_paths = [[0, 1, 2]]
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified (graph topology audited)",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": reachable_paths,
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        # Should pass without SystemExit
+        verify_trace_file(cert, trace_path)
+
+    def test_missing_topology_manifest_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+    def test_invalid_neighbor_out_of_bounds_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[99]], # 99 is out of bounds
+            "scc_map": [0],
+            "scc_components": [[0]],
+            "forced_candidates": [[99]]
+        }
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": [[0]],
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+    def test_scc_mismatch_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[1], []],
+            "scc_map": [0, 0], # node 1 mapped to scc 0, but missing from scc_components[0]
+            "scc_components": [[0], [1]],
+            "forced_candidates": [[1], []]
+        }
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": [[0, 1]],
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+    def test_unreachable_path_step_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[], []], # no edges
+            "scc_map": [0, 1],
+            "scc_components": [[0], [1]],
+            "forced_candidates": [[], []]
+        }
+        # Path claims 0 -> 1, but 0 -> 1 is NOT reachable
+        reachable_paths = [[0, 1]]
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": reachable_paths,
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+
+
 
 

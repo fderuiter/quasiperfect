@@ -4,7 +4,19 @@
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
+    },
+    {
+      "name": "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
+      "file": "UALBF/Engine/CyclotomicGraph.lean",
+      "status": "proven",
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
+    },
+    {
+      "name": "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
+      "file": "UALBF/Engine/CyclotomicGraph.lean",
+      "status": "proven",
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
@@ -211,7 +223,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "2e1eb9976ebcf553bc3a80706dcd569c2d35948425b73f3fba2fa0181d3a0a29",
+  "verified_logic_hash": "78826289d78295263c8ae4999a44867b888ffd4b088414ebc95f781737a1309f",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -290,7 +302,7 @@
     },
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     {
       "file": "UALBF/Engine/Mod1155Bridge.lean",
