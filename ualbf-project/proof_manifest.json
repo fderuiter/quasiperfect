@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "2e1eb9976ebcf553bc3a80706dcd569c2d35948425b73f3fba2fa0181d3a0a29",
+  "verified_logic_hash": "e8d9303aa9f3d9a0fc73e2c889064b979354699d1291b83421feaf84e557e31e",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -269,7 +269,15 @@
     "passes_raycast_sieve_spec": "3383c2d72949bc8cc1a32bd399ddaf5e51dff95c539e7a29da11e308e1617182",
     "verified_passes_raycast_sieve": "98d0f8bdeafdb39be4a396c79598aad9adc84bebf35f50b70916cf1768740764",
     "zsigmondy_preconditions_satisfied": "f105d37de697516ec3aa368672cb12427ad608ff9da21baa85cf61f17c35709f",
-    "proof_verify_zsigmondy_preconditions": "176c508e942613bfb5b232045b786a9c729703342f7e7cd1ba2d445a20a4ffa2"
+    "proof_verify_zsigmondy_preconditions": "176c508e942613bfb5b232045b786a9c729703342f7e7cd1ba2d445a20a4ffa2",
+    "prime_power_retains_max_exponent_and_abundance": "4ef20a33c0c0374d3d3f4158819a8e4f11d618b7567ec1426029fc85720b1388",
+    "verify_prime_power_exponent_extraction": "1399ea23708f367d422179e7a960d42ded962c0f9bcbdfba7384da32b3f60635",
+    "is_sorted_descending_u128": "4b34a088a18c5f63276bb4ede73bcbf35cf5202da4cb5cb883b868235ee15c8c",
+    "is_abundance_permutation": "dad8865ed873632dac04d1457cd0411e725f59e07a048e462730481a242fd44d",
+    "verify_descending_sorting_invariants": "4fc3757eb59df06e677a2ccfcf65ba0a0e657fbfac6816b2c383812062ff3397",
+    "lemma_descending_sorting_upper_bound_ordering": "0b90d10a243555bd1b32ca82986a9af696c7a0612e8a411564c3d0bdfbb23ac6",
+    "fixed_point_ceil_overapproximates_exact_ratio": "7d7845bdd43a1c508bcefbcce14428ec50b2d01788293f64e690e86b7f897a49",
+    "verify_fixed_point_ceiling_upper_bound": "cb2ae6ddc3792ea2c6f53e68bd2f9ca5c68401244f1c1d1bd386f6c95f23b0ca"
   },
   "proof_files": [
     {

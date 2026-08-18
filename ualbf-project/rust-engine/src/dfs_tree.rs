@@ -2478,6 +2478,112 @@ mod tests {
     }
 
     #[test]
+    fn test_dynamic_prime_power_exponent_and_abundance_extraction() {
+        let mut components = Vec::new();
+        components.push(PrimePower {
+            p: 7,
+            two_e: 2,
+            val: Uint::from_u64(49),
+            sigma: Uint::from_u64(57),
+            abundance_fp: (1u128 << 64) + 1000,
+            sigma_factors: Vec::new(),
+            needs_rho: Vec::new(),
+        });
+        components.push(PrimePower {
+            p: 7,
+            two_e: 4,
+            val: Uint::from_u64(2401),
+            sigma: Uint::from_u64(2801),
+            abundance_fp: (1u128 << 64) + 2000,
+            sigma_factors: Vec::new(),
+            needs_rho: Vec::new(),
+        });
+        components.push(PrimePower {
+            p: 11,
+            two_e: 2,
+            val: Uint::from_u64(121),
+            sigma: Uint::from_u64(133),
+            abundance_fp: (1u128 << 64) + 1500,
+            sigma_factors: Vec::new(),
+            needs_rho: Vec::new(),
+        });
+
+        let mut collector = SuffixPrimeCollector::new();
+        let mask = vec![0b111u64];
+        collector.collect_from_mask(&mask, 0, &components);
+
+        assert_eq!(collector.unique_primes.len(), 2);
+        let p7 = collector
+            .unique_primes
+            .iter()
+            .find(|entry| entry.p == 7)
+            .unwrap();
+        assert_eq!(
+            p7.two_e, 4,
+            "Should retain maximum exponent for base prime 7"
+        );
+        assert_eq!(
+            p7.abundance_fp,
+            (1u128 << 64) + 2000,
+            "Should retain maximum abundance for base prime 7"
+        );
+
+        let p11 = collector
+            .unique_primes
+            .iter()
+            .find(|entry| entry.p == 11)
+            .unwrap();
+        assert_eq!(p11.two_e, 2);
+        assert_eq!(p11.abundance_fp, (1u128 << 64) + 1500);
+    }
+
+    #[test]
+    fn test_descending_sorting_invariants() {
+        let mut collector = SuffixPrimeCollector::new();
+        collector.unique_primes.push(PrimeTracker {
+            p: 3,
+            two_e: 2,
+            abundance_fp: 100,
+        });
+        collector.unique_primes.push(PrimeTracker {
+            p: 5,
+            two_e: 2,
+            abundance_fp: 300,
+        });
+        collector.unique_primes.push(PrimeTracker {
+            p: 7,
+            two_e: 2,
+            abundance_fp: 200,
+        });
+
+        let sorted = collector.get_abundances_sorted_descending();
+        assert_eq!(sorted.as_slice(), &[300, 200, 100]);
+
+        for i in 0..sorted.len() - 1 {
+            assert!(
+                sorted[i] >= sorted[i + 1],
+                "Array must be sorted in descending order"
+            );
+        }
+    }
+
+    #[test]
+    fn test_fixed_point_ceiling_multiplication_upper_bound() {
+        let test_cases = [
+            (1000u128, 3u128),
+            (100000u128, 7u128),
+            (1u128 << 64, 13u128),
+        ];
+        for (bound, p) in test_cases {
+            let res =
+                crate::lean_ffi::try_scale_bound_ceil(bound, p).expect("Scaling should succeed");
+            let exact_num = bound * p;
+            let fp_num = res * (p - 1);
+            assert!(fp_num >= exact_num, "Fixed-point ceiling scaling must strictly upper-bound exact rational multiplication");
+        }
+    }
+
+    #[test]
     fn test_touchard_dynamic_reachability_combining_9_and_19() {
         crate::lean_ffi::initialize_lean_runtime();
         let comp1 = make_prime_power(7, 49, 57);
