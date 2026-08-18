@@ -361,7 +361,10 @@ def generate_manifest():
         rel_file = cert_util.SYMBOL_MAP[thm]
         file_path = os.path.join(cwd, rel_file)
         if not os.path.exists(file_path):
-            print(f"Error: Symbol target file '{rel_file}' for theorem '{thm}' not found", file=sys.stderr)
+            print(
+                f"Error: Symbol target file '{rel_file}' for theorem '{thm}' not found",
+                file=sys.stderr,
+            )
             has_error = True
             sys.exit(1)
 

@@ -297,9 +297,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
             macro_name = make_macro_name(name)
             f.write(f"\\newcommand{{\\{macro_name}}}{{{thm['checksum']}}}\n")
             f.write(f"\\newcommand{{\\{macro_name}Status}}{{{status}}}\n")
-            f.write(
-                f"\\newcommand{{\\{macro_name}StatementHash}}{{{stmt_hash}}}\n"
-            )
+            f.write(f"\\newcommand{{\\{macro_name}StatementHash}}{{{stmt_hash}}}\n")
 
         for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
             macro_name = make_macro_name(fn)
