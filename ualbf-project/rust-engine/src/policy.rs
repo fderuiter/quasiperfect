@@ -37,12 +37,18 @@ where
     let vars_map: HashMap<String, String> = vars.into_iter().collect();
 
     let mut cli_mode: Option<String> = None;
-    for arg in &args_vec {
+    let mut i = 0;
+    while i < args_vec.len() {
+        let arg = &args_vec[i];
         if arg.starts_with("--proof-mode=") {
             cli_mode = Some(arg.trim_start_matches("--proof-mode=").to_string());
+        } else if arg == "--proof-mode" && i + 1 < args_vec.len() {
+            cli_mode = Some(args_vec[i + 1].clone());
+            i += 1;
         } else if arg == "--pure-proofs" {
             cli_mode = Some("pure".to_string());
         }
+        i += 1;
     }
 
     let raw_mode = if let Some(m) = cli_mode {
@@ -103,20 +109,41 @@ where
 
     let mut cli_map: HashMap<String, String> = HashMap::new();
 
+    let value_flags = [
+        "--target-min-log10",
+        "--target-max-log10",
+        "--sieve-limit",
+        "--max-exponent",
+        "--prefix-stop",
+        "--proof-manifest",
+        "--mode",
+        "--controller-addr",
+        "--fp-rate",
+        "--sampling-rate",
+        "--deterministic-seed",
+        "--trial-division-limit",
+        "--proof-mode",
+        "--sidecar-path",
+        "--heartbeat-timeout-sec",
+        "--heartbeat-interval-sec",
+        "--verify-sidecar",
+        "--test-threads",
+        "--format",
+        "--color",
+        "--logfile",
+        "--shuffle-seed",
+    ];
+
     let mut i = 1;
     while i < args_vec.len() {
         let arg = &args_vec[i];
-        if arg.starts_with("--") {
+        if arg.starts_with('-') {
             let (key, val) = if let Some(eq_pos) = arg.find('=') {
                 let key = &arg[..eq_pos];
                 let val = &arg[eq_pos + 1..];
                 (key.to_string(), val.to_string())
-            } else if arg == "--enable-diagnostics" {
-                ("--enable-diagnostics".to_string(), "true".to_string())
-            } else if arg == "--pure-proofs" {
-                ("--proof-mode".to_string(), "pure".to_string())
-            } else {
-                if i + 1 < args_vec.len() && !args_vec[i + 1].starts_with("--") {
+            } else if value_flags.contains(&arg.as_str()) {
+                if i + 1 < args_vec.len() && !args_vec[i + 1].starts_with('-') {
                     let key = arg.to_string();
                     let val = args_vec[i + 1].to_string();
                     i += 1;
@@ -124,6 +151,10 @@ where
                 } else {
                     (arg.to_string(), "true".to_string())
                 }
+            } else if arg == "--pure-proofs" {
+                ("--proof-mode".to_string(), "pure".to_string())
+            } else {
+                (arg.to_string(), "true".to_string())
             };
 
             match key.as_str() {
@@ -150,9 +181,29 @@ where
                 k if k.contains("gpu") || k.contains("GPU") => {
                     // Deprecated GPU flag, warning already issued
                 }
-                "--nocapture" | "--exact" | "--test-threads" | "--format" | "--color"
-                | "--show-output" | "--bench" | "--ignored" | "--include-ignored" | "--quiet"
-                | "--list" => {
+                "--nocapture"
+                | "--exact"
+                | "--test-threads"
+                | "--format"
+                | "--color"
+                | "--show-output"
+                | "--bench"
+                | "--test"
+                | "--ignored"
+                | "--include-ignored"
+                | "--force-run-ignored"
+                | "--quiet"
+                | "--list"
+                | "--logfile"
+                | "--shuffle"
+                | "--shuffle-seed"
+                | "--ensure-time"
+                | "--help"
+                | "--version"
+                | "-h"
+                | "-q"
+                | "-v"
+                | "-Z" => {
                     // Ignore cargo test / libtest harness flags
                 }
                 _ => {

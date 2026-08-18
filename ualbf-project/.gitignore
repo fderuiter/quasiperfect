@@ -8,4 +8,6 @@ env/
 .pytest_cache/
 .mypy_cache/
 lean-built
+overflow_sidecar.log
+*.log
 
