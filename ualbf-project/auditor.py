@@ -41,6 +41,39 @@ subprocess.run = mock_run
 
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 
+GHOST_PRUNING_BINDINGS = {
+    "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "verify_starvation_pruning": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "is_starved": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "is_cdg_forced_pruned": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_sigma_multiplicative": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "lemma_coprime_implies_multiplicative_nonlinear": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "lemma_coprime_implies_multiplicative": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "lemma_disjoint_by_construction": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "prasad_sunitha_bound_satisfied": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+    "verify_prasad_sunitha": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+    "screen_mod_8": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+    "is_valid_mod_8": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+    "passes_raycast_sieve_spec": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "verified_passes_raycast_sieve": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "zsigmondy_preconditions_satisfied": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "proof_verify_zsigmondy_preconditions": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_composite_has_prime_factor_le_sqrt": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "lemma_smallest_factor_is_prime": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "lemma_modpow_mod_divisibility": "UALBF.FFI.modInverse_spec",
+    "lemma_modpow_add_mul": "UALBF.FFI.modInverse_spec",
+    "lemma_order_exists": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_order_prime_factor": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_divisibility_bounds": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_fermat_little_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_order_le_p_minus_1": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_square_comparison_contradiction": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_f_squared_gt_n_minus_1": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_pocklington_certificate": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+}
+
 
 def theorem_checksum(name, rel_file, status):
     # Find the ualbf-project directory relative to this script
@@ -493,6 +526,22 @@ def generate_manifest():
             f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",
             file=sys.stderr,
         )
+
+    # Populate ghost_pruning_bindings mapping every ghost function to its Lean theorem checksum
+    thm_checksum_map = {t["name"]: t["checksum"] for t in manifest.get("theorems", [])}
+    ghost_bindings = {}
+    for fn, lean_thm in GHOST_PRUNING_BINDINGS.items():
+        if lean_thm in thm_checksum_map:
+            ghost_bindings[fn] = {
+                "lean_theorem": lean_thm,
+                "theorem_hash": thm_checksum_map[lean_thm],
+            }
+        else:
+            print(
+                f"Warning: Bound Lean theorem '{lean_thm}' for ghost function '{fn}' not found in CORE_THEOREMS.",
+                file=sys.stderr,
+            )
+    manifest["ghost_pruning_bindings"] = ghost_bindings
 
     with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
