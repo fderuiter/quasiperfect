@@ -66,5 +66,57 @@
     "dusart_bounds.den": "TUNING.md",
     "dusart_bounds.validity_threshold": "TUNING.md",
     "lattice_precision_tolerance": "TUNING.md"
+  },
+  "spec_doc_mappings": {
+    "bounds_manifest.json": [
+      "TUNING.md",
+      "README.md"
+    ],
+    "lean4-proofs/UALBF.lean": [
+      "lean4-proofs/README.md",
+      "TCB.md"
+    ],
+    "lean4-proofs/Validator.lean": [
+      "lean4-proofs/README.md",
+      "semantic_verification_report.md"
+    ],
+    "rust-engine/src/verus_proofs.rs": [
+      "rust-engine/README.md",
+      "semantic_verification_report.md"
+    ],
+    "rust-engine/src/universal_bounds.rs": [
+      "rust-engine/README.md",
+      "TUNING.md"
+    ],
+    "rust-engine/src/lean_ffi.rs": [
+      "rust-engine/README.md",
+      "TCB.md"
+    ]
+  },
+  "reverse_dependency_mappings": {
+    "bounds_manifest.json": [
+      "TUNING.md",
+      "README.md"
+    ],
+    "lean4-proofs/UALBF.lean": [
+      "lean4-proofs/README.md",
+      "TCB.md"
+    ],
+    "lean4-proofs/Validator.lean": [
+      "lean4-proofs/README.md",
+      "semantic_verification_report.md"
+    ],
+    "rust-engine/src/verus_proofs.rs": [
+      "rust-engine/README.md",
+      "semantic_verification_report.md"
+    ],
+    "rust-engine/src/universal_bounds.rs": [
+      "rust-engine/README.md",
+      "TUNING.md"
+    ],
+    "rust-engine/src/lean_ffi.rs": [
+      "rust-engine/README.md",
+      "TCB.md"
+    ]
   }
 }

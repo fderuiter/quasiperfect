@@ -39,7 +39,22 @@ def main():
 
     # Filter out common build directories
     # Note: hidden directories like .pytest_cache are natively skipped by glob.glob unless include_hidden is set.
-    exclude_dirs = [".lake", "target", "node_modules", "build", ".git", "venv", ".venv", ".direnv", "lean-built", "result", "test-env", "test_env", "env", ".env"]
+    exclude_dirs = [
+        ".lake",
+        "target",
+        "node_modules",
+        "build",
+        ".git",
+        "venv",
+        ".venv",
+        ".direnv",
+        "lean-built",
+        "result",
+        "test-env",
+        "test_env",
+        "env",
+        ".env",
+    ]
     filtered_md_files = []
     for md_file in all_md_files:
         if not any(part in exclude_dirs for part in md_file.split(os.sep)):
@@ -71,6 +86,28 @@ def main():
             with open(pr_files_path, "r") as f:
                 pr_files = [line.strip() for line in f if line.strip()]
 
+            # Add parent directory of scripts to sys.path to import verify_metadata
+            ualbf_dir = os.path.join(repo_root, "ualbf-project")
+            if ualbf_dir not in sys.path:
+                sys.path.insert(0, ualbf_dir)
+
+            spec_modified = False
+            try:
+                from verify_metadata import check_reverse_dependencies
+
+                is_valid, rev_errors, spec_modified = check_reverse_dependencies(
+                    pr_files, base_dir=ualbf_dir
+                )
+                if not is_valid:
+                    for err in rev_errors:
+                        print(err, file=sys.stderr)
+                    sys.exit(1)
+            except Exception as e:
+                print(
+                    f"Warning: Failed to execute reverse dependency check: {e}",
+                    file=sys.stderr,
+                )
+
             authoritative_touched = False
             for f in pr_files:
                 if f.endswith(".md"):
@@ -87,6 +124,10 @@ def main():
                     if manifest[f] == "authoritative":
                         print(f"Authoritative document modified: {f}")
                         authoritative_touched = True
+
+            if spec_modified:
+                print("Formal specification or safety bounds modified.")
+                authoritative_touched = True
 
             if authoritative_touched:
                 print("AUTHORITATIVE_TOUCHED=1")

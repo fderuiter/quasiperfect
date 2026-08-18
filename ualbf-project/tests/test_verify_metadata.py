@@ -154,15 +154,11 @@ def test_find_leaf_parameters():
         "nested": {
             "justification": "This should be ignored",
             "is_axiomatic": True,
-            "citation": {
-                "author": "Someone"
-            },
+            "citation": {"author": "Someone"},
             "valid_leaf": 3.14,
-            "nested_again": {
-                "inner_list": [1, 2, 3]
-            }
+            "nested_again": {"inner_list": [1, 2, 3]},
         },
-        "description": "Ignore this"
+        "description": "Ignore this",
     }
     extracted = find_leaf_parameters(mock_data)
     assert "top_param" in extracted
@@ -186,6 +182,7 @@ def test_get_parameter_candidates():
 
 def test_is_parameter_documented():
     import textwrap
+
     doc_content = textwrap.dedent("""
         # Document
         We can document standard configurations here.
@@ -206,9 +203,9 @@ def test_is_parameter_documented():
 
 
 def test_superscripts_mapping():
-    assert SUPERSCRIPTS['⁰'] == '0'
-    assert SUPERSCRIPTS['⁴'] == '4'
-    assert SUPERSCRIPTS['³'] == '3'
+    assert SUPERSCRIPTS["⁰"] == "0"
+    assert SUPERSCRIPTS["⁴"] == "4"
+    assert SUPERSCRIPTS["³"] == "3"
 
 
 def test_is_backtick_valid():
@@ -222,24 +219,49 @@ def test_is_backtick_valid():
     assert is_backtick_valid("rayon", repo_paths, code_constructs, valid_params) is True
 
     # Real file references
-    assert is_backtick_valid("sieve.rs", repo_paths, code_constructs, valid_params) is True
-    assert is_backtick_valid("ManifestConstants.lean", repo_paths, code_constructs, valid_params) is True
+    assert (
+        is_backtick_valid("sieve.rs", repo_paths, code_constructs, valid_params) is True
+    )
+    assert (
+        is_backtick_valid(
+            "ManifestConstants.lean", repo_paths, code_constructs, valid_params
+        )
+        is True
+    )
 
     # Active code constructs
-    assert is_backtick_valid("my_theorem", repo_paths, code_constructs, valid_params) is True
+    assert (
+        is_backtick_valid("my_theorem", repo_paths, code_constructs, valid_params)
+        is True
+    )
     assert is_backtick_valid("my_fn", repo_paths, code_constructs, valid_params) is True
 
     # Active parameters
-    assert is_backtick_valid("target_max_log10", repo_paths, code_constructs, valid_params) is True
+    assert (
+        is_backtick_valid("target_max_log10", repo_paths, code_constructs, valid_params)
+        is True
+    )
 
     # Trailing slashes or attributes/keywords
-    assert is_backtick_valid("UALBF/Pure/", {"UALBF/Pure"}, code_constructs, valid_params) is True
-    assert is_backtick_valid("@[export]", repo_paths, code_constructs, valid_params) is True
-    assert is_backtick_valid("#[cfg(test)]", repo_paths, code_constructs, valid_params) is True
+    assert (
+        is_backtick_valid("UALBF/Pure/", {"UALBF/Pure"}, code_constructs, valid_params)
+        is True
+    )
+    assert (
+        is_backtick_valid("@[export]", repo_paths, code_constructs, valid_params)
+        is True
+    )
+    assert (
+        is_backtick_valid("#[cfg(test)]", repo_paths, code_constructs, valid_params)
+        is True
+    )
     assert is_backtick_valid("def", repo_paths, code_constructs, valid_params) is True
 
     # Broken/invalid reference
-    assert is_backtick_valid("broken_ref", repo_paths, code_constructs, valid_params) is False
+    assert (
+        is_backtick_valid("broken_ref", repo_paths, code_constructs, valid_params)
+        is False
+    )
 
 
 def test_extract_backticks_with_lines(tmp_path):
@@ -262,6 +284,7 @@ def test_extract_backticks_with_lines(tmp_path):
 
 def test_extract_fqns_nested_namespaces():
     from verify_metadata import extract_fqns_from_lean_content
+
     lean_code = """
     namespace Outer
     namespace Inner
@@ -297,7 +320,7 @@ def test_check_documentation_fqn_rules(tmp_path):
     import json
     from unittest.mock import patch, mock_open
     from auditor import check_documentation
-    
+
     doc_path = tmp_path / "README.md"
     doc_path.write_text("""
     This is `MyNamespace.my_theorem` which is valid.
@@ -305,37 +328,137 @@ def test_check_documentation_fqn_rules(tmp_path):
     This is `WrongNamespace.my_theorem` which is invalid and must be flagged!
     This is `MyNamespace.deleted_theorem` which is invalid and must be flagged!
     """)
-    
-    with patch("auditor.CORE_THEOREMS", []), \
-         patch("auditor.os.walk", return_value=[]), \
-         patch("auditor.check_lean_environment", return_value=True):
-         
-         with patch("auditor.CORE_THEOREMS", ["MyNamespace.my_theorem", "Outer.unrelated_theorem"]):
-             docs_manifest_content = json.dumps({"README.md": "authoritative"})
-             
-             original_open = open
-             def custom_open(file, *args, **kwargs):
-                 if "docs_manifest.json" in str(file):
-                     return mock_open(read_data=docs_manifest_content)()
-                 if "README.md" in str(file):
-                     return original_open(doc_path, *args, **kwargs)
-                 return original_open(file, *args, **kwargs)
-                 
-             with patch("builtins.open", custom_open), \
-                  patch("auditor.os.path.exists", return_value=True):
-                 with patch("sys.stderr") as mock_stderr:
-                     result = check_documentation({"verus_hashes": {}})
-                     
-                     assert result is False
-                     
-                     error_calls = [call[0][0] for call in mock_stderr.write.call_args_list if call[0]]
-                     full_error_output = "".join(error_calls)
-                     
-                     assert "Invalid code symbol: 'WrongNamespace.my_theorem'" in full_error_output
-                     assert "Invalid code symbol: 'MyNamespace.deleted_theorem'" in full_error_output
-                     assert "Invalid code symbol: 'MyNamespace.my_theorem'" not in full_error_output
-                     assert "Invalid code symbol: 'unrelated_theorem'" not in full_error_output
+
+    with patch("auditor.CORE_THEOREMS", []), patch(
+        "auditor.os.walk", return_value=[]
+    ), patch("auditor.check_lean_environment", return_value=True):
+
+        with patch(
+            "auditor.CORE_THEOREMS",
+            ["MyNamespace.my_theorem", "Outer.unrelated_theorem"],
+        ):
+            docs_manifest_content = json.dumps({"README.md": "authoritative"})
+
+            original_open = open
+
+            def custom_open(file, *args, **kwargs):
+                if "docs_manifest.json" in str(file):
+                    return mock_open(read_data=docs_manifest_content)()
+                if "README.md" in str(file):
+                    return original_open(doc_path, *args, **kwargs)
+                return original_open(file, *args, **kwargs)
+
+            with patch("builtins.open", custom_open), patch(
+                "auditor.os.path.exists", return_value=True
+            ):
+                with patch("sys.stderr") as mock_stderr:
+                    result = check_documentation({"verus_hashes": {}})
+
+                    assert result is False
+
+                    error_calls = [
+                        call[0][0]
+                        for call in mock_stderr.write.call_args_list
+                        if call[0]
+                    ]
+                    full_error_output = "".join(error_calls)
+
+                    assert (
+                        "Invalid code symbol: 'WrongNamespace.my_theorem'"
+                        in full_error_output
+                    )
+                    assert (
+                        "Invalid code symbol: 'MyNamespace.deleted_theorem'"
+                        in full_error_output
+                    )
+                    assert (
+                        "Invalid code symbol: 'MyNamespace.my_theorem'"
+                        not in full_error_output
+                    )
+                    assert (
+                        "Invalid code symbol: 'unrelated_theorem'"
+                        not in full_error_output
+                    )
 
 
+def test_path_normalization():
+    from verify_metadata import normalize_repo_path, get_canonical_path_variants
+
+    assert normalize_repo_path("./bounds_manifest.json") == "bounds_manifest.json"
+    assert normalize_repo_path("ualbf-project/TUNING.md") == "ualbf-project/TUNING.md"
+
+    variants = get_canonical_path_variants("bounds_manifest.json")
+    assert "bounds_manifest.json" in variants
+    assert "ualbf-project/bounds_manifest.json" in variants
 
 
+def test_check_reverse_dependencies_missing_docs_fails():
+    from verify_metadata import check_reverse_dependencies
+
+    # Scenario: Modifying UALBF.lean without updating lean4-proofs/README.md and TCB.md
+    modified = ["ualbf-project/lean4-proofs/UALBF.lean"]
+    is_valid, errors, spec_modified = check_reverse_dependencies(modified)
+
+    assert is_valid is False
+    assert spec_modified is True
+    assert len(errors) > 0
+    full_error = " ".join(errors)
+    assert "lean4-proofs/README.md" in full_error
+    assert "TCB.md" in full_error
+
+
+def test_check_reverse_dependencies_with_docs_passes():
+    from verify_metadata import check_reverse_dependencies
+
+    # Scenario: Modifying UALBF.lean WITH all mapped documentation files
+    modified = [
+        "ualbf-project/lean4-proofs/UALBF.lean",
+        "ualbf-project/lean4-proofs/README.md",
+        "ualbf-project/TCB.md",
+    ]
+    is_valid, errors, spec_modified = check_reverse_dependencies(modified)
+
+    assert is_valid is True
+    assert spec_modified is True
+    assert len(errors) == 0
+
+
+def test_check_reverse_dependencies_bounds_manifest_missing_docs_fails():
+    from verify_metadata import check_reverse_dependencies
+
+    # Scenario: Modifying bounds_manifest.json without TUNING.md / README.md
+    modified = ["ualbf-project/bounds_manifest.json"]
+    is_valid, errors, spec_modified = check_reverse_dependencies(modified)
+
+    assert is_valid is False
+    assert spec_modified is True
+    assert len(errors) > 0
+    full_error = " ".join(errors)
+    assert "TUNING.md" in full_error
+
+
+def test_check_reverse_dependencies_bounds_manifest_with_docs_passes():
+    from verify_metadata import check_reverse_dependencies
+
+    # Scenario: Modifying bounds_manifest.json WITH TUNING.md and README.md
+    modified = [
+        "ualbf-project/bounds_manifest.json",
+        "ualbf-project/TUNING.md",
+        "README.md",
+    ]
+    is_valid, errors, spec_modified = check_reverse_dependencies(modified)
+
+    assert is_valid is True
+    assert spec_modified is True
+    assert len(errors) == 0
+
+
+def test_check_reverse_dependencies_unrelated_files_passes():
+    from verify_metadata import check_reverse_dependencies
+
+    modified = ["ualbf-project/TODO.md"]
+    is_valid, errors, spec_modified = check_reverse_dependencies(modified)
+
+    assert is_valid is True
+    assert spec_modified is False
+    assert len(errors) == 0

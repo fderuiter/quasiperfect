@@ -26,6 +26,145 @@ import re
 import sys
 
 
+def normalize_repo_path(path: str) -> str:
+    path = os.path.normpath(path.strip())
+    if path.startswith("./") or path.startswith(".\\"):
+        path = path[2:]
+    return path
+
+
+def get_canonical_path_variants(path: str) -> set[str]:
+    norm = normalize_repo_path(path)
+    variants = {norm}
+    if norm.startswith("ualbf-project/"):
+        variants.add(norm[len("ualbf-project/") :])
+    else:
+        variants.add(f"ualbf-project/{norm}")
+    return variants
+
+
+def check_reverse_dependencies(
+    modified_files: list[str],
+    base_dir: str | None = None,
+) -> tuple[bool, list[str], bool]:
+    """Evaluates modified source/spec/bounds files against reverse spec-to-doc mappings.
+
+    Returns:
+        (is_valid, list_of_error_strings, formal_spec_modified)
+    """
+    if base_dir is None:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    manifest_path = os.path.join(base_dir, "metadata_manifest.json")
+    if not os.path.exists(manifest_path):
+        return False, [f"Error: Manifest not found at {manifest_path}"], False
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    # Combine mappings from spec_doc_mappings and reverse_dependency_mappings
+    spec_mappings: dict[str, list[str]] = {}
+    for key in ("spec_doc_mappings", "reverse_dependency_mappings"):
+        if key in manifest:
+            for k, v in manifest[key].items():
+                if isinstance(v, str):
+                    v = [v]
+                spec_mappings.setdefault(k, [])
+                for doc in v:
+                    if doc not in spec_mappings[k]:
+                        spec_mappings[k].append(doc)
+
+    # Build canonical set of modified files
+    modified_canonical_set: set[str] = set()
+    for mf in modified_files:
+        if mf.strip():
+            modified_canonical_set.update(get_canonical_path_variants(mf))
+
+    errors: list[str] = []
+    formal_spec_modified = False
+
+    # Check explicit spec-to-doc mappings
+    for spec_target, mapped_docs in spec_mappings.items():
+        target_variants = get_canonical_path_variants(spec_target)
+        if target_variants & modified_canonical_set:
+            formal_spec_modified = True
+            missing_docs = []
+            for doc in mapped_docs:
+                doc_variants = get_canonical_path_variants(doc)
+                if not (doc_variants & modified_canonical_set):
+                    missing_docs.append(doc)
+
+            if missing_docs:
+                doc_str = ", ".join(f"'{d}'" for d in missing_docs)
+                msg = (
+                    f"Error: Modified formal specification '{spec_target}' requires updating mapped "
+                    f"documentation file(s): [{doc_str}], but required documentation is missing from PR changes."
+                )
+                if msg not in errors:
+                    errors.append(msg)
+
+    # Fallback checks for modified formal specs under lean4-proofs, rust-engine, or bounds_manifest
+    for mf in modified_files:
+        norm = normalize_repo_path(mf)
+        if not norm:
+            continue
+        if (
+            "lean4-proofs/" in norm
+            or "rust-engine/" in norm
+            or "bounds_manifest.json" in norm
+        ):
+            formal_spec_modified = True
+
+            fallback_docs: list[str] = []
+            if "bounds_manifest.json" in norm:
+                fallback_docs = ["ualbf-project/TUNING.md", "README.md"]
+            elif "lean4-proofs/" in norm:
+                fallback_docs = ["ualbf-project/lean4-proofs/README.md"]
+            elif "rust-engine/" in norm:
+                fallback_docs = ["ualbf-project/rust-engine/README.md"]
+
+            missing_fallback = []
+            for doc in fallback_docs:
+                doc_variants = get_canonical_path_variants(doc)
+                if not (doc_variants & modified_canonical_set):
+                    missing_fallback.append(doc)
+
+            target_variants = get_canonical_path_variants(norm)
+            already_covered = any(
+                bool(get_canonical_path_variants(st) & target_variants)
+                for st in spec_mappings
+            )
+            if missing_fallback and not already_covered:
+                doc_str = ", ".join(f"'{d}'" for d in missing_fallback)
+                msg = (
+                    f"Error: Modified formal specification target '{norm}' requires updating mapped "
+                    f"documentation file(s): [{doc_str}], but required documentation is missing from PR changes."
+                )
+                if msg not in errors:
+                    errors.append(msg)
+
+    return len(errors) == 0, errors, formal_spec_modified
+
+
+def resolve_repo_path(path_str: str, base_dir: str) -> str | None:
+    repo_root = os.path.dirname(base_dir)
+    p1 = os.path.join(base_dir, path_str)
+    if os.path.exists(p1):
+        return p1
+    p2 = os.path.join(repo_root, path_str)
+    if os.path.exists(p2):
+        return p2
+    if path_str.startswith("ualbf-project/"):
+        stripped = path_str[len("ualbf-project/") :]
+        p3 = os.path.join(base_dir, stripped)
+        if os.path.exists(p3):
+            return p3
+        p4 = os.path.join(repo_root, stripped)
+        if os.path.exists(p4):
+            return p4
+    return None
+
+
 def get_nested_value(d, path):
     keys = path.split(".")
     for k in keys:
@@ -1115,6 +1254,61 @@ def main():
                         f"Error in {rel_rf_path}:{line_no}: Broken code reference or invalid backticked item `{item}`."
                     )
                     errors += 1
+
+        # E. Reverse Dependency Mapping Integrity Check
+        spec_mappings = manifest.get(
+            "spec_doc_mappings", manifest.get("reverse_dependency_mappings", {})
+        )
+        docs_manifest_path = os.path.join(repo_root, "docs_manifest.json")
+        docs_manifest = {}
+        if os.path.exists(docs_manifest_path):
+            with open(docs_manifest_path, "r", encoding="utf-8") as f:
+                docs_manifest = json.load(f)
+
+        for spec_target, mapped_docs in spec_mappings.items():
+            if not resolve_repo_path(spec_target, base_dir):
+                print(
+                    f"Error: Specification target '{spec_target}' declared in reverse_dependency_mappings does not exist."
+                )
+                errors += 1
+
+            if isinstance(mapped_docs, str):
+                mapped_docs = [mapped_docs]
+
+            for doc in mapped_docs:
+                if not resolve_repo_path(doc, base_dir):
+                    print(
+                        f"Error: Target documentation file '{doc}' mapped for specification target '{spec_target}' does not exist."
+                    )
+                    errors += 1
+
+                doc_keys = get_canonical_path_variants(doc)
+                if docs_manifest and not any(k in docs_manifest for k in doc_keys):
+                    print(
+                        f"Error: Target documentation file '{doc}' mapped in reverse_dependency_mappings is not registered in docs_manifest.json."
+                    )
+                    errors += 1
+
+        # Check PR files if pr_files.txt or CLI arg or env var is present
+        pr_file_path = None
+        if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
+            pr_file_path = sys.argv[1]
+        elif os.path.exists("pr_files.txt"):
+            pr_file_path = "pr_files.txt"
+        elif os.environ.get("PR_FILES"):
+            pr_file_path = os.environ.get("PR_FILES")
+
+        if pr_file_path and os.path.exists(pr_file_path):
+            with open(pr_file_path, "r", encoding="utf-8") as f:
+                pr_files = [line.strip() for line in f if line.strip()]
+            if pr_files:
+                is_valid, rev_errors, _ = check_reverse_dependencies(
+                    pr_files, base_dir=base_dir
+                )
+                if not is_valid:
+                    for err in rev_errors:
+                        print(err)
+                        errors += 1
 
     if errors > 0:
         sys.exit(1)
