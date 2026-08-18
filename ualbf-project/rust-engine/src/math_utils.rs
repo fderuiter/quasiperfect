@@ -265,12 +265,13 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     } else {
         if n <= Uint::from_u128((u128::MAX) as u128) {
             if let Ok(fact) = catch_unwind(|| Factorization::run(n.as_u128())) {
-                FactorizationResult::Complete(
-                    fact.factors
-                        .into_iter()
-                        .map(|f| Uint::from_u128((f) as u128))
-                        .collect(),
-                )
+                let mut v: smallvec::SmallVec<[Uint; 8]> = fact
+                    .factors
+                    .into_iter()
+                    .map(|f| Uint::from_u128((f) as u128))
+                    .collect();
+                v.sort_unstable();
+                FactorizationResult::Complete(v)
             } else {
                 FactorizationResult::Failure(n)
             }
