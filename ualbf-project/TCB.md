@@ -18,7 +18,7 @@ The verification pipeline does not treat the 20-base Miller-Rabin sufficiency te
 Instead of probabilistic sufficiency assumptions, the framework employs a hybrid tiered primality pipeline in the `verified_is_prime` function:
 
 - **Inputs Below 2^64 (Smaller Candidate Primes):**
-  The engine routes these inputs through a proven, deterministic 12-base Miller-Rabin test. The 12 proven bases used are: 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, and 37. Proving the deterministic correctness of these 12 bases within this domain is mathematically established and trusted.
+  All candidate pruning decisions for numbers under 2^64 emit explicit, machine-checkable compositeness witness certificates (verifiable divisor factors or Miller-Rabin witness bases). The proof validation pipeline ingests and mathematically verifies each compositeness witness certificate, refuting primality without relying on an unverified 12-base screening assumption in the Trusted Computing Base.
   
 - **Inputs Equal to or Exceeding 2^64 (Larger Candidate Primes):**
   Inputs at or above this boundary cannot be verified solely using probabilistic Miller-Rabin checks. Instead, they are subjected to a rigorous certificate-backed verification pathway. The 20-base Miller-Rabin check is used strictly as a fast, non-binding pre-filter to reject composite candidates. Any candidate that passes this pre-filter must be validated using a mathematically rigorous, verified Pocklington certificate via `generate_and_verify_pocklington` for absolute certitude. This certificate-backed pathway is the mandatory mechanism for all inputs equal to or exceeding 2^64.
