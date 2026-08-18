@@ -1,5 +1,6 @@
+import hashlib
 import os
-
+import re
 import sys
 
 _has_verification_lib = True
@@ -108,6 +109,77 @@ CORE_THEOREMS = [
     "UALBF.Engine.Mod1155Bridge.mod1155_soundness",
     "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound",
 ]
+
+SYMBOL_MAP = {
+    "UALBF.Engine.CyclotomicGraph.forced_inclusion": "UALBF/Engine/CyclotomicGraph.lean",
+    "UALBF.Engine.SieveSoundness.rust_sieve_soundness": "UALBF/Engine/SieveSoundness.lean",
+    "UALBF.Engine.Bipartition.prefix_sigma_coprime": "UALBF/Engine/Bipartition.lean",
+    "UALBF.Engine.Bipartition.ambs_suffix_target": "UALBF/Engine/Bipartition.lean",
+    "UALBF.Engine.Bipartition.no_solution_no_qpn": "UALBF/Engine/Bipartition.lean",
+    "UALBF.QPN.AbundancyBound.qpn_abundancy_target": "UALBF/QPN/AbundancyBound.lean",
+    "UALBF.QPN.AbundancyBound.qpn_totient_bound": "UALBF/QPN/AbundancyBound.lean",
+    "UALBF.QPN.AbundancyBound.abundancy_starvation": "UALBF/QPN/AbundancyBound.lean",
+    "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction": "UALBF/QPN/Obstruction.lean",
+    "UALBF.QPN.BasicProperties.qpn_is_odd_square": "UALBF/QPN/BasicProperties.lean",
+    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound": "UALBF/QPN/PrasadSunitha.lean",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_3": "UALBF/Engine/Obstruction.lean",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_9": "UALBF/Engine/Obstruction.lean",
+    "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24": "UALBF/QPN/TouchardQPN.lean",
+    "UALBF.Engine.TouchardBridge.touchard_bridge": "UALBF/Engine/TouchardBridge.lean",
+    "UALBF.FFI.fromU512_toU512": "UALBF/FFI.lean",
+    "UALBF.FFI.toU512_fromU512": "UALBF/FFI.lean",
+    "UALBF.FFI.modInverse_spec": "UALBF/FFI.lean",
+    "UALBF.FFI.U512.w0_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w1_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w2_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w3_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w4_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w5_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w6_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w7_mk": "UALBF/FFI_generated.lean",
+    "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling": "UALBF/Pure/ABCConjecture.lean",
+    "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound": "UALBF/Pure/ABCConjecture.lean",
+    "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod7": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod11": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_soundness": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound": "UALBF/Engine/Mod1155Bridge.lean",
+}
+
+
+def normalize_statement(statement_str: str) -> str:
+    """Normalize statement signature by stripping comments and collapsing whitespace."""
+    if not statement_str:
+        return ""
+    cleaned = re.sub(r"/-.*?-\/", "", statement_str, flags=re.DOTALL)
+    cleaned = re.sub(r"--.*$", "", cleaned, flags=re.MULTILINE)
+    return " ".join(cleaned.split())
+
+
+def compute_statement_hash(statement_str: str) -> str:
+    """Derive cryptographic hash (SHA-256) of normalized statement signature."""
+    norm = normalize_statement(statement_str)
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest()
+
+
+def extract_statement_from_file(file_path: str, thm_name: str) -> str | None:
+    """Extract theorem statement declaration directly from Lean source file."""
+    if not os.path.exists(file_path):
+        return None
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        bare_name = thm_name.split(".")[-1]
+        pattern = rf"\b(?:theorem|lemma|def|axiom)\s+(?:[A-Za-z0-9_]+\.)?{re.escape(bare_name)}\b(.*?)(?::=|by|\n\s*\n|$)"
+        match = re.search(pattern, content, flags=re.DOTALL)
+        if match:
+            raw = f"{bare_name} {match.group(1)}"
+            return normalize_statement(raw)
+    except Exception:
+        pass
+    return None
 
 
 import time_utils

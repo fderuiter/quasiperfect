@@ -75,9 +75,17 @@ if os.path.exists(manifest_path_for_macros):
         manifest_data_macros = json.load(mf)
 
     macro_to_sources = collections.defaultdict(list)
+    symbol_map_macros = manifest_data_macros.get(
+        "symbol_map", getattr(cert_util, "SYMBOL_MAP", {})
+    )
 
     for thm in manifest_data_macros.get("theorems", []):
         thm_name = thm["name"]
+        if symbol_map_macros and thm_name not in symbol_map_macros:
+            print(
+                f"Error: Theorem '{thm_name}' missing from explicit symbol map index."
+            )
+            sys.exit(1)
         macro = make_macro_name(thm_name)
         macro_to_sources[macro].append(thm_name)
         status_macro = f"{macro}Status"
@@ -269,13 +277,29 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
                     )
                     sys.exit(1)
 
-        # Write LaTeX macros
+        # Write LaTeX macros strictly through explicit symbol index
+        symbol_map_macros = manifest_data_macros.get(
+            "symbol_map", getattr(cert_util, "SYMBOL_MAP", {})
+        )
         for thm in manifest_data_macros.get("theorems", []):
             name = thm["name"]
+            if symbol_map_macros and name not in symbol_map_macros:
+                print(
+                    f"Error: Theorem '{name}' missing from explicit symbol map index."
+                )
+                sys.exit(1)
             status = thm["status"]
+            stmt_hash = (
+                thm.get("statement_hash")
+                or thm.get("statement_signature_hash")
+                or thm["checksum"]
+            )
             macro_name = make_macro_name(name)
             f.write(f"\\newcommand{{\\{macro_name}}}{{{thm['checksum']}}}\n")
             f.write(f"\\newcommand{{\\{macro_name}Status}}{{{status}}}\n")
+            f.write(
+                f"\\newcommand{{\\{macro_name}StatementHash}}{{{stmt_hash}}}\n"
+            )
 
         for fn, h in manifest_data_macros.get("verus_hashes", {}).items():
             macro_name = make_macro_name(fn)

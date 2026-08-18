@@ -512,34 +512,75 @@ def verify_certificate(cert_path, manifest_path):
                 sys.exit(1)
         print(f"✓ All {len(proof_files)} proof file checksums verified.")
 
-    # Verify per-theorem checksums
-    print("\n--- Verifying Theorem Checksums ---")
+    # Verify per-theorem checksums and normalized statement signature hashes via explicit symbol map
+    print("\n--- Verifying Explicit Symbol Map & Theorem Statement Hashes ---")
+    symbol_map = manifest.get("symbol_map", cert_util.SYMBOL_MAP)
+
     for thm in manifest.get("theorems", []):
+        thm_name = thm.get("name")
+        if not thm_name or thm_name not in symbol_map:
+            print(
+                f"ERROR: Unindexed theorem '{thm_name}' missing from explicit symbol map!"
+            )
+            sys.exit(1)
+
+        mapped_file = symbol_map[thm_name]
+        if thm.get("file") != mapped_file:
+            print(
+                f"ERROR: Theorem '{thm_name}' path mismatch between manifest entry ({thm.get('file')}) and explicit symbol map ({mapped_file})!"
+            )
+            sys.exit(1)
+
+        expected_stmt_hash = thm.get("statement_hash") or thm.get(
+            "statement_signature_hash"
+        )
+        if not expected_stmt_hash:
+            print(
+                f"ERROR: Missing normalized statement signature hash for theorem '{thm_name}'!"
+            )
+            sys.exit(1)
+
         if not verify_theorem_checksum(thm, manifest_path):
             print(
-                f"ERROR: Checksum mismatch for theorem '{thm['name']}' in {thm['file']}"
+                f"ERROR: Checksum mismatch for theorem '{thm_name}' in {thm['file']}"
             )
-            print(f"Expected: {thm.get('checksum')}")
-            # Compute physical hash for display if possible, otherwise metadata hash
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            file_path = os.path.join(base_dir, "lean4-proofs", thm["file"])
-            if not os.path.exists(file_path) and manifest_path:
-                manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
-                file_path = os.path.join(manifest_dir, "lean4-proofs", thm["file"])
-                if not os.path.exists(file_path):
-                    file_path = os.path.join(manifest_dir, thm["file"])
-            if not os.path.exists(file_path):
-                file_path = os.path.join("lean4-proofs", thm["file"])
-
-            if os.path.exists(file_path):
-                with open(file_path, "rb") as f:
-                    computed = hashlib.sha256(f.read()).hexdigest()
-            else:
-                payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-                computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-            print(f"Computed: {computed}")
             sys.exit(1)
-    print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
+
+        # Compute statement hash
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(base_dir, "lean4-proofs", mapped_file)
+        if not os.path.exists(file_path) and manifest_path:
+            manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+            file_path = os.path.join(manifest_dir, "lean4-proofs", mapped_file)
+            if not os.path.exists(file_path):
+                file_path = os.path.join(manifest_dir, mapped_file)
+        if not os.path.exists(file_path):
+            file_path = os.path.join("lean4-proofs", mapped_file)
+
+        if os.path.exists(file_path):
+            stmt = cert_util.extract_statement_from_file(file_path, thm_name)
+            if stmt:
+                computed_stmt_hash = cert_util.compute_statement_hash(stmt)
+            else:
+                payload = f"statement|{thm_name}|{mapped_file}|{thm.get('status')}"
+                computed_stmt_hash = hashlib.sha256(
+                    payload.encode("utf-8")
+                ).hexdigest()
+        else:
+            payload = f"statement|{thm_name}|{mapped_file}|{thm.get('status')}"
+            computed_stmt_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+        if computed_stmt_hash != expected_stmt_hash:
+            print(
+                f"ERROR: Statement signature hash mismatch for theorem '{thm_name}' in {mapped_file}"
+            )
+            print(f"Expected: {expected_stmt_hash}")
+            print(f"Computed: {computed_stmt_hash}")
+            sys.exit(1)
+
+    print(
+        f"✓ All {len(manifest.get('theorems', []))} theorem statement signature hashes and explicit symbol map entries verified."
+    )
 
     allowed_axioms = set()
     sorries = []

@@ -179,7 +179,7 @@ def check_lean_environment():
 
 def generate_manifest():
     has_lean = check_lean_environment()
-    manifest = {"theorems": []}
+    manifest = {"theorems": [], "symbol_map": cert_util.SYMBOL_MAP}
 
     # Load existing manifest to preserve statuses if Lean is missing
     existing_statuses = {}
@@ -260,6 +260,7 @@ def generate_manifest():
             has_error = True
 
     theorem_statuses = {}
+    theorem_statements = {}
     if has_lean:
         if "MOCK_LEAN" in os.environ:
             for thm in CORE_THEOREMS:
@@ -271,6 +272,7 @@ def generate_manifest():
                 f.write("import UALBF\n")
                 for thm in CORE_THEOREMS:
                     f.write(f"#print axioms {thm}\n")
+                    f.write(f"#check {thm}\n")
 
             result = subprocess.run(
                 ["lake", "env", "lean", lean_file],
@@ -287,6 +289,14 @@ def generate_manifest():
             output = result.stdout + result.stderr
 
             for thm in CORE_THEOREMS:
+                match = re.search(rf"\b{re.escape(thm)}\s*:\s*(.+)", output)
+                if not match:
+                    bare_name = thm.split(".")[-1]
+                    match = re.search(rf"\b{re.escape(bare_name)}\s*:\s*(.+)", output)
+                if match:
+                    stmt_raw = match.group(1).splitlines()[0].strip()
+                    theorem_statements[thm] = cert_util.normalize_statement(stmt_raw)
+
                 if result.returncode != 0 and thm + " depends on axioms:" not in output:
                     # If there was a hard failure and the theorem isn't even in output
                     theorem_statuses[thm] = "error"
@@ -340,17 +350,20 @@ def generate_manifest():
                         theorem_statuses[thm] = "error"
                         has_error = True
 
+    manifest["symbol_map"] = cert_util.SYMBOL_MAP
+
     for thm in CORE_THEOREMS:
-        # map name to file
-        # improve heuristic to find actual file
-        parts = thm.split(".")
-        rel_file = "UALBF.lean"
-        for i in range(len(parts) - 1, 0, -1):
-            possible_rel = "/".join(parts[:i]) + ".lean"
-            possible_path = os.path.join(cwd, possible_rel)
-            if os.path.exists(possible_path):
-                rel_file = possible_rel
-                break
+        if thm not in cert_util.SYMBOL_MAP:
+            print(f"Error: Symbol mapping missing for theorem '{thm}'", file=sys.stderr)
+            has_error = True
+            sys.exit(1)
+
+        rel_file = cert_util.SYMBOL_MAP[thm]
+        file_path = os.path.join(cwd, rel_file)
+        if not os.path.exists(file_path):
+            print(f"Error: Symbol target file '{rel_file}' for theorem '{thm}' not found", file=sys.stderr)
+            has_error = True
+            sys.exit(1)
 
         if not has_lean:
             status = existing_statuses.get(thm, "unverified")
@@ -359,8 +372,26 @@ def generate_manifest():
 
         checksum = theorem_checksum(thm, rel_file, status)
 
+        # Retrieve or compute normalized statement hash
+        stmt = theorem_statements.get(thm)
+        if not stmt and os.path.exists(file_path):
+            stmt = cert_util.extract_statement_from_file(file_path, thm)
+
+        if stmt:
+            stmt_hash = cert_util.compute_statement_hash(stmt)
+        else:
+            payload = f"statement|{thm}|{rel_file}|{status}"
+            stmt_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
         manifest["theorems"].append(
-            {"name": thm, "file": rel_file, "status": status, "checksum": checksum}
+            {
+                "name": thm,
+                "file": rel_file,
+                "status": status,
+                "checksum": checksum,
+                "statement_hash": stmt_hash,
+                "statement_signature_hash": stmt_hash,
+            }
         )
 
     # Add Verus-verified Rust component hashes

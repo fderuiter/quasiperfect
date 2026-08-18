@@ -4,214 +4,321 @@
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a",
+      "statement_hash": "b29d74d542138f0232cf4a015be8ef189dd88e3299db246b2ad8f8e94d2393ce",
+      "statement_signature_hash": "b29d74d542138f0232cf4a015be8ef189dd88e3299db246b2ad8f8e94d2393ce"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
-      "checksum": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+      "checksum": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38",
+      "statement_hash": "d8b9a631e56c1308f632dc5ec72db2c4608957b7d430dd40c9ea18dd20c3c563",
+      "statement_signature_hash": "d8b9a631e56c1308f632dc5ec72db2c4608957b7d430dd40c9ea18dd20c3c563"
     },
     {
       "name": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea",
+      "statement_hash": "e3500b75e621c6b3f3a4e6cac6a3451c0ac9aa5d870ca92d0ae18e2d42c6e43f",
+      "statement_signature_hash": "e3500b75e621c6b3f3a4e6cac6a3451c0ac9aa5d870ca92d0ae18e2d42c6e43f"
     },
     {
       "name": "UALBF.Engine.Bipartition.ambs_suffix_target",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea",
+      "statement_hash": "00d3ae68eabd51def2e8b506cc9deeb0316b08e55b4b8d6a8110d9b62646416a",
+      "statement_signature_hash": "00d3ae68eabd51def2e8b506cc9deeb0316b08e55b4b8d6a8110d9b62646416a"
     },
     {
       "name": "UALBF.Engine.Bipartition.no_solution_no_qpn",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea",
+      "statement_hash": "d55690b3367dd6e0aa25b72367fa29aead2ef4fc7856f47801b96c321c622dda",
+      "statement_signature_hash": "d55690b3367dd6e0aa25b72367fa29aead2ef4fc7856f47801b96c321c622dda"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811",
+      "statement_hash": "7dcfe0cd513caf2847283cdbeebca9884630998c03dfe5de829253527ad45b7d",
+      "statement_signature_hash": "7dcfe0cd513caf2847283cdbeebca9884630998c03dfe5de829253527ad45b7d"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811",
+      "statement_hash": "faf0da6bb415f84f540e79dafc0d9918484c7be3e02bf20417775b20111d5b42",
+      "statement_signature_hash": "faf0da6bb415f84f540e79dafc0d9918484c7be3e02bf20417775b20111d5b42"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+      "checksum": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811",
+      "statement_hash": "32242d8955cae73c9b0f976d9fa51cdfbbf97d0d6f70447cb7c5501b03373c5a",
+      "statement_signature_hash": "32242d8955cae73c9b0f976d9fa51cdfbbf97d0d6f70447cb7c5501b03373c5a"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
       "file": "UALBF/QPN/Obstruction.lean",
       "status": "proven",
-      "checksum": "8596f059f212a26c67db54bc0ce6463beca46b1df6a2050903c27942f8ec6ef5"
+      "checksum": "8596f059f212a26c67db54bc0ce6463beca46b1df6a2050903c27942f8ec6ef5",
+      "statement_hash": "ab59dde587c815c59e79958b233b4eea2ac4d93bf66d2cf674ffedb1e84dccbd",
+      "statement_signature_hash": "ab59dde587c815c59e79958b233b4eea2ac4d93bf66d2cf674ffedb1e84dccbd"
     },
     {
       "name": "UALBF.QPN.BasicProperties.qpn_is_odd_square",
       "file": "UALBF/QPN/BasicProperties.lean",
       "status": "proven",
-      "checksum": "8992defd0cff60fce435d433d20749c86bdc42ca822648993c86c1487a29abb6"
+      "checksum": "8992defd0cff60fce435d433d20749c86bdc42ca822648993c86c1487a29abb6",
+      "statement_hash": "8f261672e6371fe85835f7e6dc3229d2d38083eea7e2520463645ab89ddfe7e5",
+      "statement_signature_hash": "8f261672e6371fe85835f7e6dc3229d2d38083eea7e2520463645ab89ddfe7e5"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
       "status": "proven",
-      "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
+      "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9",
+      "statement_hash": "d1b6d6aa7af6a3e9fc0e94064d6850dcf3b071a5a4f50af75458fa09aaafab54",
+      "statement_signature_hash": "d1b6d6aa7af6a3e9fc0e94064d6850dcf3b071a5a4f50af75458fa09aaafab54"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
       "file": "UALBF/Engine/Obstruction.lean",
       "status": "proven",
-      "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7"
+      "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7",
+      "statement_hash": "879284dcf78cdd06f56bfe2d5d2b0ccbf096abb4e461eb0f27be32ea03269647",
+      "statement_signature_hash": "879284dcf78cdd06f56bfe2d5d2b0ccbf096abb4e461eb0f27be32ea03269647"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
       "file": "UALBF/Engine/Obstruction.lean",
       "status": "proven",
-      "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7"
+      "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7",
+      "statement_hash": "9ee7084b6a5a388cd4cd2dd1c12bf176f02b85417f9a36efdb60311d2dd9cb9b",
+      "statement_signature_hash": "9ee7084b6a5a388cd4cd2dd1c12bf176f02b85417f9a36efdb60311d2dd9cb9b"
     },
     {
       "name": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
       "file": "UALBF/QPN/TouchardQPN.lean",
       "status": "proven",
-      "checksum": "ea74bcd0b0504f867b312064a41584a5d43fee87049299889ca0f732d095316b"
+      "checksum": "ea74bcd0b0504f867b312064a41584a5d43fee87049299889ca0f732d095316b",
+      "statement_hash": "714e9432279293bae3c03dd5daa7baa23805cce9080fcd047008ba4f8a28bbad",
+      "statement_signature_hash": "714e9432279293bae3c03dd5daa7baa23805cce9080fcd047008ba4f8a28bbad"
     },
     {
       "name": "UALBF.Engine.TouchardBridge.touchard_bridge",
       "file": "UALBF/Engine/TouchardBridge.lean",
       "status": "proven",
-      "checksum": "4b18e1ce4fae9f6284a31b5cd5b904962d91348d3098b49e1c41761278c61b61"
+      "checksum": "4b18e1ce4fae9f6284a31b5cd5b904962d91348d3098b49e1c41761278c61b61",
+      "statement_hash": "2c3ba21d639b09d5f76df08950bcb0b1dbb1584eab612c8cf7a1e96ea6cc0621",
+      "statement_signature_hash": "2c3ba21d639b09d5f76df08950bcb0b1dbb1584eab612c8cf7a1e96ea6cc0621"
     },
     {
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0",
+      "statement_hash": "762fa669316c28284c9f6c09ad2ab6f33aa7dd81b1a325c66bb246e1f98eb6e6",
+      "statement_signature_hash": "762fa669316c28284c9f6c09ad2ab6f33aa7dd81b1a325c66bb246e1f98eb6e6"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0",
+      "statement_hash": "bd1697491a7360972b90e987f5f93d80fdac33ca4607ef8a0e8d7165186b83f4",
+      "statement_signature_hash": "bd1697491a7360972b90e987f5f93d80fdac33ca4607ef8a0e8d7165186b83f4"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0",
+      "statement_hash": "937059b058c9b587424ca144f713d5aaecef352a19685591e278279effb70751",
+      "statement_signature_hash": "937059b058c9b587424ca144f713d5aaecef352a19685591e278279effb70751"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "f57b24506e14f138829c0111e6d7a0088fce5a8045c193ba4f090b4de6473079",
+      "statement_signature_hash": "f57b24506e14f138829c0111e6d7a0088fce5a8045c193ba4f090b4de6473079"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "9a5fd12b239c375fb61a7e041cd0e0e9e13eba87f191ec170a5a076d30675cee",
+      "statement_signature_hash": "9a5fd12b239c375fb61a7e041cd0e0e9e13eba87f191ec170a5a076d30675cee"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "445d8520f9f0a9d2b8881157d7920b087ea9a074eec6c5bb28a648480f320b15",
+      "statement_signature_hash": "445d8520f9f0a9d2b8881157d7920b087ea9a074eec6c5bb28a648480f320b15"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "b8f9c56b3a19a244ddbc00a133112590a5a30cb08f4d4f127f6172cffd61c508",
+      "statement_signature_hash": "b8f9c56b3a19a244ddbc00a133112590a5a30cb08f4d4f127f6172cffd61c508"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "736d5ef200cb3a04225e688ec3654d23a11efaeb52803380807983ebd3b539e6",
+      "statement_signature_hash": "736d5ef200cb3a04225e688ec3654d23a11efaeb52803380807983ebd3b539e6"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "abc502ff35e1b5588e99c4ce1882fba42fe553b6f7eb4c1275c11c03e9eaaf6a",
+      "statement_signature_hash": "abc502ff35e1b5588e99c4ce1882fba42fe553b6f7eb4c1275c11c03e9eaaf6a"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "ba94210d8f35bb0f8ccf1b156cc29c35ad1c7e718e1913e3f6da42f826f84936",
+      "statement_signature_hash": "ba94210d8f35bb0f8ccf1b156cc29c35ad1c7e718e1913e3f6da42f826f84936"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
-      "file": "UALBF/FFI.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef",
+      "statement_hash": "4c2ddd383e3a3772bc95869cb99f1629ef958ff4bf947bfde80d3fb300d3d209",
+      "statement_signature_hash": "4c2ddd383e3a3772bc95869cb99f1629ef958ff4bf947bfde80d3fb300d3d209"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
       "file": "UALBF/Pure/ABCConjecture.lean",
       "status": "proven",
-      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
+      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a",
+      "statement_hash": "3df5e1f1dad549190121add3871f560009a784d62acc6adde487d93732ece41c",
+      "statement_signature_hash": "3df5e1f1dad549190121add3871f560009a784d62acc6adde487d93732ece41c"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
       "file": "UALBF/Pure/ABCConjecture.lean",
       "status": "proven",
-      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
+      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a",
+      "statement_hash": "5fdc38d8ad6fe8bc8a2f35007e38de05056ec3951141061dfe76709ee950adcc",
+      "statement_signature_hash": "5fdc38d8ad6fe8bc8a2f35007e38de05056ec3951141061dfe76709ee950adcc"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
-      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b",
+      "statement_hash": "d8d5335c76ddcbccebb378b5d073411019553ba2a3332c3443103b54af8f493d",
+      "statement_signature_hash": "d8d5335c76ddcbccebb378b5d073411019553ba2a3332c3443103b54af8f493d"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
-      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b",
+      "statement_hash": "5eea4059b03611966ccc4192e84b4bc89eeb60f7d631055da225c1ae54875a3e",
+      "statement_signature_hash": "5eea4059b03611966ccc4192e84b4bc89eeb60f7d631055da225c1ae54875a3e"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
-      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b",
+      "statement_hash": "a911f7adc6ab557db1150c7bb99e798bd1b14f6885ec7340712ad367bcf7b059",
+      "statement_signature_hash": "a911f7adc6ab557db1150c7bb99e798bd1b14f6885ec7340712ad367bcf7b059"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod7",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
-      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b",
+      "statement_hash": "ffb53f93782cdb2487be5e5575eed7504953eb5b9752fe0b964169b65d477506",
+      "statement_signature_hash": "ffb53f93782cdb2487be5e5575eed7504953eb5b9752fe0b964169b65d477506"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod11",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
-      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b",
+      "statement_hash": "7c6b669c448cd827fbbab64fd7319295c746d078044371446a07488b30c05299",
+      "statement_signature_hash": "7c6b669c448cd827fbbab64fd7319295c746d078044371446a07488b30c05299"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_soundness",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
-      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b",
+      "statement_hash": "cb641f7935addc2cf19902e6418a6b19d9c26cc88941faa570fa0a274f60c9e1",
+      "statement_signature_hash": "cb641f7935addc2cf19902e6418a6b19d9c26cc88941faa570fa0a274f60c9e1"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
-      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
+      "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b",
+      "statement_hash": "c331de29e137939f8a92fe7555b8237ceb8d0225116c67ce59035e66ab41bf79",
+      "statement_signature_hash": "c331de29e137939f8a92fe7555b8237ceb8d0225116c67ce59035e66ab41bf79"
     }
   ],
-  "verified_logic_hash": "2e1eb9976ebcf553bc3a80706dcd569c2d35948425b73f3fba2fa0181d3a0a29",
+  "symbol_map": {
+    "UALBF.Engine.CyclotomicGraph.forced_inclusion": "UALBF/Engine/CyclotomicGraph.lean",
+    "UALBF.Engine.SieveSoundness.rust_sieve_soundness": "UALBF/Engine/SieveSoundness.lean",
+    "UALBF.Engine.Bipartition.prefix_sigma_coprime": "UALBF/Engine/Bipartition.lean",
+    "UALBF.Engine.Bipartition.ambs_suffix_target": "UALBF/Engine/Bipartition.lean",
+    "UALBF.Engine.Bipartition.no_solution_no_qpn": "UALBF/Engine/Bipartition.lean",
+    "UALBF.QPN.AbundancyBound.qpn_abundancy_target": "UALBF/QPN/AbundancyBound.lean",
+    "UALBF.QPN.AbundancyBound.qpn_totient_bound": "UALBF/QPN/AbundancyBound.lean",
+    "UALBF.QPN.AbundancyBound.abundancy_starvation": "UALBF/QPN/AbundancyBound.lean",
+    "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction": "UALBF/QPN/Obstruction.lean",
+    "UALBF.QPN.BasicProperties.qpn_is_odd_square": "UALBF/QPN/BasicProperties.lean",
+    "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound": "UALBF/QPN/PrasadSunitha.lean",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_3": "UALBF/Engine/Obstruction.lean",
+    "UALBF.Engine.Obstruction.qpn_sigma_mod_9": "UALBF/Engine/Obstruction.lean",
+    "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24": "UALBF/QPN/TouchardQPN.lean",
+    "UALBF.Engine.TouchardBridge.touchard_bridge": "UALBF/Engine/TouchardBridge.lean",
+    "UALBF.FFI.fromU512_toU512": "UALBF/FFI.lean",
+    "UALBF.FFI.toU512_fromU512": "UALBF/FFI.lean",
+    "UALBF.FFI.modInverse_spec": "UALBF/FFI.lean",
+    "UALBF.FFI.U512.w0_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w1_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w2_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w3_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w4_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w5_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w6_mk": "UALBF/FFI_generated.lean",
+    "UALBF.FFI.U512.w7_mk": "UALBF/FFI_generated.lean",
+    "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling": "UALBF/Pure/ABCConjecture.lean",
+    "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound": "UALBF/Pure/ABCConjecture.lean",
+    "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod7": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_to_mod11": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.mod1155_soundness": "UALBF/Engine/Mod1155Bridge.lean",
+    "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound": "UALBF/Engine/Mod1155Bridge.lean"
+  },
+  "verified_logic_hash": "d4bf18c83b88c153a36d1a2b9fde7900138ad34d1516c1b4e52a71ed2e1106d8",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
