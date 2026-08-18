@@ -969,7 +969,11 @@ pub fn check_and_evaluate_node(
                 let target_log = ln_2 - a_curr.ln();
 
                 let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let epsilon = (2.0 + 1.0 / n_f64).ln() - ln_2;
+                let epsilon = if n_f64 > 0.0 {
+                    (0.5 / n_f64).ln_1p()
+                } else {
+                    0.0
+                };
 
                 let mut m = 0;
                 let mask = &curr.active_mask;
