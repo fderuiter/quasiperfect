@@ -530,7 +530,7 @@ fn main() {
         println!();
     }
 
-    if crate::manifest_constants::CONJECTURAL_ACTIVE {
+    if crate::lean_ffi::is_conjectural_active() {
         println!();
         println!(
             "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -834,7 +834,7 @@ fn main() {
             crate::lean_ffi::get_pollard_rho_iteration_limit(),
             config.sampling_rate,
             config.deterministic_seed,
-            Some(crate::manifest_constants::CONJECTURAL_ACTIVE),
+            Some(crate::lean_ffi::is_conjectural_active()),
             Some(crate::manifest_constants::CONJECTURE_NAME),
             serde_json::to_value(&explored_ranges_out).ok(),
             Some(&config.proof_mode),
@@ -909,12 +909,12 @@ fn main() {
             .unwrap_or(None),
     };
 
-    let is_cond = crate::manifest_constants::CONJECTURAL_ACTIVE;
+    let is_cond = crate::lean_ffi::is_conjectural_active();
     let conjecture_meta = if is_cond {
         Some(ConjectureMetadata {
             conditional: true,
             conjecture_name: crate::manifest_constants::CONJECTURE_NAME.to_string(),
-            conjectural_max_log10_ceiling: crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING,
+            conjectural_max_log10_ceiling: crate::lean_ffi::get_conjectural_max_log10_ceiling(),
         })
     } else {
         None
