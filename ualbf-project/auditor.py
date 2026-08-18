@@ -181,7 +181,11 @@ def generate_manifest():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
 
-    cwd = "lean4-proofs" if os.path.exists("lean4-proofs") else os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
+    cwd = (
+        "lean4-proofs"
+        if os.path.exists("lean4-proofs")
+        else os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
+    )
 
     # Load existing manifest to preserve statuses if Lean is missing and perform unmanifested file gate check
     existing_statuses = {}
@@ -221,7 +225,9 @@ def generate_manifest():
 
     # Gate: Fail immediately if any unmanifested source file exists on disk
     if existing_registered_files:
-        unmanifested = [df for df in disk_proof_files if df not in existing_registered_files]
+        unmanifested = [
+            df for df in disk_proof_files if df not in existing_registered_files
+        ]
         if unmanifested:
             for df in unmanifested:
                 print(
