@@ -831,9 +831,11 @@ verus! {
             is_sorted_descending_u128(sorted),
         ensures
             sorted.len() == input.len(),
-            forall|i: int| 0 <= i < sorted.len() - 1 ==> sorted[i] >= sorted[i + 1],
+            forall|i: int| 0 <= i < sorted.len() - 1 ==> #[trigger] sorted[i] >= sorted[i + 1],
             forall|i: int, j: int| 0 <= i <= j < sorted.len() ==> sorted[i] >= sorted[j],
     {
+        broadcast use vstd::seq_lib::group_to_multiset_ensures;
+        assert(sorted.to_multiset().len() == input.to_multiset().len());
         assert(sorted.len() == input.len());
     }
 
@@ -842,9 +844,9 @@ verus! {
             is_sorted_descending_u128(sorted),
             subset.len() <= k,
             k <= sorted.len(),
-            forall|i: int| 0 <= i < subset.len() ==> exists|j: int| 0 <= j < sorted.len() && subset[i] == sorted[j],
+            forall|i: int| 0 <= i < subset.len() ==> exists|j: int| 0 <= j < sorted.len() && #[trigger] subset[i] == sorted[j],
         ensures
-            forall|i: int| 0 <= i < subset.len() ==> subset[i] <= sorted[0],
+            forall|i: int| 0 <= i < subset.len() ==> #[trigger] subset[i] <= sorted[0],
     {
     }
 
@@ -855,6 +857,7 @@ verus! {
         p > 1 ==> fp_val * (p - 1) >= bound * p
     }
 
+    #[verifier(nonlinear)]
     pub proof fn verify_fixed_point_ceiling_upper_bound(bound: u128, p: u128)
         requires
             p > 1,
@@ -865,7 +868,7 @@ verus! {
                 bound as nat, p as nat, scale_bound_spec(bound as nat, p as nat)
             ),
     {
-        let res = scale_bound_ceil(bound, p);
-        assert(res as nat * (p as nat - 1) >= bound as nat * p as nat);
+        let res = scale_bound_spec(bound as nat, p as nat);
+        assert(res * (p as nat - 1) >= bound as nat * p as nat);
     }
 }
