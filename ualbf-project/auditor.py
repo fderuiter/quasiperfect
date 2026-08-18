@@ -377,13 +377,20 @@ def generate_manifest():
         f.write("\n")
 
     # Use verification-cli to compute the unified verified_logic_hash
-    cli_path = os.path.join(
+    cli_path1 = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "target",
+        "release",
+        "verification_cli",
+    )
+    cli_path2 = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
         "verification-lib",
         "target",
         "release",
         "verification_cli",
     )
+    cli_path = cli_path1 if os.path.exists(cli_path1) else cli_path2
     repo_root = os.path.dirname(os.path.abspath(__file__))
 
     # Fallback to cargo if binary is not pre-compiled
