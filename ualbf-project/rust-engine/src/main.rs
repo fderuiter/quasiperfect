@@ -290,6 +290,7 @@ mod tests {
             commit_hash: "dummy_commit".to_string(),
             verification_mode: "pure".to_string(),
             lattice_witnesses: None,
+            compositeness_witnesses: None,
         };
         let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
         assert_eq!(json_val["verification_mode"], "pure");
