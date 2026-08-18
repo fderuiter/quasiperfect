@@ -11,6 +11,16 @@ pub mod metal {
     pub struct ComputeCommandEncoderRef;
     #[derive(Clone, Debug)]
     pub struct Buffer;
+
+    impl ComputeCommandEncoderRef {
+        pub fn set_buffer(
+            &self,
+            _index: u64,
+            _buffer: Option<&super::MetalBufferType>,
+            _offset: u64,
+        ) {
+        }
+    }
 }
 
 pub trait MetalLayout {
