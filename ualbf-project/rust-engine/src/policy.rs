@@ -64,11 +64,7 @@ where
 }
 
 pub fn get_proof_mode() -> String {
-    if let Some(cfg) = CONFIG.get() {
-        cfg.proof_mode.clone()
-    } else {
-        get_proof_mode_from(env::args(), env::vars())
-    }
+    get_proof_mode_from(env::args(), env::vars())
 }
 
 pub fn get_safe_config() -> &'static EngineConfig {
@@ -153,6 +149,11 @@ where
                 }
                 k if k.contains("gpu") || k.contains("GPU") => {
                     // Deprecated GPU flag, warning already issued
+                }
+                "--nocapture" | "--exact" | "--test-threads" | "--format" | "--color"
+                | "--show-output" | "--bench" | "--ignored" | "--include-ignored" | "--quiet"
+                | "--list" => {
+                    // Ignore cargo test / libtest harness flags
                 }
                 _ => {
                     panic!(
