@@ -115,7 +115,11 @@ def verify_trace_file(cert, trace_path):
 
                     num_sccs = len(scc_components)
                     for u, scc_id in enumerate(scc_map):
-                        if not isinstance(scc_id, int) or scc_id < 0 or scc_id >= num_sccs:
+                        if (
+                            not isinstance(scc_id, int)
+                            or scc_id < 0
+                            or scc_id >= num_sccs
+                        ):
                             print(
                                 f"ERROR: Node {u} mapped to invalid scc_id {scc_id} (out of bounds)."
                             )
@@ -387,7 +391,9 @@ def verify_lattice_witnesses(cert, manifest_path):
                 num = sum(b[i][k] * b_star[j][k] for k in range(dim))
                 den = sum(b_star[j][k] * b_star[j][k] for k in range(dim))
                 if den == 0:
-                    print(f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}.")
+                    print(
+                        f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}."
+                    )
                     sys.exit(1)
                 mu[i][j] = Fraction(num, den)
                 for k in range(dim):
@@ -407,15 +413,15 @@ def verify_lattice_witnesses(cert, manifest_path):
         # delta parameter is exactly 3/4 (0.75)
         delta = Fraction(3, 4)
         for i in range(1, n):
-            s_prev = sum(b_star[i-1][k] * b_star[i-1][k] for k in range(dim))
+            s_prev = sum(b_star[i - 1][k] * b_star[i - 1][k] for k in range(dim))
             s_curr = sum(b_star[i][k] * b_star[i][k] for k in range(dim))
-            mu_val = mu[i][i-1]
+            mu_val = mu[i][i - 1]
             lhs = delta * s_prev
             rhs = s_curr + (mu_val * mu_val) * s_prev
             if lhs > rhs:
                 print(
                     f"ERROR: Witness {idx} violates Lovasz condition at index {i}: "
-                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{i,i-1}^2 * ||b_{i-1}^*||^2 = {rhs}."
+                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{i, i-1}^2 * ||b_{i-1}^*||^2 = {rhs}."
                 )
                 sys.exit(1)
 
