@@ -410,20 +410,24 @@ def generate_manifest():
         f.write("\n")
 
     # Use verification-cli to compute the unified verified_logic_hash
-    workspace_root = os.path.dirname(os.path.abspath(__file__))
-    cli_path = os.path.join(workspace_root, "target", "release", "verification_cli")
-    if not os.path.exists(cli_path):
-        cli_path = os.path.join(
-            workspace_root,
-            "verification-lib",
-            "target",
-            "release",
-            "verification_cli",
-        )
-    repo_root = workspace_root
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    candidate_cli_paths = [
+        os.path.join(repo_root, "target", "release", "verification_cli"),
+        os.path.join(
+            os.path.dirname(repo_root), "target", "release", "verification_cli"
+        ),
+        os.path.join(
+            repo_root, "verification-lib", "target", "release", "verification_cli"
+        ),
+    ]
+    cli_path = None
+    for cand in candidate_cli_paths:
+        if os.path.exists(cand):
+            cli_path = cand
+            break
 
     # Fallback to cargo if binary is not pre-compiled
-    if os.path.exists(cli_path):
+    if cli_path and os.path.exists(cli_path):
         result = subprocess.run(
             [cli_path, "hash-tcb", repo_root], capture_output=True, text=True
         )
@@ -456,7 +460,7 @@ def generate_manifest():
     manifest["verified_logic_hash"] = logic_hash
 
     # Compute extension hash
-    if os.path.exists(cli_path):
+    if cli_path and os.path.exists(cli_path):
         result_ext = subprocess.run(
             [cli_path, "hash-tcb", repo_root, "--extension"],
             capture_output=True,
