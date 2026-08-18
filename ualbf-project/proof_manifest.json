@@ -342,7 +342,7 @@
     },
     {
       "file": "UALBF/Pure/Cyclotomic.lean",
-      "checksum": "8ff661032f11340c8de201e1cfda24684e7b4514f4ccf96f7747ed529c955c86"
+      "checksum": "b69cf6cb7ca5172d0d4ea87fd64fb709e6c503316cf4e66ae448286b6016eb1e"
     },
     {
       "file": "UALBF/Pure/CyclotomicAlgebra.lean",
