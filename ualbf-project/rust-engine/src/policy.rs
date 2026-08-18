@@ -200,6 +200,8 @@ where
                 | "--ensure-time"
                 | "--help"
                 | "--version"
+                | "-"
+                | "--"
                 | "-h"
                 | "-q"
                 | "-v"
