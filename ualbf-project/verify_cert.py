@@ -249,7 +249,9 @@ def verify_lattice_witnesses(cert, manifest_path):
                 num = sum(b[i][k] * b_star[j][k] for k in range(dim))
                 den = sum(b_star[j][k] * b_star[j][k] for k in range(dim))
                 if den == 0:
-                    print(f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}.")
+                    print(
+                        f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}."
+                    )
                     sys.exit(1)
                 mu[i][j] = Fraction(num, den)
                 for k in range(dim):
@@ -269,9 +271,9 @@ def verify_lattice_witnesses(cert, manifest_path):
         # delta parameter is exactly 3/4 (0.75)
         delta = Fraction(3, 4)
         for i in range(1, n):
-            s_prev = sum(b_star[i-1][k] * b_star[i-1][k] for k in range(dim))
+            s_prev = sum(b_star[i - 1][k] * b_star[i - 1][k] for k in range(dim))
             s_curr = sum(b_star[i][k] * b_star[i][k] for k in range(dim))
-            mu_val = mu[i][i-1]
+            mu_val = mu[i][i - 1]
             lhs = delta * s_prev
             rhs = s_curr + (mu_val * mu_val) * s_prev
             if lhs > rhs:
