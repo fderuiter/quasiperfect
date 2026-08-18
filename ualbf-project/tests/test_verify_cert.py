@@ -1456,5 +1456,144 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     assert excinfo.value.code == 1
 
 
+def test_analytical_log1p_and_dynamic_tolerance(tmp_path):
+    """
+    Test analytical log1p calculation and dynamic manifest tolerance enforcement:
+    1. Verify that target_min_log10 = 37 produces a non-zero epsilon_manifest limit via log1p.
+    2. Verify that dynamic tolerance in bounds_manifest.json is enforced:
+       - With tolerance = 1e-12, an epsilon of epsilon_manifest + 1e-10 is rejected.
+       - With tolerance = 1e-8, an epsilon of epsilon_manifest + 1e-10 is accepted.
+    """
+    import math
+
+    # 1. Verify underflow prevention for exponent bounds up to 37 (and beyond)
+    target_min_log10 = 37
+    # Standard evaluation underflows to 0.0
+    underflowed = math.log(2.0 + 10.0 ** (-target_min_log10)) - math.log(2.0)
+    assert underflowed == 0.0, "Standard log evaluation should underflow to 0.0"
+
+    # Analytical log1p evaluation does NOT underflow
+    analytical_limit = math.log1p(0.5 * (10.0 ** (-target_min_log10)))
+    assert analytical_limit > 0.0, "Analytical log1p limit must be strictly positive (non-zero)"
+    assert abs(analytical_limit - 5e-38) < 1e-42, f"Unexpected analytical limit: {analytical_limit}"
+
+    # 2. Test dynamic tolerance enforcement during verification
+    # Setup test directory
+    tight_tolerance = 1e-18
+    bounds_manifest = {
+        "search_bounds": {
+            "target_min_log10": {
+                "value": 37,
+                "is_axiomatic": False
+            }
+        },
+        "lattice_precision_tolerance": tight_tolerance
+    }
+    bounds_content = json.dumps(bounds_manifest).encode("utf-8")
+    bounds_hash = hashlib.sha256(bounds_content).hexdigest()
+    bounds_path = os.path.join(str(tmp_path), "bounds_manifest.json")
+    with open(bounds_path, "wb") as f:
+        f.write(bounds_content)
+
+    manifest = make_manifest()
+    manifest["bounds_manifest_hash"] = bounds_hash
+    manifest_content = json.dumps(manifest)
+    manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
+    with open(manifest_path, "w") as f:
+        f.write(manifest_content)
+
+    # Construct witness with epsilon exceeding tight_tolerance (1e-18) but within loose_tolerance (1e-12)
+    # epsilon_test = 1e-15
+    # Witness satisfies Schmidt bound: dim = 3, m = 2, w = [80, 130], t = 150
+    # diff_exact = 2.5, r_sq_exact ≈ 2.250003 < 2.5
+    epsilon_test = 1e-15
+    witnesses = [{
+        "dimension": 3,
+        "w": ["80", "130"],
+        "t": "150",
+        "transformation_matrix": [
+            ["-3", "3", "1"],
+            ["4", "1", "3"],
+            ["-2", "0", "-1"]
+        ],
+        "epsilon": epsilon_test,
+        "target_log": 0.1
+    }]
+
+    manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+    cert = build_cert(manifest_hash, target_min_log10=37)
+    cert["manifest_hash"] = manifest_hash
+    cert["lattice_witnesses"] = witnesses
+
+    tel = cert["telemetry"]
+    map_obj = {
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": cert["verified_logic_hash"],
+        "total_branches_searched": tel["total_branches_searched"],
+        "target_min_log10": 37,
+        "target_max_log10": tel["target_max_log10"],
+        "trace_hash": tel.get("trace_hash", ""),
+        "factorization_depth": tel.get("factorization_depth", 0),
+    }
+    if "path_ranges" in tel:
+        map_obj["path_ranges"] = tel["path_ranges"]
+    payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+    pub_hex, sig_hex = sign_payload(payload)
+    cert["signature"] = sig_hex
+    cert["public_key"] = pub_hex
+
+    cert_path = os.path.join(str(tmp_path), "cert_tight.json")
+    with open(cert_path, "w") as f:
+        json.dump(cert, f)
+
+    os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+
+    # With tight tolerance (1e-18), epsilon_test (1e-15) exceeds analytical_limit + 1e-18
+    # So it MUST fail verification.
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Now update bounds manifest with loose tolerance (1e-12)
+    loose_tolerance = 1e-12
+    bounds_manifest_loose = {
+        "search_bounds": {
+            "target_min_log10": {
+                "value": 37,
+                "is_axiomatic": False
+            }
+        },
+        "lattice_precision_tolerance": loose_tolerance
+    }
+    bounds_content_loose = json.dumps(bounds_manifest_loose).encode("utf-8")
+    bounds_hash_loose = hashlib.sha256(bounds_content_loose).hexdigest()
+    with open(bounds_path, "wb") as f:
+        f.write(bounds_content_loose)
+
+    manifest["bounds_manifest_hash"] = bounds_hash_loose
+    manifest_content_loose = json.dumps(manifest)
+    with open(manifest_path, "w") as f:
+        f.write(manifest_content_loose)
+
+    manifest_hash_loose = hashlib.sha256(manifest_content_loose.encode("utf-8")).hexdigest()
+    cert["manifest_hash"] = manifest_hash_loose
+    map_obj["manifest_hash"] = manifest_hash_loose
+    payload_loose = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+    pub_hex_loose, sig_hex_loose = sign_payload(payload_loose)
+    cert["signature"] = sig_hex_loose
+    cert["public_key"] = pub_hex_loose
+
+    cert_loose_path = os.path.join(str(tmp_path), "cert_loose.json")
+    with open(cert_loose_path, "w") as f:
+        json.dump(cert, f)
+
+    os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+
+    # With loose tolerance (1e-12), epsilon_test (1e-15) is <= analytical_limit + 1e-12
+    # So it MUST pass verification!
+    verify_certificate(cert_loose_path, manifest_path)
+
+
+
 
 

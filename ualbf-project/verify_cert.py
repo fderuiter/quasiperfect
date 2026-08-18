@@ -167,9 +167,8 @@ def verify_lattice_witnesses(cert, manifest_path):
 
     # Scaled mathematical limit defined in the bounds manifest
     target_min_log10 = bounds_data["search_bounds"]["target_min_log10"]["value"]
-    # Epsilon tolerance limit: ln(2 + 10^-target_min_log10) - ln(2)
-    ln_2 = math.log(2.0)
-    epsilon_manifest = math.log(2.0 + 10.0 ** (-target_min_log10)) - ln_2
+    # Epsilon tolerance limit: ln(2 + 10^-target_min_log10) - ln(2) = ln(1 + 0.5 * 10^-target_min_log10)
+    epsilon_manifest = math.log1p(0.5 * (10.0 ** (-target_min_log10)))
 
     tolerance = bounds_data.get("lattice_precision_tolerance", 1e-9)
 
@@ -243,7 +242,9 @@ def verify_lattice_witnesses(cert, manifest_path):
                 num = sum(b[i][k] * b_star[j][k] for k in range(dim))
                 den = sum(b_star[j][k] * b_star[j][k] for k in range(dim))
                 if den == 0:
-                    print(f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}.")
+                    print(
+                        f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}."
+                    )
                     sys.exit(1)
                 mu[i][j] = Fraction(num, den)
                 for k in range(dim):
@@ -263,15 +264,15 @@ def verify_lattice_witnesses(cert, manifest_path):
         # delta parameter is exactly 3/4 (0.75)
         delta = Fraction(3, 4)
         for i in range(1, n):
-            s_prev = sum(b_star[i-1][k] * b_star[i-1][k] for k in range(dim))
+            s_prev = sum(b_star[i - 1][k] * b_star[i - 1][k] for k in range(dim))
             s_curr = sum(b_star[i][k] * b_star[i][k] for k in range(dim))
-            mu_val = mu[i][i-1]
+            mu_val = mu[i][i - 1]
             lhs = delta * s_prev
             rhs = s_curr + (mu_val * mu_val) * s_prev
             if lhs > rhs:
                 print(
                     f"ERROR: Witness {idx} violates Lovasz condition at index {i}: "
-                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{i,i-1}^2 * ||b_{i-1}^*||^2 = {rhs}."
+                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{i, i-1}^2 * ||b_{i-1}^*||^2 = {rhs}."
                 )
                 sys.exit(1)
 
@@ -283,7 +284,7 @@ def verify_lattice_witnesses(cert, manifest_path):
         diff_exact = Fraction(shortest_sq_norm, 1 << m) - Fraction(m)
 
         # 6. Check against scaled mathematical limits from the bounds manifest
-        if epsilon > epsilon_manifest + 1e-9:
+        if epsilon > epsilon_manifest + tolerance:
             print(
                 f"ERROR: Witness {idx} epsilon {epsilon:.4e} exceeds manifest limit {epsilon_manifest:.4e}."
             )

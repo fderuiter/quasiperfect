@@ -101,9 +101,9 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
     }
     let target_log = ln_2 - a_curr.ln();
 
-    // Define target tolerance epsilon = ln(2 + 1/N) - ln(2).
+    // Define target tolerance epsilon = ln(2 + 1/N) - ln(2) = ln(1 + 0.5/N).
     let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let epsilon = (2.0 + 1.0 / n_f64).ln() - ln_2;
+    let epsilon = (0.5 / n_f64).ln_1p();
 
     if target_log + epsilon < 0.0 {
         // Since subset sum must be positive, and target_log + epsilon is negative, we can never reach it.
