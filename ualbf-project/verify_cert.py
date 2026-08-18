@@ -14,7 +14,7 @@ TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
 def verify_trace_file(cert, trace_path):
     print("\n--- Verifying Trace ---")
     if not os.path.exists(trace_path):
-        print(f"ERROR: Trace file '{trace_path}' not found.")
+        print(f"ERROR: Trace file '{trace_path}' not found.", file=sys.stderr)
         sys.exit(1)
 
     with open(trace_path, "rb") as f:
@@ -23,7 +23,8 @@ def verify_trace_file(cert, trace_path):
     expected_hash = cert["telemetry"].get("trace_hash")
     if expected_hash and computed_hash != expected_hash:
         print(
-            f"ERROR: Trace hash mismatch!\nExpected: {expected_hash}\nGot:      {computed_hash}"
+            f"ERROR: Trace hash mismatch!\nExpected: {expected_hash}\nGot:      {computed_hash}",
+            file=sys.stderr,
         )
         sys.exit(1)
 
@@ -36,7 +37,7 @@ def verify_trace_file(cert, trace_path):
             for line in lines:
                 record = json.loads(line)
                 if not record.get("reason"):
-                    print(f"ERROR: Invalid trace record missing reason: {line}")
+                    print(f"ERROR: Invalid trace record missing reason: {line}", file=sys.stderr)
                     sys.exit(1)
 
                 # Check for abundancy bound variables if unconditional starvation
@@ -48,11 +49,12 @@ def verify_trace_file(cert, trace_path):
                         or "rhs" not in record
                     ):
                         print(
-                            f"ERROR: Trace record missing hypothesis variables: {line}"
+                            f"ERROR: Trace record missing hypothesis variables: {line}",
+                            file=sys.stderr,
                         )
                         sys.exit(1)
     except Exception as e:
-        print(f"ERROR: Trace format invalid: {e}")
+        print(f"ERROR: Trace format invalid: {e}", file=sys.stderr)
         sys.exit(1)
 
     print(
@@ -865,7 +867,4 @@ if __name__ == "__main__":
             )
             sys.exit(1)
 
-    if os.path.exists(args.trace):
-        verify_trace_file(cert, args.trace)
-    else:
-        print("\nWARNING: Trace file not provided or not found, skipping trace audit.")
+    verify_trace_file(cert, args.trace)

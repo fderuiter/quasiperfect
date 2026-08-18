@@ -19,7 +19,12 @@ import pytest  # type: ignore
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # type: ignore
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
-from verify_cert import verify_certificate, check_continuity, verify_telemetry_paths
+from verify_cert import (
+    verify_certificate,
+    check_continuity,
+    verify_telemetry_paths,
+    verify_trace_file,
+)
 from cert_util import load_and_validate_cert, CertificateValidationError
 
 # ---------------------------------------------------------------------------
@@ -245,6 +250,71 @@ class TestMissingFiles:
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
         assert exc_info.value.code != 0
+
+    def test_missing_trace_file_exits_1_direct(self, capsys):
+        manifest = make_manifest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
+        cert = build_cert(manifest_hash)
+        nonexistent_trace = "nonexistent_trace.jsonl"
+        with pytest.raises(SystemExit) as exc_info:
+            verify_trace_file(cert, nonexistent_trace)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert f"ERROR: Trace file '{nonexistent_trace}' not found." in captured.err
+
+    def test_missing_trace_file_subprocess(self):
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        tmp_dir = os.path.dirname(cert_path)
+        missing_trace_path = os.path.join(tmp_dir, "missing_trace.jsonl")
+
+        script_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
+        )
+        res = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                cert_path,
+                "--manifest",
+                manifest_path,
+                "--trace",
+                missing_trace_path,
+            ],
+            cwd=tmp_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 1
+        assert f"ERROR: Trace file '{missing_trace_path}' not found." in res.stderr
+
+    def test_default_missing_trace_file_subprocess(self):
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        tmp_dir = os.path.dirname(cert_path)
+
+        script_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
+        )
+        res = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                cert_path,
+                "--manifest",
+                manifest_path,
+            ],
+            cwd=tmp_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert res.returncode == 1
+        assert "ERROR: Trace file 'trace.jsonl' not found." in res.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -760,6 +830,10 @@ class TestAggregationE2E:
         write_signed_cert(1, 35, 40, [{"start_bound": [2], "end_bound": [2, 3]}])
         write_signed_cert(2, 30, 35, [{"start_bound": [], "end_bound": [2]}])
         write_signed_cert(3, 40, 45, [{"start_bound": [2, 3], "end_bound": []}])
+
+        # Write empty trace file for verification
+        with open(os.path.join(tmpdir, "trace.jsonl"), "w", encoding="utf-8") as f:
+            f.write("")
 
         script_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
