@@ -67,6 +67,9 @@ env/
 .pytest_cache/
 .mypy_cache/
 
+# Logs
+*.log
+
 # Nix Build and CI Outputs
 result*
 lean-built
