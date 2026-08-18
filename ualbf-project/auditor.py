@@ -384,6 +384,13 @@ def generate_manifest():
         "release",
         "verification_cli",
     )
+    if not os.path.exists(cli_path):
+        cli_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "target",
+            "release",
+            "verification_cli",
+        )
     repo_root = os.path.dirname(os.path.abspath(__file__))
 
     # Fallback to cargo if binary is not pre-compiled
