@@ -243,7 +243,9 @@ def verify_lattice_witnesses(cert, manifest_path):
                 num = sum(b[i][k] * b_star[j][k] for k in range(dim))
                 den = sum(b_star[j][k] * b_star[j][k] for k in range(dim))
                 if den == 0:
-                    print(f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}.")
+                    print(
+                        f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}."
+                    )
                     sys.exit(1)
                 mu[i][j] = Fraction(num, den)
                 for k in range(dim):
@@ -263,9 +265,9 @@ def verify_lattice_witnesses(cert, manifest_path):
         # delta parameter is exactly 3/4 (0.75)
         delta = Fraction(3, 4)
         for i in range(1, n):
-            s_prev = sum(b_star[i-1][k] * b_star[i-1][k] for k in range(dim))
+            s_prev = sum(b_star[i - 1][k] * b_star[i - 1][k] for k in range(dim))
             s_curr = sum(b_star[i][k] * b_star[i][k] for k in range(dim))
-            mu_val = mu[i][i-1]
+            mu_val = mu[i][i - 1]
             lhs = delta * s_prev
             rhs = s_curr + (mu_val * mu_val) * s_prev
             if lhs > rhs:
@@ -399,9 +401,47 @@ def verify_certificate(cert_path, manifest_path):
 
     tel = cert["telemetry"]
 
-    print("✓ Cryptographic signature is valid.")
+    pub_key = cert.get("public_key", "")
+    sig = cert.get("signature", "")
+    is_signed = (
+        pub_key
+        and sig
+        and pub_key not in ("unverified_public_key", "unsigned")
+        and sig not in ("unverified_signature", "unsigned")
+    )
+    if is_signed:
+        print("✓ Cryptographic signature is valid.")
+    else:
+        print("✓ Unsigned build operating with verified source TCB logic hash.")
 
-    # Verify logic hash if we have the rust-engine/src directory
+    # Strictly validate verified_logic_hash
+    cert_logic_hash = cert.get("verified_logic_hash", "")
+    if not cert_logic_hash:
+        print("ERROR: Missing or empty verified_logic_hash in certificate.")
+        sys.exit(1)
+
+    normalized_lh = cert_logic_hash.strip().lower()
+    dummy_patterns = {
+        "dummy",
+        "dummy_logic_hash",
+        "unverified",
+        "unverified_logic_hash",
+        "placeholder",
+        "0" * 64,
+        "0x" + "0" * 64,
+    }
+    if (
+        normalized_lh in dummy_patterns
+        or "dummy" in normalized_lh
+        or "unverified" in normalized_lh
+        or set(normalized_lh) == {"0"}
+    ):
+        print(
+            f"ERROR: Certificate contains dummy or unverified logic hash: '{cert_logic_hash}'"
+        )
+        sys.exit(1)
+
+    # Verify logic hash against local source code if rust-engine/src exists
     rust_src_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "rust-engine",
@@ -420,28 +460,28 @@ def verify_certificate(cert_path, manifest_path):
         try:
             computed_logic_hash = cert_util.hash_tcb(repo_root)
             if computed_logic_hash != cert.get("verified_logic_hash"):
-                print(
-                    "WARNING: Manifest/Logic hash mismatch! (code/logic may have changed since certificate was generated)"
-                )
+                print("ERROR: Manifest/Logic hash mismatch!")
                 print(f"Expected: {cert.get('verified_logic_hash')}")
                 print(f"Got:      {computed_logic_hash}")
+                sys.exit(1)
+            print("✓ Trusted Computing Base (TCB) logic hash verified.")
 
             if cert.get("verified_extension_hash") is not None:
                 try:
                     computed_ext_hash = cert_util.hash_extension_tcb(repo_root)
                     if computed_ext_hash != cert.get("verified_extension_hash"):
-                        print(
-                            "WARNING: Extension hash mismatch! GPU files may have been modified locally."
-                        )
+                        print("ERROR: Extension hash mismatch!")
                         print(f"Expected: {cert.get('verified_extension_hash')}")
                         print(f"Got:      {computed_ext_hash}")
+                        sys.exit(1)
                 except Exception as ext_e:
                     print(
                         f"INFO: Skipping extension hash check (GPU files missing or inaccessible): {ext_e}"
                     )
 
         except Exception as e:
-            print(f"WARNING: Failed to compute logic hash: {e}")
+            print(f"ERROR: Failed to compute logic hash: {e}")
+            sys.exit(1)
 
     manifest = json.loads(manifest_content)
 

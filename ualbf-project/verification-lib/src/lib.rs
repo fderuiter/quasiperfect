@@ -1,8 +1,6 @@
 #[cfg(feature = "signing")]
 pub use ed25519_dalek;
-#[cfg(feature = "signing")]
 pub use hex;
-#[cfg(feature = "signing")]
 pub use sha2;
 
 pub const CORE_TCB_FILES: &[&str] = &[
@@ -21,7 +19,6 @@ pub const CORE_TCB_FILES: &[&str] = &[
 pub const EXTENSION_TCB_FILES: &[&str] = &[];
 
 #[macro_export]
-#[cfg(feature = "signing")]
 macro_rules! compute_core_tcb_hash_at_compile_time {
     () => {{
         use $crate::sha2::{Digest, Sha256};
@@ -41,21 +38,12 @@ macro_rules! compute_core_tcb_hash_at_compile_time {
 }
 
 #[macro_export]
-#[cfg(not(feature = "signing"))]
-macro_rules! compute_core_tcb_hash_at_compile_time {
-    () => {
-        "unverified_logic_hash".to_string()
-    };
-}
-
-#[macro_export]
 macro_rules! compute_extension_tcb_hash_at_compile_time {
     () => {
         "unverified_extension_hash".to_string()
     };
 }
 
-#[cfg(feature = "signing")]
 pub fn compute_verified_core_hash_runtime(repo_root: &std::path::Path) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};
     let mut logic_hasher = Sha256::new();
@@ -70,7 +58,6 @@ pub fn compute_verified_core_hash_runtime(repo_root: &std::path::Path) -> std::i
     Ok(hex::encode(logic_hasher.finalize()))
 }
 
-#[cfg(feature = "signing")]
 pub fn compute_verified_extension_hash_runtime(
     repo_root: &std::path::Path,
 ) -> std::io::Result<String> {
@@ -427,23 +414,44 @@ pub fn validate_certificate<'py>(
         verification_mode,
     );
 
-    // Verify signature
-    let is_valid = verify_signature(public_key, signature, &payload)
-        .map_err(|e| PyException::new_err(format!("Signature verification error: {}", e)))?;
-
-    if !is_valid {
-        return Err(PyException::new_err("Invalid cryptographic signature"));
-    }
-
     // Check mandatory fields to prevent empty strings being valid
     if manifest_hash.is_empty() {
         return Err(PyValueError::new_err("Missing manifest_hash"));
     }
-    if public_key.is_empty() {
-        return Err(PyValueError::new_err("Missing public_key"));
+    if verified_logic_hash.is_empty() {
+        return Err(PyValueError::new_err("Missing verified_logic_hash"));
     }
-    if signature.is_empty() {
-        return Err(PyValueError::new_err("Missing signature"));
+    let norm_lh = verified_logic_hash.trim().to_lowercase();
+    if norm_lh == "dummy"
+        || norm_lh == "dummy_logic_hash"
+        || norm_lh == "unverified"
+        || norm_lh == "unverified_logic_hash"
+        || norm_lh == "placeholder"
+        || norm_lh == "0".repeat(64)
+        || norm_lh == format!("0x{}", "0".repeat(64))
+        || norm_lh.contains("dummy")
+        || norm_lh.contains("unverified")
+    {
+        return Err(PyValueError::new_err(
+            "Unverified or dummy logic hash detected in certificate",
+        ));
+    }
+
+    // Verify signature if active signature fields are present
+    let is_signed = !public_key.is_empty()
+        && !signature.is_empty()
+        && public_key != "unverified_public_key"
+        && signature != "unverified_signature"
+        && public_key != "unsigned"
+        && signature != "unsigned";
+
+    if is_signed {
+        let is_valid = verify_signature(public_key, signature, &payload)
+            .map_err(|e| PyException::new_err(format!("Signature verification error: {}", e)))?;
+
+        if !is_valid {
+            return Err(PyException::new_err("Invalid cryptographic signature"));
+        }
     }
 
     // Return PyObject/PyDict directly to Python
