@@ -8,4 +8,5 @@ env/
 .pytest_cache/
 .mypy_cache/
 lean-built
+*.log
 

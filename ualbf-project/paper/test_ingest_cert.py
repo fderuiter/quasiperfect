@@ -131,7 +131,11 @@ class TestCollisionDetection(unittest.TestCase):
                                 "status": "Verified",
                                 "checksum": "def",
                             },
-                        ]
+                        ],
+                        "symbol_map": {
+                            "fermat_3": "fermat_3.lean",
+                            "fermat.3": "fermat_3.lean",
+                        },
                     },
                     f,
                 )
