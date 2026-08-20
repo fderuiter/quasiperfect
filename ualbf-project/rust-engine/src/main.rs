@@ -141,6 +141,8 @@ struct Certificate {
     pub lattice_witnesses: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu_witnesses: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compositeness_witnesses: Option<serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -303,6 +305,7 @@ mod tests {
             verification_mode: "pure".to_string(),
             lattice_witnesses: None,
             gpu_witnesses: None,
+            compositeness_witnesses: None,
         };
         let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
         assert_eq!(json_val["verification_mode"], "pure");
@@ -795,6 +798,7 @@ fn main() {
     // Launch fused perfectly-balanced parallel pipeline!
     #[cfg(feature = "lattice")]
     crate::lattice::clear_lattice_witnesses();
+    crate::math_utils::clear_compositeness_witnesses();
 
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
@@ -1025,6 +1029,15 @@ fn main() {
         }
     };
 
+    let compositeness_witnesses = {
+        let witnesses = crate::math_utils::get_compositeness_witnesses();
+        if witnesses.is_empty() {
+            None
+        } else {
+            serde_json::to_value(witnesses).ok()
+        }
+    };
+
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
@@ -1040,6 +1053,7 @@ fn main() {
         verification_mode: config.proof_mode.clone(),
         lattice_witnesses,
         gpu_witnesses,
+        compositeness_witnesses,
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");

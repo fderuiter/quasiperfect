@@ -170,6 +170,104 @@ def mat_mul(U, B_init):
     return res
 
 
+def verify_compositeness_witnesses(cert, manifest_path):
+    print("\n--- Verifying Compositeness Witness Certificates ---")
+    compositeness_witnesses = cert.get("compositeness_witnesses")
+    if compositeness_witnesses is None:
+        if cert.get("node_certificates"):
+            compositeness_witnesses = []
+            for node in cert["node_certificates"]:
+                if node.get("compositeness_witnesses"):
+                    compositeness_witnesses.extend(node["compositeness_witnesses"])
+
+    if not compositeness_witnesses:
+        print("✓ No compositeness witness certificates to verify in certificate.")
+        return
+
+    for idx, witness_entry in enumerate(compositeness_witnesses):
+        if not isinstance(witness_entry, dict):
+            print(f"ERROR: Compositeness witness [{idx}] is not a valid JSON object.")
+            sys.exit(1)
+
+        candidate = witness_entry.get("candidate")
+        witness_type = witness_entry.get("witness_type")
+        witness = witness_entry.get("witness")
+
+        if candidate is None or witness_type is None or witness is None:
+            print(
+                f"ERROR: Compositeness witness [{idx}] missing required fields (candidate, witness_type, witness)."
+            )
+            sys.exit(1)
+
+        try:
+            n = int(candidate)
+            w = int(witness)
+        except (ValueError, TypeError):
+            print(
+                f"ERROR: Compositeness witness [{idx}] candidate or witness is not a valid integer."
+            )
+            sys.exit(1)
+
+        if n <= 1 or n >= (1 << 64):
+            print(
+                f"ERROR: Compositeness witness [{idx}] candidate {n} is out of domain [2, 2^64-1]."
+            )
+            sys.exit(1)
+
+        if witness_type == "divisor":
+            if w <= 1 or w >= n:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] divisor {w} must be in range (1, {n})."
+                )
+                sys.exit(1)
+            if n % w != 0:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] divisor {w} does not divide candidate {n}."
+                )
+                sys.exit(1)
+        elif witness_type == "miller_rabin":
+            if w <= 1 or w >= n:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] Miller-Rabin base {w} must be in range (1, {n})."
+                )
+                sys.exit(1)
+
+            d = n - 1
+            s = 0
+            while d % 2 == 0:
+                d //= 2
+                s += 1
+
+            x = pow(w, d, n)
+            if x == 1 or x == n - 1:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] base {w} is not a valid Miller-Rabin witness for {n} (x_0 = {x})."
+                )
+                sys.exit(1)
+
+            is_witness = True
+            for _ in range(s - 1):
+                x = pow(x, 2, n)
+                if x == n - 1:
+                    is_witness = False
+                    break
+
+            if not is_witness:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] base {w} is not a valid Miller-Rabin witness for {n}."
+                )
+                sys.exit(1)
+        else:
+            print(
+                f"ERROR: Compositeness witness [{idx}] unknown witness_type '{witness_type}'."
+            )
+            sys.exit(1)
+
+    print(
+        f"✓ Successfully verified {len(compositeness_witnesses)} compositeness witness certificates (all witnesses mathematically refute primality)."
+    )
+
+
 def compute_target_penalty(m, base=1000000000.0):
     if m < 2 or m > 16:
         return base
@@ -748,6 +846,7 @@ def verify_certificate(cert_path, manifest_path):
 
     verify_lattice_witnesses(cert, manifest_path)
     verify_gpu_witnesses(cert)
+    verify_compositeness_witnesses(cert, manifest_path)
 
     return cert
 
@@ -1004,6 +1103,11 @@ if __name__ == "__main__":
                 conjecture_info = c.get("conjecture")
                 break
 
+        all_comp_witnesses = []
+        for c in loaded_certs:
+            if c.get("compositeness_witnesses"):
+                all_comp_witnesses.extend(c["compositeness_witnesses"])
+
         master_cert = {
             "meta_manifest_hash": loaded_certs[0]["manifest_hash"],
             "aggregated_signatures": agg_sigs,
@@ -1012,6 +1116,9 @@ if __name__ == "__main__":
             "node_certificates": loaded_certs,
             "is_conditional": any_conditional,
             "conjecture": conjecture_info,
+            "compositeness_witnesses": (
+                all_comp_witnesses if all_comp_witnesses else None
+            ),
         }
 
         with open("meta_certificate.json", "w", encoding="utf-8") as f:
