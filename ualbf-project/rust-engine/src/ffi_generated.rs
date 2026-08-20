@@ -62,6 +62,8 @@ extern "C" {
         x_l_val: *mut crate::lean_ffi::lean_object,
     ) -> u8;
     pub static ualbf_logic_hash: *mut crate::lean_ffi::lean_object;
+    pub static ualbf_conjectural_active: u32;
+    pub static ualbf_conjectural_max_log10_ceiling: u32;
     pub fn ualbf_bloom_get_index(hash1: u64, hash2: u64, num_bits: u64, i: u32) -> u64;
 }
 

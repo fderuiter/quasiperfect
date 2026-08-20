@@ -24,6 +24,7 @@ pub mod verus_proofs;
 
 mod distributed;
 mod math_utils;
+pub mod metal_reflection;
 mod policy;
 mod raycast;
 mod schema_generated;
@@ -31,6 +32,7 @@ mod sieve;
 pub mod state;
 mod types;
 mod universal_bounds;
+pub mod unverified;
 
 #[cfg(feature = "lattice")]
 pub mod lattice;
@@ -135,6 +137,8 @@ struct Certificate {
     verification_mode: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lattice_witnesses: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpu_witnesses: Option<serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -295,6 +299,7 @@ mod tests {
             commit_hash: "dummy_commit".to_string(),
             verification_mode: "pure".to_string(),
             lattice_witnesses: None,
+            gpu_witnesses: None,
         };
         let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
         assert_eq!(json_val["verification_mode"], "pure");
@@ -532,7 +537,7 @@ fn main() {
         println!();
     }
 
-    if crate::manifest_constants::CONJECTURAL_ACTIVE {
+    if crate::lean_ffi::is_conjectural_active() {
         println!();
         println!(
             "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -561,105 +566,7 @@ fn main() {
 
     // --- Runtime Audit: Verus Specification Hashes ---
     let verus_content = include_str!("verus_proofs.rs");
-    let mut runtime_verus_hashes = std::collections::HashMap::new();
-    let mut current_fn = String::new();
-    let mut current_body = String::new();
-    let mut in_spec = false;
-    let mut brace_count = 0;
-    let mut module_stack: Vec<String> = Vec::new();
-    let mut module_brace_depth = 0;
-
-    for line in verus_content.lines() {
-        let trimmed = line.trim();
-
-        // Track module declarations
-        if !in_spec {
-            if trimmed.contains('{')
-                && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod "))
-            {
-                let mod_name = if trimmed.starts_with("pub mod ") {
-                    trimmed.strip_prefix("pub mod ").unwrap_or("")
-                } else {
-                    trimmed.strip_prefix("mod ").unwrap_or("")
-                };
-                let mod_name = mod_name.split('{').next().unwrap_or("").trim();
-                if !mod_name.is_empty() {
-                    module_stack.push(mod_name.to_string());
-                    if trimmed.contains('{') {
-                        module_brace_depth += 1;
-                    }
-                }
-            }
-        }
-
-        let kw_list = [
-            "pub spec fn ",
-            "pub open spec fn ",
-            "pub uninterp spec fn ",
-            "pub proof fn ",
-            "pub fn ",
-        ];
-        let mut matched_kw = None;
-        if !in_spec {
-            for kw in kw_list.iter() {
-                if line.contains(kw) {
-                    matched_kw = Some(*kw);
-                    break;
-                }
-            }
-        }
-
-        if !in_spec && matched_kw.is_some() {
-            let kw = matched_kw.unwrap();
-            let parts: Vec<&str> = line.split(kw).collect();
-            if parts.len() > 1 {
-                let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
-                // Build scope-qualified key
-                let qualified_name = if module_stack.is_empty() {
-                    bare_fn_name.clone()
-                } else {
-                    format!("{}::{}", module_stack.join("::"), bare_fn_name)
-                };
-                current_fn = qualified_name;
-                in_spec = true;
-                current_body = line.to_string();
-                brace_count = line.chars().filter(|&c| c == '{').count() as i32
-                    - line.chars().filter(|&c| c == '}').count() as i32;
-                if brace_count == 0 && line.contains('{') {
-                    let mut hasher = Sha256::new();
-                    hasher.update(current_body.as_bytes());
-                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                    in_spec = false;
-                }
-            }
-        } else if in_spec {
-            current_body.push('\n');
-            current_body.push_str(line);
-            brace_count += line.chars().filter(|&c| c == '{').count() as i32
-                - line.chars().filter(|&c| c == '}').count() as i32;
-            if brace_count == 0 {
-                let mut hasher = Sha256::new();
-                hasher.update(current_body.as_bytes());
-                runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                in_spec = false;
-            }
-        } else if !in_spec && module_brace_depth > 0 {
-            // Track module closing braces
-            let open_braces = line.chars().filter(|&c| c == '{').count();
-            let close_braces = line.chars().filter(|&c| c == '}').count();
-            module_brace_depth += open_braces;
-            if close_braces > 0 {
-                for _ in 0..close_braces {
-                    if module_brace_depth > 0 {
-                        module_brace_depth -= 1;
-                        if !module_stack.is_empty() {
-                            module_stack.pop();
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let runtime_verus_hashes = verification_lib::compute_verus_hashes(verus_content);
 
     if runtime_verus_hashes != manifest.verus_hashes {
         println!("ERROR: Runtime Verus specification hashes do not match the proof manifest!");
@@ -837,6 +744,11 @@ fn main() {
     let valid_components = sieve_result.components;
     let sigma_cache = sieve_result.sigma_cache;
 
+    // Run parallel CRT tensor convolutions and Bloom filter candidate generation on the GPU execution path, generating mathematical witnesses
+    let _gpu_bitmap =
+        crate::unverified::gpu::run_gpu_sieve_and_generate_witnesses(&valid_components, 1048576, 4)
+            .expect("GPU CRT Tensor Sieve and Bloom filter generation failed");
+
     // Precompute suffix-max abundance product array for DFS pruning.
     // We dynamically calculate the maximum possible depth before the 256-bit product overflows target_bound.
     let mut max_factors_needed = 0;
@@ -985,7 +897,7 @@ fn main() {
             crate::lean_ffi::get_pollard_rho_iteration_limit(),
             config.sampling_rate,
             config.deterministic_seed,
-            Some(crate::manifest_constants::CONJECTURAL_ACTIVE),
+            Some(crate::lean_ffi::is_conjectural_active()),
             Some(crate::manifest_constants::CONJECTURE_NAME),
             serde_json::to_value(&explored_ranges_out).ok(),
             Some(&config.proof_mode),
@@ -1060,12 +972,12 @@ fn main() {
             .unwrap_or(None),
     };
 
-    let is_cond = crate::manifest_constants::CONJECTURAL_ACTIVE;
+    let is_cond = crate::lean_ffi::is_conjectural_active();
     let conjecture_meta = if is_cond {
         Some(ConjectureMetadata {
             conditional: true,
             conjecture_name: crate::manifest_constants::CONJECTURE_NAME.to_string(),
-            conjectural_max_log10_ceiling: crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING,
+            conjectural_max_log10_ceiling: crate::lean_ffi::get_conjectural_max_log10_ceiling(),
         })
     } else {
         None
@@ -1083,6 +995,15 @@ fn main() {
     #[cfg(not(feature = "lattice"))]
     let lattice_witnesses = None;
 
+    let gpu_witnesses = {
+        let witnesses = crate::unverified::gpu::get_gpu_witnesses();
+        if witnesses.is_empty() {
+            None
+        } else {
+            serde_json::to_value(witnesses).ok()
+        }
+    };
+
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
@@ -1097,6 +1018,7 @@ fn main() {
         commit_hash: option_env!("GIT_HASH").unwrap_or("unknown").to_string(),
         verification_mode: config.proof_mode.clone(),
         lattice_witnesses,
+        gpu_witnesses,
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");

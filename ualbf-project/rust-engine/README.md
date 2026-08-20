@@ -145,4 +145,7 @@ To ensure 100% layout coverage and prevent documentation drift, the following co
 - `src/trace.rs`
 - `src/distributed.rs`
 - `src/lean_export.rs`
+- `src/metal_reflection.rs`
+- `src/unverified/mod.rs`
+- `src/unverified/gpu.rs`
 
