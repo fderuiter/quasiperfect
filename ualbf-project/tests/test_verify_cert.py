@@ -381,9 +381,9 @@ class TestPayloadFormat:
             "factorization_depth": factorization_depth,
         }
         local_cert = locals().get("cert")
-        if local_cert is not None and "path_ranges" in local_cert["telemetry"]:
+        if local_cert is not None and "path_ranges" in local_cert.get("telemetry", {}):
             map_obj["path_ranges"] = local_cert["telemetry"]["path_ranges"]
-        elif local_cert is not None and "inner_paths" in local_cert["telemetry"]:
+        elif local_cert is not None and "inner_paths" in local_cert.get("telemetry", {}):
             map_obj["path_ranges"] = local_cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
