@@ -4,7 +4,19 @@
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
+    },
+    {
+      "name": "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
+      "file": "UALBF/Engine/CyclotomicGraph.lean",
+      "status": "proven",
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
+    },
+    {
+      "name": "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
+      "file": "UALBF/Engine/CyclotomicGraph.lean",
+      "status": "proven",
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
@@ -211,7 +223,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "9822a36de220b52c2f5ab0aca3512d196a15e1bfad3c06349a04c026754329e2",
+  "verified_logic_hash": "60b60a0232fed97d3e66f9a88814404b5cf0c6538aa6f31081e58576f0a5a077",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_cdg_forced_kill": "fd5dceec55e366bafd28b764e97aa3b84b9d29653293695d4bb32059f1da07b5",
@@ -290,7 +302,7 @@
     },
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "checksum": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "checksum": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     {
       "file": "UALBF/Engine/Mod1155Bridge.lean",
@@ -397,7 +409,7 @@
     },
     "check_cdg_forced_kill": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lean_abundancy_starvation_theorem": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
@@ -413,7 +425,7 @@
     },
     "is_cdg_forced_pruned": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_sigma_multiplicative": {
       "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
@@ -457,11 +469,11 @@
     },
     "zsigmondy_preconditions_satisfied": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "proof_verify_zsigmondy_preconditions": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_composite_has_prime_factor_le_sqrt": {
       "lean_theorem": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
@@ -481,35 +493,35 @@
     },
     "lemma_order_exists": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_order_prime_factor": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_divisibility_bounds": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_fermat_little_theorem": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_order_le_p_minus_1": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_square_comparison_contradiction": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_f_squared_gt_n_minus_1": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     },
     "lemma_pocklington_certificate": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+      "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     }
   }
 }
