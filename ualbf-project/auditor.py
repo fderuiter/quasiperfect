@@ -537,6 +537,7 @@ def check_documentation(manifest):
         "test_env",
         "env",
         ".env",
+        "vendor",
     }
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
@@ -630,6 +631,7 @@ def check_documentation(manifest):
         "test_env",
         "env",
         ".env",
+        "vendor",
     }
     for root, dirs, files in os.walk(manifest_dir):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
