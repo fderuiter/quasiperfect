@@ -236,6 +236,9 @@ def verify_compositeness_witnesses(cert, manifest_path):
 
     print(
         f"✓ Successfully verified {len(compositeness_witnesses)} compositeness witness certificates (all witnesses mathematically refute primality)."
+    )
+
+
 def verify_gpu_witnesses(cert):
     print("\n--- Verifying GPU-Accelerated CRT & Bloom Filter Witnesses ---")
     gpu_witnesses = cert.get("gpu_witnesses")
