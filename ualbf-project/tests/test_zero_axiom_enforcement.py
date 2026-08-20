@@ -43,7 +43,9 @@ def test_auditor_rejects_legacy_axiom():
          mock.patch("auditor.check_lean_environment", return_value=True), \
          mock.patch("auditor.check_documentation", return_value=True), \
          mock.patch("auditor.check_imports", return_value=True), \
+         mock.patch.dict(os.environ, {}, clear=False), \
          tempfile.TemporaryDirectory() as tmpdir:
+        os.environ.pop("MOCK_LEAN", None)
         
         # Point auditor to write to the temp directory
         old_cwd = os.getcwd()

@@ -51,6 +51,7 @@ def test_guarded_rebuild_success():
 
         # Build environment
         env = os.environ.copy()
+        env.pop("MOCK_LEAN", None)
         env["LEAN_SYSROOT"] = str(fake_sysroot)
         env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
 
@@ -118,6 +119,7 @@ def test_guarded_rebuild_failure():
 
         # Build environment
         env = os.environ.copy()
+        env.pop("MOCK_LEAN", None)
         env["LEAN_SYSROOT"] = str(fake_sysroot)
         env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
 
