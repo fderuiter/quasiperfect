@@ -36,7 +36,7 @@ verus! {
     pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool { false }
 
     pub proof fn prove_prime_split_threshold_equivalence()
-        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) >= lean_prime_split_threshold()
+        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) == lean_prime_split_threshold()
     {}
 
     pub proof fn prove_prasad_sunitha_bound_equivalence()

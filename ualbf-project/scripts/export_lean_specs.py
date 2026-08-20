@@ -282,7 +282,7 @@ verus! {{
     pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
 
     pub proof fn prove_prime_split_threshold_equivalence()
-        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) >= lean_prime_split_threshold()
+        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) == lean_prime_split_threshold()
     {{}}
 
     pub proof fn prove_prasad_sunitha_bound_equivalence()
@@ -552,12 +552,13 @@ def generate_ffi(repo_root, schema, schema_hash):
 
     if crt_export is None:
         import sys
+
         print(
             "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
             "Expected canonical export function 'ualbf_check_crt_1155' was not found.\n"
             "Target file location: lean4-proofs/UALBF/FFI.lean\n"
             "Please ensure the modulo-1155 Chinese Remainder Theorem check is annotated with @[export ualbf_check_crt_1155].",
-            file=sys.stderr
+            file=sys.stderr,
         )
         sys.exit(1)
 
@@ -585,6 +586,7 @@ def generate_ffi(repo_root, schema, schema_hash):
 
     if not valid_sig:
         import sys
+
         print(
             "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
             f"The signature of '{name}' is invalid.\n"
@@ -594,7 +596,7 @@ def generate_ffi(repo_root, schema, schema_hash):
             "Expected return type: 'Bool'\n"
             "Target file location: lean4-proofs/UALBF/FFI.lean\n"
             "Please ensure the function accepts two parameters of type '@& U512' and returns 'Bool'.",
-            file=sys.stderr
+            file=sys.stderr,
         )
         sys.exit(1)
 
@@ -705,13 +707,9 @@ def main():
         )
 
         # Validation checks on configuration parameters
-        if prime_split_threshold < 7:
+        if prime_split_threshold != 61:
             raise ValueError(
-                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be at least 7 to satisfy mathematical safety invariants."
-            )
-        if prime_split_threshold % 2 == 0:
-            raise ValueError(
-                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be an odd prime."
+                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) does not equal the baseline of 61. The threshold must equal 61."
             )
 
         pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"][
