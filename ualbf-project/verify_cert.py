@@ -289,6 +289,12 @@ def mat_mul(U, B_init):
     return res
 
 
+def compute_target_penalty(m, base=1000000000.0):
+    if m < 2 or m > 16:
+        return base
+    return base * (1 << (m - 2))
+
+
 def verify_gpu_witnesses(cert):
     print("\n--- Verifying GPU-Accelerated CRT & Bloom Filter Witnesses ---")
     gpu_witnesses = cert.get("gpu_witnesses")
@@ -452,11 +458,11 @@ def verify_lattice_witnesses(cert, manifest_path):
 
     # Scaled mathematical limit defined in the bounds manifest
     target_min_log10 = bounds_data["search_bounds"]["target_min_log10"]["value"]
-    # Epsilon tolerance limit: ln(2 + 10^-target_min_log10) - ln(2)
-    ln_2 = math.log(2.0)
-    epsilon_manifest = math.log(2.0 + 10.0 ** (-target_min_log10)) - ln_2
+    # Epsilon tolerance limit: ln(1 + 0.5 * 10^-target_min_log10) using log1p to avoid cancellation loss
+    epsilon_manifest = math.log1p(0.5 * 10.0 ** (-target_min_log10))
 
     tolerance = bounds_data.get("lattice_precision_tolerance", 1e-9)
+    base_penalty = bounds_data.get("lattice_target_penalty_base", 1000000000.0)
 
     print(
         f"Using bounds manifest target_min_log10 = {target_min_log10} (epsilon limit = {epsilon_manifest:.4e})"
@@ -576,7 +582,8 @@ def verify_lattice_witnesses(cert, manifest_path):
             )
             sys.exit(1)
 
-        r_exact = Fraction(dim, 2) + Fraction(1000000000) * Fraction(epsilon)
+        penalty = compute_target_penalty(m, base_penalty)
+        r_exact = Fraction(dim, 2) + Fraction(int(penalty)) * Fraction(epsilon)
         r_sq_exact = r_exact * r_exact
 
         # Evaluate whether exact Schmidt bound meets the minimum required search radius without applying any positive tolerance offset
