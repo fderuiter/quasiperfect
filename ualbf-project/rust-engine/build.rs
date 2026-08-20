@@ -38,11 +38,18 @@ struct Theorem {
 }
 
 #[derive(Deserialize)]
+struct GhostBinding {
+    lean_theorem: String,
+    theorem_hash: String,
+}
+
+#[derive(Deserialize)]
 struct ProofManifest {
     theorems: Vec<Theorem>,
     verified_logic_hash: String,
     verified_extension_hash: String,
     verus_hashes: HashMap<String, String>,
+    ghost_pruning_bindings: Option<HashMap<String, GhostBinding>>,
     proof_files: Vec<serde_json::Value>,
     bounds_manifest_hash: String,
 }
@@ -449,6 +456,58 @@ fn main() {
         }
     }
 
+    // --- Ghost Pruning Assumption Binding Validation ---
+    let required_ghost_functions = [
+        "check_starvation_kill",
+        "check_cdg_forced_kill",
+        "lean_abundancy_starvation_theorem",
+        "verify_starvation_pruning",
+        "lemma_sigma_multiplicative",
+        "lemma_disjoint_by_construction",
+    ];
+
+    if let Some(ref bindings) = proof_manifest.ghost_pruning_bindings {
+        let thm_map: HashMap<String, &Theorem> = proof_manifest
+            .theorems
+            .iter()
+            .map(|t| (t.name.clone(), t))
+            .collect();
+
+        for fn_name in &required_ghost_functions {
+            let binding = match bindings.get(*fn_name) {
+                Some(b) => b,
+                None => panic!(
+                    "FATAL: Search pruning assumption '{}' lacks a matching Lean 4 manifest entry in ghost_pruning_bindings!",
+                    fn_name
+                ),
+            };
+
+            let target_thm = match thm_map.get(&binding.lean_theorem) {
+                Some(t) => t,
+                None => panic!(
+                    "FATAL: Search pruning assumption '{}' references unknown Lean theorem '{}'!",
+                    fn_name, binding.lean_theorem
+                ),
+            };
+
+            if target_thm.status != "proven" {
+                panic!(
+                    "FATAL: Lean theorem '{}' bound to pruning assumption '{}' is incomplete (status: {}). Compilation halted.",
+                    target_thm.name, fn_name, target_thm.status
+                );
+            }
+
+            if target_thm.checksum != binding.theorem_hash {
+                panic!(
+                    "FATAL: SHA-256 hash mismatch for Lean theorem '{}' bound to pruning assumption '{}'! Expected: '{}', Found in binding: '{}'",
+                    target_thm.name, fn_name, target_thm.checksum, binding.theorem_hash
+                );
+            }
+        }
+    } else {
+        panic!("FATAL: proof_manifest.json is missing required 'ghost_pruning_bindings' field!");
+    }
+
     // --- Runtime Verus Hash Verification ---
     let verus_proofs_path = PathBuf::from(&manifest_dir).join("src/verus_proofs.rs");
     if verus_proofs_path.exists() {
@@ -461,102 +520,7 @@ fn main() {
         {
             panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
         }
-        let mut runtime_verus_hashes = HashMap::new();
-        let mut current_fn = String::new();
-        let mut current_body = String::new();
-        let mut in_spec = false;
-        let mut brace_count = 0;
-        let mut module_stack: Vec<String> = Vec::new();
-        let mut module_brace_depth = 0;
-
-        for line in verus_content.lines() {
-            let trimmed = line.trim();
-            if !in_spec {
-                if trimmed.contains('{')
-                    && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod "))
-                {
-                    let mod_name = if trimmed.starts_with("pub mod ") {
-                        trimmed.strip_prefix("pub mod ").unwrap_or("")
-                    } else {
-                        trimmed.strip_prefix("mod ").unwrap_or("")
-                    };
-                    let mod_name = mod_name.split('{').next().unwrap_or("").trim();
-                    if !mod_name.is_empty() {
-                        module_stack.push(mod_name.to_string());
-                        if trimmed.contains('{') {
-                            module_brace_depth += 1;
-                        }
-                    }
-                }
-            }
-
-            let kw_list = [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub proof fn ",
-                "pub fn ",
-            ];
-            let mut matched_kw = None;
-            if !in_spec {
-                for kw in kw_list.iter() {
-                    if line.contains(kw) {
-                        matched_kw = Some(*kw);
-                        break;
-                    }
-                }
-            }
-
-            if !in_spec && matched_kw.is_some() {
-                let kw = matched_kw.unwrap();
-                let parts: Vec<&str> = line.split(kw).collect();
-                if parts.len() > 1 {
-                    let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
-                    let qualified_name = if module_stack.is_empty() {
-                        bare_fn_name.clone()
-                    } else {
-                        format!("{}::{}", module_stack.join("::"), bare_fn_name)
-                    };
-                    current_fn = qualified_name;
-                    in_spec = true;
-                    current_body = line.to_string();
-                    brace_count = line.chars().filter(|&c| c == '{').count() as i32
-                        - line.chars().filter(|&c| c == '}').count() as i32;
-                    if brace_count == 0 && line.contains('{') {
-                        let mut hasher = sha2::Sha256::new();
-                        sha2::Digest::update(&mut hasher, current_body.as_bytes());
-                        runtime_verus_hashes
-                            .insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                        in_spec = false;
-                    }
-                }
-            } else if in_spec {
-                current_body.push('\n');
-                current_body.push_str(line);
-                brace_count += line.chars().filter(|&c| c == '{').count() as i32
-                    - line.chars().filter(|&c| c == '}').count() as i32;
-                if brace_count == 0 {
-                    let mut hasher = sha2::Sha256::new();
-                    sha2::Digest::update(&mut hasher, current_body.as_bytes());
-                    runtime_verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
-                    in_spec = false;
-                }
-            } else if !in_spec && module_brace_depth > 0 {
-                let open_braces = line.chars().filter(|&c| c == '{').count();
-                let close_braces = line.chars().filter(|&c| c == '}').count();
-                module_brace_depth += open_braces;
-                if close_braces > 0 {
-                    for _ in 0..close_braces {
-                        if module_brace_depth > 0 {
-                            module_brace_depth -= 1;
-                            if !module_stack.is_empty() {
-                                module_stack.pop();
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        let runtime_verus_hashes = verification_lib::compute_verus_hashes(&verus_content);
 
         if runtime_verus_hashes != proof_manifest.verus_hashes {
             panic!("FATAL: Runtime Verus specification hashes do not match the proof manifest!");
