@@ -67,6 +67,8 @@ env/
 .env/
 .pytest_cache/
 .mypy_cache/
+overflow_sidecar.log
+make_check.log
 
 # Nix Build and CI Outputs
 result*
