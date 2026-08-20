@@ -138,7 +138,7 @@ def build_cert(
     target_max_log10: int = 37,
     target_min_log10: int = 35,
     tamper_sig: bool = False,
-    path_ranges: list = None,
+    path_ranges: list | None = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
     if verified_logic_hash is None:
@@ -389,10 +389,11 @@ class TestPayloadFormat:
             "trace_hash": trace_hash,
             "factorization_depth": factorization_depth,
         }
-        if "cert" in locals() and "path_ranges" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["path_ranges"]
-        elif "cert" in locals() and "inner_paths" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["inner_paths"]
+        local_cert = locals().get("cert")
+        if local_cert is not None and "path_ranges" in local_cert["telemetry"]:
+            map_obj["path_ranges"] = local_cert["telemetry"]["path_ranges"]
+        elif local_cert is not None and "inner_paths" in local_cert["telemetry"]:
+            map_obj["path_ranges"] = local_cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
@@ -1037,7 +1038,6 @@ class TestPathContinuityValidation:
 
     def test_path_ranges_multiple_gaps(self, tmp_path, monkeypatch):
         """Test detection of multiple gaps in the path chain."""
-        manifest = make_manifest()
         # [2] to [3] is missing, [4] to [] is missing
         path_ranges = [
             {"start_bound": [], "end_bound": [2]},
@@ -1076,7 +1076,7 @@ class TestPathContinuityValidation:
             path_ranges.append({"start_bound": [i], "end_bound": [i + 1]})
         path_ranges.append({"start_bound": [9999], "end_bound": []})
 
-        import verification_lib
+        import verification_lib  # type: ignore
 
         path_ranges_json = json.dumps(path_ranges)
 
@@ -1095,7 +1095,7 @@ class TestPathContinuityValidation:
 class TestDirectMappingAndSchemaEnforcement:
     def test_null_byte_injection(self):
         """No certificate content preceding a null-byte can be parsed separately; fails immediately."""
-        import verification_lib
+        import verification_lib  # type: ignore
 
         raw_json_with_null = '{"manifest_hash": "abc", "\0": "tampered"}'
         with pytest.raises(ValueError, match="Null byte detected"):
@@ -1139,7 +1139,7 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["public_key"] = pub_hex
 
         # Check it passes first
-        import verification_lib
+        import verification_lib  # type: ignore
 
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         res = verification_lib.validate_certificate(json.dumps(cert))
@@ -1190,7 +1190,7 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
 
-        import verification_lib
+        import verification_lib  # type: ignore
 
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         with pytest.raises(
@@ -1534,3 +1534,146 @@ class TestStrictLogicHashVerification:
         cert["signature"] = "unverified_signature"
         cert_path, manifest_path = write_files(manifest, cert)
         verify_certificate(cert_path, manifest_path)
+
+
+def test_verify_gpu_witnesses_cases(tmp_path):
+    """
+    Validates that:
+    1. Valid GPU witnesses successfully pass offline verification.
+    2. Invalid GPU residue/congruence is rejected.
+    3. Invalid Bloom filter index is rejected.
+    """
+    import os
+    import json
+    import struct
+    import hashlib
+    import pytest
+    from verify_cert import verify_certificate
+
+    # Helper to calculate hashes & indices
+    def get_component_hashes(p: int, two_e: int) -> tuple[int, int]:
+        data = struct.pack(">Q I", p, two_e)
+        h = hashlib.sha256(data).digest()
+        hash1 = struct.unpack(">Q", h[0:8])[0]
+        hash2 = struct.unpack(">Q", h[8:16])[0]
+        return hash1, hash2
+
+    def ualbf_bloom_get_index(hash1: int, hash2: int, num_bits: int, i: int) -> int:
+        cur = hash1 + i * hash2 + (i * (i - 1)) // 2
+        max_bits = 1 if num_bits == 0 else num_bits
+        return cur % max_bits
+
+    # 1. Create a mock bounds manifest
+    bounds_manifest = {
+        "search_bounds": {"target_min_log10": {"value": 37, "is_axiomatic": False}},
+        "lattice_precision_tolerance": 1e-9,
+    }
+    bounds_content = json.dumps(bounds_manifest).encode("utf-8")
+    bounds_hash = hashlib.sha256(bounds_content).hexdigest()
+    bounds_path = os.path.join(str(tmp_path), "bounds_manifest.json")
+    with open(bounds_path, "wb") as f:
+        f.write(bounds_content)
+
+    # 2. Create a mock manifest
+    manifest = make_manifest()
+    manifest["bounds_manifest_hash"] = bounds_hash
+    manifest_content = json.dumps(manifest)
+    manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
+    with open(manifest_path, "w") as f:
+        f.write(manifest_content)
+
+    # Re-sign helper to build valid certified payload
+    def build_signed_cert_with_gpu_witnesses(witnesses):
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+        cert = build_cert(manifest_hash)
+        cert["manifest_hash"] = manifest_hash
+        cert["gpu_witnesses"] = witnesses
+
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 37),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+        }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+        return cert
+
+    # Component p=3, two_e=2 -> residues:
+    # mod 3: 1+3+9 = 13 = 1
+    # mod 5: 1+3+9 = 13 = 3
+    # mod 7: 1+3+9 = 13 = 6
+    # mod 11: 1+3+9 = 13 = 2
+    # Not obstructed, so obstructing_modulus = 0, is_obstructed = False
+    h1, h2 = get_component_hashes(3, 2)
+    b_idx = [ualbf_bloom_get_index(h1, h2, 1048576, i) for i in range(4)]
+
+    valid_gpu_witnesses = [
+        {
+            "p": 3,
+            "two_e": 2,
+            "is_obstructed": False,
+            "obstructing_modulus": 0,
+            "residues": [1, 3, 6, 2],
+            "bloom_indices": b_idx,
+        }
+    ]
+
+    # Case 1: Valid passes
+    cert_valid = build_signed_cert_with_gpu_witnesses(valid_gpu_witnesses)
+    cert_valid_path = os.path.join(str(tmp_path), "cert_gpu_valid.json")
+    with open(cert_valid_path, "w") as f:
+        json.dump(cert_valid, f)
+
+    os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+    verify_certificate(cert_valid_path, manifest_path)
+
+    # Case 2: Invalid residue rejected
+    invalid_res_witnesses = [
+        {
+            "p": 3,
+            "two_e": 2,
+            "is_obstructed": False,
+            "obstructing_modulus": 0,
+            "residues": [9, 3, 6, 2],  # 9 is wrong mod 3
+            "bloom_indices": b_idx,
+        }
+    ]
+    cert_invalid_res = build_signed_cert_with_gpu_witnesses(invalid_res_witnesses)
+    cert_invalid_res_path = os.path.join(str(tmp_path), "cert_gpu_invalid_res.json")
+    with open(cert_invalid_res_path, "w") as f:
+        json.dump(cert_invalid_res, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_res_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 3: Invalid bloom index rejected
+    wrong_b_idx = list(b_idx)
+    wrong_b_idx[0] += 1
+    invalid_idx_witnesses = [
+        {
+            "p": 3,
+            "two_e": 2,
+            "is_obstructed": False,
+            "obstructing_modulus": 0,
+            "residues": [1, 3, 6, 2],
+            "bloom_indices": wrong_b_idx,
+        }
+    ]
+    cert_invalid_idx = build_signed_cert_with_gpu_witnesses(invalid_idx_witnesses)
+    cert_invalid_idx_path = os.path.join(str(tmp_path), "cert_gpu_invalid_idx.json")
+    with open(cert_invalid_idx_path, "w") as f:
+        json.dump(cert_invalid_idx, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_idx_path, manifest_path)
+    assert excinfo.value.code == 1

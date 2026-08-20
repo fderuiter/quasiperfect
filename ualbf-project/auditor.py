@@ -41,6 +41,39 @@ subprocess.run = mock_run
 
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 
+GHOST_PRUNING_BINDINGS = {
+    "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "verify_starvation_pruning": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "is_starved": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "is_cdg_forced_pruned": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_sigma_multiplicative": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "lemma_coprime_implies_multiplicative_nonlinear": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "lemma_coprime_implies_multiplicative": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "lemma_disjoint_by_construction": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "prasad_sunitha_bound_satisfied": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+    "verify_prasad_sunitha": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+    "screen_mod_8": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+    "is_valid_mod_8": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+    "passes_raycast_sieve_spec": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "verified_passes_raycast_sieve": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "zsigmondy_preconditions_satisfied": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "proof_verify_zsigmondy_preconditions": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_composite_has_prime_factor_le_sqrt": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "lemma_smallest_factor_is_prime": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+    "lemma_modpow_mod_divisibility": "UALBF.FFI.modInverse_spec",
+    "lemma_modpow_add_mul": "UALBF.FFI.modInverse_spec",
+    "lemma_order_exists": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_order_prime_factor": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_divisibility_bounds": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_fermat_little_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_order_le_p_minus_1": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_square_comparison_contradiction": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_f_squared_gt_n_minus_1": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lemma_pocklington_certificate": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+}
+
 
 def theorem_checksum(name, rel_file, status):
     # Find the ualbf-project directory relative to this script
@@ -56,80 +89,7 @@ def theorem_checksum(name, rel_file, status):
 
 
 def compute_verus_hashes(verus_content):
-    verus_hashes = {}
-    current_fn = ""
-    current_body = ""
-    in_spec = False
-    brace_count = 0
-    module_stack = []
-    global_brace_depth = 0
-
-    for line in verus_content.splitlines():
-        trimmed = line.strip()
-
-        if (
-            not in_spec
-            and "{" in trimmed
-            and (trimmed.startswith("mod ") or trimmed.startswith("pub mod "))
-        ):
-            if trimmed.startswith("pub mod "):
-                mod_name = trimmed.removeprefix("pub mod ")
-            else:
-                mod_name = trimmed.removeprefix("mod ")
-            mod_name = mod_name.split("{", 1)[0].strip()
-            if mod_name:
-                module_stack.append((mod_name, global_brace_depth))
-
-        if not in_spec and any(
-            kw in line
-            for kw in [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub fn ",
-                "pub proof fn ",
-            ]
-        ):
-            for kw in [
-                "pub spec fn ",
-                "pub open spec fn ",
-                "pub uninterp spec fn ",
-                "pub proof fn ",
-                "pub fn ",
-            ]:
-                if kw in line:
-                    parts = line.split(kw, 1)
-                    break
-            bare_fn_name = parts[1].split("(", 1)[0].strip()
-            mod_prefix = "::".join([m[0] for m in module_stack])
-            qualified_name = (
-                bare_fn_name if not mod_prefix else f"{mod_prefix}::{bare_fn_name}"
-            )
-            current_fn = qualified_name
-            current_body = line
-            in_spec = True
-            brace_count = line.count("{") - line.count("}")
-            if brace_count == 0 and "{" in line:
-                verus_hashes[current_fn] = hashlib.sha256(
-                    current_body.encode("utf-8")
-                ).hexdigest()
-                in_spec = False
-            continue
-        elif in_spec:
-            current_body += "\n" + line
-            brace_count += line.count("{") - line.count("}")
-            if brace_count == 0:
-                verus_hashes[current_fn] = hashlib.sha256(
-                    current_body.encode("utf-8")
-                ).hexdigest()
-                in_spec = False
-        else:
-            global_brace_depth += line.count("{")
-            global_brace_depth -= line.count("}")
-            while module_stack and global_brace_depth <= module_stack[-1][1]:
-                module_stack.pop()
-
-    return verus_hashes
+    return cert_util.compute_verus_hashes(verus_content)
 
 
 def check_lean_environment():
@@ -377,24 +337,24 @@ def generate_manifest():
         f.write("\n")
 
     # Use verification-cli to compute the unified verified_logic_hash
-    cli_path1 = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "target",
-        "release",
-        "verification_cli",
-    )
-    cli_path2 = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "verification-lib",
-        "target",
-        "release",
-        "verification_cli",
-    )
-    cli_path = cli_path1 if os.path.exists(cli_path1) else cli_path2
     repo_root = os.path.dirname(os.path.abspath(__file__))
+    candidate_cli_paths = [
+        os.path.join(repo_root, "target", "release", "verification_cli"),
+        os.path.join(
+            os.path.dirname(repo_root), "target", "release", "verification_cli"
+        ),
+        os.path.join(
+            repo_root, "verification-lib", "target", "release", "verification_cli"
+        ),
+    ]
+    cli_path = None
+    for cand in candidate_cli_paths:
+        if os.path.exists(cand):
+            cli_path = cand
+            break
 
     # Fallback to cargo if binary is not pre-compiled
-    if os.path.exists(cli_path):
+    if cli_path and os.path.exists(cli_path):
         result = subprocess.run(
             [cli_path, "hash-tcb", repo_root], capture_output=True, text=True
         )
@@ -423,11 +383,17 @@ def generate_manifest():
     if result.returncode != 0:
         raise RuntimeError(f"Failed to compute verified_logic_hash: {result.stderr}")
 
+    if not cli_path:
+        for cand in candidate_cli_paths:
+            if os.path.exists(cand):
+                cli_path = cand
+                break
+
     logic_hash = result.stdout.strip()
     manifest["verified_logic_hash"] = logic_hash
 
     # Compute extension hash
-    if os.path.exists(cli_path):
+    if cli_path and os.path.exists(cli_path):
         result_ext = subprocess.run(
             [cli_path, "hash-tcb", repo_root, "--extension"],
             capture_output=True,
@@ -500,6 +466,22 @@ def generate_manifest():
             f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",
             file=sys.stderr,
         )
+
+    # Populate ghost_pruning_bindings mapping every ghost function to its Lean theorem checksum
+    thm_checksum_map = {t["name"]: t["checksum"] for t in manifest.get("theorems", [])}
+    ghost_bindings = {}
+    for fn, lean_thm in GHOST_PRUNING_BINDINGS.items():
+        if lean_thm in thm_checksum_map:
+            ghost_bindings[fn] = {
+                "lean_theorem": lean_thm,
+                "theorem_hash": thm_checksum_map[lean_thm],
+            }
+        else:
+            print(
+                f"Warning: Bound Lean theorem '{lean_thm}' for ghost function '{fn}' not found in CORE_THEOREMS.",
+                file=sys.stderr,
+            )
+    manifest["ghost_pruning_bindings"] = ghost_bindings
 
     with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)

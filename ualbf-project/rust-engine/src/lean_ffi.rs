@@ -1239,3 +1239,35 @@ pub fn get_raycast_chunk_size() -> usize {
         }
     }
 }
+
+pub fn get_conjectural_active() -> bool {
+    initialize_lean_runtime();
+    unsafe {
+        let val = ualbf_conjectural_active;
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_conjectural_active") {
+            handle_verified_bit_err(e);
+        }
+        let unmasked = val & !(1 << 31);
+        unmasked != 0
+    }
+}
+
+pub fn get_conjectural_max_log10_ceiling() -> u32 {
+    initialize_lean_runtime();
+    unsafe {
+        let val = ualbf_conjectural_max_log10_ceiling;
+        if let Err(e) = check_verified_bit(val as u64, 31, "get_conjectural_max_log10_ceiling") {
+            handle_verified_bit_err(e);
+        }
+        let unmasked = val & !(1 << 31);
+        unmasked as u32
+    }
+}
+
+pub fn is_conjectural_active() -> bool {
+    if crate::policy::get_proof_mode() == "pure" {
+        false
+    } else {
+        get_conjectural_active()
+    }
+}

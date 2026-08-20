@@ -56,6 +56,7 @@ _minted/
 # Python
 __pycache__/
 *.pyc
+*.log
 poetry.lock
 test-env/
 test_env/
