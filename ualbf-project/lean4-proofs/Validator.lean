@@ -81,8 +81,8 @@ def checkTheoremRuntime (t : TheoremEntry) : IO Bool := do
     return false
 
   let content ← IO.FS.readFile foundPath
-  if content.contains "sorry" then
-    IO.println s!"ERROR: 'sorry' keyword detected in theorem file: {t.file}"
+  if content.contains "sorry" || content.contains "admit" then
+    IO.println s!"ERROR: Unverified tactic ('sorry' or 'admit') detected in theorem file: {t.file}"
     return false
 
   let computed := sha256File foundPath

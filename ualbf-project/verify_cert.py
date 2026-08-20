@@ -28,9 +28,6 @@ def verify_trace_file(cert, trace_path):
         )
         sys.exit(1)
 
-    # Simple check for trace covering the search space
-    # (Checking the union of searched and pruned ranges covers the defined search space)
-    # The presence of deterministic valid trace records confirms mathematical hypotheses per Lean proof constraints.
     try:
         with open(trace_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
@@ -40,7 +37,6 @@ def verify_trace_file(cert, trace_path):
                     print(f"ERROR: Invalid trace record missing reason: {line}")
                     sys.exit(1)
 
-                # Check for abundancy bound variables if unconditional starvation
                 if record["reason"] == "unconditional_starvation":
                     if (
                         "max_allowed" not in record
@@ -59,6 +55,39 @@ def verify_trace_file(cert, trace_path):
     print(
         f"✓ Trace cryptographically bound to certificate and structurally valid ({len(lines)} records)."
     )
+
+
+def verify_sidecar_file(cert, sidecar_path):
+    print("\n--- Verifying Sidecar Log Digest ---")
+    tel = cert.get("telemetry", {})
+    expected_hash = (
+        tel.get("sidecar_hash")
+        or tel.get("sidecar_log_digest")
+        or cert.get("sidecar_hash")
+        or cert.get("sidecar_log_digest")
+    )
+
+    if not expected_hash:
+        print("INFO: Certificate does not contain sidecar log digest.")
+        return
+
+    if not os.path.exists(sidecar_path):
+        print(
+            f"ERROR: Sidecar log file '{sidecar_path}' not found, but certificate requires sidecar digest ({expected_hash})."
+        )
+        sys.exit(1)
+
+    with open(sidecar_path, "rb") as f:
+        sidecar_data = f.read()
+    computed_hash = hashlib.sha256(sidecar_data).hexdigest()
+
+    if computed_hash != expected_hash:
+        print(
+            f"ERROR: Sidecar log hash mismatch!\nExpected: {expected_hash}\nGot:      {computed_hash}"
+        )
+        sys.exit(1)
+
+    print(f"✓ Sidecar log digest verified ({computed_hash}).")
 
 
 def verify_theorem_checksum(thm, manifest_path=None):
@@ -139,6 +168,110 @@ def mat_mul(U, B_init):
                 val += U[i][k] * B_init[k][j]
             res[i][j] = val
     return res
+
+
+def verify_compositeness_witnesses(cert, manifest_path):
+    print("\n--- Verifying Compositeness Witness Certificates ---")
+    compositeness_witnesses = cert.get("compositeness_witnesses")
+    if compositeness_witnesses is None:
+        if cert.get("node_certificates"):
+            compositeness_witnesses = []
+            for node in cert["node_certificates"]:
+                if node.get("compositeness_witnesses"):
+                    compositeness_witnesses.extend(node["compositeness_witnesses"])
+
+    if not compositeness_witnesses:
+        print("✓ No compositeness witness certificates to verify in certificate.")
+        return
+
+    for idx, witness_entry in enumerate(compositeness_witnesses):
+        if not isinstance(witness_entry, dict):
+            print(f"ERROR: Compositeness witness [{idx}] is not a valid JSON object.")
+            sys.exit(1)
+
+        candidate = witness_entry.get("candidate")
+        witness_type = witness_entry.get("witness_type")
+        witness = witness_entry.get("witness")
+
+        if candidate is None or witness_type is None or witness is None:
+            print(
+                f"ERROR: Compositeness witness [{idx}] missing required fields (candidate, witness_type, witness)."
+            )
+            sys.exit(1)
+
+        try:
+            n = int(candidate)
+            w = int(witness)
+        except (ValueError, TypeError):
+            print(
+                f"ERROR: Compositeness witness [{idx}] candidate or witness is not a valid integer."
+            )
+            sys.exit(1)
+
+        if n <= 1 or n >= (1 << 64):
+            print(
+                f"ERROR: Compositeness witness [{idx}] candidate {n} is out of domain [2, 2^64-1]."
+            )
+            sys.exit(1)
+
+        if witness_type == "divisor":
+            if w <= 1 or w >= n:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] divisor {w} must be in range (1, {n})."
+                )
+                sys.exit(1)
+            if n % w != 0:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] divisor {w} does not divide candidate {n}."
+                )
+                sys.exit(1)
+        elif witness_type == "miller_rabin":
+            if w <= 1 or w >= n:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] Miller-Rabin base {w} must be in range (1, {n})."
+                )
+                sys.exit(1)
+
+            d = n - 1
+            s = 0
+            while d % 2 == 0:
+                d //= 2
+                s += 1
+
+            x = pow(w, d, n)
+            if x == 1 or x == n - 1:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] base {w} is not a valid Miller-Rabin witness for {n} (x_0 = {x})."
+                )
+                sys.exit(1)
+
+            is_witness = True
+            for _ in range(s - 1):
+                x = pow(x, 2, n)
+                if x == n - 1:
+                    is_witness = False
+                    break
+
+            if not is_witness:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] base {w} is not a valid Miller-Rabin witness for {n}."
+                )
+                sys.exit(1)
+        else:
+            print(
+                f"ERROR: Compositeness witness [{idx}] unknown witness_type '{witness_type}'."
+            )
+            sys.exit(1)
+
+    print(
+        f"✓ Successfully verified {len(compositeness_witnesses)} compositeness witness certificates (all witnesses mathematically refute primality)."
+    )
+
+
+def compute_target_penalty(m, base=1000000000.0):
+    if m < 2 or m > 16:
+        return base
+    return base * (1 << (m - 2))
 
 
 def verify_gpu_witnesses(cert):
@@ -304,11 +437,11 @@ def verify_lattice_witnesses(cert, manifest_path):
 
     # Scaled mathematical limit defined in the bounds manifest
     target_min_log10 = bounds_data["search_bounds"]["target_min_log10"]["value"]
-    # Epsilon tolerance limit: ln(2 + 10^-target_min_log10) - ln(2)
-    ln_2 = math.log(2.0)
-    epsilon_manifest = math.log(2.0 + 10.0 ** (-target_min_log10)) - ln_2
+    # Epsilon tolerance limit: ln(1 + 0.5 * 10^-target_min_log10) using log1p to avoid cancellation loss
+    epsilon_manifest = math.log1p(0.5 * 10.0 ** (-target_min_log10))
 
     tolerance = bounds_data.get("lattice_precision_tolerance", 1e-9)
+    base_penalty = bounds_data.get("lattice_target_penalty_base", 1000000000.0)
 
     print(
         f"Using bounds manifest target_min_log10 = {target_min_log10} (epsilon limit = {epsilon_manifest:.4e})"
@@ -428,7 +561,8 @@ def verify_lattice_witnesses(cert, manifest_path):
             )
             sys.exit(1)
 
-        r_exact = Fraction(dim, 2) + Fraction(1000000000) * Fraction(epsilon)
+        penalty = compute_target_penalty(m, base_penalty)
+        r_exact = Fraction(dim, 2) + Fraction(int(penalty)) * Fraction(epsilon)
         r_sq_exact = r_exact * r_exact
 
         # Evaluate whether exact Schmidt bound meets the minimum required search radius without applying any positive tolerance offset
@@ -640,8 +774,10 @@ def verify_certificate(cert_path, manifest_path):
             )
             with open(file_path, "rb") as f:
                 content = f.read()
-            if b"sorry" in content:
-                print(f"ERROR: 'sorry' bypass detected in {pf['file']}")
+            if b"sorry" in content or b"admit" in content:
+                print(
+                    f"ERROR: Unverified tactic ('sorry' or 'admit') detected in {pf['file']}"
+                )
                 sys.exit(1)
             computed = hashlib.sha256(content).hexdigest()
             if computed != pf["checksum"]:
@@ -710,6 +846,7 @@ def verify_certificate(cert_path, manifest_path):
 
     verify_lattice_witnesses(cert, manifest_path)
     verify_gpu_witnesses(cert)
+    verify_compositeness_witnesses(cert, manifest_path)
 
     return cert
 
@@ -828,6 +965,9 @@ if __name__ == "__main__":
         "--manifest", default="proof_manifest.json", help="Path to proof_manifest.json"
     )
     parser.add_argument("--trace", default="trace.jsonl", help="Path to trace.jsonl")
+    parser.add_argument(
+        "--sidecar", default="overflow_sidecar.log", help="Path to overflow_sidecar.log"
+    )
     parser.add_argument(
         "--min-rigor",
         type=float,
@@ -963,6 +1103,11 @@ if __name__ == "__main__":
                 conjecture_info = c.get("conjecture")
                 break
 
+        all_comp_witnesses = []
+        for c in loaded_certs:
+            if c.get("compositeness_witnesses"):
+                all_comp_witnesses.extend(c["compositeness_witnesses"])
+
         master_cert = {
             "meta_manifest_hash": loaded_certs[0]["manifest_hash"],
             "aggregated_signatures": agg_sigs,
@@ -971,6 +1116,9 @@ if __name__ == "__main__":
             "node_certificates": loaded_certs,
             "is_conditional": any_conditional,
             "conjecture": conjecture_info,
+            "compositeness_witnesses": (
+                all_comp_witnesses if all_comp_witnesses else None
+            ),
         }
 
         with open("meta_certificate.json", "w", encoding="utf-8") as f:
@@ -1009,3 +1157,5 @@ if __name__ == "__main__":
         verify_trace_file(cert, args.trace)
     else:
         print("\nWARNING: Trace file not provided or not found, skipping trace audit.")
+
+    verify_sidecar_file(cert, args.sidecar)

@@ -205,6 +205,9 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
         "trace_hash": trace_hash,
         "factorization_depth": factorization_depth,
     }
+    sidecar_hash = tel.get("sidecar_hash") or tel.get("sidecar_log_digest") or cert.get("sidecar_hash") or cert.get("sidecar_log_digest")
+    if sidecar_hash:
+        map_obj["sidecar_hash"] = sidecar_hash
     if "path_ranges" in tel:
         map_obj["path_ranges"] = tel["path_ranges"]
     elif "inner_paths" in tel:
@@ -632,6 +635,71 @@ class TestTheoremChecking:
         # Verify that checking again fails because of checksum mismatch
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code != 0
+
+    def test_admit_tactic_triggers_failure(self):
+        """
+        Verify that detecting an 'admit' tactic in a proof file triggers a verification failure.
+        """
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.AdmitProof",
+                    "file": "A.lean",
+                    "status": "proven",
+                    "checksum": "x",
+                }
+            ]
+        )
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        file_path = os.path.join(manifest_dir, "A.lean")
+
+        assert os.path.exists(file_path)
+        with open(file_path, "wb") as f:
+            f.write(b"theorem foo : True := by\n  admit\n")
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code != 0
+
+
+class TestSidecarLogVerification:
+    def test_sidecar_log_digest_verification_pass(self, tmp_path):
+        sidecar_file = tmp_path / "overflow_sidecar.log"
+        sidecar_content = b"3,2\n5,4\n"
+        sidecar_file.write_bytes(sidecar_content)
+        sidecar_digest = hashlib.sha256(sidecar_content).hexdigest()
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = sidecar_digest
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        from verify_cert import verify_sidecar_file
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        # Re-verify sidecar file directly
+        verify_sidecar_file(loaded_cert, str(sidecar_file))
+
+    def test_sidecar_log_digest_mismatch_fails(self, tmp_path):
+        sidecar_file = tmp_path / "overflow_sidecar.log"
+        sidecar_content = b"3,2\n5,4\n"
+        sidecar_file.write_bytes(sidecar_content)
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = "0" * 64
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        from verify_cert import verify_sidecar_file
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_sidecar_file(loaded_cert, str(sidecar_file))
         assert exc_info.value.code != 0
 
 
@@ -1480,6 +1548,131 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     with pytest.raises(SystemExit) as excinfo:
         verify_certificate(cert_non_lovasz_path, manifest_path)
     assert excinfo.value.code == 1
+
+
+def test_compositeness_witness_certification(tmp_path):
+    """
+    Test Compositeness Witness Certification for Candidates under 2^64.
+    Verify:
+    1. Valid divisor witness passes verification.
+    2. Valid Miller-Rabin witness passes verification.
+    3. Invalid divisor witness is rejected with exit(1).
+    4. Invalid Miller-Rabin witness is rejected with exit(1).
+    5. Out-of-bounds candidate is rejected with exit(1).
+    6. Unknown witness_type is rejected with exit(1).
+    """
+    from verify_cert import verify_certificate
+
+    bounds_manifest = {
+        "search_bounds": {
+            "target_min_log10": {
+                "value": 35,
+                "is_axiomatic": False
+            }
+        }
+    }
+    bounds_content = json.dumps(bounds_manifest).encode("utf-8")
+    bounds_hash = hashlib.sha256(bounds_content).hexdigest()
+    bounds_path = os.path.join(str(tmp_path), "bounds_manifest.json")
+    with open(bounds_path, "wb") as f:
+        f.write(bounds_content)
+
+    manifest = make_manifest()
+    manifest["bounds_manifest_hash"] = bounds_hash
+    manifest_content = json.dumps(manifest)
+    manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
+    with open(manifest_path, "w") as f:
+        f.write(manifest_content)
+
+    def build_signed_cert_with_comp_witnesses(witnesses):
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+        cert = build_cert(manifest_hash)
+        cert["manifest_hash"] = manifest_hash
+        cert["compositeness_witnesses"] = witnesses
+
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 35),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+        }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+        return cert
+
+    # Case 1: Valid divisor and Miller-Rabin witnesses pass
+    valid_witnesses = [
+        {"candidate": 100, "witness_type": "divisor", "witness": 2},
+        {"candidate": 1681, "witness_type": "miller_rabin", "witness": 3},
+    ]
+    cert_valid = build_signed_cert_with_comp_witnesses(valid_witnesses)
+    cert_valid_path = os.path.join(str(tmp_path), "cert_valid_comp.json")
+    with open(cert_valid_path, "w") as f:
+        json.dump(cert_valid, f)
+
+    os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+    verify_certificate(cert_valid_path, manifest_path)  # Must pass without error
+
+    # Case 2: Invalid divisor witness (3 does not divide 100) is rejected
+    invalid_div_witnesses = [
+        {"candidate": 100, "witness_type": "divisor", "witness": 3}
+    ]
+    cert_invalid_div = build_signed_cert_with_comp_witnesses(invalid_div_witnesses)
+    cert_invalid_div_path = os.path.join(str(tmp_path), "cert_invalid_div.json")
+    with open(cert_invalid_div_path, "w") as f:
+        json.dump(cert_invalid_div, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_div_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 3: Invalid Miller-Rabin witness (17 is prime, 2 is not a witness) is rejected
+    invalid_mr_witnesses = [
+        {"candidate": 17, "witness_type": "miller_rabin", "witness": 2}
+    ]
+    cert_invalid_mr = build_signed_cert_with_comp_witnesses(invalid_mr_witnesses)
+    cert_invalid_mr_path = os.path.join(str(tmp_path), "cert_invalid_mr.json")
+    with open(cert_invalid_mr_path, "w") as f:
+        json.dump(cert_invalid_mr, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_mr_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 4: Candidate >= 2^64 is rejected
+    out_of_bounds_witnesses = [
+        {"candidate": 18446744073709551616, "witness_type": "divisor", "witness": 2}
+    ]
+    cert_oob = build_signed_cert_with_comp_witnesses(out_of_bounds_witnesses)
+    cert_oob_path = os.path.join(str(tmp_path), "cert_oob.json")
+    with open(cert_oob_path, "w") as f:
+        json.dump(cert_oob, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_oob_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 5: Unknown witness_type is rejected
+    unknown_type_witnesses = [
+        {"candidate": 100, "witness_type": "magic", "witness": 2}
+    ]
+    cert_unknown = build_signed_cert_with_comp_witnesses(unknown_type_witnesses)
+    cert_unknown_path = os.path.join(str(tmp_path), "cert_unknown.json")
+    with open(cert_unknown_path, "w") as f:
+        json.dump(cert_unknown, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_unknown_path, manifest_path)
+    assert excinfo.value.code == 1
+
 
 
 def test_verify_gpu_witnesses_cases(tmp_path):

@@ -89,6 +89,8 @@ struct SearchTelemetry {
     baseline_min_prime_factors: usize,
     prasad_sunitha_bound: usize,
     trace_hash: String,
+    #[serde(alias = "sidecar_log_digest")]
+    sidecar_hash: String,
     factorization_depth: u32,
     bounds_exceeded: bool,
     pub explored_ranges: Vec<crate::distributed::RangeWorkUnit>,
@@ -139,6 +141,8 @@ struct Certificate {
     pub lattice_witnesses: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu_witnesses: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compositeness_witnesses: Option<serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -171,6 +175,7 @@ mod tests {
             baseline_min_prime_factors: baseline,
             prasad_sunitha_bound: ps_bound,
             trace_hash: "dummy_hash".to_string(),
+            sidecar_hash: "dummy_sidecar_hash".to_string(),
             factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
             bounds_exceeded: false,
             verification_profile: None,
@@ -300,6 +305,7 @@ mod tests {
             verification_mode: "pure".to_string(),
             lattice_witnesses: None,
             gpu_witnesses: None,
+            compositeness_witnesses: None,
         };
         let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
         assert_eq!(json_val["verification_mode"], "pure");
@@ -458,25 +464,22 @@ fn sha256_digest_file(path: &std::path::Path) -> std::io::Result<String> {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    for arg in &args {
-        if arg.starts_with("--verify-sidecar=") {
-            let path = arg.trim_start_matches("--verify-sidecar=");
-            if let Err(e) = sieve::run_offline_verification(path) {
-                eprintln!("Verification failed: {}", e);
-                std::process::exit(1);
-            }
-            std::process::exit(0);
+    let config = policy::get_safe_config();
+
+    if let Some(path) = &config.verify_sidecar {
+        if let Err(e) = sieve::run_offline_verification(path) {
+            eprintln!("Verification failed: {}", e);
+            std::process::exit(1);
         }
+        std::process::exit(0);
     }
 
     let total_start = std::time::Instant::now();
     crate::lean_ffi::initialize_lean_runtime();
 
     // Initialize sidecar logger
-    let sidecar_path =
-        std::env::var("UALBF_SIDECAR_PATH").unwrap_or_else(|_| "overflow_sidecar.log".to_string());
-    if let Err(e) = sieve::init_sidecar_logger(&sidecar_path) {
+    let sidecar_path = &config.sidecar_path;
+    if let Err(e) = sieve::init_sidecar_logger(sidecar_path) {
         eprintln!(
             "FATAL: Failed to initialize sidecar logger at {}: {}",
             sidecar_path, e
@@ -484,7 +487,6 @@ fn main() {
         std::process::exit(1);
     }
 
-    let config = policy::get_safe_config();
     // ── Formal Certification Initialization ──
     let manifest_path = config.proof_manifest.clone();
 
@@ -792,6 +794,7 @@ fn main() {
     // Launch fused perfectly-balanced parallel pipeline!
     #[cfg(feature = "lattice")]
     crate::lattice::clear_lattice_witnesses();
+    crate::math_utils::clear_compositeness_witnesses();
 
     let mode = config.mode.clone();
     let phase2_start = std::time::Instant::now();
@@ -848,6 +851,23 @@ fn main() {
     }
     let phase2_elapsed = phase2_start.elapsed();
 
+    // Finalize sidecar logger so all log writes finish before certificate signature generation
+    sieve::finalize_sidecar_logger();
+
+    // Compute sidecar log SHA-256 digest
+    let sidecar_path =
+        std::env::var("UALBF_SIDECAR_PATH").unwrap_or_else(|_| "overflow_sidecar.log".to_string());
+    let sidecar_hash = if std::path::Path::new(&sidecar_path).exists() {
+        let bytes = std::fs::read(&sidecar_path).unwrap_or_default();
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        hex::encode(hasher.finalize())
+    } else {
+        let mut hasher = Sha256::new();
+        hasher.update(b"");
+        hex::encode(hasher.finalize())
+    };
+
     // ── Generate and Hash Trace ──
     #[cfg(feature = "signing")]
     let trace_path = "trace.jsonl";
@@ -878,7 +898,6 @@ fn main() {
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {
         println!("=== Certificate Generation Skipped due to custom bounds ===");
-        sieve::finalize_sidecar_logger();
         return;
     }
 
@@ -901,6 +920,7 @@ fn main() {
             Some(crate::manifest_constants::CONJECTURE_NAME),
             serde_json::to_value(&explored_ranges_out).ok(),
             Some(&config.proof_mode),
+            Some(&sidecar_hash),
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (
@@ -942,6 +962,7 @@ fn main() {
         baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
         trace_hash: trace_hash.clone(),
+        sidecar_hash: sidecar_hash.clone(),
         factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
         bounds_exceeded: false,
         explored_ranges: explored_ranges_out,
@@ -1004,6 +1025,15 @@ fn main() {
         }
     };
 
+    let compositeness_witnesses = {
+        let witnesses = crate::math_utils::get_compositeness_witnesses();
+        if witnesses.is_empty() {
+            None
+        } else {
+            serde_json::to_value(witnesses).ok()
+        }
+    };
+
     let cert = Certificate {
         manifest_hash,
         verified_logic_hash,
@@ -1019,10 +1049,10 @@ fn main() {
         verification_mode: config.proof_mode.clone(),
         lattice_witnesses,
         gpu_witnesses,
+        compositeness_witnesses,
     };
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
     fs::write("formal_certificate.json", &cert_json).expect("Failed to write certificate");
     println!("=== Certificate Generated: formal_certificate.json ===");
-    sieve::finalize_sidecar_logger();
 }
