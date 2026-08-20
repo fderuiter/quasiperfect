@@ -969,7 +969,11 @@ pub fn check_and_evaluate_node(
                 let target_log = ln_2 - a_curr.ln();
 
                 let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let epsilon = (2.0 + 1.0 / n_f64).ln() - ln_2;
+                let epsilon = if n_f64 > 0.0 {
+                    (0.5 / n_f64).ln_1p()
+                } else {
+                    0.0
+                };
 
                 let mut m = 0;
                 let mask = &curr.active_mask;
@@ -1026,8 +1030,8 @@ pub fn check_and_evaluate_node(
                 )
                 .is_ok()
             {
-                if crate::manifest_constants::CONJECTURAL_ACTIVE {
-                    let ceiling = crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING as f64;
+                if crate::lean_ffi::is_conjectural_active() {
+                    let ceiling = crate::lean_ffi::get_conjectural_max_log10_ceiling() as f64;
                     let bits = 512 - curr.n_l.leading_zeros();
                     let curr_log = (bits as f64) * std::f64::consts::LOG10_2;
                     let remaining = if ceiling > curr_log {
@@ -1444,7 +1448,7 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
         dfs_ctx.curr.s_l.checked_mul(comp.sigma),
     ) {
         if next_n_l <= *dfs_ctx.target_bound {
-            if crate::manifest_constants::CONJECTURAL_ACTIVE {
+            if crate::lean_ffi::is_conjectural_active() {
                 let conjectural_limit = get_conjectural_limit();
                 if next_n_l > conjectural_limit {
                     return false;
@@ -2330,7 +2334,7 @@ mod tests {
 
     #[test]
     fn test_try_push_fails_exceeds_conjectural_limit() {
-        if crate::manifest_constants::CONJECTURAL_ACTIVE {
+        if crate::lean_ffi::is_conjectural_active() {
             let mut curr = make_prefix(1, 1, 0);
             let p_large = PrimePower {
                 p: 11,
@@ -2778,6 +2782,6 @@ static CONJECTURAL_LIMIT: std::sync::OnceLock<Uint> = std::sync::OnceLock::new()
 
 pub fn get_conjectural_limit() -> Uint {
     *CONJECTURAL_LIMIT.get_or_init(|| {
-        Uint::from_u64(10).pow(crate::manifest_constants::CONJECTURAL_MAX_LOG10_CEILING)
+        Uint::from_u64(10).pow(crate::lean_ffi::get_conjectural_max_log10_ceiling())
     })
 }

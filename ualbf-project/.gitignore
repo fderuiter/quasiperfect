@@ -9,4 +9,3 @@ env/
 .mypy_cache/
 lean-built
 *.log
-overflow_sidecar.log
