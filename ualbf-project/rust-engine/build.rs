@@ -38,11 +38,18 @@ struct Theorem {
 }
 
 #[derive(Deserialize)]
+struct GhostBinding {
+    lean_theorem: String,
+    theorem_hash: String,
+}
+
+#[derive(Deserialize)]
 struct ProofManifest {
     theorems: Vec<Theorem>,
     verified_logic_hash: String,
     verified_extension_hash: String,
     verus_hashes: HashMap<String, String>,
+    ghost_pruning_bindings: Option<HashMap<String, GhostBinding>>,
     proof_files: Vec<serde_json::Value>,
     bounds_manifest_hash: String,
 }
@@ -474,6 +481,58 @@ fn main() {
                 thm.name, thm.file, thm.status
             );
         }
+    }
+
+    // --- Ghost Pruning Assumption Binding Validation ---
+    let required_ghost_functions = [
+        "check_starvation_kill",
+        "check_cdg_forced_kill",
+        "lean_abundancy_starvation_theorem",
+        "verify_starvation_pruning",
+        "lemma_sigma_multiplicative",
+        "lemma_disjoint_by_construction",
+    ];
+
+    if let Some(ref bindings) = proof_manifest.ghost_pruning_bindings {
+        let thm_map: HashMap<String, &Theorem> = proof_manifest
+            .theorems
+            .iter()
+            .map(|t| (t.name.clone(), t))
+            .collect();
+
+        for fn_name in &required_ghost_functions {
+            let binding = match bindings.get(*fn_name) {
+                Some(b) => b,
+                None => panic!(
+                    "FATAL: Search pruning assumption '{}' lacks a matching Lean 4 manifest entry in ghost_pruning_bindings!",
+                    fn_name
+                ),
+            };
+
+            let target_thm = match thm_map.get(&binding.lean_theorem) {
+                Some(t) => t,
+                None => panic!(
+                    "FATAL: Search pruning assumption '{}' references unknown Lean theorem '{}'!",
+                    fn_name, binding.lean_theorem
+                ),
+            };
+
+            if target_thm.status != "proven" {
+                panic!(
+                    "FATAL: Lean theorem '{}' bound to pruning assumption '{}' is incomplete (status: {}). Compilation halted.",
+                    target_thm.name, fn_name, target_thm.status
+                );
+            }
+
+            if target_thm.checksum != binding.theorem_hash {
+                panic!(
+                    "FATAL: SHA-256 hash mismatch for Lean theorem '{}' bound to pruning assumption '{}'! Expected: '{}', Found in binding: '{}'",
+                    target_thm.name, fn_name, target_thm.checksum, binding.theorem_hash
+                );
+            }
+        }
+    } else {
+        panic!("FATAL: proof_manifest.json is missing required 'ghost_pruning_bindings' field!");
     }
 
     // --- Runtime Verus Hash Verification ---
