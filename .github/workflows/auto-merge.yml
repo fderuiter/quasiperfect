@@ -25,7 +25,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json files --jq '.files[].path' > pr_files.txt
+          if gh pr view ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --json files --jq '.files[].path' > pr_files.txt 2>/dev/null; then
+            echo "Successfully fetched PR files via GitHub CLI."
+          else
+            echo "GitHub CLI failed or lacked permissions. Falling back to git diff..."
+            git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+            git diff --name-only FETCH_HEAD HEAD > pr_files.txt
+          fi
           echo "Files modified in PR:"
           cat pr_files.txt
 

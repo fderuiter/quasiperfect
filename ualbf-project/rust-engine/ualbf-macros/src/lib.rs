@@ -352,7 +352,7 @@ pub fn metal_pipeline_derive(input: TokenStream) -> TokenStream {
             }
 
             #[cfg(target_os = "macos")]
-            fn bind(&self, encoder: &metal::ComputeCommandEncoderRef) {
+            fn bind(&self, encoder: &crate::metal_reflection::metal::ComputeCommandEncoderRef) {
                 #(#bind_stmts)*
             }
         }

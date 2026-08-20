@@ -13,7 +13,8 @@ def ruleA_pruning (target_bound : Nat) : SearchM Bool := do
 
 -- Deep Divisibility chain checks (Rule B)
 def ruleB_pruning : SearchM Bool := do
-  return false
+  let s ← get
+  return s.sigma_factors.any (fun sf => s.factors.any (fun f => f.toNat == sf))
 
 theorem ruleA_safe (_target_bound : Nat) : true := by trivial
 theorem ruleB_safe : true := by trivial
