@@ -89,6 +89,8 @@ struct SearchTelemetry {
     baseline_min_prime_factors: usize,
     prasad_sunitha_bound: usize,
     trace_hash: String,
+    #[serde(alias = "sidecar_log_digest")]
+    sidecar_hash: String,
     factorization_depth: u32,
     bounds_exceeded: bool,
     pub explored_ranges: Vec<crate::distributed::RangeWorkUnit>,
@@ -171,6 +173,7 @@ mod tests {
             baseline_min_prime_factors: baseline,
             prasad_sunitha_bound: ps_bound,
             trace_hash: "dummy_hash".to_string(),
+            sidecar_hash: "dummy_sidecar_hash".to_string(),
             factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
             bounds_exceeded: false,
             verification_profile: None,
@@ -848,6 +851,23 @@ fn main() {
     }
     let phase2_elapsed = phase2_start.elapsed();
 
+    // Finalize sidecar logger so all log writes finish before certificate signature generation
+    sieve::finalize_sidecar_logger();
+
+    // Compute sidecar log SHA-256 digest
+    let sidecar_path =
+        std::env::var("UALBF_SIDECAR_PATH").unwrap_or_else(|_| "overflow_sidecar.log".to_string());
+    let sidecar_hash = if std::path::Path::new(&sidecar_path).exists() {
+        let bytes = std::fs::read(&sidecar_path).unwrap_or_default();
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        hex::encode(hasher.finalize())
+    } else {
+        let mut hasher = Sha256::new();
+        hasher.update(b"");
+        hex::encode(hasher.finalize())
+    };
+
     // ── Generate and Hash Trace ──
     #[cfg(feature = "signing")]
     let trace_path = "trace.jsonl";
@@ -878,7 +898,6 @@ fn main() {
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {
         println!("=== Certificate Generation Skipped due to custom bounds ===");
-        sieve::finalize_sidecar_logger();
         return;
     }
 
@@ -901,6 +920,7 @@ fn main() {
             Some(crate::manifest_constants::CONJECTURE_NAME),
             serde_json::to_value(&explored_ranges_out).ok(),
             Some(&config.proof_mode),
+            Some(&sidecar_hash),
         );
         let signature = signing_key.sign(payload_to_sign.as_bytes());
         (
@@ -942,6 +962,7 @@ fn main() {
         baseline_min_prime_factors: lean_ffi::get_baseline_min_prime_factors(),
         prasad_sunitha_bound: lean_ffi::get_prasad_sunitha_bound(),
         trace_hash: trace_hash.clone(),
+        sidecar_hash: sidecar_hash.clone(),
         factorization_depth: crate::lean_ffi::get_pollard_rho_iteration_limit(),
         bounds_exceeded: false,
         explored_ranges: explored_ranges_out,
@@ -1024,5 +1045,4 @@ fn main() {
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
     fs::write("formal_certificate.json", &cert_json).expect("Failed to write certificate");
     println!("=== Certificate Generated: formal_certificate.json ===");
-    sieve::finalize_sidecar_logger();
 }

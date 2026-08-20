@@ -205,6 +205,9 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
         "trace_hash": trace_hash,
         "factorization_depth": factorization_depth,
     }
+    sidecar_hash = tel.get("sidecar_hash") or tel.get("sidecar_log_digest") or cert.get("sidecar_hash") or cert.get("sidecar_log_digest")
+    if sidecar_hash:
+        map_obj["sidecar_hash"] = sidecar_hash
     if "path_ranges" in tel:
         map_obj["path_ranges"] = tel["path_ranges"]
     elif "inner_paths" in tel:
@@ -632,6 +635,71 @@ class TestTheoremChecking:
         # Verify that checking again fails because of checksum mismatch
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code != 0
+
+    def test_admit_tactic_triggers_failure(self):
+        """
+        Verify that detecting an 'admit' tactic in a proof file triggers a verification failure.
+        """
+        manifest = make_manifest(
+            [
+                {
+                    "name": "UALBF.AdmitProof",
+                    "file": "A.lean",
+                    "status": "proven",
+                    "checksum": "x",
+                }
+            ]
+        )
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        file_path = os.path.join(manifest_dir, "A.lean")
+
+        assert os.path.exists(file_path)
+        with open(file_path, "wb") as f:
+            f.write(b"theorem foo : True := by\n  admit\n")
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code != 0
+
+
+class TestSidecarLogVerification:
+    def test_sidecar_log_digest_verification_pass(self, tmp_path):
+        sidecar_file = tmp_path / "overflow_sidecar.log"
+        sidecar_content = b"3,2\n5,4\n"
+        sidecar_file.write_bytes(sidecar_content)
+        sidecar_digest = hashlib.sha256(sidecar_content).hexdigest()
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = sidecar_digest
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        from verify_cert import verify_sidecar_file
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        # Re-verify sidecar file directly
+        verify_sidecar_file(loaded_cert, str(sidecar_file))
+
+    def test_sidecar_log_digest_mismatch_fails(self, tmp_path):
+        sidecar_file = tmp_path / "overflow_sidecar.log"
+        sidecar_content = b"3,2\n5,4\n"
+        sidecar_file.write_bytes(sidecar_content)
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = "0" * 64
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        from verify_cert import verify_sidecar_file
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_sidecar_file(loaded_cert, str(sidecar_file))
         assert exc_info.value.code != 0
 
 
