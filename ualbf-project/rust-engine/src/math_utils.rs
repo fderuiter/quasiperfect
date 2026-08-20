@@ -4,8 +4,39 @@
 use crate::types::{Int, Uint};
 use crate::types::{IntExt, UintExt};
 use prime_factorization::Factorization;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::panic::catch_unwind;
+use std::sync::Mutex;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct CompositenessWitness {
+    pub candidate: u64,
+    pub witness_type: String,
+    pub witness: u64,
+}
+
+static COMPOSITENESS_WITNESSES: Mutex<Vec<CompositenessWitness>> = Mutex::new(Vec::new());
+
+pub fn clear_compositeness_witnesses() {
+    if let Ok(mut lock) = COMPOSITENESS_WITNESSES.lock() {
+        lock.clear();
+    }
+}
+
+pub fn get_compositeness_witnesses() -> Vec<CompositenessWitness> {
+    if let Ok(lock) = COMPOSITENESS_WITNESSES.lock() {
+        lock.clone()
+    } else {
+        Vec::new()
+    }
+}
+
+pub fn add_compositeness_witness(witness: CompositenessWitness) {
+    if let Ok(mut lock) = COMPOSITENESS_WITNESSES.lock() {
+        lock.push(witness);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FactorizationResult {
@@ -265,12 +296,13 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
     } else {
         if n <= Uint::from_u128((u128::MAX) as u128) {
             if let Ok(fact) = catch_unwind(|| Factorization::run(n.as_u128())) {
-                FactorizationResult::Complete(
-                    fact.factors
-                        .into_iter()
-                        .map(|f| Uint::from_u128((f) as u128))
-                        .collect(),
-                )
+                let mut v: smallvec::SmallVec<[Uint; 8]> = fact
+                    .factors
+                    .into_iter()
+                    .map(|f| Uint::from_u128((f) as u128))
+                    .collect();
+                v.sort_unstable();
+                FactorizationResult::Complete(v)
             } else {
                 FactorizationResult::Failure(n)
             }
@@ -423,6 +455,66 @@ pub fn modpow_u256(mut base: Uint, mut exp: Uint, modulus: Uint) -> Uint {
         base = mul_mod_u256(base, base, modulus);
     }
     result
+}
+
+pub fn find_compositeness_witness(n: Uint) -> Option<CompositenessWitness> {
+    let threshold = Uint::from_u128(1_u128 << 64);
+    if n <= Uint::one() || n >= threshold {
+        return None;
+    }
+    let n_u64 = n.as_u128() as u64;
+
+    let bases_12: [u64; 12] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37];
+    for &b in &bases_12 {
+        if n_u64 == b {
+            return None;
+        }
+        if n_u64 % b == 0 {
+            return Some(CompositenessWitness {
+                candidate: n_u64,
+                witness_type: "divisor".to_string(),
+                witness: b,
+            });
+        }
+    }
+
+    let mut d = n_u64 - 1;
+    let mut s = 0;
+    while d % 2 == 0 {
+        d /= 2;
+        s += 1;
+    }
+
+    for &base in &bases_12 {
+        let mut x = modpow_u256(Uint::from_u64(base), Uint::from_u64(d), n);
+        if x == Uint::one() || x == n - Uint::one() {
+            continue;
+        }
+        let mut composite = true;
+        for _ in 0..(s - 1) {
+            x = mul_mod_u256(x, x, n);
+            if x == Uint::one() {
+                return Some(CompositenessWitness {
+                    candidate: n_u64,
+                    witness_type: "miller_rabin".to_string(),
+                    witness: base,
+                });
+            }
+            if x == n - Uint::one() {
+                composite = false;
+                break;
+            }
+        }
+        if composite {
+            return Some(CompositenessWitness {
+                candidate: n_u64,
+                witness_type: "miller_rabin".to_string(),
+                witness: base,
+            });
+        }
+    }
+
+    None
 }
 
 pub fn verified_is_prime_low(n: Uint) -> bool {
@@ -625,13 +717,14 @@ pub fn verified_is_prime(n: Uint) -> bool {
         return false;
     }
 
-    // Hybrid Tiered Primality: Route small inputs (< 2^64) through the proven deterministic 12-base Miller-Rabin test.
+    // Hybrid Tiered Primality: Route small inputs (< 2^64) through witness generation.
     let threshold = Uint::from_u128(1_u128 << 64);
     if n < threshold {
-        if verified_is_prime_low(n) {
-            return generate_and_verify_pocklington(n);
-        } else {
+        if let Some(witness) = find_compositeness_witness(n) {
+            add_compositeness_witness(witness);
             return false;
+        } else {
+            return generate_and_verify_pocklington(n);
         }
     }
 

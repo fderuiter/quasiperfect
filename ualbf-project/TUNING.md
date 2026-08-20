@@ -130,6 +130,9 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **lattice_precision_tolerance**
   - **Description**: Floating-point precision tolerance used during lattice reduction and bounds calculations.
 
+- **lattice_target_penalty_base**
+  - **Description**: Base scaling penalty factor for target matrix columns in dynamic lattice reduction.
+
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
 - POLLARD_RHO_BATCH_SIZE: 128

@@ -218,6 +218,7 @@
 
           buildInputs = [
             pkgs.z3
+            pkgs.z3.dev
             pkgs.libcxx
           ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
             pkgs.pkgsStatic.gmp
@@ -234,6 +235,8 @@
           preBuild = ''
             chmod +w ..
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+            export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
+            export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
           '';
 
           installPhase = ''

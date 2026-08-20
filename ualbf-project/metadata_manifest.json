@@ -65,6 +65,7 @@
     "dusart_bounds.num": "TUNING.md",
     "dusart_bounds.den": "TUNING.md",
     "dusart_bounds.validity_threshold": "TUNING.md",
-    "lattice_precision_tolerance": "TUNING.md"
+    "lattice_precision_tolerance": "TUNING.md",
+    "lattice_target_penalty_base": "TUNING.md"
   }
 }

@@ -282,7 +282,7 @@ verus! {{
     pub open spec fn lean_miller_rabin_20_base_sufficiency() -> bool {{ {str(mr_20_base_axiomatic).lower()} }}
 
     pub proof fn prove_prime_split_threshold_equivalence()
-        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) >= lean_prime_split_threshold()
+        ensures (crate::manifest_constants::PRIME_SPLIT_THRESHOLD as nat) == lean_prime_split_threshold()
     {{}}
 
     pub proof fn prove_prasad_sunitha_bound_equivalence()
@@ -552,12 +552,13 @@ def generate_ffi(repo_root, schema, schema_hash):
 
     if crt_export is None:
         import sys
+
         print(
             "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
             "Expected canonical export function 'ualbf_check_crt_1155' was not found.\n"
             "Target file location: lean4-proofs/UALBF/FFI.lean\n"
             "Please ensure the modulo-1155 Chinese Remainder Theorem check is annotated with @[export ualbf_check_crt_1155].",
-            file=sys.stderr
+            file=sys.stderr,
         )
         sys.exit(1)
 
@@ -585,6 +586,7 @@ def generate_ffi(repo_root, schema, schema_hash):
 
     if not valid_sig:
         import sys
+
         print(
             "ERROR: FFI Naming Standardization / Build-Time Verification Failed!\n"
             f"The signature of '{name}' is invalid.\n"
@@ -594,7 +596,7 @@ def generate_ffi(repo_root, schema, schema_hash):
             "Expected return type: 'Bool'\n"
             "Target file location: lean4-proofs/UALBF/FFI.lean\n"
             "Please ensure the function accepts two parameters of type '@& U512' and returns 'Bool'.",
-            file=sys.stderr
+            file=sys.stderr,
         )
         sys.exit(1)
 
@@ -705,13 +707,9 @@ def main():
         )
 
         # Validation checks on configuration parameters
-        if prime_split_threshold < 7:
+        if prime_split_threshold != 61:
             raise ValueError(
-                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be at least 7 to satisfy mathematical safety invariants."
-            )
-        if prime_split_threshold % 2 == 0:
-            raise ValueError(
-                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) must be an odd prime."
+                f"Safety Constraint Violation: prime_split_threshold ({prime_split_threshold}) does not equal the baseline of 61. The threshold must equal 61."
             )
 
         pollard_rho_iteration_limit = bounds["search_bounds"]["pollard_rho"][
@@ -736,6 +734,9 @@ def main():
 
         crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
         crt_moduli = bounds["crt_obstruction"]["moduli"]
+
+        lattice_precision_tolerance = bounds.get("lattice_precision_tolerance", 1e-9)
+        lattice_target_penalty_base = bounds.get("lattice_target_penalty_base", 1e9)
 
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 #[cfg(not(verus_keep_ghost))]
@@ -790,6 +791,10 @@ pub const TOUCHARD_MOD_24_RESIDUES: [u32; {len(touchard_residues)}] = [{', '.joi
 pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
 #[cfg(not(verus_keep_ghost))]
 pub const CRT_MODULI: [u32; {len(crt_moduli)}] = [{', '.join(map(str, crt_moduli))}];
+#[cfg(not(verus_keep_ghost))]
+pub const LATTICE_PRECISION_TOLERANCE: f64 = {lattice_precision_tolerance};
+#[cfg(not(verus_keep_ghost))]
+pub const LATTICE_TARGET_PENALTY_BASE: f64 = {lattice_target_penalty_base};
 #[cfg(not(verus_keep_ghost))]
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 
@@ -857,6 +862,8 @@ verus! {{
 #define CRT_MODULUS_PRODUCT {crt_modulus_product}
 #define CRT_MODULI_LEN {len(crt_moduli)}
 #define CRT_MODULI {{ {', '.join(map(str, crt_moduli))} }}
+#define LATTICE_PRECISION_TOLERANCE {lattice_precision_tolerance}
+#define LATTICE_TARGET_PENALTY_BASE {lattice_target_penalty_base}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"
@@ -896,6 +903,9 @@ def TOUCHARD_MOD_24_RESIDUES : Array Nat := #[{', '.join(map(str, touchard_resid
 
 def CRT_MODULUS_PRODUCT : Nat := {crt_modulus_product}
 def CRT_MODULI : Array Nat := #[{', '.join(map(str, crt_moduli))}]
+
+def LATTICE_PRECISION_TOLERANCE : Float := {lattice_precision_tolerance}
+def LATTICE_TARGET_PENALTY_BASE : Float := {lattice_target_penalty_base}
 
 def PRIME_FACTOR_LIST : Array Nat := #[{', '.join(map(str, bounds.get('prime_factor_list', [])))}]
 def STATIC_SUFFIX_BOUNDS : Array Nat := #[{', '.join(map(str, bounds.get('static_suffix_bounds', [])))}]
