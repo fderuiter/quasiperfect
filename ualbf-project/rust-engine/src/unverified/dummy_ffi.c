@@ -140,6 +140,8 @@ uint32_t ualbf_max_exponent = (1U << 31) | MAX_EXPONENT;
 uint64_t ualbf_prefix_stop_threshold = (1ULL << 63) | PREFIX_STOP_THRESHOLD;
 uint32_t ualbf_raycast_gpu_threshold = (1U << 31) | RAYCAST_GPU_THRESHOLD;
 uint32_t ualbf_raycast_chunk_size = (1U << 31) | RAYCAST_CHUNK_SIZE;
+uint32_t ualbf_conjectural_active = (1U << 31) | CONJECTURAL_ACTIVE;
+uint32_t ualbf_conjectural_max_log10_ceiling = (1U << 31) | CONJECTURAL_MAX_LOG10_CEILING;
 
 uint64_t ualbf_bloom_get_index(uint64_t hash1, uint64_t hash2, uint64_t num_bits, uint32_t i) {
     uint64_t current = hash1 + (uint64_t)i * hash2 + (uint64_t)i * (uint64_t)i;
