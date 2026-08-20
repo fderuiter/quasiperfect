@@ -73,6 +73,8 @@ def main():
 
             authoritative_touched = False
             for f in pr_files:
+                if any(part in exclude_dirs for part in f.split(os.sep)):
+                    continue
                 if f.endswith(".md"):
                     if f not in manifest:
                         print(

@@ -583,6 +583,8 @@ def check_documentation(manifest):
         with open(manifest_path, "r", encoding="utf-8") as f:
             docs_manifest = json.load(f)
         for key, classification in docs_manifest.items():
+            if any(part in exclude_dirs for part in key.replace("\\", "/").split("/")):
+                continue
             doc_path = os.path.abspath(os.path.join(manifest_dir, key))
             docs_to_check.append((doc_path, classification))
     except Exception:
