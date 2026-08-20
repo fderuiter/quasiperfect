@@ -380,5 +380,6 @@
       "identifier": "Scripta Mathematica"
     }
   },
+  "lattice_target_penalty_base": 1000000000.0,
   "lattice_precision_tolerance": 1e-9
 }

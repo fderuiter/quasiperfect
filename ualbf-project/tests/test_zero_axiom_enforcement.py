@@ -454,3 +454,157 @@ def test_verify_certificate_rejects_undefined_status():
     finally:
         shutil.move(backup_path, manifest_path)
 
+
+def test_auditor_fails_on_unmanifested_source_file():
+    """
+    Test that auditor.generate_manifest fails immediately when an existing manifest is present
+    and an unmanifested .lean proof source file exists on disk.
+    """
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
+         mock.patch("auditor.check_lean_environment", return_value=True), \
+         mock.patch("auditor.check_documentation", return_value=True), \
+         mock.patch("auditor.check_imports", return_value=True), \
+         tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            # Create existing manifest with registered proof_file A.lean
+            manifest_data = {
+                "theorems": [],
+                "proof_files": [{"file": "A.lean", "checksum": "dummy_checksum"}]
+            }
+            with open("proof_manifest.json", "w", encoding="utf-8") as f:
+                json.dump(manifest_data, f)
+
+            # Create physical files: A.lean and an unmanifested Unlisted.lean
+            lean_dir = Path("lean4-proofs")
+            lean_dir.mkdir(parents=True, exist_ok=True)
+            (lean_dir / "A.lean").write_text("def a := 1")
+            (lean_dir / "Unlisted.lean").write_text("def unlisted := 2")
+
+            with pytest.raises(SystemExit) as exc_info:
+                auditor.generate_manifest()
+            assert exc_info.value.code == 1
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_auditor_registers_all_discovered_source_files():
+    """
+    Test that auditor.generate_manifest discovers and registers 100% of physical .lean
+    source files when generating a manifest from scratch.
+    """
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and "find_axioms.lean" in args[-1]:
+            return mock.Mock(returncode=0, stdout="depends on axioms: [propext]", stderr="")
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
+         mock.patch("auditor.check_lean_environment", return_value=True), \
+         mock.patch("auditor.check_documentation", return_value=True), \
+         mock.patch("auditor.check_imports", return_value=True), \
+         tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            bounds_path = Path("bounds_manifest.json")
+            with open(bounds_path, "w") as f:
+                json.dump({}, f)
+
+            lean_dir = Path("lean4-proofs")
+            lean_dir.mkdir(parents=True, exist_ok=True)
+            (lean_dir / "Module1.lean").write_text("def m1 := 1")
+            (lean_dir / "UALBF").mkdir(parents=True, exist_ok=True)
+            (lean_dir / "UALBF/Module2.lean").write_text("def m2 := 2")
+
+            Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
+            with open("rust-engine/src/verus_proofs.rs", "w") as f:
+                f.write("verus! {}")
+
+            auditor.generate_manifest()
+
+            with open("proof_manifest.json", "r", encoding="utf-8") as f:
+                generated_manifest = json.load(f)
+
+            registered_files = [pf["file"] for pf in generated_manifest["proof_files"]]
+            assert "Module1.lean" in registered_files
+            assert "UALBF/Module2.lean" in registered_files
+            assert len(registered_files) == 2
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_verify_certificate_rejects_unmanifested_source_file():
+    """
+    Test that verify_certificate fails with SystemExit(1) when a physical .lean file exists on disk
+    that is not registered in manifest['proof_files'].
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        lean_dir = tmp_path / "lean4-proofs"
+        lean_dir.mkdir(parents=True, exist_ok=True)
+
+        file1 = lean_dir / "File1.lean"
+        file2 = lean_dir / "Unlisted.lean"
+        file1.write_text("def f1 := 1")
+        file2.write_text("def unlisted := 2")
+
+        chk1 = hashlib.sha256(file1.read_bytes()).hexdigest()
+
+        bounds_content = b'{"dummy": "bounds"}'
+        bounds_hash = hashlib.sha256(bounds_content).hexdigest()
+        bounds_path = tmp_path / "bounds_manifest.json"
+        bounds_path.write_bytes(bounds_content)
+
+        manifest = {
+            "theorems": [],
+            "proof_files": [{"file": "File1.lean", "checksum": chk1}],
+            "bounds_manifest_hash": bounds_hash
+        }
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+
+        manifest_path = tmp_path / "proof_manifest.json"
+        manifest_path.write_text(manifest_content, encoding="utf-8")
+
+        mock_cert = {
+            "manifest_hash": manifest_hash,
+            "public_key": "",
+            "telemetry": {
+                "target_min_log10": 35,
+                "target_max_log10": 37,
+                "total_branches_searched": 100,
+                "abundance_pruned": 0,
+                "raycast_pruned": 0,
+                "phase2_execution_time_ms": 0,
+                "total_execution_time_ms": 0,
+                "math_interruptions": 0,
+                "path_ranges": []
+            },
+            "signature": "",
+            "is_conditional": False,
+            "conjecture": None,
+            "verified_logic_hash": "dummy",
+            "bounds_manifest_hash": bounds_hash
+        }
+
+        with mock.patch("cert_util.load_and_validate_cert", return_value=mock_cert), \
+             mock.patch("verify_cert.TRUSTED_PUBLIC_KEY", None):
+            with pytest.raises(SystemExit) as exc_info:
+                verify_certificate("dummy_cert.json", str(manifest_path))
+            assert exc_info.value.code == 1
+
+

@@ -480,11 +480,19 @@ mod tests {
         // 4. Test sidecar overflow logging and verification
         let test_log = "test_overflow_sidecar.log";
         init_sidecar_logger(test_log).unwrap();
-        log_overflow(12345, 1000);
+        log_overflow(Uint::from_u64(12345), 1000);
+
+        // Test high-range 512-bit prime candidate exceeding u64::MAX (e.g. 2^100 + 1)
+        let p_512 = (Uint::one() << 100) + Uint::one();
+        log_overflow(p_512, 10);
+
         finalize_sidecar_logger();
 
         let content = std::fs::read_to_string(test_log).unwrap();
-        assert_eq!(content.trim(), "12345,1000");
+        let lines: Vec<&str> = content.trim().lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0], "12345,1000");
+        assert_eq!(lines[1], format!("{},10", p_512));
 
         assert!(run_offline_verification(test_log).is_ok());
 
@@ -526,7 +534,7 @@ fn get_cofactors_to_factor(
     let full_sigma = match crate::lean_ffi::compute_sigma_checked(p, two_e) {
         Some(s) => s,
         None => {
-            log_overflow(p, two_e);
+            log_overflow(Uint::from_u64(p), two_e);
             return Some((false, vec![], vec![]));
         }
     };
@@ -563,7 +571,7 @@ fn get_cofactors_to_factor(
 pub static SIDECAR_ERROR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 struct LoggerState {
-    sender: Option<crossbeam_channel::Sender<(u64, u32)>>,
+    sender: Option<crossbeam_channel::Sender<(Uint, u32)>>,
     join_handle: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -579,7 +587,7 @@ pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
 
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
-    let (tx, rx) = crossbeam_channel::unbounded::<(u64, u32)>();
+    let (tx, rx) = crossbeam_channel::unbounded::<(Uint, u32)>();
 
     let handle = std::thread::spawn(move || {
         for (p, pow) in rx {
@@ -599,7 +607,7 @@ pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn log_overflow(p: u64, pow: u32) {
+pub fn log_overflow(p: Uint, pow: u32) {
     if SIDECAR_ERROR.load(std::sync::atomic::Ordering::SeqCst) {
         panic!("FATAL: Sidecar logging has failed previously. Halting execution to prevent unlogged overflows.");
     }
@@ -644,10 +652,7 @@ pub fn run_offline_verification(sidecar_path: &str) -> Result<(), Box<dyn std::e
     let reader = std::io::BufReader::new(file);
     let mut count = 0;
 
-    let target_max_log10 = std::env::var("UALBF_TARGET_MAX_LOG10")
-        .ok()
-        .and_then(|v| v.parse::<u32>().ok())
-        .unwrap_or(crate::manifest_constants::TARGET_MAX_LOG10);
+    let target_max_log10 = crate::policy::get_safe_config().target_max_log10;
     let threshold_bound = BigUint::from(10u32).pow(target_max_log10);
 
     for line in reader.lines() {
@@ -659,21 +664,21 @@ pub fn run_offline_verification(sidecar_path: &str) -> Result<(), Box<dyn std::e
         if parts.len() != 2 {
             return Err(format!("Invalid sidecar log line: {}", line).into());
         }
-        let p_val: u64 = parts[0].trim().parse()?;
+        let p: BigUint = parts[0].trim().parse()?;
         let pow_val: u32 = parts[1].trim().parse()?;
 
-        let p = BigUint::from(p_val);
+        if p <= BigUint::one() {
+            return Err(format!("Invalid prime value in sidecar log: {}", p).into());
+        }
+
         let p_pow = p.pow(pow_val);
         let p_pow_plus_1 = p.pow(pow_val + 1);
         let numerator = p_pow_plus_1 - BigUint::one();
-        let denominator = BigUint::from(p_val - 1);
+        let denominator = &p - BigUint::one();
         let sigma = numerator / denominator;
 
         count += 1;
-        println!(
-            "Audit Candidate #{}: p = {}, pow = {}",
-            count, p_val, pow_val
-        );
+        println!("Audit Candidate #{}: p = {}, pow = {}", count, p, pow_val);
         println!(
             "  - p^pow size: {} bits ({} decimal digits)",
             p_pow.bits(),

@@ -285,6 +285,8 @@ def load_and_validate_cert(cert_path):
 
 CORE_THEOREMS = [
     "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
+    "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
     "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
     "UALBF.Engine.Bipartition.prefix_sigma_coprime",
     "UALBF.Engine.Bipartition.ambs_suffix_target",

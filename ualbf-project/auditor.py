@@ -141,19 +141,60 @@ def generate_manifest():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
 
-    # Load existing manifest to preserve statuses if Lean is missing
+    cwd = (
+        "lean4-proofs"
+        if os.path.exists("lean4-proofs")
+        else os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
+    )
+
+    # Load existing manifest to preserve statuses if Lean is missing and perform unmanifested file gate check
     existing_statuses = {}
     existing_manifest_status = None
-    try:
-        manifest_path = "proof_manifest.json"
-        if os.path.exists(manifest_path):
+    existing_registered_files = set()
+    manifest_path = "proof_manifest.json"
+    if os.path.exists(manifest_path):
+        try:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 old_manifest = json.load(f)
                 existing_manifest_status = old_manifest.get("status")
                 for thm in old_manifest.get("theorems", []):
                     existing_statuses[thm["name"]] = thm["status"]
-    except Exception:
-        pass
+                    if "file" in thm:
+                        existing_registered_files.add(thm["file"])
+                for pf in old_manifest.get("proof_files", []):
+                    if "file" in pf:
+                        existing_registered_files.add(pf["file"])
+        except Exception:
+            pass
+
+    # Discover physical proof source files on disk
+    disk_proof_files = []
+    if os.path.exists(cwd):
+        for root, _, files in os.walk(cwd):
+            if ".lake" in root:
+                continue
+            for file in files:
+                if (
+                    file.endswith(".lean")
+                    and file != "lakefile.lean"
+                    and file != "find_axioms.lean"
+                ):
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, cwd)
+                    disk_proof_files.append(rel_path)
+
+    # Gate: Fail immediately if any unmanifested source file exists on disk
+    if existing_registered_files:
+        unmanifested = [
+            df for df in disk_proof_files if df not in existing_registered_files
+        ]
+        if unmanifested:
+            for df in unmanifested:
+                print(
+                    f"ERROR: Unmanifested proof source file found on disk: {df}",
+                    file=sys.stderr,
+                )
+            sys.exit(1)
 
     if not has_lean:
         if existing_manifest_status is not None:
@@ -162,7 +203,6 @@ def generate_manifest():
             manifest["status"] = "unverified"
 
     # Check Lean axioms using the compiler
-    cwd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
 
     # Robust touch logic to resolve Nix epoch mtimes mismatch
     if has_lean:
@@ -369,7 +409,9 @@ def generate_manifest():
                 "--features",
                 "signing",
                 "--manifest-path",
-                os.path.join(repo_root, "verification-lib", "Cargo.toml"),
+                os.path.join(repo_root, "Cargo.toml"),
+                "-p",
+                "verification-lib",
                 "--bin",
                 "verification_cli",
                 "--",
@@ -410,9 +452,10 @@ def generate_manifest():
                 "--manifest-path",
                 os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "verification-lib",
                     "Cargo.toml",
                 ),
+                "-p",
+                "verification-lib",
                 "--bin",
                 "verification_cli",
                 "--",
@@ -432,7 +475,7 @@ def generate_manifest():
     with open(verus_proofs_path, "r", encoding="utf-8") as f:
         verus_hashes = compute_verus_hashes(f.read())
 
-    manifest["verus_hashes"] = verus_hashes
+    manifest["verus_hashes"] = dict(sorted(verus_hashes.items()))
 
     # Scan and hash all 23 proof files
     proof_files = []

@@ -217,7 +217,7 @@ fn main() {
         let val = prime_split.value;
         if val != 61 {
             panic!(
-                "FATAL: Invalid configuration! The configured prime split threshold ({}) does not equal the baseline value of 61. The threshold must strictly equal 61.",
+                "FATAL: Invalid configuration! The configured prime split threshold ({}) does not equal the baseline of 61. The threshold must equal 61.",
                 val
             );
         }

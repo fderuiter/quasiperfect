@@ -691,7 +691,7 @@ pub fn native_cyclotomic_eval(d: u32, p: &Uint) -> Option<Uint> {
         let num = match p.checked_pow(d) {
             Some(n) => n,
             None => {
-                crate::sieve::log_overflow(p.as_u64(), d);
+                crate::sieve::log_overflow(*p, d);
                 return None;
             }
         };
@@ -699,7 +699,7 @@ pub fn native_cyclotomic_eval(d: u32, p: &Uint) -> Option<Uint> {
             match num.checked_sub(Uint::one()) {
                 Some(sub) => sub,
                 None => {
-                    crate::sieve::log_overflow(p.as_u64(), d);
+                    crate::sieve::log_overflow(*p, d);
                     return None;
                 }
             }
@@ -709,7 +709,7 @@ pub fn native_cyclotomic_eval(d: u32, p: &Uint) -> Option<Uint> {
         let den = match native_cyclotomic_eval_aux(d, p, d - 1) {
             Some(dn) => dn,
             None => {
-                crate::sieve::log_overflow(p.as_u64(), d);
+                crate::sieve::log_overflow(*p, d);
                 return None;
             }
         };
@@ -789,6 +789,27 @@ mod tests {
         initialize_lean_worker_thread();
     }
     use super::*;
+
+    #[test]
+    fn test_512bit_cyclotomic_eval_overflow_logging() {
+        setup();
+        let test_log = "test_512bit_eval_overflow_sidecar.log";
+        crate::sieve::init_sidecar_logger(test_log).unwrap();
+
+        // 512-bit prime value > u64::MAX (2^100 + 1)
+        let p_512 = (Uint::one() << 100) + Uint::one();
+        let eval_res = native_cyclotomic_eval(10, &p_512);
+        assert_eq!(eval_res, None);
+
+        crate::sieve::finalize_sidecar_logger();
+
+        let content = std::fs::read_to_string(test_log).unwrap();
+        assert!(content.contains(&p_512.to_string()));
+
+        assert!(crate::sieve::run_offline_verification(test_log).is_ok());
+
+        let _ = std::fs::remove_file(test_log);
+    }
 
     #[test]
     fn test_signature_and_alignment_guarantees() {
@@ -880,9 +901,12 @@ mod tests {
         assert_eq!(value, 15, "expected prasad_sunitha_bound to match 15");
     }
 
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// Verify the dummy stub value for div_5_coprime_3_bound.
     #[test]
     fn test_dummy_div_5_coprime_3_bound_value() {
+        let _guard = ENV_LOCK.lock().unwrap();
         setup();
         let value = get_div_5_coprime_3_bound();
         assert_eq!(value, 11, "expected div_5_coprime_3_bound to match 11");
@@ -916,6 +940,7 @@ mod tests {
     /// Repeated calls to get_div_5_coprime_3_bound must return the same value.
     #[test]
     fn test_get_div_5_coprime_3_bound_idempotent() {
+        let _guard = ENV_LOCK.lock().unwrap();
         setup();
         let first = get_div_5_coprime_3_bound();
         let second = get_div_5_coprime_3_bound();
@@ -1111,6 +1136,7 @@ mod tests {
 
     #[test]
     fn test_dynamic_bounds_under_proof_modes() {
+        let _guard = ENV_LOCK.lock().unwrap();
         setup();
         std::env::remove_var("UALBF_PROOF_MODE");
         let div_5_bound_axiomatic = get_div_5_coprime_3_bound();
