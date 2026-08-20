@@ -11,3 +11,7 @@ incremental = false
 
 [profile.release]
 incremental = false
+
+[profile.release.build-override]
+opt-level = 3
+
