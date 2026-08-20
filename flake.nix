@@ -199,7 +199,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json)$" p != null || type == "directory";
           };
           buildAndTestSubdir = "verification-lib";
 
@@ -218,6 +218,7 @@
 
           buildInputs = [
             pkgs.z3
+            pkgs.z3.dev
             pkgs.libcxx
           ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [
             pkgs.pkgsStatic.gmp
@@ -234,6 +235,8 @@
           preBuild = ''
             chmod +w ..
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+            export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
+            export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
           '';
 
           installPhase = ''
@@ -252,7 +255,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|lean4-proofs.*)$" p != null || type == "directory";
           };
 
           sourceRoot = "source/rust-engine";

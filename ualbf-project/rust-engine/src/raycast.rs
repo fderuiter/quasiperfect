@@ -197,12 +197,13 @@ pub fn generate_illegal_z_valuations(limit: u64, max_e: u32) -> Vec<(Int, Int)> 
 /// to ensure absolute correctness and strict mathematical soundness.
 fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &SigmaCache) -> bool {
     let z_fact = crate::math_utils::quick_factor_u256(z_tiered);
-    let mut z_factors = z_fact.factors().to_vec();
-    // CRITICAL: We must explicitly sort the prime factors using sort_unstable() to
-    // ensure that duplicate/identical factors are adjacent. This is required because
-    // the multiplicity logic below relies on sequential grouping to compute prime
-    // powers (p^k) correctly for multi-factor candidates.
-    z_factors.sort_unstable();
+    let z_factors = z_fact.factors();
+    // In debug builds, verify the pre-sorted invariant required for direct slice traversal and
+    // sequential multiplicity grouping without dynamic heap memory allocation.
+    debug_assert!(
+        z_factors.windows(2).all(|w| w[0] <= w[1]),
+        "Candidate factor slice must arrive strictly pre-sorted upon generation"
+    );
     let cofactor_opt = match z_fact {
         crate::math_utils::FactorizationResult::Partial { remaining, .. } => Some(remaining),
         crate::math_utils::FactorizationResult::Failure(u) => Some(u),
@@ -216,7 +217,7 @@ fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &S
     let mut count: u32 = 0;
     let mut s_r_overflowed = false;
 
-    for &f in &z_factors {
+    for &f in z_factors {
         if f == current_p {
             count += 1;
         } else {
@@ -726,5 +727,24 @@ mod additional_tests {
         let res =
             verify_candidate_cpu_only(Uint::from_u32(105), Uint::from_u32(22971), &sigma_cache);
         assert!(res);
+    }
+
+    #[test]
+    fn test_verify_candidate_cpu_only_repeated_prime_factors() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let sigma_cache = std::collections::HashMap::new();
+        // z_tiered = 3 * 3 * 5 = 45.
+        // sigma(3^4) * sigma(5^2) = 121 * 31 = 3751.
+        let res = verify_candidate_cpu_only(Uint::from_u32(45), Uint::from_u32(3751), &sigma_cache);
+        assert!(res);
+    }
+
+    #[test]
+    fn test_factor_slice_presorted_assertion() {
+        let sorted = [Uint::from_u32(3), Uint::from_u32(5), Uint::from_u32(7)];
+        assert!(sorted.windows(2).all(|w| w[0] <= w[1]));
+
+        let unsorted = [Uint::from_u32(7), Uint::from_u32(3), Uint::from_u32(5)];
+        assert!(!unsorted.windows(2).all(|w| w[0] <= w[1]));
     }
 }
