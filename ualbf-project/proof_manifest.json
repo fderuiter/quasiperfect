@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "8f1d5daa8a6e2db5ab9967d7308a34ae318006899f226759fe97f781e038acd0",
+  "verified_logic_hash": "8bc8651f506417ff8c079a93d2da555fbaaeaccd9a01f7cabf00246b30f03ce9",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -330,7 +330,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "c166f85b053f2e5ccfe637a0df9ee4a61fa03c3751b8de9b533effce59647569"
+      "checksum": "9f2547f782b25bb2c93bc4c6669ccf83fd144706ab9ed3783f49a5d58c44e9a2"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
@@ -389,7 +389,7 @@
       "checksum": "89cbdaeb91d27449f9b81398dd72791337806ab7453e25606da716ed1eae9f5f"
     }
   ],
-  "bounds_manifest_hash": "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951",
+  "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
   "ghost_pruning_bindings": {
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
