@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "537ee26b16aad2b555af6c8880d799f5eb844ce60e4a4bb6ae569086081c5146",
+  "verified_logic_hash": "6c74ab6080757f7e8f405d63302899f7f4d2e6a75c68be76ea90272aa771e0b9",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_cdg_forced_kill": "fd5dceec55e366bafd28b764e97aa3b84b9d29653293695d4bb32059f1da07b5",
@@ -330,7 +330,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "c166f85b053f2e5ccfe637a0df9ee4a61fa03c3751b8de9b533effce59647569"
+      "checksum": "9f2547f782b25bb2c93bc4c6669ccf83fd144706ab9ed3783f49a5d58c44e9a2"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
@@ -342,7 +342,7 @@
     },
     {
       "file": "UALBF/Pure/Cyclotomic.lean",
-      "checksum": "906ebe02ecc82b099f15883c531950fbf547a9b87fe42213b54ffa5b788dcce8"
+      "checksum": "b69cf6cb7ca5172d0d4ea87fd64fb709e6c503316cf4e66ae448286b6016eb1e"
     },
     {
       "file": "UALBF/Pure/CyclotomicAlgebra.lean",
@@ -386,10 +386,10 @@
     },
     {
       "file": "Validator.lean",
-      "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
+      "checksum": "89cbdaeb91d27449f9b81398dd72791337806ab7453e25606da716ed1eae9f5f"
     }
   ],
-  "bounds_manifest_hash": "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951",
+  "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
   "ghost_pruning_bindings": {
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
