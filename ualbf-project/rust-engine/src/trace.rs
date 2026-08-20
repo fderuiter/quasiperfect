@@ -1,10 +1,18 @@
 use crate::types::Uint;
 use crossbeam_channel::Sender;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::thread::JoinHandle;
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct GraphTopologyManifest {
+    pub adjacency: Vec<Vec<usize>>,
+    pub scc_map: Vec<usize>,
+    pub scc_components: Vec<Vec<usize>>,
+    pub forced_candidates: Vec<Vec<usize>>,
+}
 
 pub enum PruneReason {
     TargetBound,
@@ -13,6 +21,8 @@ pub enum PruneReason {
         forced_den: Uint,
         lhs: Uint,
         rhs: Uint,
+        topology_manifest: Option<GraphTopologyManifest>,
+        reachable_paths: Option<Vec<Vec<usize>>>,
     },
     UnconditionalStarvation {
         max_allowed: usize,
@@ -103,6 +113,10 @@ struct SerializableTraceEvent<'a> {
     forced_num: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     forced_den: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    topology_manifest: Option<&'a GraphTopologyManifest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reachable_paths: Option<&'a [Vec<usize>]>,
 }
 
 pub struct TraceWriter {
@@ -144,6 +158,8 @@ impl TraceWriter {
                     epsilon: None,
                     forced_num: None,
                     forced_den: None,
+                    topology_manifest: None,
+                    reachable_paths: None,
                 };
 
                 match &event.reason {
@@ -152,12 +168,16 @@ impl TraceWriter {
                         forced_den,
                         lhs,
                         rhs,
+                        topology_manifest,
+                        reachable_paths,
                     } => {
                         ser_event.reason = "cdg_forced_cascade";
                         ser_event.forced_num = Some(forced_num.to_string());
                         ser_event.forced_den = Some(forced_den.to_string());
                         ser_event.lhs = Some(lhs.to_string());
                         ser_event.rhs = Some(rhs.to_string());
+                        ser_event.topology_manifest = topology_manifest.as_ref();
+                        ser_event.reachable_paths = reachable_paths.as_deref();
                     }
                     PruneReason::TargetBound => {
                         ser_event.reason = "target_bound";

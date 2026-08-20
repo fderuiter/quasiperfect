@@ -409,7 +409,9 @@ def generate_manifest():
                 "--features",
                 "signing",
                 "--manifest-path",
-                os.path.join(repo_root, "verification-lib", "Cargo.toml"),
+                os.path.join(repo_root, "Cargo.toml"),
+                "-p",
+                "verification-lib",
                 "--bin",
                 "verification_cli",
                 "--",
@@ -450,9 +452,10 @@ def generate_manifest():
                 "--manifest-path",
                 os.path.join(
                     os.path.dirname(os.path.abspath(__file__)),
-                    "verification-lib",
                     "Cargo.toml",
                 ),
+                "-p",
+                "verification-lib",
                 "--bin",
                 "verification_cli",
                 "--",
@@ -472,7 +475,7 @@ def generate_manifest():
     with open(verus_proofs_path, "r", encoding="utf-8") as f:
         verus_hashes = compute_verus_hashes(f.read())
 
-    manifest["verus_hashes"] = verus_hashes
+    manifest["verus_hashes"] = dict(sorted(verus_hashes.items()))
 
     # Scan and hash all 23 proof files
     proof_files = []

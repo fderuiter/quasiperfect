@@ -737,6 +737,9 @@ def main():
         crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
         crt_moduli = bounds["crt_obstruction"]["moduli"]
 
+        lattice_precision_tolerance = bounds.get("lattice_precision_tolerance", 1e-9)
+        lattice_target_penalty_base = bounds.get("lattice_target_penalty_base", 1e9)
+
         rust_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 #[cfg(not(verus_keep_ghost))]
 pub const PRIME_SPLIT_THRESHOLD: u64 = {prime_split_threshold};
@@ -790,6 +793,10 @@ pub const TOUCHARD_MOD_24_RESIDUES: [u32; {len(touchard_residues)}] = [{', '.joi
 pub const CRT_MODULUS_PRODUCT: u32 = {crt_modulus_product};
 #[cfg(not(verus_keep_ghost))]
 pub const CRT_MODULI: [u32; {len(crt_moduli)}] = [{', '.join(map(str, crt_moduli))}];
+#[cfg(not(verus_keep_ghost))]
+pub const LATTICE_PRECISION_TOLERANCE: f64 = {lattice_precision_tolerance};
+#[cfg(not(verus_keep_ghost))]
+pub const LATTICE_TARGET_PENALTY_BASE: f64 = {lattice_target_penalty_base};
 #[cfg(not(verus_keep_ghost))]
 pub const MANIFEST_HASH: &str = "{bounds_hash}";
 
@@ -857,6 +864,8 @@ verus! {{
 #define CRT_MODULUS_PRODUCT {crt_modulus_product}
 #define CRT_MODULI_LEN {len(crt_moduli)}
 #define CRT_MODULI {{ {', '.join(map(str, crt_moduli))} }}
+#define LATTICE_PRECISION_TOLERANCE {lattice_precision_tolerance}
+#define LATTICE_TARGET_PENALTY_BASE {lattice_target_penalty_base}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"
@@ -896,6 +905,9 @@ def TOUCHARD_MOD_24_RESIDUES : Array Nat := #[{', '.join(map(str, touchard_resid
 
 def CRT_MODULUS_PRODUCT : Nat := {crt_modulus_product}
 def CRT_MODULI : Array Nat := #[{', '.join(map(str, crt_moduli))}]
+
+def LATTICE_PRECISION_TOLERANCE : Float := {lattice_precision_tolerance}
+def LATTICE_TARGET_PENALTY_BASE : Float := {lattice_target_penalty_base}
 
 def PRIME_FACTOR_LIST : Array Nat := #[{', '.join(map(str, bounds.get('prime_factor_list', [])))}]
 def STATIC_SUFFIX_BOUNDS : Array Nat := #[{', '.join(map(str, bounds.get('static_suffix_bounds', [])))}]

@@ -644,10 +644,7 @@ pub fn run_offline_verification(sidecar_path: &str) -> Result<(), Box<dyn std::e
     let reader = std::io::BufReader::new(file);
     let mut count = 0;
 
-    let target_max_log10 = std::env::var("UALBF_TARGET_MAX_LOG10")
-        .ok()
-        .and_then(|v| v.parse::<u32>().ok())
-        .unwrap_or(crate::manifest_constants::TARGET_MAX_LOG10);
+    let target_max_log10 = crate::policy::get_safe_config().target_max_log10;
     let threshold_bound = BigUint::from(10u32).pow(target_max_log10);
 
     for line in reader.lines() {
