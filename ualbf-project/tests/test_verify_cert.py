@@ -63,9 +63,15 @@ def make_manifest(theorems=None):
     except Exception:
         chk = "aabbccdd"
 
+    proof_files = [{"file": arith_file, "checksum": chk}]
+    for t in theorems:
+        tf = t.get("file")
+        if tf and not any(pf["file"] == tf for pf in proof_files):
+            proof_files.append({"file": tf, "checksum": t.get("checksum", chk)})
+
     return {
         "theorems": theorems,
-        "proof_files": [{"file": arith_file, "checksum": chk}],
+        "proof_files": proof_files,
     }
 
 
@@ -1019,6 +1025,7 @@ class TestConditionalCertificates:
         with open(bounds_path, "wb") as f:
             f.write(b'{"dummy": "bounds"}')
 
+        write_mock_manifest_files(str(tmp_path), manifest)
         manifest["bounds_manifest_hash"] = hashlib.sha256(
             b'{"dummy": "bounds"}'
         ).hexdigest()
@@ -1342,6 +1349,7 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     # 2. Create a mock manifest containing bounds_manifest_hash
     manifest = make_manifest()
     manifest["bounds_manifest_hash"] = bounds_hash
+    write_mock_manifest_files(str(tmp_path), manifest)
     manifest_content = json.dumps(manifest)
     manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
     with open(manifest_path, "w") as f:
@@ -1604,6 +1612,145 @@ class TestStrictLogicHashVerification:
         verify_certificate(cert_path, manifest_path)
 
 
+from verify_cert import verify_trace_file
+
+
+class TestGraphTopologyVerification:
+    def test_valid_topology_manifest_passes(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[1], [2], []],
+            "scc_map": [0, 1, 2],
+            "scc_components": [[0], [1], [2]],
+            "forced_candidates": [[1], [2], []]
+        }
+        reachable_paths = [[0, 1, 2]]
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified (graph topology audited)",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": reachable_paths,
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        # Should pass without SystemExit
+        verify_trace_file(cert, trace_path)
+
+    def test_missing_topology_manifest_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+    def test_invalid_neighbor_out_of_bounds_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[99]], # 99 is out of bounds
+            "scc_map": [0],
+            "scc_components": [[0]],
+            "forced_candidates": [[99]]
+        }
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": [[0]],
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+    def test_scc_mismatch_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[1], []],
+            "scc_map": [0, 0], # node 1 mapped to scc 0, but missing from scc_components[0]
+            "scc_components": [[0], [1]],
+            "forced_candidates": [[1], []]
+        }
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": [[0, 1]],
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+    def test_unreachable_path_step_fails(self, tmp_path):
+        trace_path = os.path.join(tmp_path, "trace.jsonl")
+        topology_manifest = {
+            "adjacency": [[], []], # no edges
+            "scc_map": [0, 1],
+            "scc_components": [[0], [1]],
+            "forced_candidates": [[], []]
+        }
+        # Path claims 0 -> 1, but 0 -> 1 is NOT reachable
+        reachable_paths = [[0, 1]]
+        record = {
+            "reason": "cdg_forced_cascade",
+            "verification_status": "formally verified",
+            "topology_manifest": topology_manifest,
+            "reachable_paths": reachable_paths,
+            "n_l": "1",
+            "s_l": "1",
+            "factors": []
+        }
+        trace_content = json.dumps(record) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(trace_content)
+
+        trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
+        cert = {"telemetry": {"trace_hash": trace_hash}}
+
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
+
+
 def test_compositeness_witness_certification(tmp_path):
     """
     Test Compositeness Witness Certification for Candidates under 2^64.
@@ -1633,6 +1780,7 @@ def test_compositeness_witness_certification(tmp_path):
 
     manifest = make_manifest()
     manifest["bounds_manifest_hash"] = bounds_hash
+    write_mock_manifest_files(str(tmp_path), manifest)
     manifest_content = json.dumps(manifest)
     manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
     with open(manifest_path, "w") as f:
@@ -1769,6 +1917,7 @@ def test_verify_gpu_witnesses_cases(tmp_path):
     # 2. Create a mock manifest
     manifest = make_manifest()
     manifest["bounds_manifest_hash"] = bounds_hash
+    write_mock_manifest_files(str(tmp_path), manifest)
     manifest_content = json.dumps(manifest)
     manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
     with open(manifest_path, "w") as f:
