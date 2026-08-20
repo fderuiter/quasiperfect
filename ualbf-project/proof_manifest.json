@@ -318,7 +318,7 @@
     "UALBF.Engine.Mod1155Bridge.mod1155_soundness": "UALBF/Engine/Mod1155Bridge.lean",
     "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound": "UALBF/Engine/Mod1155Bridge.lean"
   },
-  "verified_logic_hash": "3da2e4765f7ed5bcd2ed22007aee051d064765a539e967b03a8c69ed981b0fc8",
+  "verified_logic_hash": "6226e6ab34ef86c7ea96fbef60c12c510d8916050e2ff5a4fdd5282fe2ada387",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -437,7 +437,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "c166f85b053f2e5ccfe637a0df9ee4a61fa03c3751b8de9b533effce59647569"
+      "checksum": "9f2547f782b25bb2c93bc4c6669ccf83fd144706ab9ed3783f49a5d58c44e9a2"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
@@ -496,7 +496,7 @@
       "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951",
+  "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
   "ghost_pruning_bindings": {
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
