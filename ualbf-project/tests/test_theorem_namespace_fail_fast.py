@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import tempfile
 import subprocess
 import hashlib
 from pathlib import Path
@@ -45,9 +44,9 @@ def test_unresolved_symbol_axiom_verification_fails_fast(capsys):
             return mock.Mock(returncode=0, stdout="dummy", stderr="")
         return subprocess.run(args, *extra_args, **kwargs)
 
-    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
-         mock.patch("auditor.check_lean_environment", return_value=True), \
-         mock.patch("auditor.CORE_THEOREMS", [bad_thm]):
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.CORE_THEOREMS", [bad_thm]):
         with pytest.raises(SystemExit) as exc_info:
             auditor.generate_manifest()
         assert exc_info.value.code == 1
@@ -63,8 +62,9 @@ def test_unresolved_path_resolution_fails_fast(capsys):
     """
     unresolved_thm = "UALBF.NonExistentModule.some_theorem"
 
-    with mock.patch("auditor.CORE_THEOREMS", [unresolved_thm]), \
-         mock.patch("auditor.check_lean_environment", return_value=True):
+    with mock.patch("auditor.CORE_THEOREMS", [unresolved_thm]), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ):
         os.environ["MOCK_LEAN"] = "1"
         try:
             with pytest.raises(SystemExit) as exc_info:
@@ -94,31 +94,55 @@ def test_valid_fully_qualified_theorem_registration(tmp_path):
     os.chdir(tmp_path)
     try:
         bounds_path = tmp_path / "bounds_manifest.json"
-        bounds_path.write_text(json.dumps({
-            "omega_bounds": {
-                "prasad_sunitha": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False},
-                "hagis1982": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False}
-            },
-            "search_bounds": {
-                "target_min_log10": {"value": 35, "is_axiomatic": False},
-                "target_max_log10": {"value": 37, "is_axiomatic": False},
-                "sieve_limit": {"value": 1000, "is_axiomatic": False},
-                "max_exponent": {"value": 4, "is_axiomatic": False},
-                "prefix_stop_threshold": {"value": 100, "is_axiomatic": False},
-                "pollard_rho": {"iteration_limit": 100, "batch_size": 10, "is_axiomatic": False},
-                "raycast": {"gpu_threshold": 100, "chunk_size": 10, "is_axiomatic": False}
-            },
-            "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
-            "overflow_threshold": {"num": 2, "den": 1, "is_axiomatic": False}
-        }))
+        bounds_path.write_text(
+            json.dumps(
+                {
+                    "omega_bounds": {
+                        "prasad_sunitha": {
+                            "proof_bound": 10,
+                            "engine_justified_gap": 0,
+                            "is_axiomatic": False,
+                        },
+                        "hagis1982": {
+                            "proof_bound": 10,
+                            "engine_justified_gap": 0,
+                            "is_axiomatic": False,
+                        },
+                    },
+                    "search_bounds": {
+                        "target_min_log10": {"value": 35, "is_axiomatic": False},
+                        "target_max_log10": {"value": 37, "is_axiomatic": False},
+                        "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                        "max_exponent": {"value": 4, "is_axiomatic": False},
+                        "prefix_stop_threshold": {"value": 100, "is_axiomatic": False},
+                        "pollard_rho": {
+                            "iteration_limit": 100,
+                            "batch_size": 10,
+                            "is_axiomatic": False,
+                        },
+                        "raycast": {
+                            "gpu_threshold": 100,
+                            "chunk_size": 10,
+                            "is_axiomatic": False,
+                        },
+                    },
+                    "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                    "overflow_threshold": {"num": 2, "den": 1, "is_axiomatic": False},
+                }
+            )
+        )
 
         (tmp_path / "rust-engine/src").mkdir(parents=True, exist_ok=True)
         (tmp_path / "rust-engine/src/verus_proofs.rs").write_text("verus! {}")
 
-        with mock.patch("auditor.CORE_THEOREMS", [valid_thm]), \
-             mock.patch("auditor.check_lean_environment", return_value=True), \
-             mock.patch("auditor.check_documentation", return_value=True), \
-             mock.patch("auditor.check_imports", return_value=True):
+        with mock.patch("auditor.CORE_THEOREMS", [valid_thm]), mock.patch(
+            "auditor.check_lean_environment", return_value=True
+        ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+            "auditor.check_imports", return_value=True
+        ), mock.patch(
+            "subprocess.run",
+            return_value=mock.Mock(returncode=0, stdout="dummy_hash", stderr=""),
+        ):
             os.environ["MOCK_LEAN"] = "1"
             try:
                 auditor.generate_manifest()
