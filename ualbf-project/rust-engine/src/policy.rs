@@ -425,9 +425,6 @@ pub(crate) mod tests {
     pub(crate) static TEST_MUTEX: Mutex<()> = Mutex::new(());
     use super::*;
     use std::env;
-    use std::sync::Mutex;
-
-    static TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_policy_clamping_max() {
