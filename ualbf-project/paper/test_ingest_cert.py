@@ -63,6 +63,7 @@ class TestIngestCertMissingFile(unittest.TestCase):
             mock_verif.hash_tcb = lambda: "tcb_hash"
             mock_verif.hash_extension_tcb = lambda: "ext_hash"
             mock_verif.check_path_continuity = lambda x: "{}"
+            mock_verif.compute_verus_hashes = lambda x: {}
             orig_verif = sys.modules.get("verification_lib")
             sys.modules["verification_lib"] = mock_verif
             try:
@@ -159,6 +160,8 @@ class TestCollisionDetection(unittest.TestCase):
             mock_verif.validate_certificate = lambda x: x
             mock_verif.hash_tcb = lambda: "tcb_hash"
             mock_verif.hash_extension_tcb = lambda: "ext_hash"
+            mock_verif.check_path_continuity = lambda x: "{}"
+            mock_verif.compute_verus_hashes = lambda x: {}
             orig_verif = sys.modules.get("verification_lib")
             sys.modules["verification_lib"] = mock_verif
 

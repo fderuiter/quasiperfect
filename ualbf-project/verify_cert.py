@@ -3,6 +3,7 @@ import json
 import sys
 import hashlib
 import os
+import struct
 
 import cert_util
 
@@ -27,9 +28,6 @@ def verify_trace_file(cert, trace_path):
         )
         sys.exit(1)
 
-    # Simple check for trace covering the search space
-    # (Checking the union of searched and pruned ranges covers the defined search space)
-    # The presence of deterministic valid trace records confirms mathematical hypotheses per Lean proof constraints.
     try:
         with open(trace_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
@@ -39,7 +37,6 @@ def verify_trace_file(cert, trace_path):
                     print(f"ERROR: Invalid trace record missing reason: {line}")
                     sys.exit(1)
 
-                # Check for abundancy bound variables if unconditional starvation
                 if record["reason"] == "unconditional_starvation":
                     if (
                         "max_allowed" not in record
@@ -51,6 +48,154 @@ def verify_trace_file(cert, trace_path):
                             f"ERROR: Trace record missing hypothesis variables: {line}"
                         )
                         sys.exit(1)
+
+                if record["reason"] == "cdg_forced_cascade":
+                    topology_manifest = record.get("topology_manifest")
+                    reachable_paths = record.get("reachable_paths")
+                    if topology_manifest is None or reachable_paths is None:
+                        print(
+                            f"ERROR: cdg_forced_cascade trace record missing topology_manifest or reachable_paths: {line}"
+                        )
+                        sys.exit(1)
+
+                    if not isinstance(topology_manifest, dict):
+                        print(
+                            f"ERROR: topology_manifest in trace record must be a dict: {line}"
+                        )
+                        sys.exit(1)
+
+                    adjacency = topology_manifest.get("adjacency")
+                    scc_map = topology_manifest.get("scc_map")
+                    scc_components = topology_manifest.get("scc_components")
+                    forced_candidates = topology_manifest.get("forced_candidates")
+
+                    if (
+                        adjacency is None
+                        or not isinstance(adjacency, list)
+                        or scc_map is None
+                        or not isinstance(scc_map, list)
+                        or scc_components is None
+                        or not isinstance(scc_components, list)
+                        or forced_candidates is None
+                        or not isinstance(forced_candidates, list)
+                    ):
+                        print(
+                            f"ERROR: topology_manifest missing required fields or invalid types: {line}"
+                        )
+                        sys.exit(1)
+
+                    num_nodes = len(adjacency)
+                    if num_nodes == 0:
+                        print(
+                            f"ERROR: topology_manifest adjacency matrix is empty: {line}"
+                        )
+                        sys.exit(1)
+
+                    for u, neighbors in enumerate(adjacency):
+                        if not isinstance(neighbors, list):
+                            print(
+                                f"ERROR: Adjacency list for node {u} is not a list in topology manifest."
+                            )
+                            sys.exit(1)
+                        for v in neighbors:
+                            if not isinstance(v, int) or v < 0 or v >= num_nodes:
+                                print(
+                                    f"ERROR: Adjacency list contains invalid neighbor {v} for node {u} (out of bounds)."
+                                )
+                                sys.exit(1)
+
+                    if len(scc_map) != num_nodes:
+                        print(
+                            f"ERROR: scc_map length ({len(scc_map)}) does not match node count ({num_nodes})."
+                        )
+                        sys.exit(1)
+
+                    num_sccs = len(scc_components)
+                    for u, scc_id in enumerate(scc_map):
+                        if (
+                            not isinstance(scc_id, int)
+                            or scc_id < 0
+                            or scc_id >= num_sccs
+                        ):
+                            print(
+                                f"ERROR: Node {u} mapped to invalid scc_id {scc_id} (out of bounds)."
+                            )
+                            sys.exit(1)
+                        if u not in scc_components[scc_id]:
+                            print(
+                                f"ERROR: Node {u} mapped to SCC {scc_id} in scc_map, but missing from scc_components[{scc_id}]."
+                            )
+                            sys.exit(1)
+
+                    for scc_id, members in enumerate(scc_components):
+                        if not isinstance(members, list):
+                            print(f"ERROR: scc_components[{scc_id}] must be a list.")
+                            sys.exit(1)
+                        for u in members:
+                            if not isinstance(u, int) or u < 0 or u >= num_nodes:
+                                print(
+                                    f"ERROR: Invalid node index {u} in scc_components[{scc_id}]."
+                                )
+                                sys.exit(1)
+                            if scc_map[u] != scc_id:
+                                print(
+                                    f"ERROR: Node {u} in scc_components[{scc_id}] has scc_map[{u}] = {scc_map[u]} != {scc_id}."
+                                )
+                                sys.exit(1)
+
+                    reach = [[False] * num_nodes for _ in range(num_nodes)]
+                    for u in range(num_nodes):
+                        reach[u][u] = True
+                        for v in adjacency[u]:
+                            reach[u][v] = True
+
+                    for k in range(num_nodes):
+                        for i in range(num_nodes):
+                            for j in range(num_nodes):
+                                reach[i][j] = reach[i][j] or (
+                                    reach[i][k] and reach[k][j]
+                                )
+
+                    if not isinstance(reachable_paths, list):
+                        print(
+                            f"ERROR: reachable_paths must be a list in trace record: {line}"
+                        )
+                        sys.exit(1)
+
+                    for path in reachable_paths:
+                        if not isinstance(path, list):
+                            print(
+                                f"ERROR: Each path in reachable_paths must be a list: {path}"
+                            )
+                            sys.exit(1)
+                        for idx in range(len(path)):
+                            node = path[idx]
+                            if (
+                                not isinstance(node, int)
+                                or node < 0
+                                or node >= num_nodes
+                            ):
+                                print(
+                                    f"ERROR: Node {node} in reachable path is out of bounds [0, {num_nodes-1}]."
+                                )
+                                sys.exit(1)
+                            if idx > 0:
+                                prev_node = path[idx - 1]
+                                if not reach[prev_node][node]:
+                                    print(
+                                        f"ERROR: Unreachable step in component path: {prev_node} -> {node} is NOT transitively reachable."
+                                    )
+                                    sys.exit(1)
+
+                    v_status = record.get("verification_status", "")
+                    if (
+                        "formally verified" not in v_status
+                        and "audited" not in v_status
+                    ):
+                        print(
+                            f"ERROR: cdg_forced_cascade trace record has invalid verification_status: '{v_status}'"
+                        )
+                        sys.exit(1)
     except Exception as e:
         print(f"ERROR: Trace format invalid: {e}")
         sys.exit(1)
@@ -58,6 +203,39 @@ def verify_trace_file(cert, trace_path):
     print(
         f"✓ Trace cryptographically bound to certificate and structurally valid ({len(lines)} records)."
     )
+
+
+def verify_sidecar_file(cert, sidecar_path):
+    print("\n--- Verifying Sidecar Log Digest ---")
+    tel = cert.get("telemetry", {})
+    expected_hash = (
+        tel.get("sidecar_hash")
+        or tel.get("sidecar_log_digest")
+        or cert.get("sidecar_hash")
+        or cert.get("sidecar_log_digest")
+    )
+
+    if not expected_hash:
+        print("INFO: Certificate does not contain sidecar log digest.")
+        return
+
+    if not os.path.exists(sidecar_path):
+        print(
+            f"ERROR: Sidecar log file '{sidecar_path}' not found, but certificate requires sidecar digest ({expected_hash})."
+        )
+        sys.exit(1)
+
+    with open(sidecar_path, "rb") as f:
+        sidecar_data = f.read()
+    computed_hash = hashlib.sha256(sidecar_data).hexdigest()
+
+    if computed_hash != expected_hash:
+        print(
+            f"ERROR: Sidecar log hash mismatch!\nExpected: {expected_hash}\nGot:      {computed_hash}"
+        )
+        sys.exit(1)
+
+    print(f"✓ Sidecar log digest verified ({computed_hash}).")
 
 
 def verify_theorem_checksum(thm, manifest_path=None):
@@ -140,6 +318,246 @@ def mat_mul(U, B_init):
     return res
 
 
+def verify_compositeness_witnesses(cert, manifest_path):
+    print("\n--- Verifying Compositeness Witness Certificates ---")
+    compositeness_witnesses = cert.get("compositeness_witnesses")
+    if compositeness_witnesses is None:
+        if cert.get("node_certificates"):
+            compositeness_witnesses = []
+            for node in cert["node_certificates"]:
+                if node.get("compositeness_witnesses"):
+                    compositeness_witnesses.extend(node["compositeness_witnesses"])
+
+    if not compositeness_witnesses:
+        print("✓ No compositeness witness certificates to verify in certificate.")
+        return
+
+    for idx, witness_entry in enumerate(compositeness_witnesses):
+        if not isinstance(witness_entry, dict):
+            print(f"ERROR: Compositeness witness [{idx}] is not a valid JSON object.")
+            sys.exit(1)
+
+        candidate = witness_entry.get("candidate")
+        witness_type = witness_entry.get("witness_type")
+        witness = witness_entry.get("witness")
+
+        if candidate is None or witness_type is None or witness is None:
+            print(
+                f"ERROR: Compositeness witness [{idx}] missing required fields (candidate, witness_type, witness)."
+            )
+            sys.exit(1)
+
+        try:
+            n = int(candidate)
+            w = int(witness)
+        except (ValueError, TypeError):
+            print(
+                f"ERROR: Compositeness witness [{idx}] candidate or witness is not a valid integer."
+            )
+            sys.exit(1)
+
+        if n <= 1 or n >= (1 << 64):
+            print(
+                f"ERROR: Compositeness witness [{idx}] candidate {n} is out of domain [2, 2^64-1]."
+            )
+            sys.exit(1)
+
+        if witness_type == "divisor":
+            if w <= 1 or w >= n:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] divisor {w} must be in range (1, {n})."
+                )
+                sys.exit(1)
+            if n % w != 0:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] divisor {w} does not divide candidate {n}."
+                )
+                sys.exit(1)
+        elif witness_type == "miller_rabin":
+            if w <= 1 or w >= n:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] Miller-Rabin base {w} must be in range (1, {n})."
+                )
+                sys.exit(1)
+
+            d = n - 1
+            s = 0
+            while d % 2 == 0:
+                d //= 2
+                s += 1
+
+            x = pow(w, d, n)
+            if x == 1 or x == n - 1:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] base {w} is not a valid Miller-Rabin witness for {n} (x_0 = {x})."
+                )
+                sys.exit(1)
+
+            is_witness = True
+            for _ in range(s - 1):
+                x = pow(x, 2, n)
+                if x == n - 1:
+                    is_witness = False
+                    break
+
+            if not is_witness:
+                print(
+                    f"ERROR: Compositeness witness [{idx}] base {w} is not a valid Miller-Rabin witness for {n}."
+                )
+                sys.exit(1)
+        else:
+            print(
+                f"ERROR: Compositeness witness [{idx}] unknown witness_type '{witness_type}'."
+            )
+            sys.exit(1)
+
+    print(
+        f"✓ Successfully verified {len(compositeness_witnesses)} compositeness witness certificates (all witnesses mathematically refute primality)."
+    )
+
+
+def compute_target_penalty(m, base=1000000000.0):
+    if m < 2 or m > 16:
+        return base
+    return base * (1 << (m - 2))
+
+
+def verify_gpu_witnesses(cert):
+    print("\n--- Verifying GPU-Accelerated CRT & Bloom Filter Witnesses ---")
+    gpu_witnesses = cert.get("gpu_witnesses")
+    if not gpu_witnesses:
+        print("✓ No GPU-accelerated witnesses to verify in certificate.")
+        return
+
+    # Deterministic hash function equivalent to the one in Rust
+    def get_component_hashes(p: int, two_e: int) -> tuple[int, int]:
+        data = struct.pack(">Q I", p, two_e)
+        h = hashlib.sha256(data).digest()
+        hash1 = struct.unpack(">Q", h[0:8])[0]
+        hash2 = struct.unpack(">Q", h[8:16])[0]
+        return hash1, hash2
+
+    # Inline ualbf_bloom_get_index equivalent
+    def ualbf_bloom_get_index(hash1: int, hash2: int, num_bits: int, i: int) -> int:
+        cur = hash1 + i * hash2 + (i * (i - 1)) // 2
+        max_bits = 1 if num_bits == 0 else num_bits
+        return cur % max_bits
+
+    moduli = [3, 5, 7, 11]
+    num_bits = 1048576
+    num_hashes = 4
+
+    print(
+        f"Verifying {len(gpu_witnesses)} CRT Tensor & Bloom filter candidate generation records..."
+    )
+
+    for idx, witness in enumerate(gpu_witnesses):
+        p = witness.get("p")
+        two_e = witness.get("two_e")
+        is_obstructed = witness.get("is_obstructed")
+        obstructing_modulus = witness.get("obstructing_modulus")
+        residues = witness.get("residues")
+        bloom_indices = witness.get("bloom_indices")
+
+        if (
+            p is None
+            or two_e is None
+            or is_obstructed is None
+            or obstructing_modulus is None
+            or residues is None
+            or bloom_indices is None
+        ):
+            print(f"ERROR: GPU Witness {idx} is missing mandatory fields.")
+            sys.exit(1)
+
+        if len(residues) != len(moduli):
+            print(
+                f"ERROR: GPU Witness {idx} has invalid residues count {len(residues)}."
+            )
+            sys.exit(1)
+
+        # 1. Algebraic Verification of Term Sums Modulo 3, 5, 7, 11
+        for m_idx, q in enumerate(moduli):
+            # Compute exact divisor sum modulo q: \sum_{j=0}^{two_e} p^j \pmod q
+            sum_val = 0
+            term = 1
+            p_mod = p % q
+            for _ in range(two_e + 1):
+                sum_val = (sum_val + term) % q
+                term = (term * p_mod) % q
+
+            if sum_val != residues[m_idx]:
+                print(
+                    f"ERROR: GPU Witness {idx} algebraic mismatch!\n"
+                    f"Component: p={p}, two_e={two_e}\n"
+                    f"Expected σ mod {q} = {sum_val}\n"
+                    f"Witness reported = {residues[m_idx]}"
+                )
+                sys.exit(1)
+
+        # 2. Verify Obstruction Logic
+        has_zero_residue = any(r == 0 for r in residues)
+        if is_obstructed:
+            if not has_zero_residue:
+                print(
+                    f"ERROR: GPU Witness {idx} is marked as obstructed but has no zero residues."
+                )
+                sys.exit(1)
+            # Find the first zero residue modulus
+            expected_obstructing_mod = next(
+                moduli[i] for i, r in enumerate(residues) if r == 0
+            )
+            if obstructing_modulus != expected_obstructing_mod:
+                print(
+                    f"ERROR: GPU Witness {idx} reported obstructing modulus {obstructing_modulus}, "
+                    f"but expected {expected_obstructing_mod}."
+                )
+                sys.exit(1)
+            if len(bloom_indices) > 0:
+                print(
+                    f"ERROR: GPU Witness {idx} is obstructed but contains Bloom filter indices."
+                )
+                sys.exit(1)
+        else:
+            if has_zero_residue:
+                print(
+                    f"ERROR: GPU Witness {idx} is marked as not obstructed but has a zero residue."
+                )
+                sys.exit(1)
+            if obstructing_modulus != 0:
+                print(
+                    f"ERROR: GPU Witness {idx} is not obstructed but reported obstructing modulus {obstructing_modulus}."
+                )
+                sys.exit(1)
+
+            # 3. Verify Bloom Filter Index Calculations
+            hash1, hash2 = get_component_hashes(p, two_e)
+            expected_indices = []
+            for i in range(num_hashes):
+                expected_indices.append(
+                    ualbf_bloom_get_index(hash1, hash2, num_bits, i)
+                )
+
+            if len(bloom_indices) != num_hashes:
+                print(
+                    f"ERROR: GPU Witness {idx} has invalid bloom_indices count {len(bloom_indices)}, "
+                    f"expected {num_hashes}."
+                )
+                sys.exit(1)
+
+            for i in range(num_hashes):
+                if bloom_indices[i] != expected_indices[i]:
+                    print(
+                        f"ERROR: GPU Witness {idx} Bloom filter index mismatch at hash {i}!\n"
+                        f"Expected {expected_indices[i]}, witness reported {bloom_indices[i]}."
+                    )
+                    sys.exit(1)
+
+    print(
+        f"✓ All {len(gpu_witnesses)} GPU-accelerated mathematical witnesses verified successfully."
+    )
+
+
 def verify_lattice_witnesses(cert, manifest_path):
     print("\n--- Verifying Lattice Pruning Witnesses ---")
     lattice_witnesses = cert.get("lattice_witnesses")
@@ -167,11 +585,11 @@ def verify_lattice_witnesses(cert, manifest_path):
 
     # Scaled mathematical limit defined in the bounds manifest
     target_min_log10 = bounds_data["search_bounds"]["target_min_log10"]["value"]
-    # Epsilon tolerance limit: ln(2 + 10^-target_min_log10) - ln(2)
-    ln_2 = math.log(2.0)
-    epsilon_manifest = math.log(2.0 + 10.0 ** (-target_min_log10)) - ln_2
+    # Epsilon tolerance limit: ln(1 + 0.5 * 10^-target_min_log10) using log1p to avoid cancellation loss
+    epsilon_manifest = math.log1p(0.5 * 10.0 ** (-target_min_log10))
 
     tolerance = bounds_data.get("lattice_precision_tolerance", 1e-9)
+    base_penalty = bounds_data.get("lattice_target_penalty_base", 1000000000.0)
 
     print(
         f"Using bounds manifest target_min_log10 = {target_min_log10} (epsilon limit = {epsilon_manifest:.4e})"
@@ -273,7 +691,7 @@ def verify_lattice_witnesses(cert, manifest_path):
             if lhs > rhs:
                 print(
                     f"ERROR: Witness {idx} violates Lovasz condition at index {i}: "
-                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{i, i-1}^2 * ||b_{i-1}^*||^2 = {rhs}."
+                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{{{i}, {i-1}}}^2 * ||b_{i-1}^*||^2 = {rhs}."
                 )
                 sys.exit(1)
 
@@ -291,7 +709,8 @@ def verify_lattice_witnesses(cert, manifest_path):
             )
             sys.exit(1)
 
-        r_exact = Fraction(dim, 2) + Fraction(1000000000) * Fraction(epsilon)
+        penalty = compute_target_penalty(m, base_penalty)
+        r_exact = Fraction(dim, 2) + Fraction(int(penalty)) * Fraction(epsilon)
         r_sq_exact = r_exact * r_exact
 
         # Evaluate whether exact Schmidt bound meets the minimum required search radius without applying any positive tolerance offset
@@ -484,10 +903,22 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     has_physical_files = True
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    proof_dir = None
+    if manifest_path:
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        if os.path.exists(os.path.join(manifest_dir, "lean4-proofs")):
+            proof_dir = os.path.join(manifest_dir, "lean4-proofs")
+        elif any(
+            os.path.exists(os.path.join(manifest_dir, pf.get("file", "")))
+            for pf in proof_files
+        ):
+            proof_dir = manifest_dir
+    if not proof_dir or not os.path.exists(proof_dir):
+        proof_dir = os.path.join(base_dir, "lean4-proofs")
+
     for pf in proof_files:
-        file_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", pf["file"]
-        )
+        file_path = os.path.join(proof_dir, pf["file"])
         if not os.path.exists(file_path):
             has_physical_files = False
             break
@@ -497,14 +928,35 @@ def verify_certificate(cert_path, manifest_path):
             "INFO: Physical source files are missing; skipping physical proof file content checksum validation in production."
         )
     else:
+        # Check for unmanifested .lean proof files on disk
+        disk_files = set()
+        for root, _, files in os.walk(proof_dir):
+            if ".lake" in root:
+                continue
+            for file in files:
+                if (
+                    file.endswith(".lean")
+                    and file != "lakefile.lean"
+                    and file != "find_axioms.lean"
+                ):
+                    full_p = os.path.join(root, file)
+                    rel_p = os.path.relpath(full_p, proof_dir)
+                    disk_files.add(rel_p)
+
+        registered_files = {pf["file"] for pf in proof_files}
+        for df in sorted(disk_files):
+            if df not in registered_files:
+                print(f"ERROR: Unmanifested proof source file found on disk: {df}")
+                sys.exit(1)
+
         for pf in proof_files:
-            file_path = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "lean4-proofs", pf["file"]
-            )
+            file_path = os.path.join(proof_dir, pf["file"])
             with open(file_path, "rb") as f:
                 content = f.read()
-            if b"sorry" in content:
-                print(f"ERROR: 'sorry' bypass detected in {pf['file']}")
+            if b"sorry" in content or b"admit" in content:
+                print(
+                    f"ERROR: Unverified tactic ('sorry' or 'admit') detected in {pf['file']}"
+                )
                 sys.exit(1)
             computed = hashlib.sha256(content).hexdigest()
             if computed != pf["checksum"]:
@@ -572,6 +1024,8 @@ def verify_certificate(cert_path, manifest_path):
         print("✓ Telemetry matches execution reality.")
 
     verify_lattice_witnesses(cert, manifest_path)
+    verify_gpu_witnesses(cert)
+    verify_compositeness_witnesses(cert, manifest_path)
 
     return cert
 
@@ -690,6 +1144,9 @@ if __name__ == "__main__":
         "--manifest", default="proof_manifest.json", help="Path to proof_manifest.json"
     )
     parser.add_argument("--trace", default="trace.jsonl", help="Path to trace.jsonl")
+    parser.add_argument(
+        "--sidecar", default="overflow_sidecar.log", help="Path to overflow_sidecar.log"
+    )
     parser.add_argument(
         "--min-rigor",
         type=float,
@@ -825,6 +1282,11 @@ if __name__ == "__main__":
                 conjecture_info = c.get("conjecture")
                 break
 
+        all_comp_witnesses = []
+        for c in loaded_certs:
+            if c.get("compositeness_witnesses"):
+                all_comp_witnesses.extend(c["compositeness_witnesses"])
+
         master_cert = {
             "meta_manifest_hash": loaded_certs[0]["manifest_hash"],
             "aggregated_signatures": agg_sigs,
@@ -833,6 +1295,9 @@ if __name__ == "__main__":
             "node_certificates": loaded_certs,
             "is_conditional": any_conditional,
             "conjecture": conjecture_info,
+            "compositeness_witnesses": (
+                all_comp_witnesses if all_comp_witnesses else None
+            ),
         }
 
         with open("meta_certificate.json", "w", encoding="utf-8") as f:
@@ -871,3 +1336,5 @@ if __name__ == "__main__":
         verify_trace_file(cert, args.trace)
     else:
         print("\nWARNING: Trace file not provided or not found, skipping trace audit.")
+
+    verify_sidecar_file(cert, args.sidecar)
