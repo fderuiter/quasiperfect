@@ -564,6 +564,283 @@ pub fn check_path_continuity(path_ranges_json: &str) -> PyResult<String> {
     Ok(gaps_json)
 }
 
+/// Strips comments and docstrings, preserving string and character literals.
+/// Replaces non-newline comment characters with space/nothing, but keeps newlines to preserve line numbering and structure.
+pub fn clean_source(content: &str) -> String {
+    let mut cleaned = String::with_capacity(content.len());
+    let chars: Vec<char> = content.chars().collect();
+    let mut i = 0;
+    let n = chars.len();
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum State {
+        Normal,
+        InString,
+        InChar,
+        InLineComment,
+        InBlockComment(usize),
+    }
+
+    let mut state = State::Normal;
+
+    while i < n {
+        match state {
+            State::Normal => {
+                if i + 1 < n && chars[i] == '/' && chars[i + 1] == '/' {
+                    state = State::InLineComment;
+                    i += 2;
+                } else if i + 1 < n && chars[i] == '/' && chars[i + 1] == '*' {
+                    state = State::InBlockComment(1);
+                    i += 2;
+                } else if chars[i] == '"' {
+                    state = State::InString;
+                    cleaned.push('"');
+                    i += 1;
+                } else if chars[i] == '\'' {
+                    state = State::InChar;
+                    cleaned.push('\'');
+                    i += 1;
+                } else {
+                    cleaned.push(chars[i]);
+                    i += 1;
+                }
+            }
+            State::InString => {
+                if chars[i] == '\\' {
+                    cleaned.push('\\');
+                    if i + 1 < n {
+                        cleaned.push(chars[i + 1]);
+                        i += 2;
+                    } else {
+                        i += 1;
+                    }
+                } else if chars[i] == '"' {
+                    state = State::Normal;
+                    cleaned.push('"');
+                    i += 1;
+                } else {
+                    cleaned.push(chars[i]);
+                    i += 1;
+                }
+            }
+            State::InChar => {
+                if chars[i] == '\\' {
+                    cleaned.push('\\');
+                    if i + 1 < n {
+                        cleaned.push(chars[i + 1]);
+                        i += 2;
+                    } else {
+                        i += 1;
+                    }
+                } else if chars[i] == '\'' {
+                    state = State::Normal;
+                    cleaned.push('\'');
+                    i += 1;
+                } else {
+                    cleaned.push(chars[i]);
+                    i += 1;
+                }
+            }
+            State::InLineComment => {
+                if chars[i] == '\n' {
+                    state = State::Normal;
+                    cleaned.push('\n');
+                    i += 1;
+                } else {
+                    i += 1;
+                }
+            }
+            State::InBlockComment(depth) => {
+                if i + 1 < n && chars[i] == '/' && chars[i + 1] == '*' {
+                    state = State::InBlockComment(depth + 1);
+                    i += 2;
+                } else if i + 1 < n && chars[i] == '*' && chars[i + 1] == '/' {
+                    if depth == 1 {
+                        state = State::Normal;
+                    } else {
+                        state = State::InBlockComment(depth - 1);
+                    }
+                    i += 2;
+                } else if chars[i] == '\n' {
+                    cleaned.push('\n');
+                    i += 1;
+                } else {
+                    i += 1;
+                }
+            }
+        }
+    }
+    cleaned
+}
+
+fn count_non_literal_braces(line: &str) -> (i32, i32) {
+    let chars: Vec<char> = line.chars().collect();
+    let mut open = 0;
+    let mut close = 0;
+    let mut in_string = false;
+    let mut in_char = false;
+    let mut i = 0;
+    let n = chars.len();
+
+    while i < n {
+        if in_string {
+            if chars[i] == '\\' {
+                i += 2;
+            } else if chars[i] == '"' {
+                in_string = false;
+                i += 1;
+            } else {
+                i += 1;
+            }
+        } else if in_char {
+            if chars[i] == '\\' {
+                i += 2;
+            } else if chars[i] == '\'' {
+                in_char = false;
+                i += 1;
+            } else {
+                i += 1;
+            }
+        } else {
+            if chars[i] == '"' {
+                in_string = true;
+                i += 1;
+            } else if chars[i] == '\'' {
+                in_char = true;
+                i += 1;
+            } else if chars[i] == '{' {
+                open += 1;
+                i += 1;
+            } else if chars[i] == '}' {
+                close += 1;
+                i += 1;
+            } else {
+                i += 1;
+            }
+        }
+    }
+    (open, close)
+}
+
+pub fn compute_verus_hashes(content: &str) -> std::collections::HashMap<String, String> {
+    use sha2::{Digest, Sha256};
+    let cleaned = clean_source(content);
+    let mut verus_hashes = std::collections::HashMap::new();
+    let mut current_fn = String::new();
+    let mut current_body = String::new();
+    let mut in_spec = false;
+    let mut brace_count = 0;
+    let mut module_stack: Vec<(String, usize)> = Vec::new();
+    let mut global_brace_depth = 0;
+
+    let kw_list = [
+        "pub spec fn ",
+        "pub open spec fn ",
+        "pub uninterp spec fn ",
+        "pub proof fn ",
+        "pub fn ",
+    ];
+
+    for line in cleaned.lines() {
+        let trimmed = line.trim();
+
+        // Track module declarations
+        if !in_spec
+            && trimmed.contains('{')
+            && (trimmed.starts_with("mod ") || trimmed.starts_with("pub mod "))
+        {
+            let mod_name = if trimmed.starts_with("pub mod ") {
+                trimmed.strip_prefix("pub mod ").unwrap_or("")
+            } else {
+                trimmed.strip_prefix("mod ").unwrap_or("")
+            };
+            let mod_name = mod_name.split('{').next().unwrap_or("").trim();
+            if !mod_name.is_empty() {
+                module_stack.push((mod_name.to_string(), global_brace_depth));
+            }
+        }
+
+        let mut matched_kw = None;
+        if !in_spec {
+            for &kw in kw_list.iter() {
+                if line.contains(kw) {
+                    matched_kw = Some(kw);
+                    break;
+                }
+            }
+        }
+
+        let mut processed_spec_start = false;
+        if !in_spec {
+            if let Some(kw) = matched_kw {
+                let parts: Vec<&str> = line.split(kw).collect();
+                if parts.len() > 1 {
+                    let bare_fn_name = parts[1].split('(').next().unwrap_or("").trim().to_string();
+                    let mod_prefix = module_stack
+                        .iter()
+                        .map(|m| &m.0)
+                        .cloned()
+                        .collect::<Vec<String>>()
+                        .join("::");
+                    let qualified_name = if mod_prefix.is_empty() {
+                        bare_fn_name
+                    } else {
+                        format!("{}::{}", mod_prefix, bare_fn_name)
+                    };
+                    current_fn = qualified_name;
+                    in_spec = true;
+                    current_body = line.to_string();
+
+                    let (open, close) = count_non_literal_braces(line);
+                    brace_count = open - close;
+                    processed_spec_start = true;
+                    if brace_count == 0 && line.contains('{') {
+                        let mut hasher = Sha256::new();
+                        hasher.update(current_body.as_bytes());
+                        verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                        in_spec = false;
+                    }
+                }
+            }
+        } else if in_spec {
+            current_body.push('\n');
+            current_body.push_str(line);
+            let (open, close) = count_non_literal_braces(line);
+            brace_count += open - close;
+            if brace_count == 0 {
+                let mut hasher = Sha256::new();
+                hasher.update(current_body.as_bytes());
+                verus_hashes.insert(current_fn.clone(), hex::encode(hasher.finalize()));
+                in_spec = false;
+            }
+        }
+
+        if !in_spec && !processed_spec_start {
+            let (open, close) = count_non_literal_braces(line);
+            global_brace_depth += open as usize;
+            if global_brace_depth >= close as usize {
+                global_brace_depth -= close as usize;
+            } else {
+                global_brace_depth = 0;
+            }
+            while !module_stack.is_empty() && global_brace_depth <= module_stack.last().unwrap().1 {
+                module_stack.pop();
+            }
+        }
+    }
+
+    verus_hashes
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+#[pyo3(name = "compute_verus_hashes")]
+pub fn compute_verus_hashes_py(
+    content: &str,
+) -> PyResult<std::collections::HashMap<String, String>> {
+    Ok(compute_verus_hashes(content))
+}
+
 #[cfg(feature = "python")]
 #[pymodule]
 fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -571,6 +848,7 @@ fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(hash_tcb, m)?)?;
     m.add_function(wrap_pyfunction!(hash_extension_tcb, m)?)?;
     m.add_function(wrap_pyfunction!(check_path_continuity, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_verus_hashes_py, m)?)?;
     Ok(())
 }
 
@@ -846,5 +1124,33 @@ pub extern "C" fn rust_free_string(ptr: *mut std::ffi::c_char) {
         unsafe {
             let _ = std::ffi::CString::from_raw(ptr);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_comments_simple() {
+        let code = "fn main() {\n  // comment here\n  let x = 1; /* block comment */\n}";
+        let cleaned = clean_source(code);
+        assert!(!cleaned.contains("comment here"));
+        assert!(!cleaned.contains("block comment"));
+        assert!(cleaned.contains("fn main() {"));
+        assert!(cleaned.contains("let x = 1;"));
+    }
+
+    #[test]
+    fn test_braces_in_comments_and_strings() {
+        let code = r#"
+            pub fn my_func() {
+                // } unmatched commented brace
+                let s = "{ braces in string }";
+                let c = '}'; // char brace
+            }
+        "#;
+        let hashes = compute_verus_hashes(code);
+        assert!(hashes.contains_key("my_func"));
     }
 }
