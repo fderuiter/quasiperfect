@@ -128,7 +128,7 @@ def build_cert(
     target_max_log10: int = 37,
     target_min_log10: int = 35,
     tamper_sig: bool = False,
-    path_ranges: list = None,
+    path_ranges: list | None = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
     payload = (
@@ -156,7 +156,11 @@ def build_cert(
             "total_execution_time_ms": 13000,
             "raycast_pruned": 100,
             "math_interruptions": 2,
-            "path_ranges": path_ranges if path_ranges is not None else [{"start_bound": [], "end_bound": []}],
+            "path_ranges": (
+                path_ranges
+                if path_ranges is not None
+                else [{"start_bound": [], "end_bound": []}]
+            ),
         },
         "signature": sig_hex,
         "public_key": pub_hex,
@@ -373,10 +377,11 @@ class TestPayloadFormat:
             "trace_hash": trace_hash,
             "factorization_depth": factorization_depth,
         }
-        if "cert" in locals() and "path_ranges" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["path_ranges"]
-        elif "cert" in locals() and "inner_paths" in cert["telemetry"]:
-            map_obj["path_ranges"] = cert["telemetry"]["inner_paths"]
+        local_cert = locals().get("cert")
+        if local_cert is not None and "path_ranges" in local_cert["telemetry"]:
+            map_obj["path_ranges"] = local_cert["telemetry"]["path_ranges"]
+        elif local_cert is not None and "inner_paths" in local_cert["telemetry"]:
+            map_obj["path_ranges"] = local_cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
 
@@ -611,19 +616,19 @@ class TestTheoremChecking:
         )
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
-        
+
         # Manifest is written and verified initially
         verify_certificate(cert_path, manifest_path)
-        
+
         # Now modify the physical theorem/proof file
         manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
         file_path = os.path.join(manifest_dir, "F.lean")
-        
+
         # Confirm file exists and then write modified content
         assert os.path.exists(file_path)
         with open(file_path, "wb") as f:
             f.write(b"modified theorem content")
-            
+
         # Verify that checking again fails because of checksum mismatch
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
@@ -841,15 +846,15 @@ class TestConditionalCertificates:
         manifest = make_manifest()
         manifest_content = json.dumps(manifest)
         manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
-        
+
         cert = build_cert(manifest_hash)
         cert["is_conditional"] = True
         cert["conjecture"] = {
             "conditional": True,
             "conjecture_name": "ABC Conjecture",
-            "conjectural_max_log10_ceiling": 30
+            "conjectural_max_log10_ceiling": 30,
         }
-        
+
         # We need to manually format the payload for signing inside the test
         tel = cert["telemetry"]
         map_obj = {
@@ -861,7 +866,7 @@ class TestConditionalCertificates:
             "trace_hash": tel.get("trace_hash", ""),
             "factorization_depth": tel.get("factorization_depth", 0),
             "is_conditional": True,
-            "conjecture_name": "ABC Conjecture"
+            "conjecture_name": "ABC Conjecture",
         }
         if "path_ranges" in tel:
             map_obj["path_ranges"] = tel["path_ranges"]
@@ -871,14 +876,14 @@ class TestConditionalCertificates:
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
-        
+
         cert_path = os.path.join(str(tmp_path), "formal_certificate.json")
         manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
         with open(cert_path, "w") as f:
             json.dump(cert, f)
         with open(manifest_path, "w") as f:
             f.write(manifest_content)
-            
+
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         try:
             # Should not raise any error
@@ -893,15 +898,15 @@ class TestConditionalCertificates:
         manifest = make_manifest()
         manifest_content = json.dumps(manifest)
         manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
-        
+
         cert = build_cert(manifest_hash)
         cert["is_conditional"] = True
         cert["conjecture"] = {
             "conditional": True,
             "conjecture_name": "ABC Conjecture",
-            "conjectural_max_log10_ceiling": 30
+            "conjectural_max_log10_ceiling": 30,
         }
-        
+
         # We need to manually format the payload for signing inside the test
         tel = cert["telemetry"]
         map_obj = {
@@ -913,7 +918,7 @@ class TestConditionalCertificates:
             "trace_hash": tel.get("trace_hash", ""),
             "factorization_depth": tel.get("factorization_depth", 0),
             "is_conditional": True,
-            "conjecture_name": "ABC Conjecture"
+            "conjecture_name": "ABC Conjecture",
         }
         if "path_ranges" in tel:
             map_obj["path_ranges"] = tel["path_ranges"]
@@ -923,7 +928,7 @@ class TestConditionalCertificates:
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
-        
+
         cert_path = os.path.join(str(tmp_path), "formal_certificate.json")
         manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
         bounds_path = os.path.join(str(tmp_path), "bounds_manifest.json")
@@ -933,11 +938,13 @@ class TestConditionalCertificates:
             f.write(manifest_content)
         with open(bounds_path, "wb") as f:
             f.write(b'{"dummy": "bounds"}')
-            
-        manifest["bounds_manifest_hash"] = hashlib.sha256(b'{"dummy": "bounds"}').hexdigest()
+
+        manifest["bounds_manifest_hash"] = hashlib.sha256(
+            b'{"dummy": "bounds"}'
+        ).hexdigest()
         with open(manifest_path, "w") as f:
             f.write(json.dumps(manifest))
-            
+
         # Re-sign with correct manifest hash
         manifest_content = json.dumps(manifest)
         manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
@@ -958,7 +965,10 @@ class TestConditionalCertificates:
         try:
             verify_certificate(cert_path, manifest_path)
             captured = capsys.readouterr()
-            assert "WARNING: THIS CERTIFICATE WAS GENERATED IN CONJECTURAL MODE!" in captured.out
+            assert (
+                "WARNING: THIS CERTIFICATE WAS GENERATED IN CONJECTURAL MODE!"
+                in captured.out
+            )
             assert "ABC Conjecture" in captured.out
         finally:
             os.environ.pop("UALBF_PROOF_MANIFEST", None)
@@ -971,9 +981,9 @@ class TestPathContinuityValidation:
         cert = build_cert("placeholder")
         # Explicitly remove path_ranges from telemetry
         del cert["telemetry"]["path_ranges"]
-        
+
         cert_path, manifest_path = write_files(manifest, cert)
-        
+
         # When running the verification, it should fail due to missing path_ranges
         with pytest.raises(SystemExit) as exc_info:
             verify_certificate(cert_path, manifest_path)
@@ -983,28 +993,29 @@ class TestPathContinuityValidation:
     def test_path_ranges_gap_fails_and_writes_recovery(self, tmp_path, monkeypatch):
         """If there is a gap in path ranges, verification fails and writes recovery file."""
         manifest = make_manifest()
-        
+
         # Create a gap: [] to [2], then [3] to [] (missing [2] to [3])
         path_ranges = [
             {"start_bound": [], "end_bound": [2]},
-            {"start_bound": [3], "end_bound": []}
+            {"start_bound": [3], "end_bound": []},
         ]
         cert = build_cert("placeholder", path_ranges=path_ranges)
         cert_path, manifest_path = write_files(manifest, cert)
-        
+
         # Change directory to tmp_path so the recovery file is written there
         monkeypatch.chdir(tmp_path)
-        
+
         recovery_file = os.path.join(str(tmp_path), "recovery_work_units.json")
         if os.path.exists(recovery_file):
             os.remove(recovery_file)
-            
+
         from verify_cert import verify_telemetry_paths
+
         with pytest.raises(SystemExit) as exc_info:
             # We want to run the verify_telemetry_paths call
             verify_telemetry_paths([cert])
         assert exc_info.value.code != 0
-        
+
         # Verify recovery file exists and contains the correct gap: start [2] -> end [3]
         assert os.path.exists(recovery_file)
         with open(recovery_file, "r") as f:
@@ -1015,23 +1026,23 @@ class TestPathContinuityValidation:
 
     def test_path_ranges_multiple_gaps(self, tmp_path, monkeypatch):
         """Test detection of multiple gaps in the path chain."""
-        manifest = make_manifest()
         # [2] to [3] is missing, [4] to [] is missing
         path_ranges = [
             {"start_bound": [], "end_bound": [2]},
-            {"start_bound": [3], "end_bound": [4]}
+            {"start_bound": [3], "end_bound": [4]},
         ]
         cert = build_cert("placeholder", path_ranges=path_ranges)
         monkeypatch.chdir(tmp_path)
-        
+
         recovery_file = os.path.join(str(tmp_path), "recovery_work_units.json")
         if os.path.exists(recovery_file):
             os.remove(recovery_file)
-            
+
         from verify_cert import verify_telemetry_paths
+
         with pytest.raises(SystemExit):
             verify_telemetry_paths([cert])
-            
+
         assert os.path.exists(recovery_file)
         with open(recovery_file, "r") as f:
             gaps = json.load(f)
@@ -1044,24 +1055,26 @@ class TestPathContinuityValidation:
     def test_path_ranges_performance_10k(self):
         """Verify processing of 10,000 path ranges is fast (under 2 seconds)."""
         import time
+
         # Generate 10,000 contiguous path ranges
         # [ [], [1] ], [ [1], [2] ], ..., [ [9999], [] ]
         path_ranges = []
         path_ranges.append({"start_bound": [], "end_bound": [1]})
         for i in range(1, 9999):
-            path_ranges.append({"start_bound": [i], "end_bound": [i+1]})
+            path_ranges.append({"start_bound": [i], "end_bound": [i + 1]})
         path_ranges.append({"start_bound": [9999], "end_bound": []})
-        
-        import verification_lib
+
+        import verification_lib  # type: ignore
+
         path_ranges_json = json.dumps(path_ranges)
-        
+
         start_time = time.time()
         result_json = verification_lib.check_path_continuity(path_ranges_json)
         end_time = time.time()
-        
+
         duration = end_time - start_time
         assert duration < 2.0
-        
+
         result = json.loads(result_json)
         assert result["is_continuous"] is True
         assert len(result["gaps"]) == 0
@@ -1070,7 +1083,8 @@ class TestPathContinuityValidation:
 class TestDirectMappingAndSchemaEnforcement:
     def test_null_byte_injection(self):
         """No certificate content preceding a null-byte can be parsed separately; fails immediately."""
-        import verification_lib
+        import verification_lib  # type: ignore
+
         raw_json_with_null = '{"manifest_hash": "abc", "\0": "tampered"}'
         with pytest.raises(ValueError, match="Null byte detected"):
             verification_lib.validate_certificate(raw_json_with_null)
@@ -1091,8 +1105,7 @@ class TestDirectMappingAndSchemaEnforcement:
 
         # Build cert with path ranges
         cert = build_cert(
-            manifest_hash,
-            path_ranges=[{"start_bound": [1], "end_bound": [2]}]
+            manifest_hash, path_ranges=[{"start_bound": [1], "end_bound": [2]}]
         )
         cert["manifest_hash"] = manifest_hash
 
@@ -1106,7 +1119,7 @@ class TestDirectMappingAndSchemaEnforcement:
             "target_max_log10": tel["target_max_log10"],
             "trace_hash": tel.get("trace_hash", ""),
             "factorization_depth": tel.get("factorization_depth", 0),
-            "path_ranges": tel["path_ranges"]
+            "path_ranges": tel["path_ranges"],
         }
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
@@ -1114,7 +1127,8 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["public_key"] = pub_hex
 
         # Check it passes first
-        import verification_lib
+        import verification_lib  # type: ignore
+
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         res = verification_lib.validate_certificate(json.dumps(cert))
         assert isinstance(res, dict)
@@ -1142,7 +1156,9 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["manifest_hash"] = manifest_hash
 
         # Insert overflowing integer in telemetry
-        cert["telemetry"]["total_branches_searched"] = 18446744073709551616  # 2^64 (exceeds u64 limit)
+        cert["telemetry"][
+            "total_branches_searched"
+        ] = 18446744073709551616  # 2^64 (exceeds u64 limit)
 
         # Resign with overflowed value
         tel = cert["telemetry"]
@@ -1162,9 +1178,13 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
 
-        import verification_lib
+        import verification_lib  # type: ignore
+
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
-        with pytest.raises(ValueError, match="Telemetry validation failed: Telemetry number .* exceeds 64-bit integer limits"):
+        with pytest.raises(
+            ValueError,
+            match="Telemetry validation failed: Telemetry number .* exceeds 64-bit integer limits",
+        ):
             verification_lib.validate_certificate(json.dumps(cert))
 
     def test_direct_pyobject_return(self, tmp_path):
@@ -1203,6 +1223,7 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["public_key"] = pub_hex
 
         import cert_util
+
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         cert_path = os.path.join(str(tmp_path), "cert.json")
         with open(cert_path, "w") as f:
@@ -1229,13 +1250,8 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
 
     # 1. Create a mock bounds manifest with target_min_log10 = 37 and tolerance = 1e-9
     bounds_manifest = {
-        "search_bounds": {
-            "target_min_log10": {
-                "value": 37,
-                "is_axiomatic": False
-            }
-        },
-        "lattice_precision_tolerance": 1e-9
+        "search_bounds": {"target_min_log10": {"value": 37, "is_axiomatic": False}},
+        "lattice_precision_tolerance": 1e-9,
     }
     bounds_content = json.dumps(bounds_manifest).encode("utf-8")
     bounds_hash = hashlib.sha256(bounds_content).hexdigest()
@@ -1289,18 +1305,20 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     # r = 1.5 + 1e9 * 1e-15 = 1.500001
     # r_sq = 2.250003000001
     # diff = 2.5 >= 2.250003000001, so diff is valid!
-    valid_witnesses = [{
-        "dimension": 3,
-        "w": ["80", "130"],
-        "t": "150",
-        "transformation_matrix": [
-            ["-3", "3", "1"],
-            ["4", "1", "3"],
-            ["-2", "0", "-1"]
-        ],
-        "epsilon": 1e-15,
-        "target_log": 0.1
-    }]
+    valid_witnesses = [
+        {
+            "dimension": 3,
+            "w": ["80", "130"],
+            "t": "150",
+            "transformation_matrix": [
+                ["-3", "3", "1"],
+                ["4", "1", "3"],
+                ["-2", "0", "-1"],
+            ],
+            "epsilon": 1e-15,
+            "target_log": 0.1,
+        }
+    ]
 
     # Case 1: Valid witnesses pass
     cert_valid = build_signed_cert_with_witnesses(valid_witnesses)
@@ -1312,18 +1330,20 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     verify_certificate(cert_valid_path, manifest_path)  # Must not exit/error!
 
     # Case 2: Non-unimodular transformation matrix is rejected
-    non_unimodular_witnesses = [{
-        "dimension": 3,
-        "w": ["100", "200"],
-        "t": "50",
-        "transformation_matrix": [
-            ["2", "0", "0"],  # Det of this U is 2, not 1 or -1!
-            ["0", "1", "0"],
-            ["0", "0", "1"]
-        ],
-        "epsilon": 1e-15,
-        "target_log": 0.1
-    }]
+    non_unimodular_witnesses = [
+        {
+            "dimension": 3,
+            "w": ["100", "200"],
+            "t": "50",
+            "transformation_matrix": [
+                ["2", "0", "0"],  # Det of this U is 2, not 1 or -1!
+                ["0", "1", "0"],
+                ["0", "0", "1"],
+            ],
+            "epsilon": 1e-15,
+            "target_log": 0.1,
+        }
+    ]
     cert_invalid_uni = build_signed_cert_with_witnesses(non_unimodular_witnesses)
     cert_invalid_uni_path = os.path.join(str(tmp_path), "cert_invalid_uni.json")
     with open(cert_invalid_uni_path, "w") as f:
@@ -1339,18 +1359,20 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     # B_init = [[1, 0, 0], [0, 1, 0], [0, 0, -1]]
     # U = identity, so B_reduced = B_init, b0 = [1, 0, 0] -> norm(b0)^2 = 1.
     # diff = 1/4 - 2 = -1.75 <= 0, which is invalid!
-    invalid_bound_witnesses = [{
-        "dimension": 3,
-        "w": ["0", "0"],
-        "t": "1",
-        "transformation_matrix": [
-            ["1", "0", "0"],
-            ["0", "1", "0"],
-            ["0", "0", "1"]
-        ],
-        "epsilon": 1e-15,
-        "target_log": 0.1
-    }]
+    invalid_bound_witnesses = [
+        {
+            "dimension": 3,
+            "w": ["0", "0"],
+            "t": "1",
+            "transformation_matrix": [
+                ["1", "0", "0"],
+                ["0", "1", "0"],
+                ["0", "0", "1"],
+            ],
+            "epsilon": 1e-15,
+            "target_log": 0.1,
+        }
+    ]
     cert_invalid_bound = build_signed_cert_with_witnesses(invalid_bound_witnesses)
     cert_invalid_bound_path = os.path.join(str(tmp_path), "cert_invalid_bound.json")
     with open(cert_invalid_bound_path, "w") as f:
@@ -1361,18 +1383,20 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     assert excinfo.value.code == 1
 
     # Case 4: Out-of-bounds epsilon is rejected
-    out_of_bounds_epsilon_witnesses = [{
-        "dimension": 3,
-        "w": ["100", "200"],
-        "t": "50",
-        "transformation_matrix": [
-            ["1", "0", "0"],
-            ["0", "1", "0"],
-            ["0", "0", "1"]
-        ],
-        "epsilon": 0.5,  # Exceeds epsilon_manifest (~0.0) massively!
-        "target_log": 0.1
-    }]
+    out_of_bounds_epsilon_witnesses = [
+        {
+            "dimension": 3,
+            "w": ["100", "200"],
+            "t": "50",
+            "transformation_matrix": [
+                ["1", "0", "0"],
+                ["0", "1", "0"],
+                ["0", "0", "1"],
+            ],
+            "epsilon": 0.5,  # Exceeds epsilon_manifest (~0.0) massively!
+            "target_log": 0.1,
+        }
+    ]
     cert_invalid_eps = build_signed_cert_with_witnesses(out_of_bounds_epsilon_witnesses)
     cert_invalid_eps_path = os.path.join(str(tmp_path), "cert_invalid_eps.json")
     with open(cert_invalid_eps_path, "w") as f:
@@ -1390,18 +1414,20 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     # r_sq_exact = 2.250000000100000000001111111... > 2.25
     # The true difference is r_sq_exact - diff_exact ≈ 1e-10 < tolerance (1e-9).
     # This borderline case must be rejected.
-    borderline_witnesses = [{
-        "dimension": 3,
-        "w": ["4", "0"],
-        "t": "1",
-        "transformation_matrix": [
-            ["1", "0", "0"],
-            ["0", "1", "0"],
-            ["0", "0", "1"]
-        ],
-        "epsilon": 3.3333333333333335e-20,
-        "target_log": 0.1
-    }]
+    borderline_witnesses = [
+        {
+            "dimension": 3,
+            "w": ["4", "0"],
+            "t": "1",
+            "transformation_matrix": [
+                ["1", "0", "0"],
+                ["0", "1", "0"],
+                ["0", "0", "1"],
+            ],
+            "epsilon": 3.3333333333333335e-20,
+            "target_log": 0.1,
+        }
+    ]
     cert_borderline = build_signed_cert_with_witnesses(borderline_witnesses)
     cert_borderline_path = os.path.join(str(tmp_path), "cert_borderline.json")
     with open(cert_borderline_path, "w") as f:
@@ -1595,6 +1621,144 @@ class TestGraphTopologyVerification:
         assert excinfo.value.code == 1
 
 
+def test_verify_gpu_witnesses_cases(tmp_path):
+    """
+    Validates that:
+    1. Valid GPU witnesses successfully pass offline verification.
+    2. Invalid GPU residue/congruence is rejected.
+    3. Invalid Bloom filter index is rejected.
+    """
+    import os
+    import json
+    import struct
+    import hashlib
+    import pytest
+    from verify_cert import verify_certificate
 
+    # Helper to calculate hashes & indices
+    def get_component_hashes(p: int, two_e: int) -> tuple[int, int]:
+        data = struct.pack(">Q I", p, two_e)
+        h = hashlib.sha256(data).digest()
+        hash1 = struct.unpack(">Q", h[0:8])[0]
+        hash2 = struct.unpack(">Q", h[8:16])[0]
+        return hash1, hash2
 
+    def ualbf_bloom_get_index(hash1: int, hash2: int, num_bits: int, i: int) -> int:
+        cur = hash1 + i * hash2 + (i * (i - 1)) // 2
+        max_bits = 1 if num_bits == 0 else num_bits
+        return cur % max_bits
 
+    # 1. Create a mock bounds manifest
+    bounds_manifest = {
+        "search_bounds": {"target_min_log10": {"value": 37, "is_axiomatic": False}},
+        "lattice_precision_tolerance": 1e-9,
+    }
+    bounds_content = json.dumps(bounds_manifest).encode("utf-8")
+    bounds_hash = hashlib.sha256(bounds_content).hexdigest()
+    bounds_path = os.path.join(str(tmp_path), "bounds_manifest.json")
+    with open(bounds_path, "wb") as f:
+        f.write(bounds_content)
+
+    # 2. Create a mock manifest
+    manifest = make_manifest()
+    manifest["bounds_manifest_hash"] = bounds_hash
+    manifest_content = json.dumps(manifest)
+    manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
+    with open(manifest_path, "w") as f:
+        f.write(manifest_content)
+
+    # Re-sign helper to build valid certified payload
+    def build_signed_cert_with_gpu_witnesses(witnesses):
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+        cert = build_cert(manifest_hash)
+        cert["manifest_hash"] = manifest_hash
+        cert["gpu_witnesses"] = witnesses
+
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 37),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+        }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+        return cert
+
+    # Component p=3, two_e=2 -> residues:
+    # mod 3: 1+3+9 = 13 = 1
+    # mod 5: 1+3+9 = 13 = 3
+    # mod 7: 1+3+9 = 13 = 6
+    # mod 11: 1+3+9 = 13 = 2
+    # Not obstructed, so obstructing_modulus = 0, is_obstructed = False
+    h1, h2 = get_component_hashes(3, 2)
+    b_idx = [ualbf_bloom_get_index(h1, h2, 1048576, i) for i in range(4)]
+
+    valid_gpu_witnesses = [
+        {
+            "p": 3,
+            "two_e": 2,
+            "is_obstructed": False,
+            "obstructing_modulus": 0,
+            "residues": [1, 3, 6, 2],
+            "bloom_indices": b_idx,
+        }
+    ]
+
+    # Case 1: Valid passes
+    cert_valid = build_signed_cert_with_gpu_witnesses(valid_gpu_witnesses)
+    cert_valid_path = os.path.join(str(tmp_path), "cert_gpu_valid.json")
+    with open(cert_valid_path, "w") as f:
+        json.dump(cert_valid, f)
+
+    os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
+    verify_certificate(cert_valid_path, manifest_path)
+
+    # Case 2: Invalid residue rejected
+    invalid_res_witnesses = [
+        {
+            "p": 3,
+            "two_e": 2,
+            "is_obstructed": False,
+            "obstructing_modulus": 0,
+            "residues": [9, 3, 6, 2],  # 9 is wrong mod 3
+            "bloom_indices": b_idx,
+        }
+    ]
+    cert_invalid_res = build_signed_cert_with_gpu_witnesses(invalid_res_witnesses)
+    cert_invalid_res_path = os.path.join(str(tmp_path), "cert_gpu_invalid_res.json")
+    with open(cert_invalid_res_path, "w") as f:
+        json.dump(cert_invalid_res, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_res_path, manifest_path)
+    assert excinfo.value.code == 1
+
+    # Case 3: Invalid bloom index rejected
+    wrong_b_idx = list(b_idx)
+    wrong_b_idx[0] += 1
+    invalid_idx_witnesses = [
+        {
+            "p": 3,
+            "two_e": 2,
+            "is_obstructed": False,
+            "obstructing_modulus": 0,
+            "residues": [1, 3, 6, 2],
+            "bloom_indices": wrong_b_idx,
+        }
+    ]
+    cert_invalid_idx = build_signed_cert_with_gpu_witnesses(invalid_idx_witnesses)
+    cert_invalid_idx_path = os.path.join(str(tmp_path), "cert_gpu_invalid_idx.json")
+    with open(cert_invalid_idx_path, "w") as f:
+        json.dump(cert_invalid_idx, f)
+
+    with pytest.raises(SystemExit) as excinfo:
+        verify_certificate(cert_invalid_idx_path, manifest_path)
+    assert excinfo.value.code == 1
