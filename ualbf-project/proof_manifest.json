@@ -94,67 +94,67 @@
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "4be613ee2790b3d78cec35ead068c8ee6a957fcf6ee1518921c7adaee133b576",
+  "verified_logic_hash": "6e55afc1f649230f1dee02823c88ca27df8cae72b52f4414c60be82c395b27e1",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -241,7 +241,7 @@
     "lemma_pocklington_certificate": "4c18755e2796218d2dc167b161ee2be96223bcdbf2b75c3e1c7ab7274105cb21",
     "verified_alloc_u512": "725a44210587084ad50473e06994a60da9cb63463c4fd92a9e0a5fd93180789a",
     "verified_get_u512": "3d0b2b77ca741a04cfbf52fffe7492f1cdd4cf18afbdb8d12e38c8f672b5b6d1",
-    "verified_free_u512": "7bda685a71aff6c86621aece41294d820378408135bb4e71ba1f81ecdbd70179",
+    "verified_free_u512": "d53f5bca387920db013e709a9cdb5f267318857ceb57505ca1755e87b0927ab3",
     "pow2_64": "f5af310449d93b35707c205bbb1f8c9e0ef77725cdb4dae9fe1d67d6fcea4adb",
     "u512_to_nat": "2515c2db85b32ffba43960532624bc0c6a371d52d528926e06de6e8da935a77d",
     "nat_to_u512": "ab0f53d68438140908c8ad64a6963494608dd4eb6a7c6736ac21b37f80d1d003",
@@ -265,7 +265,7 @@
     "verify_starvation_pruning": "3fe33985a5f6827b419338c23cc10bb0e50ea2d8bb4dc4ce39c1ccc6a8e95e9c",
     "rns512_gcd_spec": "326bf8dad421fb30d03432967c2fa2e50077f926b6b04d96fed84e8ac39fede6",
     "rns512_mont_mul_spec": "8bf52d4e2e0e21a29f600c907229fd2c9ec76c010f5524ea15ce97c3c5ed48c7",
-    "rns512_valid_bounds": "264300a3dd1bf2703e735521a0537589711879377b3bb3408210f3acd0f2c5bf",
+    "rns512_valid_bounds": "bfe913f82b1159919d12287b03b1ebd1c7816b606e1e3c4b892fbb217d90f5e7",
     "passes_raycast_sieve_spec": "3383c2d72949bc8cc1a32bd399ddaf5e51dff95c539e7a29da11e308e1617182",
     "verified_passes_raycast_sieve": "98d0f8bdeafdb39be4a396c79598aad9adc84bebf35f50b70916cf1768740764",
     "zsigmondy_preconditions_satisfied": "f105d37de697516ec3aa368672cb12427ad608ff9da21baa85cf61f17c35709f",
@@ -314,7 +314,7 @@
     },
     {
       "file": "UALBF/Engine/SearchMonad.lean",
-      "checksum": "2b871fb2f39a446395c5f989e379b8d854fea4d656669d8f31dab6f026e39763"
+      "checksum": "55103be5da5576ba2f0061d5abdd828c9ab43210f00c0406307dfef933c5fd97"
     },
     {
       "file": "UALBF/Engine/SearchState.lean",
@@ -330,7 +330,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "checksum": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     {
       "file": "UALBF/FFI_generated.lean",
@@ -397,5 +397,127 @@
       "checksum": "0b0bc4fb5a0268708a4e05d1d7fc13de5c2748147ac1e5032e6a0c0cd314b93a"
     }
   ],
-  "bounds_manifest_hash": "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951"
+  "bounds_manifest_hash": "b78f7b8c86f346303f5b92bfa08b5944a629036f0536a70041cf4d36a2c53951",
+  "ghost_pruning_bindings": {
+    "check_starvation_kill": {
+      "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+      "theorem_hash": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+    },
+    "check_cdg_forced_kill": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lean_abundancy_starvation_theorem": {
+      "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+      "theorem_hash": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+    },
+    "verify_starvation_pruning": {
+      "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+      "theorem_hash": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+    },
+    "is_starved": {
+      "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+      "theorem_hash": "7b4744632452f66963a4a9119cbf3f94eb6c9269124385d19f8f9cce5429a811"
+    },
+    "is_cdg_forced_pruned": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_sigma_multiplicative": {
+      "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+    },
+    "lemma_coprime_implies_multiplicative_nonlinear": {
+      "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+    },
+    "lemma_coprime_implies_multiplicative": {
+      "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+    },
+    "lemma_disjoint_by_construction": {
+      "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+    },
+    "prasad_sunitha_bound_satisfied": {
+      "lean_theorem": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+      "theorem_hash": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
+    },
+    "verify_prasad_sunitha": {
+      "lean_theorem": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+      "theorem_hash": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
+    },
+    "screen_mod_8": {
+      "lean_theorem": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+      "theorem_hash": "ea74bcd0b0504f867b312064a41584a5d43fee87049299889ca0f732d095316b"
+    },
+    "is_valid_mod_8": {
+      "lean_theorem": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
+      "theorem_hash": "ea74bcd0b0504f867b312064a41584a5d43fee87049299889ca0f732d095316b"
+    },
+    "passes_raycast_sieve_spec": {
+      "lean_theorem": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+      "theorem_hash": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+    },
+    "verified_passes_raycast_sieve": {
+      "lean_theorem": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+      "theorem_hash": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+    },
+    "zsigmondy_preconditions_satisfied": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "proof_verify_zsigmondy_preconditions": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_composite_has_prime_factor_le_sqrt": {
+      "lean_theorem": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+      "theorem_hash": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+    },
+    "lemma_smallest_factor_is_prime": {
+      "lean_theorem": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
+      "theorem_hash": "cc1d186daf72257f0b7898400658605ec539c519185b18e6c378eecbd4beae38"
+    },
+    "lemma_modpow_mod_divisibility": {
+      "lean_theorem": "UALBF.FFI.modInverse_spec",
+      "theorem_hash": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
+    },
+    "lemma_modpow_add_mul": {
+      "lean_theorem": "UALBF.FFI.modInverse_spec",
+      "theorem_hash": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
+    },
+    "lemma_order_exists": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_order_prime_factor": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_divisibility_bounds": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_fermat_little_theorem": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_order_le_p_minus_1": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_square_comparison_contradiction": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_f_squared_gt_n_minus_1": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    },
+    "lemma_pocklington_certificate": {
+      "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+      "theorem_hash": "27b93a0f297373cc1717a7b9d2ad901b9a830aafdd1b699677c07198df88850a"
+    }
+  }
 }

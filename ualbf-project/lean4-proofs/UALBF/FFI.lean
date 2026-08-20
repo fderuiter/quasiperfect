@@ -618,3 +618,11 @@ def ualbf_check_crt_1155_impl (z_val : @& U512) (x_l_val : @& U512) : Bool :=
 @[export ualbf_logic_hash]
 def ualbf_logic_hash_impl : String := UALBF.Manifest.LOGIC_HASH
 
+@[export ualbf_conjectural_active]
+def ualbf_conjectural_active_impl : UInt32 :=
+  ((1 : UInt32) <<< 31) ||| (if UALBF.Manifest.CONJECTURAL_ACTIVE then 1 else 0)
+
+@[export ualbf_conjectural_max_log10_ceiling]
+def ualbf_conjectural_max_log10_ceiling_impl : UInt32 :=
+  ((1 : UInt32) <<< 31) ||| UALBF.Manifest.CONJECTURAL_MAX_LOG10_CEILING.toUInt32
+
