@@ -346,7 +346,7 @@
             buildPhase = ''
               export HOME=$TMPDIR
               echo "Setting up verification-lib..."
-              cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
+              cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so 2>/dev/null || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so 2>/dev/null || cp ${verificationLib}/lib/libverification_lib.a ./verification_lib.a 2>/dev/null || true
               
               echo "Patching argparse for latexminted..."
               cp $(python3 -c "import argparse; print(argparse.__file__)") paper/argparse.py
