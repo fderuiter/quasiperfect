@@ -126,7 +126,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -f make_check.log ]; then
+          if [ -f make_check.log ] && [ -n "${{ github.event.pull_request.number }}" ]; then
             echo "Posting make check failure log to PR..."
             # Escape backticks and format the log safely
             echo "### CI Failure Log" > comment_body.txt
