@@ -9,6 +9,7 @@ pub mod vstd {
 }
 
 #[cfg(not(verus_keep_ghost))]
+/// Lean 4 Theorem Binding: UALBF.QPN.AbundancyBound.abundancy_starvation
 pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u128) -> bool {
     let lhs = s_l * best_num;
     let rhs = 2 * n_l * best_den;
@@ -16,6 +17,7 @@ pub fn check_starvation_kill(s_l: u128, n_l: u128, best_num: u128, best_den: u12
 }
 
 #[cfg(not(verus_keep_ghost))]
+/// Lean 4 Theorem Binding: UALBF.Engine.CyclotomicGraph.forced_inclusion
 pub fn check_cdg_forced_kill(
     s_l: u128,
     n_l: u128,
@@ -548,6 +550,7 @@ verus! {
 
     pub uninterp spec fn sigma_spec_val(n: nat) -> nat;
 
+    /// Lean 4 Theorem Binding: UALBF.Engine.Bipartition.prefix_sigma_coprime
     pub proof fn lemma_sigma_multiplicative(a: nat, b: nat)
         requires
             disjoint_factor_sets(a, b)
@@ -600,6 +603,7 @@ verus! {
         );
     }
 
+    /// Lean 4 Theorem Binding: UALBF.Engine.Bipartition.prefix_sigma_coprime
     pub proof fn lemma_disjoint_by_construction(prefix: nat, suffix: nat, new_factor: nat)
         requires
             disjoint_factor_sets(prefix, suffix),
@@ -614,6 +618,7 @@ verus! {
     }
 
     /// 7. Semantic starvation theorem mapping
+    /// Lean 4 Theorem Binding: UALBF.QPN.AbundancyBound.abundancy_starvation
     #[verifier(nonlinear)]
     pub proof fn lean_abundancy_starvation_theorem(
         cand_num: nat, cand_den: nat,
@@ -689,6 +694,7 @@ verus! {
         assert(false);
     }
 
+    /// Lean 4 Theorem Binding: UALBF.QPN.AbundancyBound.abundancy_starvation
     pub proof fn verify_starvation_pruning(
         cand_num: nat, cand_den: nat,
         s_l: nat, n_l: nat,
