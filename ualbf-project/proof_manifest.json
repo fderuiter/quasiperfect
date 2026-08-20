@@ -211,7 +211,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "1a2040dc771a53243340b5d48113c8ff152d63e52ced0c037b08ca98703053e8",
+  "verified_logic_hash": "8f1d5daa8a6e2db5ab9967d7308a34ae318006899f226759fe97f781e038acd0",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
@@ -473,11 +473,11 @@
     },
     "lemma_modpow_mod_divisibility": {
       "lean_theorem": "UALBF.FFI.modInverse_spec",
-      "theorem_hash": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "theorem_hash": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     "lemma_modpow_add_mul": {
       "lean_theorem": "UALBF.FFI.modInverse_spec",
-      "theorem_hash": "f2be3abbe4229b876a4a762b031288ace220b79ac8574bc1a1582b46305a63d0"
+      "theorem_hash": "c8e7f6168a45de13c2f4da7098cbf218d6a22b20ba1524d66f610ef128c12d6e"
     },
     "lemma_order_exists": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
