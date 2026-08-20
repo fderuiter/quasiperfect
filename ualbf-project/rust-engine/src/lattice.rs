@@ -39,6 +39,14 @@ pub fn add_lattice_witness(witness: LatticeWitness) {
     }
 }
 
+pub fn compute_target_penalty(m: usize) -> f64 {
+    let base = crate::manifest_constants::LATTICE_TARGET_PENALTY_BASE;
+    if m < 2 || m > 16 {
+        return base;
+    }
+    base * ((1usize << (m - 2)) as f64)
+}
+
 /// LLL-based lattice pruning module.
 ///
 /// This module provides approximate yet mathematically sound and conservative bounding
@@ -75,7 +83,7 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
 
     // Convert abundance_fp values from Q64.64 into scaled log-abundancy lattice contributions.
     let ln_2 = 2.0_f64.ln();
-    let scaling_factor = 1_000_000_000.0; // M = 10^9
+    let scaling_factor = compute_target_penalty(m);
 
     let mut w = Vec::with_capacity(m);
     for comp in &remaining {
@@ -101,9 +109,15 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
     }
     let target_log = ln_2 - a_curr.ln();
 
-    // Define target tolerance epsilon = ln(2 + 1/N) - ln(2).
+    // Define target tolerance epsilon = ln(1 + 1/(2N)) = ln(2 + 1/N) - ln(2).
+    // Using ln_1p prevents floating-point cancellation underflow for deep search prefixes (N >= 10^16).
     let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let epsilon = (2.0 + 1.0 / n_f64).ln() - ln_2;
+    let _tolerance = crate::manifest_constants::LATTICE_PRECISION_TOLERANCE;
+    let epsilon = if n_f64 > 0.0 {
+        (0.5 / n_f64).ln_1p()
+    } else {
+        0.0
+    };
 
     if target_log + epsilon < 0.0 {
         // Since subset sum must be positive, and target_log + epsilon is negative, we can never reach it.
@@ -255,5 +269,40 @@ mod tests {
 
         let decision = lll_prune_decision(&curr, &components);
         println!("LLL Prune Decision: {}", decision);
+    }
+
+    #[test]
+    fn test_dynamic_target_penalty_scaling() {
+        let base = crate::manifest_constants::LATTICE_TARGET_PENALTY_BASE;
+        assert_eq!(compute_target_penalty(2), base);
+        assert_eq!(compute_target_penalty(3), base * 2.0);
+        assert_eq!(compute_target_penalty(4), base * 4.0);
+        assert_eq!(compute_target_penalty(16), base * 16384.0);
+        // Out of range defaults to base
+        assert_eq!(compute_target_penalty(1), base);
+        assert_eq!(compute_target_penalty(17), base);
+    }
+
+    #[test]
+    fn test_epsilon_underflow_prevention_deep_prefix() {
+        // Deep prefix N = 10^16
+        let n_l_16 = "10000000000000000"; // 10^16
+        let n_f64_16: f64 = n_l_16.parse().unwrap();
+        let eps_16 = (0.5 / n_f64_16).ln_1p();
+        assert!(
+            eps_16 > 0.0,
+            "Epsilon for N=10^16 must be positive, got {}",
+            eps_16
+        );
+
+        // Extremely deep prefix N = 10^37
+        let n_l_37 = "10000000000000000000000000000000000000"; // 10^37
+        let n_f64_37: f64 = n_l_37.parse().unwrap();
+        let eps_37 = (0.5 / n_f64_37).ln_1p();
+        assert!(
+            eps_37 > 0.0,
+            "Epsilon for N=10^37 must be positive, got {}",
+            eps_37
+        );
     }
 }

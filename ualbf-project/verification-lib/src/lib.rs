@@ -103,6 +103,7 @@ pub fn format_payload(
     conjecture_name: Option<&str>,
     path_ranges: Option<serde_json::Value>,
     verification_mode: Option<&str>,
+    sidecar_hash: Option<&str>,
 ) -> String {
     let mut map = std::collections::BTreeMap::new();
     map.insert(
@@ -135,6 +136,9 @@ pub fn format_payload(
         "trace_hash",
         serde_json::Value::String(trace_hash.to_string()),
     );
+    if let Some(sh) = sidecar_hash {
+        map.insert("sidecar_hash", serde_json::Value::String(sh.to_string()));
+    }
     map.insert(
         "factorization_depth",
         serde_json::Value::Number(serde_json::Number::from(factorization_depth)),
@@ -407,6 +411,13 @@ pub fn validate_certificate<'py>(
         .or_else(|| telemetry.get("explored_ranges"))
         .cloned();
 
+    let sidecar_hash = telemetry
+        .get("sidecar_hash")
+        .or_else(|| telemetry.get("sidecar_log_digest"))
+        .or_else(|| obj.get("sidecar_hash"))
+        .or_else(|| obj.get("sidecar_log_digest"))
+        .and_then(|v| v.as_str());
+
     let verification_mode = obj.get("verification_mode").and_then(|v| v.as_str());
 
     // Reconstruct payload
@@ -425,6 +436,7 @@ pub fn validate_certificate<'py>(
         conjecture_name,
         path_ranges,
         verification_mode,
+        sidecar_hash,
     );
 
     // Verify signature
@@ -988,6 +1000,13 @@ pub extern "C" fn verify_certificate(
         .or_else(|| telemetry.get("explored_ranges"))
         .cloned();
 
+    let sidecar_hash = telemetry
+        .get("sidecar_hash")
+        .or_else(|| telemetry.get("sidecar_log_digest"))
+        .or_else(|| obj.get("sidecar_hash"))
+        .or_else(|| obj.get("sidecar_log_digest"))
+        .and_then(|v| v.as_str());
+
     let verification_mode = obj.get("verification_mode").and_then(|v| v.as_str());
 
     let payload = format_payload(
@@ -1005,6 +1024,7 @@ pub extern "C" fn verify_certificate(
         conjecture_name,
         path_ranges,
         verification_mode,
+        sidecar_hash,
     );
 
     let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);

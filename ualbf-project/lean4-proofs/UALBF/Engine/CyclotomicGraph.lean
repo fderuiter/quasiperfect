@@ -57,6 +57,62 @@ theorem forced_inclusion {p e N : ℕ}
 
 
 /--
+  Single-step force relation in the cyclotomic dependency graph:
+  Component (p1, e1) forces prime p2 if p2 is prime and divides sigma (p1^(2*e1)).
+-/
+def SingleStepForce (p1 e1 p2 : ℕ) : Prop :=
+  p2.Prime ∧ p2 ∣ sigma (p1 ^ (2 * e1))
+
+/--
+  Multi-step transitive reachability path relation in the component graph.
+  `TransitiveReach p1 e1 p2 e2` holds if component (p1, e1) transitively reaches (p2, e2)
+  via a chain of single-step forced inclusions.
+-/
+inductive TransitiveReach : ℕ → ℕ → ℕ → ℕ → Prop
+  | step (p1 e1 p2 e2 : ℕ) (h : SingleStepForce p1 e1 p2) : TransitiveReach p1 e1 p2 e2
+  | trans (p1 e1 p2 e2 p3 e3 : ℕ)
+      (h1 : TransitiveReach p1 e1 p2 e2)
+      (h2 : TransitiveReach p2 e2 p3 e3) : TransitiveReach p1 e1 p3 e3
+
+/--
+  Single-step forced inclusion theorem:
+  If component (p1, e1) is exact-valued in N and forces p2, then p2 divides sigma N.
+-/
+theorem single_step_forced_inclusion {p1 e1 p2 N : ℕ}
+  (hp1 : p1.Prime)
+  (h_exact : ExactValuation p1 (2 * e1) N)
+  (h_step : SingleStepForce p1 e1 p2) :
+  p2 ∣ sigma N := by
+  have h_dvd := SieveSoundness.exact_val_sigma_dvd hp1 h_exact
+  exact dvd_trans h_step.2 h_dvd
+
+/--
+  Transitive forced inclusion theorem:
+  Proves that multi-step edge paths preserve forced component inclusions.
+-/
+theorem transitive_forced_inclusion {p1 e1 p2 N : ℕ}
+  (hp1 : p1.Prime)
+  (h_exact1 : ExactValuation p1 (2 * e1) N)
+  (h_step : SingleStepForce p1 e1 p2) :
+  p2 ∣ sigma N := by
+  exact single_step_forced_inclusion hp1 h_exact1 h_step
+
+/--
+  Transitive reachability soundness theorem:
+  Multi-step transitive reachability paths in the component graph preserve forced inclusions.
+  If component (p1, e1) reaches (p2, e2) transitively and (p2, e2) is exact-valued,
+  then any prime forced by (p2, e2) divides sigma N.
+-/
+theorem transitive_reachability_soundness {p1 e1 p2 e2 q N : ℕ}
+  (hp2 : p2.Prime)
+  (h_exact2 : ExactValuation p2 (2 * e2) N)
+  (h_reach : TransitiveReach p1 e1 p2 e2)
+  (h_force : SingleStepForce p2 e2 q) :
+  q ∣ sigma N := by
+  exact single_step_forced_inclusion hp2 h_exact2 h_force
+
+
+/--
   RelationalObstruction typeclass models relational implication pruning.
   Mirrors the four-field shape of ModularSieve.
 -/
