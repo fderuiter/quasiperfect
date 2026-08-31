@@ -36,6 +36,11 @@ if project_root not in sys.path:
 
 import cert_util
 
+# Check for deprecated bypass options
+if "ALLOW_UNVERIFIED_BUILD" in os.environ or "UALBF_SKIP_VALIDATION" in os.environ:
+    print("Error: Bypass options are deprecated and verification cannot be skipped.")
+    sys.exit(1)
+
 bounds_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bounds_manifest.json"
 )
@@ -66,38 +71,62 @@ if not has_cert:
     print(f"Error: {cert_path} not found.")
     sys.exit(1)
 
-# Fail-Fast Collision Detection
-manifest_path_for_macros = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "proof_manifest.json"
-)
-if os.path.exists(manifest_path_for_macros):
-    with open(manifest_path_for_macros, "r", encoding="utf-8") as mf:
-        manifest_data_macros = json.load(mf)
+# Fail-Fast Manifest Status Gate & Collision Detection
+manifest_path_for_macros = os.environ.get("UALBF_PROOF_MANIFEST")
+if not manifest_path_for_macros or not os.path.exists(manifest_path_for_macros):
+    manifest_path_for_macros = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "proof_manifest.json",
+    )
+if not os.path.exists(manifest_path_for_macros):
+    print(f"Error: Proof manifest '{manifest_path_for_macros}' not found.")
+    sys.exit(1)
 
-    macro_to_sources = collections.defaultdict(list)
+with open(manifest_path_for_macros, "r", encoding="utf-8") as mf:
+    manifest_data_macros = json.load(mf)
 
-    for thm in manifest_data_macros.get("theorems", []):
-        thm_name = thm["name"]
-        macro = make_macro_name(thm_name)
-        macro_to_sources[macro].append(thm_name)
-        status_macro = f"{macro}Status"
-        macro_to_sources[status_macro].append(f"{thm_name} (Status)")
+# Enforce top-level manifest status gate
+if manifest_data_macros.get("status") in ["unverified", "error", "failed"]:
+    print(
+        f"Error: Proof manifest status is '{manifest_data_macros.get('status')}'. Build halted."
+    )
+    sys.exit(1)
 
-    for fn in manifest_data_macros.get("verus_hashes", {}):
-        macro = make_macro_name(fn)
-        macro_to_sources[macro].append(fn)
+# Enforce theorem status gate
+unproven_theorems = []
+for thm in manifest_data_macros.get("theorems", []):
+    thm_name = thm.get("name", "unknown")
+    status = str(thm.get("status", "")).strip().lower()
+    if status not in ("proven", "verified"):
+        unproven_theorems.append((thm_name, thm.get("status", "missing")))
 
-    collisions = {
-        macro: sources
-        for macro, sources in macro_to_sources.items()
-        if len(sources) > 1
-    }
-    if collisions:
-        for macro, sources in collisions.items():
-            print(
-                f"Error: Duplicate LaTeX macro name '\\{macro}' generated from sources: {', '.join(sources)}"
-            )
-        sys.exit(1)
+if unproven_theorems:
+    for thm_name, status in unproven_theorems:
+        print(f"Error: Theorem '{thm_name}' is unproven (status: '{status}').")
+    sys.exit(1)
+
+macro_to_sources = collections.defaultdict(list)
+
+for thm in manifest_data_macros.get("theorems", []):
+    thm_name = thm["name"]
+    macro = make_macro_name(thm_name)
+    macro_to_sources[macro].append(thm_name)
+    status_macro = f"{macro}Status"
+    macro_to_sources[status_macro].append(f"{thm_name} (Status)")
+
+for fn in manifest_data_macros.get("verus_hashes", {}):
+    macro = make_macro_name(fn)
+    macro_to_sources[macro].append(fn)
+
+collisions = {
+    macro: sources for macro, sources in macro_to_sources.items() if len(sources) > 1
+}
+if collisions:
+    for macro, sources in collisions.items():
+        print(
+            f"Error: Duplicate LaTeX macro name '\\{macro}' generated from sources: {', '.join(sources)}"
+        )
+    sys.exit(1)
 
 with open("telemetry.tex", "w", encoding="utf-8") as f:
     if has_cert:
@@ -196,7 +225,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
         f.write("\\newcommand{\\TelemetryBoundsEnforced}{True}\n")
     if has_cert:
         # Enforce recursive chain of trust
-        manifest_path = os.path.join(
+        manifest_path = os.environ.get("UALBF_PROOF_MANIFEST") or os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "proof_manifest.json",
         )
@@ -240,7 +269,7 @@ with open("telemetry.tex", "w", encoding="utf-8") as f:
     f.write(f"\\newcommand{{\\TelemetryPrasadSunithaBound}}{{{ps_bound}}}\n")
 
     # Generate verification macros and check hashes
-    manifest_path_for_macros = os.path.join(
+    manifest_path_for_macros = os.environ.get("UALBF_PROOF_MANIFEST") or os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "proof_manifest.json",
     )
