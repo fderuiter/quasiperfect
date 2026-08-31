@@ -378,6 +378,7 @@ pub fn phase2_and_4_fused(
             &lazy_cache,
             &backbone,
             Some(&trace_tx),
+            i,
         );
 
         let w = (10_000_000.0 / ((comp.p as f64) * (comp.p as f64))) as usize;
@@ -467,12 +468,17 @@ pub fn check_and_evaluate_node(
     max_idx_5: usize,
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
+    work_unit_id: usize,
+    step_counter: &AtomicU64,
 ) -> bool {
     if curr.n_l > *target_bound {
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -523,7 +529,10 @@ pub fn check_and_evaluate_node(
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -585,7 +594,10 @@ pub fn check_and_evaluate_node(
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -726,7 +738,10 @@ pub fn check_and_evaluate_node(
             let overflow_num_u = Uint::from_u64(get_target_abundance_num());
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -753,7 +768,10 @@ pub fn check_and_evaluate_node(
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -855,7 +873,10 @@ pub fn check_and_evaluate_node(
                     forced_candidates: backbone.forced_candidates.clone(),
                 };
                 let reachable_paths = vec![forced_contributions.clone()];
+                let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
                 let _ = tx.send(crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
                     factors: f_vec,
                     n_l: curr.n_l,
                     s_l: curr.s_l,
@@ -897,7 +918,10 @@ pub fn check_and_evaluate_node(
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -948,7 +972,10 @@ pub fn check_and_evaluate_node(
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -1003,7 +1030,10 @@ pub fn check_and_evaluate_node(
                     }
                 }
 
+                let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
                 let _ = tx.send(crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
                     factors: f_vec,
                     n_l: curr.n_l,
                     s_l: curr.s_l,
@@ -1090,7 +1120,10 @@ pub fn check_and_evaluate_node(
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
+            let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
             let _ = tx.send(crate::trace::TraceEvent {
+                work_unit_id,
+                step_index,
                 factors: f_vec,
                 n_l: curr.n_l,
                 s_l: curr.s_l,
@@ -1146,6 +1179,7 @@ pub fn explore_prefix(
     lazy_cache: &Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>>,
     backbone: &crate::backbone::SearchBackbone,
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
+    work_unit_id: usize,
 ) {
     explore_prefix_sequential(
         curr,
@@ -1173,6 +1207,7 @@ pub fn explore_prefix(
         trace_tx,
         start_bound,
         end_bound,
+        work_unit_id,
     );
 }
 
@@ -1202,6 +1237,7 @@ fn explore_prefix_sequential(
     trace_tx: Option<&crossbeam_channel::Sender<crate::trace::TraceEvent>>,
     start_bound: Option<&[u64]>,
     end_bound: Option<&[u64]>,
+    work_unit_id: usize,
 ) {
     let mut ctx = DfsContext {
         curr,
@@ -1231,6 +1267,8 @@ fn explore_prefix_sequential(
         trace_tx: trace_tx.cloned(),
         start_bound,
         end_bound,
+        work_unit_id,
+        step_counter: AtomicU64::new(0),
     };
 
     let ctx_ptr = &mut ctx as *mut DfsContext as u64;
@@ -1355,6 +1393,8 @@ pub struct DfsContext<'a> {
     pub trace_tx: Option<crossbeam_channel::Sender<crate::trace::TraceEvent>>,
     pub start_bound: Option<&'a [u64]>,
     pub end_bound: Option<&'a [u64]>,
+    pub work_unit_id: usize,
+    pub step_counter: std::sync::atomic::AtomicU64,
 }
 
 pub fn __rust_dfs_get_components_len(ctx: u64) -> u32 {
@@ -1542,6 +1582,8 @@ pub fn __rust_dfs_check_evaluate(ctx: u64, _baseline_min: u32) -> bool {
         dfs_ctx.max_idx_5,
         dfs_ctx.backbone,
         dfs_ctx.trace_tx.as_ref(),
+        dfs_ctx.work_unit_id,
+        &dfs_ctx.step_counter,
     )
 }
 
@@ -1663,6 +1705,8 @@ mod tests {
                 dyn_min_factors: 7,
                 should_explore_memo: false,
                 trace_tx: None,
+                work_unit_id: 0,
+                step_counter: std::sync::atomic::AtomicU64::new(0),
             };
 
             // Pass the raw pointer only; the closure reads state back through the same pointer.

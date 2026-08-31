@@ -63,6 +63,8 @@ pub enum PruneReason {
 }
 
 pub struct TraceEvent {
+    pub work_unit_id: usize,
+    pub step_index: u64,
     pub factors: SmallVec<[u64; 16]>,
     pub n_l: Uint,
     pub s_l: Uint,
@@ -72,6 +74,8 @@ pub struct TraceEvent {
 
 #[derive(Serialize)]
 struct SerializableTraceEvent<'a> {
+    work_unit_id: usize,
+    step_index: u64,
     factors: &'a [u64],
     n_l: String,
     s_l: String,
@@ -135,6 +139,8 @@ impl TraceWriter {
 
             for event in receiver {
                 let mut ser_event = SerializableTraceEvent {
+                    work_unit_id: event.work_unit_id,
+                    step_index: event.step_index,
                     factors: &event.factors,
                     n_l: event.n_l.to_string(),
                     s_l: event.s_l.to_string(),
@@ -260,5 +266,89 @@ impl TraceWriter {
         });
 
         TraceWriter { sender, handle }
+    }
+}
+
+pub fn canonicalize_trace_file(file_path: &str) -> std::io::Result<()> {
+    let path = std::path::Path::new(file_path);
+    if !path.exists() {
+        return Ok(());
+    }
+    let content = std::fs::read_to_string(path)?;
+    if content.trim().is_empty() {
+        return Ok(());
+    }
+
+    struct Record {
+        work_unit_id: usize,
+        step_index: u64,
+        line: String,
+    }
+
+    let mut records: Vec<Record> = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(trimmed) {
+            let work_unit_id = v.get("work_unit_id").and_then(|w| w.as_u64()).unwrap_or(0) as usize;
+            let step_index = v.get("step_index").and_then(|s| s.as_u64()).unwrap_or(0);
+            records.push(Record {
+                work_unit_id,
+                step_index,
+                line: trimmed.to_string(),
+            });
+        }
+    }
+
+    records.sort_by(|a, b| {
+        a.work_unit_id
+            .cmp(&b.work_unit_id)
+            .then_with(|| a.step_index.cmp(&b.step_index))
+            .then_with(|| a.line.cmp(&b.line))
+    });
+
+    let mut file = File::create(file_path)?;
+    for r in records {
+        file.write_all(r.line.as_bytes())?;
+        file.write_all(b"\n")?;
+    }
+    file.sync_all()?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_trace_canonicalization_determinism() {
+        let temp_dir = std::env::temp_dir();
+        let trace_path = temp_dir.join("test_trace.jsonl");
+        let path_str = trace_path.to_str().unwrap();
+
+        let uncanonical_content = r#"{"work_unit_id": 2, "step_index": 0, "n_l": "100", "reason": "raycast"}
+{"work_unit_id": 0, "step_index": 1, "n_l": "200", "reason": "target_bound"}
+{"work_unit_id": 0, "step_index": 0, "n_l": "150", "reason": "touchard"}
+{"work_unit_id": 1, "step_index": 0, "n_l": "300", "reason": "min_factors"}
+"#;
+        std::fs::write(path_str, uncanonical_content).unwrap();
+
+        canonicalize_trace_file(path_str).unwrap();
+
+        let canonical_content = std::fs::read_to_string(path_str).unwrap();
+        let expected = r#"{"work_unit_id": 0, "step_index": 0, "n_l": "150", "reason": "touchard"}
+{"work_unit_id": 0, "step_index": 1, "n_l": "200", "reason": "target_bound"}
+{"work_unit_id": 1, "step_index": 0, "n_l": "300", "reason": "min_factors"}
+{"work_unit_id": 2, "step_index": 0, "n_l": "100", "reason": "raycast"}
+"#;
+        assert_eq!(canonical_content, expected);
+
+        canonicalize_trace_file(path_str).unwrap();
+        let re_canonical_content = std::fs::read_to_string(path_str).unwrap();
+        assert_eq!(re_canonical_content, expected);
+
+        let _ = std::fs::remove_file(path_str);
     }
 }
