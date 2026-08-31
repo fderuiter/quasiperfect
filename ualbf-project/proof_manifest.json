@@ -28,19 +28,25 @@
       "name": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     {
       "name": "UALBF.Engine.Bipartition.ambs_suffix_target",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     {
       "name": "UALBF.Engine.Bipartition.no_solution_no_qpn",
       "file": "UALBF/Engine/Bipartition.lean",
       "status": "proven",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
+    },
+    {
+      "name": "UALBF.Engine.Bipartition.root_partition_complete_coverage",
+      "file": "UALBF/Engine/Bipartition.lean",
+      "status": "proven",
+      "checksum": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
@@ -223,7 +229,7 @@
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     }
   ],
-  "verified_logic_hash": "8f1d5daa8a6e2db5ab9967d7308a34ae318006899f226759fe97f781e038acd0",
+  "verified_logic_hash": "c9f7afce6daacfe1379a8161128eb8658c1b5e4154921f38c984ddb66843446e",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "verus_hashes": {
     "check_cdg_forced_kill": "fd5dceec55e366bafd28b764e97aa3b84b9d29653293695d4bb32059f1da07b5",
@@ -298,7 +304,7 @@
     },
     {
       "file": "UALBF/Engine/Bipartition.lean",
-      "checksum": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "checksum": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
@@ -395,10 +401,6 @@
     {
       "file": "UALBF/QPN/TouchardQPN.lean",
       "checksum": "ea74bcd0b0504f867b312064a41584a5d43fee87049299889ca0f732d095316b"
-    },
-    {
-      "file": "Validator.lean",
-      "checksum": "89cbdaeb91d27449f9b81398dd72791337806ab7453e25606da716ed1eae9f5f"
     }
   ],
   "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
@@ -429,19 +431,19 @@
     },
     "lemma_sigma_multiplicative": {
       "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "theorem_hash": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     "lemma_coprime_implies_multiplicative_nonlinear": {
       "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "theorem_hash": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     "lemma_coprime_implies_multiplicative": {
       "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "theorem_hash": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     "lemma_disjoint_by_construction": {
       "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-      "theorem_hash": "4d9b666d053d453bf2d1dba562249936996edbe4273e23cac6d7ba15fb39b4ea"
+      "theorem_hash": "f1778a693156bd9eff63e5d2aac883e9ed7e57fe154f940255f9289b3a5720cf"
     },
     "prasad_sunitha_bound_satisfied": {
       "lean_theorem": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",

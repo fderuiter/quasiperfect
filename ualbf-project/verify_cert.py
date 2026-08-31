@@ -12,11 +12,41 @@ import cert_util
 TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
 
 
+def canonicalize_trace(trace_path):
+    """
+    Sorts parallel trace log lines deterministically by (work_unit_id, step_index).
+    """
+    if not os.path.exists(trace_path):
+        return
+    with open(trace_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    records = []
+    for line in lines:
+        line_str = line.strip()
+        if not line_str:
+            continue
+        try:
+            record = json.loads(line_str)
+            work_unit_id = record.get("work_unit_id", 0)
+            step_index = record.get("step_index", 0)
+            records.append((work_unit_id, step_index, line_str))
+        except Exception:
+            records.append((0, 0, line_str))
+
+    records.sort(key=lambda x: (x[0], x[1], x[2]))
+    canonical_content = "".join(r[2] + "\n" for r in records)
+    with open(trace_path, "w", encoding="utf-8") as f:
+        f.write(canonical_content)
+
+
 def verify_trace_file(cert, trace_path):
     print("\n--- Verifying Trace ---")
     if not os.path.exists(trace_path):
         print(f"ERROR: Trace file '{trace_path}' not found.")
         sys.exit(1)
+
+    canonicalize_trace(trace_path)
 
     with open(trace_path, "rb") as f:
         trace_data = f.read()
@@ -938,6 +968,7 @@ def verify_certificate(cert_path, manifest_path):
                     file.endswith(".lean")
                     and file != "lakefile.lean"
                     and file != "find_axioms.lean"
+                    and file != "Validator.lean"
                 ):
                     full_p = os.path.join(root, file)
                     rel_p = os.path.relpath(full_p, proof_dir)

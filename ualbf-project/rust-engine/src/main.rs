@@ -873,6 +873,7 @@ fn main() {
     let trace_path = "trace.jsonl";
     #[cfg(feature = "signing")]
     let trace_hash = if std::path::Path::new(trace_path).exists() {
+        let _ = crate::trace::canonicalize_trace_file(trace_path);
         let mut hasher = Sha256::new();
         let mut f = std::fs::File::open(trace_path).expect("Failed to open trace file");
         let mut buf = Vec::new();

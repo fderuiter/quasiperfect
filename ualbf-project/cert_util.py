@@ -291,6 +291,7 @@ CORE_THEOREMS = [
     "UALBF.Engine.Bipartition.prefix_sigma_coprime",
     "UALBF.Engine.Bipartition.ambs_suffix_target",
     "UALBF.Engine.Bipartition.no_solution_no_qpn",
+    "UALBF.Engine.Bipartition.root_partition_complete_coverage",
     "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
     "UALBF.QPN.AbundancyBound.qpn_totient_bound",
     "UALBF.QPN.AbundancyBound.abundancy_starvation",
