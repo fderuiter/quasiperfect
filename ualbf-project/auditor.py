@@ -178,6 +178,7 @@ def generate_manifest():
                     file.endswith(".lean")
                     and file != "lakefile.lean"
                     and file != "find_axioms.lean"
+                    and file != "Validator.lean"
                 ):
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, cwd)
@@ -487,6 +488,7 @@ def generate_manifest():
                 file.endswith(".lean")
                 and file != "lakefile.lean"
                 and file != "find_axioms.lean"
+                and file != "Validator.lean"
             ):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, cwd)

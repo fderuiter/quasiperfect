@@ -534,6 +534,7 @@ pub fn run_worker(
                     &lazy_cache,
                     &backbone,
                     None,
+                    0,
                 );
                 drop(tx);
                 let _ = reporter_thread.join();
