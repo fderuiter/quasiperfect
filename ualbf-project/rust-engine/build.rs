@@ -620,39 +620,32 @@ fn main() {
     println!("cargo:rerun-if-changed=../bounds_manifest.json");
 
     // --- 1. Resolve Lean sysroot ---
-    let mut lean_sysroot = env::var("LEAN_SYSROOT").unwrap_or_default();
-    if env::var("MOCK_LEAN").unwrap_or_default() == "1" {
-        lean_sysroot = "DUMMY".to_string();
+    if env::var("MOCK_LEAN").is_ok() {
+        panic!("FATAL: MOCK_LEAN is forbidden. Real Lean 4 compiler verification is mandatory.");
     }
 
     if env::var("ALLOW_UNVERIFIED_BUILD").is_ok() || env::var("UALBF_SKIP_VALIDATION").is_ok() {
         panic!("FATAL: Bypass options are deprecated. Verification cannot be skipped.");
     }
 
-    if lean_sysroot.is_empty() || lean_sysroot == "DUMMY" {
-        println!(
-            "cargo:warning=Lean sysroot not found. Building with dummy FFI (unverified_build)."
-        );
-        println!("cargo:rustc-cfg=unverified_build");
-
-        let mut builder = cc::Build::new();
-        builder.warnings(false).opt_level(2);
-        builder.file("src/unverified/dummy_ffi.c");
-        builder.compile("UALBF");
-
-        // Link standard C++ library
-        let target = env::var("TARGET").unwrap_or_default();
-        if target.contains("apple") {
-            println!("cargo:rustc-link-lib=dylib=c++");
-        } else {
-            println!("cargo:rustc-link-lib=dylib=stdc++");
+    let mut lean_sysroot = env::var("LEAN_SYSROOT").unwrap_or_default();
+    if lean_sysroot.is_empty() {
+        if let Ok(output) = Command::new("lean")
+            .arg("--print-prefix")
+            .current_dir(&lean_project)
+            .output()
+        {
+            if output.status.success() {
+                let prefix = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !prefix.is_empty() {
+                    lean_sysroot = prefix;
+                }
+            }
         }
+    }
 
-        // Print rerun triggers
-        println!("cargo:rerun-if-changed=src/unverified/dummy_ffi.c");
-        println!("cargo:rerun-if-changed=src/c_shims.c");
-        println!("cargo:rerun-if-changed=../bounds_manifest.json");
-        return;
+    if lean_sysroot.is_empty() || lean_sysroot == "DUMMY" {
+        panic!("FATAL: LEAN_SYSROOT is missing or set to DUMMY. Lean 4 compiler verification is mandatory.");
     }
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
