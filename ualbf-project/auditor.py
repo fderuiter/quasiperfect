@@ -261,10 +261,19 @@ def generate_manifest():
                             pass
                         parts = f_path.split(os.sep)
                         in_build = "build" in parts
+                        in_lake = ".lake" in parts
+                        is_source = (
+                            f.endswith(".lean")
+                            or f == "lakefile.lean"
+                            or f == "lake-manifest.json"
+                            or (f == "ffi.c" and not in_build)
+                        )
                         is_compiled_ext = f.endswith(
                             (
                                 ".olean",
                                 ".ilean",
+                                ".trace",
+                                ".hash",
                                 ".o",
                                 ".ot",
                                 ".a",
@@ -274,8 +283,8 @@ def generate_manifest():
                             )
                         )
                         is_build_artifact = (
-                            in_build or is_compiled_ext
-                        ) and not f.endswith(".lean")
+                            in_build or in_lake or is_compiled_ext
+                        ) and not is_source
                         if is_build_artifact:
                             os.utime(f_path, (now, now))
                         else:
