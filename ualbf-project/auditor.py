@@ -119,8 +119,8 @@ def offline_lake_manifest(cwd):
                 if 'from git "' in lakefile_content:
                     lakefile_bak = lakefile_content
                     new_content = re.sub(
-                        r'from git "[^"]+"',
-                        r'from ".lake/packages/mathlib"',
+                        r"from git .*",
+                        'from ".lake/packages/mathlib"',
                         lakefile_content,
                     )
                     with open(lakefile_path, "w", encoding="utf-8") as f:
