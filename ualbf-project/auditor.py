@@ -234,10 +234,10 @@ def generate_manifest():
 
     # Check Lean axioms using the compiler
 
-    # Robust touch logic to resolve Nix epoch mtimes mismatch
+    # Robust touch logic to resolve Nix epoch mtimes mismatch and prevent Lean cache invalidation
     if has_lean:
         now = time.time()
-        past = now - 120
+        past = now - 3600
         if os.path.exists(cwd):
             for root, dirs, files in os.walk(cwd):
                 for d in dirs:
@@ -259,7 +259,25 @@ def generate_manifest():
                             os.chmod(f_path, st.st_mode | 0o200)
                         except Exception:
                             pass
-                        if ".lake" in f_path.split(os.sep):
+                        parts = f_path.split(os.sep)
+                        is_build_artifact = (
+                            "build" in parts
+                            or f.endswith(
+                                (
+                                    ".olean",
+                                    ".ilean",
+                                    ".c",
+                                    ".o",
+                                    ".trace",
+                                    ".hash",
+                                    ".a",
+                                    ".so",
+                                    ".dylib",
+                                    ".dll",
+                                )
+                            )
+                        )
+                        if is_build_artifact and not f.endswith(".lean"):
                             os.utime(f_path, (now, now))
                         else:
                             os.utime(f_path, (past, past))
@@ -309,13 +327,26 @@ def generate_manifest():
             for thm in CORE_THEOREMS:
                 f.write(f"#print axioms {thm}\n")
 
-            result = subprocess.run(
-                ["lake", "env", "lean", lean_file],
-                cwd=cwd,
-                env=env,
-                capture_output=True,
-                text=True,
-            )
+            try:
+                result = subprocess.run(
+                    ["lake", "env", "lean", lean_file],
+                    cwd=cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                )
+            except subprocess.TimeoutExpired:
+                print(
+                    "Error: 'lake env lean' timed out after 180 seconds during axiom extraction.",
+                    file=sys.stderr,
+                )
+                result = subprocess.CompletedProcess(
+                    args=["lake", "env", "lean", lean_file],
+                    returncode=1,
+                    stdout="",
+                    stderr="Error: Lean axiom extraction timed out.",
+                )
 
             # cleanup
             if os.path.exists(lean_path):
