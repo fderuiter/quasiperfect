@@ -169,9 +169,7 @@
           preBuild = ''
             chmod +w ..
             mkdir -p ../verification-lib/target/release
-            rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib
-            ln -s ${verificationLib}/lib/libverification_lib.a ../verification-lib/target/release/ || true
-            ln -s ${verificationLib}/lib/libverification_lib.rlib ../verification-lib/target/release/ || true
+            ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
           '';
 
           buildPhase = ''
@@ -453,9 +451,7 @@ with open("dummy_cert.json", "w") as f:
             preBuild = ''
               chmod +w ..
               mkdir -p ../verification-lib/target/release
-              rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib
-              ln -s ${verificationLib}/lib/libverification_lib.a ../verification-lib/target/release/ || true
-              ln -s ${verificationLib}/lib/libverification_lib.rlib ../verification-lib/target/release/ || true
+              ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
             '';
 
             buildPhase = ''
