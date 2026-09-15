@@ -183,6 +183,10 @@
             lake build
           '';
 
+          postBuild = ''
+            rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib || true
+          '';
+
           installPhase = ''
             mkdir -p $out
             cp -r .lake $out/
@@ -464,6 +468,10 @@ with open("dummy_cert.json", "w") as f:
             chmod -R +w .lake
             ${rewriteManifest}
               lake build -Kwarnings_as_errors
+            '';
+
+            postBuild = ''
+              rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib || true
             '';
 
             installPhase = ''

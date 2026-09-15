@@ -184,6 +184,13 @@ struct BoundsManifest {
 /// ```
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    // Ensure any leftover PyO3 cdylib artifacts (.so / .dylib) in verification-lib target release directory
+    // are stripped prior to Rust build-script linking so that Cargo links against the static Rust rlib.
+    let verif_target_rel = PathBuf::from(&manifest_dir).join("../verification-lib/target/release");
+    let _ = fs::remove_file(verif_target_rel.join("libverification_lib.so"));
+    let _ = fs::remove_file(verif_target_rel.join("libverification_lib.dylib"));
+
     let scan_status = Command::new("python3")
         .arg("../scripts/check_literals.py")
         .current_dir(&manifest_dir)
