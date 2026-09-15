@@ -76,9 +76,15 @@ def offline_lake_manifest(cwd):
 
     manifest_bak = None
     lakefile_bak = None
+    manifest_stat = None
+    lakefile_stat = None
+
+    now = time.time()
+    past = now - 3600
 
     try:
         if os.path.exists(manifest_path):
+            manifest_stat = os.stat(manifest_path)
             try:
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     manifest_content = f.read()
@@ -98,6 +104,7 @@ def offline_lake_manifest(cwd):
                     with open(manifest_path, "w", encoding="utf-8") as f:
                         json.dump(manifest_data, f, indent=2)
                         f.write("\n")
+                    os.utime(manifest_path, (past, past))
             except Exception as e:
                 print(
                     f"Warning: Failed to patch lake-manifest.json: {e}",
@@ -105,6 +112,7 @@ def offline_lake_manifest(cwd):
                 )
 
         if os.path.exists(lakefile_path):
+            lakefile_stat = os.stat(lakefile_path)
             try:
                 with open(lakefile_path, "r", encoding="utf-8") as f:
                     lakefile_content = f.read()
@@ -117,6 +125,7 @@ def offline_lake_manifest(cwd):
                     )
                     with open(lakefile_path, "w", encoding="utf-8") as f:
                         f.write(new_content)
+                    os.utime(lakefile_path, (past, past))
             except Exception as e:
                 print(f"Warning: Failed to patch lakefile.lean: {e}", file=sys.stderr)
 
@@ -126,12 +135,18 @@ def offline_lake_manifest(cwd):
             try:
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     f.write(manifest_bak)
+                m_time = manifest_stat.st_mtime if manifest_stat else past
+                a_time = manifest_stat.st_atime if manifest_stat else past
+                os.utime(manifest_path, (a_time, m_time))
             except Exception:
                 pass
         if lakefile_bak is not None and os.path.exists(lakefile_path):
             try:
                 with open(lakefile_path, "w", encoding="utf-8") as f:
                     f.write(lakefile_bak)
+                l_time = lakefile_stat.st_mtime if lakefile_stat else past
+                a_time = lakefile_stat.st_atime if lakefile_stat else past
+                os.utime(lakefile_path, (a_time, l_time))
             except Exception:
                 pass
 
