@@ -946,3 +946,45 @@ def test_find_axioms_file_closed_before_lake_env_lean_call():
 
         finally:
             os.chdir(old_cwd)
+
+
+def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
+    """
+    Test that auditor.offline_lake_manifest temporarily patches git dependencies in lake-manifest.json
+    and lakefile.lean to path dependencies during execution, and restores original files on exit.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cwd = Path(tmpdir)
+        manifest_path = cwd / "lake-manifest.json"
+        lakefile_path = cwd / "lakefile.lean"
+
+        manifest_data = {
+            "version": "1.2.0",
+            "packages": [
+                {
+                    "name": "mathlib",
+                    "type": "git",
+                    "url": "https://github.com/leanprover-community/mathlib4.git",
+                }
+            ],
+        }
+        manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
+        lakefile_path.write_text('require mathlib from git "https://github.com/leanprover-community/mathlib4.git"\n', encoding="utf-8")
+
+        original_manifest = manifest_path.read_text(encoding="utf-8")
+        original_lakefile = lakefile_path.read_text(encoding="utf-8")
+
+        manifest_inside_block = None
+        lakefile_inside_block = None
+
+        with auditor.offline_lake_manifest(str(cwd)):
+            manifest_inside_block = json.loads(manifest_path.read_text(encoding="utf-8"))
+            lakefile_inside_block = lakefile_path.read_text(encoding="utf-8")
+
+        assert manifest_inside_block["packages"][0]["type"] == "path"
+        assert manifest_inside_block["packages"][0]["dir"] == ".lake/packages/mathlib"
+        assert 'from ".lake/packages/mathlib"' in lakefile_inside_block
+
+        # Check that original contents were restored
+        assert manifest_path.read_text(encoding="utf-8") == original_manifest
+        assert lakefile_path.read_text(encoding="utf-8") == original_lakefile
