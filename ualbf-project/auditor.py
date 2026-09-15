@@ -13,32 +13,6 @@ from verify_metadata import (
     SAFE_COMMON_WORDS,
 )
 
-
-class MockCompletedProcess:
-    def __init__(self, returncode=0, stdout="", stderr=""):
-        self.returncode = returncode
-        self.stdout = stdout
-        self.stderr = stderr
-
-
-_original_run = subprocess.run
-
-
-def mock_run(args, *extra_args, **kwargs):
-    if "MOCK_LEAN" in os.environ:
-        cmd = args[0] if isinstance(args, list) else args
-        if cmd in ["lean", "lake"] or (
-            isinstance(args, list)
-            and len(args) > 1
-            and args[0] == "make"
-            and args[1] == "mock-ui"
-        ):
-            return MockCompletedProcess(returncode=0, stdout="", stderr="")
-    return _original_run(args, *extra_args, **kwargs)
-
-
-subprocess.run = mock_run
-
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 
 GHOST_PRUNING_BINDINGS = {
@@ -94,7 +68,11 @@ def compute_verus_hashes(verus_content):
 
 def check_lean_environment():
     if "MOCK_LEAN" in os.environ:
-        return True
+        print(
+            "Fatal Error: MOCK_LEAN is forbidden. Real Lean 4 compiler verification is mandatory.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     lean_sysroot = os.environ.get("LEAN_SYSROOT")
     lean_found = False
@@ -112,7 +90,7 @@ def check_lean_environment():
 
     if not lean_found:
         try:
-            result = _original_run(
+            result = subprocess.run(
                 ["lean", "--print-prefix"], capture_output=True, text=True
             )
             if result.returncode == 0 and result.stdout.strip():
@@ -262,16 +240,12 @@ def generate_manifest():
 
     theorem_statuses = {}
     if has_lean:
-        if "MOCK_LEAN" in os.environ:
+        lean_file = "find_axioms.lean"
+        lean_path = os.path.join(cwd, lean_file)
+        with open(lean_path, "w", encoding="utf-8") as f:
+            f.write("import UALBF\n")
             for thm in CORE_THEOREMS:
-                theorem_statuses[thm] = "proven"
-        else:
-            lean_file = "find_axioms.lean"
-            lean_path = os.path.join(cwd, lean_file)
-            with open(lean_path, "w", encoding="utf-8") as f:
-                f.write("import UALBF\n")
-                for thm in CORE_THEOREMS:
-                    f.write(f"#print axioms {thm}\n")
+                f.write(f"#print axioms {thm}\n")
 
             result = subprocess.run(
                 ["lake", "env", "lean", lean_file],
