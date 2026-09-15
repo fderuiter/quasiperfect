@@ -286,13 +286,19 @@ def generate_manifest():
             cwd=os.path.dirname(os.path.abspath(__file__)),
             check=True,
         )
-        subprocess.run(["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False)
-        build_res = subprocess.run(
-            ["lake", "build", "UALBF"], cwd=cwd, env=env, check=False
-        )
-        if build_res.returncode != 0:
-            print("Error: Lean compilation failed during build.", file=sys.stderr)
-            has_error = True
+        # Skip redundant Mathlib cache fetching and Lean rebuilding under GHA or when .lake/build already exists
+        is_gha = os.environ.get("GITHUB_ACTIONS") == "true"
+        lake_build_dir = os.path.join(cwd, ".lake", "build")
+        if not is_gha and not os.path.exists(lake_build_dir):
+            subprocess.run(
+                ["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False
+            )
+            build_res = subprocess.run(
+                ["lake", "build", "UALBF"], cwd=cwd, env=env, check=False
+            )
+            if build_res.returncode != 0:
+                print("Error: Lean compilation failed during build.", file=sys.stderr)
+                has_error = True
 
     theorem_statuses = {}
     if has_lean:
@@ -317,12 +323,18 @@ def generate_manifest():
 
             output = result.stdout + result.stderr
 
+            has_any_thm_matched = any(
+                f"'{thm}' depends on axioms:" in output
+                or f"{thm}' depends on axioms:" in output
+                or f"{thm} depends on axioms:" in output
+                for thm in CORE_THEOREMS
+            )
+
             for thm in CORE_THEOREMS:
                 has_thm_in_output = (
                     f"'{thm}' depends on axioms:" in output
                     or f"{thm}' depends on axioms:" in output
                     or f"{thm} depends on axioms:" in output
-                    or "depends on axioms:" in output
                 )
                 if result.returncode != 0 and not has_thm_in_output:
                     # If there was a hard failure and the theorem isn't even in output
@@ -336,15 +348,19 @@ def generate_manifest():
                     idx = output.find(f"{thm}' depends on axioms:")
                 if idx == -1:
                     idx = output.find(f"{thm} depends on axioms:")
-                if idx == -1:
-                    # Fallback for mock environments / tests where the mock only returns a single general depends on axioms list
+                if idx == -1 and not has_any_thm_matched:
+                    # Fallback for mock environments / unit tests where stdout is a single generic depends on axioms list without theorem names
                     if "depends on axioms:" in output:
                         idx = output.find("depends on axioms:")
 
                 if idx == -1:
                     # If Lean compiled successfully but the theorem has no axioms at all
                     # or if there was an error printed in stdout/stderr for this theorem
-                    if f"unknown identifier '{thm}'" in output or "error: " in output:
+                    if (
+                        f"unknown identifier '{thm}'" in output
+                        or "error: " in output
+                        or result.returncode != 0
+                    ):
                         theorem_statuses[thm] = "error"
                         has_error = True
                         print(
