@@ -743,9 +743,6 @@ def generate_manifest():
         sys.exit(1)
 
 
-import re
-
-
 def check_documentation(manifest):
     repo_root = os.path.dirname(os.path.abspath(__file__))
 
