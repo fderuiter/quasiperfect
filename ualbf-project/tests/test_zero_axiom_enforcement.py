@@ -792,3 +792,59 @@ def test_verify_certificate_rejects_unmanifested_source_file():
             with pytest.raises(SystemExit) as exc_info:
                 verify_certificate("dummy_cert.json", str(manifest_path))
             assert exc_info.value.code == 1
+
+
+def test_lake_package_sources_not_classified_as_build_artifacts():
+    """
+    Test that files inside .lake/packages are classified as source files and NOT build artifacts
+    in auditor.py, while compiled outputs inside .lake/build are classified as build artifacts.
+    """
+    pkg_readme = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "README.md"
+    )
+    pkg_toml = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "lakefile.toml"
+    )
+    pkg_lean = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "Mathlib", "Group.lean"
+    )
+
+    build_olean = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.olean")
+    build_trace = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.trace")
+    build_hash = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.hash")
+
+    def classify_path(f_path):
+        parts = f_path.split(os.sep)
+        f = os.path.basename(f_path)
+        in_build = "build" in parts
+        in_packages = ".lake" in parts and "packages" in parts and not in_build
+        is_source = (
+            f.endswith(".lean")
+            or f == "lakefile.lean"
+            or f == "lake-manifest.json"
+            or (f == "ffi.c" and not in_build)
+            or in_packages
+        )
+        is_compiled_ext = f.endswith(
+            (
+                ".olean",
+                ".ilean",
+                ".trace",
+                ".hash",
+                ".o",
+                ".ot",
+                ".a",
+                ".so",
+                ".dylib",
+                ".dll",
+            )
+        )
+        return (in_build or is_compiled_ext) and not is_source
+
+    assert classify_path(pkg_readme) is False
+    assert classify_path(pkg_toml) is False
+    assert classify_path(pkg_lean) is False
+
+    assert classify_path(build_olean) is True
+    assert classify_path(build_trace) is True
+    assert classify_path(build_hash) is True

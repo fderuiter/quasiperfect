@@ -744,12 +744,15 @@ fn main() {
         } else if path.is_file() {
             let parts: Vec<_> = path.components().map(|c| c.as_os_str()).collect();
             let in_build = parts.iter().any(|&c| c == "build");
-            let in_lake = parts.iter().any(|&c| c == ".lake");
+            let in_packages = parts.iter().any(|&c| c == ".lake")
+                && parts.iter().any(|&c| c == "packages")
+                && !in_build;
             let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
             let is_source = file_name.ends_with(".lean")
                 || file_name == "lakefile.lean"
                 || file_name == "lake-manifest.json"
-                || (file_name == "ffi.c" && !in_build);
+                || (file_name == "ffi.c" && !in_build)
+                || in_packages;
             let is_compiled_ext = file_name.ends_with(".olean")
                 || file_name.ends_with(".ilean")
                 || file_name.ends_with(".trace")
@@ -760,7 +763,7 @@ fn main() {
                 || file_name.ends_with(".so")
                 || file_name.ends_with(".dylib")
                 || file_name.ends_with(".dll");
-            let is_build_artifact = (in_build || in_lake || is_compiled_ext) && !is_source;
+            let is_build_artifact = (in_build || is_compiled_ext) && !is_source;
 
             if is_build_artifact {
                 touch_path_robust(path, now);
