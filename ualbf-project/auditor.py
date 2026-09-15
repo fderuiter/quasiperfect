@@ -5,6 +5,7 @@ import json
 import sys
 import os
 import hashlib
+import shutil
 import cert_util
 import time
 from verify_metadata import (
@@ -115,6 +116,56 @@ def check_lean_environment():
     return True
 
 
+def ensure_verification_lib():
+    repo_root = os.path.dirname(os.path.abspath(__file__))
+    verif_lib_dir = os.path.join(repo_root, "verification-lib")
+    rel_target = os.path.join(repo_root, "target", "release")
+    verif_target = os.path.join(verif_lib_dir, "target", "release")
+    os.makedirs(verif_target, exist_ok=True)
+    os.makedirs(rel_target, exist_ok=True)
+
+    has_so = any(
+        os.path.exists(os.path.join(rel_target, f"libverification_lib.{ext}"))
+        for ext in ["so", "dylib", "dll", "a"]
+    ) or any(
+        os.path.exists(os.path.join(verif_target, f"libverification_lib.{ext}"))
+        for ext in ["so", "dylib", "dll", "a"]
+    )
+
+    if not has_so:
+        subprocess.run(
+            [
+                "cargo",
+                "build",
+                "--release",
+                "--features",
+                "signing",
+                "-p",
+                "verification-lib",
+                "--manifest-path",
+                os.path.join(repo_root, "Cargo.toml"),
+            ],
+            check=False,
+        )
+
+    for d_src, d_dst in [(rel_target, verif_target), (verif_target, rel_target)]:
+        if os.path.exists(d_src):
+            for f in os.listdir(d_src):
+                if f.startswith("libverification_lib") or f.startswith(
+                    "verification_cli"
+                ):
+                    src_f = os.path.join(d_src, f)
+                    dst_f = os.path.join(d_dst, f)
+                    if not os.path.exists(dst_f) and os.path.isfile(src_f):
+                        try:
+                            os.symlink(src_f, dst_f)
+                        except Exception:
+                            try:
+                                shutil.copy2(src_f, dst_f)
+                            except Exception:
+                                pass
+
+
 def generate_manifest():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
@@ -218,7 +269,12 @@ def generate_manifest():
     has_error = False
     # Pre-build the isolated target to avoid full environment checks and repeated builds
     if has_lean:
+        ensure_verification_lib()
         env = os.environ.copy()
+        lean_sysroot = os.environ.get("LEAN_SYSROOT")
+        if lean_sysroot:
+            env["LEAN_SYSROOT"] = lean_sysroot
+            env["PATH"] = f"{os.path.join(lean_sysroot, 'bin')}:{env.get('PATH', '')}"
         mock_bin = os.path.abspath(
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "build", "mock-bin"
