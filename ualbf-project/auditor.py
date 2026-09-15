@@ -260,21 +260,18 @@ def generate_manifest():
                         except Exception:
                             pass
                         parts = f_path.split(os.sep)
-                        is_build_artifact = (
-                            "build" in parts
-                            or f.endswith(
-                                (
-                                    ".olean",
-                                    ".ilean",
-                                    ".c",
-                                    ".o",
-                                    ".trace",
-                                    ".hash",
-                                    ".a",
-                                    ".so",
-                                    ".dylib",
-                                    ".dll",
-                                )
+                        is_build_artifact = "build" in parts or f.endswith(
+                            (
+                                ".olean",
+                                ".ilean",
+                                ".c",
+                                ".o",
+                                ".trace",
+                                ".hash",
+                                ".a",
+                                ".so",
+                                ".dylib",
+                                ".dll",
                             )
                         )
                         if is_build_artifact and not f.endswith(".lean"):
