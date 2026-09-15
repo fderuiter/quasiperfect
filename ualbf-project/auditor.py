@@ -8,6 +8,8 @@ import hashlib
 import shutil
 import cert_util
 import time
+import re
+import contextlib
 from verify_metadata import (
     extract_fqns_from_lean_content,
     strip_comments,
@@ -65,6 +67,73 @@ def theorem_checksum(name, rel_file, status):
 
 def compute_verus_hashes(verus_content):
     return cert_util.compute_verus_hashes(verus_content)
+
+
+@contextlib.contextmanager
+def offline_lake_manifest(cwd):
+    manifest_path = os.path.join(cwd, "lake-manifest.json")
+    lakefile_path = os.path.join(cwd, "lakefile.lean")
+
+    manifest_bak = None
+    lakefile_bak = None
+
+    try:
+        if os.path.exists(manifest_path):
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifest_content = f.read()
+                    manifest_data = json.loads(manifest_content)
+
+                has_git_pkg = any(
+                    pkg.get("type") == "git"
+                    for pkg in manifest_data.get("packages", [])
+                )
+                if has_git_pkg:
+                    manifest_bak = manifest_content
+                    for pkg in manifest_data.get("packages", []):
+                        if pkg.get("type") == "git":
+                            pkg["type"] = "path"
+                            pkg["dir"] = f".lake/packages/{pkg['name']}"
+
+                    with open(manifest_path, "w", encoding="utf-8") as f:
+                        json.dump(manifest_data, f, indent=2)
+                        f.write("\n")
+            except Exception as e:
+                print(
+                    f"Warning: Failed to patch lake-manifest.json: {e}",
+                    file=sys.stderr,
+                )
+
+        if os.path.exists(lakefile_path):
+            try:
+                with open(lakefile_path, "r", encoding="utf-8") as f:
+                    lakefile_content = f.read()
+                if 'from git "' in lakefile_content:
+                    lakefile_bak = lakefile_content
+                    new_content = re.sub(
+                        r'from git "[^"]+"',
+                        r'from ".lake/packages/mathlib"',
+                        lakefile_content,
+                    )
+                    with open(lakefile_path, "w", encoding="utf-8") as f:
+                        f.write(new_content)
+            except Exception as e:
+                print(f"Warning: Failed to patch lakefile.lean: {e}", file=sys.stderr)
+
+        yield
+    finally:
+        if manifest_bak is not None and os.path.exists(manifest_path):
+            try:
+                with open(manifest_path, "w", encoding="utf-8") as f:
+                    f.write(manifest_bak)
+            except Exception:
+                pass
+        if lakefile_bak is not None and os.path.exists(lakefile_path):
+            try:
+                with open(lakefile_path, "w", encoding="utf-8") as f:
+                    f.write(lakefile_bak)
+            except Exception:
+                pass
 
 
 def check_lean_environment():
@@ -338,26 +407,51 @@ def generate_manifest():
             for thm in CORE_THEOREMS:
                 f.write(f"#print axioms {thm}\n")
 
-        try:
-            result = subprocess.run(
-                ["lake", "env", "lean", lean_file],
-                cwd=cwd,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=180,
-            )
-        except subprocess.TimeoutExpired:
-            print(
-                "Error: 'lake env lean' timed out after 180 seconds during axiom extraction.",
-                file=sys.stderr,
-            )
-            result = subprocess.CompletedProcess(
-                args=["lake", "env", "lean", lean_file],
-                returncode=1,
-                stdout="",
-                stderr="Error: Lean axiom extraction timed out.",
-            )
+        # Construct LEAN_PATH and LD_LIBRARY_PATH to ensure Lean can locate prebuilt objects and native dynamic libraries
+        lean_path_dirs = [os.path.abspath(os.path.join(cwd, ".lake", "build", "lib"))]
+        pkgs_dir = os.path.abspath(os.path.join(cwd, ".lake", "packages"))
+        if os.path.exists(pkgs_dir):
+            for pkg in os.listdir(pkgs_dir):
+                pkg_lib = os.path.join(pkgs_dir, pkg, ".lake", "build", "lib")
+                if os.path.exists(pkg_lib):
+                    lean_path_dirs.append(pkg_lib)
+        if "LEAN_PATH" in env and env["LEAN_PATH"]:
+            lean_path_dirs.append(env["LEAN_PATH"])
+        env["LEAN_PATH"] = ":".join(lean_path_dirs)
+
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        rel_target = os.path.join(repo_root, "target", "release")
+        verif_target = os.path.join(repo_root, "verification-lib", "target", "release")
+        ld_paths = [
+            rel_target,
+            verif_target,
+            os.path.abspath(os.path.join(cwd, ".lake", "build", "lib")),
+        ]
+        if "LD_LIBRARY_PATH" in env and env["LD_LIBRARY_PATH"]:
+            ld_paths.append(env["LD_LIBRARY_PATH"])
+        env["LD_LIBRARY_PATH"] = ":".join(ld_paths)
+
+        with offline_lake_manifest(cwd):
+            try:
+                result = subprocess.run(
+                    ["lake", "env", "lean", lean_file],
+                    cwd=cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=180,
+                )
+            except subprocess.TimeoutExpired:
+                print(
+                    "Error: 'lake env lean' timed out after 180 seconds during axiom extraction.",
+                    file=sys.stderr,
+                )
+                result = subprocess.CompletedProcess(
+                    args=["lake", "env", "lean", lean_file],
+                    returncode=1,
+                    stdout="",
+                    stderr="Error: Lean axiom extraction timed out.",
+                )
 
         # cleanup
         if os.path.exists(lean_path):
