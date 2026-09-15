@@ -742,8 +742,20 @@ fn main() {
             // Also touch directory itself to past so it's older than build outputs
             touch_path_robust(path, past);
         } else if path.is_file() {
-            let is_lake = path.components().any(|c| c.as_os_str() == ".lake");
-            if is_lake {
+            let parts: Vec<_> = path.components().map(|c| c.as_os_str()).collect();
+            let in_build = parts.iter().any(|&c| c == "build");
+            let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+            let is_compiled_ext = file_name.ends_with(".olean")
+                || file_name.ends_with(".ilean")
+                || file_name.ends_with(".o")
+                || file_name.ends_with(".ot")
+                || file_name.ends_with(".a")
+                || file_name.ends_with(".so")
+                || file_name.ends_with(".dylib")
+                || file_name.ends_with(".dll");
+            let is_build_artifact = (in_build || is_compiled_ext) && !file_name.ends_with(".lean");
+
+            if is_build_artifact {
                 touch_path_robust(path, now);
             } else {
                 touch_path_robust(path, past);
