@@ -169,7 +169,9 @@
           preBuild = ''
             chmod +w ..
             mkdir -p ../verification-lib/target/release
-            ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+            rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib
+            ln -s ${verificationLib}/lib/libverification_lib.a ../verification-lib/target/release/ || true
+            ln -s ${verificationLib}/lib/libverification_lib.rlib ../verification-lib/target/release/ || true
           '';
 
           buildPhase = ''
@@ -234,8 +236,8 @@
           
           preBuild = ''
             chmod +w ..
-            chmod -R +w verification-lib || true
-            sed -i 's/crate-type = \["rlib"\]/crate-type = \["cdylib", "rlib"\]/g' verification-lib/Cargo.toml
+            chmod -R +w . || true
+            find . -maxdepth 2 -name Cargo.toml -exec sed -i 's/crate-type = .*/crate-type = \["staticlib", "cdylib", "rlib"\]/g' {} +
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
             export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
@@ -451,7 +453,9 @@ with open("dummy_cert.json", "w") as f:
             preBuild = ''
               chmod +w ..
               mkdir -p ../verification-lib/target/release
-              ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+              rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib
+              ln -s ${verificationLib}/lib/libverification_lib.a ../verification-lib/target/release/ || true
+              ln -s ${verificationLib}/lib/libverification_lib.rlib ../verification-lib/target/release/ || true
             '';
 
             buildPhase = ''
