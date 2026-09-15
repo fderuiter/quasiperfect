@@ -23,5 +23,10 @@ Instead of probabilistic sufficiency assumptions, the framework employs a hybrid
 - **Inputs Equal to or Exceeding 2^64 (Larger Candidate Primes):**
   Inputs at or above this boundary cannot be verified solely using probabilistic Miller-Rabin checks. Instead, they are subjected to a rigorous certificate-backed verification pathway. The 20-base Miller-Rabin check is used strictly as a fast, non-binding pre-filter to reject composite candidates. Any candidate that passes this pre-filter must be validated using a mathematically rigorous, verified Pocklington certificate via `generate_and_verify_pocklington` for absolute certitude. This certificate-backed pathway is the mandatory mechanism for all inputs equal to or exceeding 2^64.
 
+## 4. OpenCL/GPU Witness Verification Gateway
+The OpenCL CRT tensor sieve kernel executes modular residue checks and Bloom filter operations on parallel GPU hardware outside the formally verified TCB.
+- **Current State:** To ensure GPU hardware execution cannot bypass formal verification or skip valid search candidates, the OpenCL GPU kernel and host execution pipeline output structured `GpuBloomWitness` certificates for every eliminated component and calculated bit index.
+- **Verification Status:** Before candidate pruning or bitmap modification, a host-side CPU witness verification gateway validates every witness record asynchronously across worker threads against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` in Lean 4. If any GPU witness fails CPU gateway validation, GPU execution is immediately halted and the calculation is flagged in telemetry logs. Thus, all GPU candidate eliminations are formally verified by CPU witness validation before candidate pruning.
+
 ---
 By explicitly defining these boundaries, future research contributors can better identify current verification gaps and contribute meaningful proofs to the repository.
