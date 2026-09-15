@@ -848,3 +848,101 @@ def test_lake_package_sources_not_classified_as_build_artifacts():
     assert classify_path(build_olean) is True
     assert classify_path(build_trace) is True
     assert classify_path(build_hash) is True
+
+
+def test_find_axioms_file_closed_before_lake_env_lean_call():
+    """
+    Test that auditor.generate_manifest closes find_axioms.lean before invoking lake env lean,
+    ensuring Lean can read the populated find_axioms.lean file without file handles being open/unflushed.
+    """
+    file_was_closed = {}
+
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and len(args) > 0 and "find_axioms.lean" in args[-1]:
+            # Verify find_axioms.lean exists, is non-empty, and can be read (i.e. closed and flushed)
+            lean_path = (
+                os.path.join("lean4-proofs", args[-1])
+                if os.path.exists("lean4-proofs")
+                else args[-1]
+            )
+            if os.path.exists(lean_path):
+                with open(lean_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                file_was_closed["has_content"] = (
+                    len(content) > 0 and "import UALBF" in content
+                )
+            stdout = "depends on axioms: [propext, Classical.choice, Quot.sound]"
+            return mock.Mock(returncode=0, stdout=stdout, stderr="")
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch(
+        "auditor.subprocess.run", side_effect=mock_subprocess_run
+    ), mock.patch("auditor.check_lean_environment", return_value=True), mock.patch(
+        "auditor.check_documentation", return_value=True
+    ), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            bounds_path = Path("bounds_manifest.json")
+            with open(bounds_path, "w") as f:
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
+                    },
+                    f,
+                )
+
+            Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
+            Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
+            with open("rust-engine/src/verus_proofs.rs", "w") as f:
+                f.write("verus! {}")
+
+            auditor.generate_manifest()
+            assert file_was_closed.get("has_content") is True
+
+        finally:
+            os.chdir(old_cwd)
