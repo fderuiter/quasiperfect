@@ -169,7 +169,7 @@
           preBuild = ''
             chmod +w ..
             mkdir -p ../verification-lib/target/release
-            ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+            ln -s ${verificationLib}/lib/libverification_lib.a ../verification-lib/target/release/ || true
           '';
 
           buildPhase = ''
@@ -181,10 +181,6 @@
             ${rewriteManifest}
             lake build UALBF
             lake build
-          '';
-
-          postBuild = ''
-            rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib || true
           '';
 
           installPhase = ''
@@ -455,7 +451,7 @@ with open("dummy_cert.json", "w") as f:
             preBuild = ''
               chmod +w ..
               mkdir -p ../verification-lib/target/release
-              ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+              ln -s ${verificationLib}/lib/libverification_lib.a ../verification-lib/target/release/ || true
             '';
 
             buildPhase = ''
@@ -468,10 +464,6 @@ with open("dummy_cert.json", "w") as f:
             chmod -R +w .lake
             ${rewriteManifest}
               lake build -Kwarnings_as_errors
-            '';
-
-            postBuild = ''
-              rm -f ../verification-lib/target/release/libverification_lib.so ../verification-lib/target/release/libverification_lib.dylib || true
             '';
 
             installPhase = ''
