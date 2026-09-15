@@ -234,6 +234,8 @@
           
           preBuild = ''
             chmod +w ..
+            chmod -R +w verification-lib || true
+            sed -i 's/crate-type = \["rlib"\]/crate-type = \["cdylib", "rlib"\]/g' verification-lib/Cargo.toml
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
             export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
