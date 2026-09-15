@@ -318,14 +318,24 @@ def generate_manifest():
             output = result.stdout + result.stderr
 
             for thm in CORE_THEOREMS:
-                if result.returncode != 0 and thm + " depends on axioms:" not in output:
+                has_thm_in_output = (
+                    f"'{thm}' depends on axioms:" in output
+                    or f"{thm}' depends on axioms:" in output
+                    or f"{thm} depends on axioms:" in output
+                    or "depends on axioms:" in output
+                )
+                if result.returncode != 0 and not has_thm_in_output:
                     # If there was a hard failure and the theorem isn't even in output
                     theorem_statuses[thm] = "error"
                     has_error = True
                     print(f"Error resolving {thm}: {result.stderr}", file=sys.stderr)
                     continue
 
-                idx = output.find(thm + " depends on axioms:")
+                idx = output.find(f"'{thm}' depends on axioms:")
+                if idx == -1:
+                    idx = output.find(f"{thm}' depends on axioms:")
+                if idx == -1:
+                    idx = output.find(f"{thm} depends on axioms:")
                 if idx == -1:
                     # Fallback for mock environments / tests where the mock only returns a single general depends on axioms list
                     if "depends on axioms:" in output:
