@@ -163,29 +163,65 @@ def offline_lake_manifest(cwd):
                                 new_lines = []
                                 curr_dep = None
                                 for line in lines:
-                                    m_name = re.search(
-                                        r'name\s*=\s*["\']([^"\']+)["\']', line
+                                    m_inline = re.search(
+                                        r"([a-zA-Z0-9_.-]+)\s*=\s*\{\s*.*git\s*=.*\}",
+                                        line,
                                     )
-                                    m_req = re.search(r"\[require\.([^\]]+)\]", line)
-                                    if m_name:
-                                        curr_dep = m_name.group(1)
+                                    if m_inline:
+                                        dep_n = m_inline.group(1)
+                                        new_line = re.sub(
+                                            r"\{\s*.*git\s*=.*\}",
+                                            f'{{ path = "../{dep_n}" }}',
+                                            line,
+                                        )
+                                        new_lines.append(new_line)
+                                        continue
+
+                                    m_name = re.search(
+                                        r'name\s*=\s*["\']?«?([^"\'\s»]+)»?["\']?', line
+                                    )
+                                    m_req = re.search(
+                                        r'\[require\.["\']?«?([^"\'\]\s»]+)»?["\']?\]',
+                                        line,
+                                    )
+                                    if line.strip().startswith("[[require]]"):
+                                        curr_dep = None
                                     elif m_req:
                                         curr_dep = m_req.group(1)
+                                    elif m_name and ("name" in line and "=" in line):
+                                        curr_dep = m_name.group(1)
 
-                                    if "git =" in line and curr_dep:
+                                    if ("git =" in line or "git=" in line) and curr_dep:
                                         new_line = re.sub(
                                             r'git\s*=\s*".*?"',
                                             f'path = "../{curr_dep}"',
                                             line,
                                         )
+                                        new_line = re.sub(
+                                            r"git\s*=\s*'.*?'",
+                                            f'path = "../{curr_dep}"',
+                                            new_line,
+                                        )
                                         new_lines.append(new_line)
-                                    elif "git =" in line:
+                                    elif "git =" in line or "git=" in line:
                                         new_line = re.sub(
                                             r'git\s*=\s*".*?"',
                                             'path = "../"',
                                             line,
                                         )
+                                        new_line = re.sub(
+                                            r"git\s*=\s*'.*?'",
+                                            'path = "../"',
+                                            new_line,
+                                        )
                                         new_lines.append(new_line)
+                                    elif curr_dep and (
+                                        line.strip().startswith("rev =")
+                                        or line.strip().startswith("rev=")
+                                        or line.strip().startswith("inputRev =")
+                                        or line.strip().startswith("inputRev=")
+                                    ):
+                                        new_lines.append(f"# {line}")
                                     else:
                                         new_lines.append(line)
                                 new_fc = "".join(new_lines)
@@ -194,7 +230,7 @@ def offline_lake_manifest(cwd):
                                 os.utime(f_path, (past, past))
                             elif fname == "lakefile.lean" and "from git" in f_content:
                                 new_fc = re.sub(
-                                    r"require\s+([a-zA-Z0-9_.-]+)\s+from\s+git\s+.*",
+                                    r'require\s+["\']?«?([a-zA-Z0-9_.-]+)»?["\']?\s+from\s+git\s+.*',
                                     r'require \1 from "../\1"',
                                     f_content,
                                 )
@@ -515,6 +551,10 @@ def generate_manifest():
             f.write("import UALBF\n")
             for thm in CORE_THEOREMS:
                 f.write(f"#print axioms {thm}\n")
+        try:
+            os.utime(lean_path, (past, past))
+        except Exception:
+            pass
 
         # Construct LEAN_PATH and LD_LIBRARY_PATH to ensure Lean can locate prebuilt objects and native dynamic libraries
         lean_path_dirs = [os.path.abspath(os.path.join(cwd, ".lake", "build", "lib"))]
@@ -562,10 +602,6 @@ def generate_manifest():
                     stderr="Error: Lean axiom extraction timed out.",
                 )
 
-        # cleanup
-        if os.path.exists(lean_path):
-            os.remove(lean_path)
-
         output = result.stdout + result.stderr
 
         has_any_thm_matched = any(
@@ -574,6 +610,34 @@ def generate_manifest():
             or f"{thm} depends on axioms:" in output
             for thm in CORE_THEOREMS
         )
+
+        if (result.returncode != 0 or not has_any_thm_matched) and os.path.exists(
+            lean_path
+        ):
+            try:
+                res_direct = subprocess.run(
+                    ["lean", lean_file],
+                    cwd=cwd,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                out_direct = res_direct.stdout + res_direct.stderr
+                if any(
+                    f"'{thm}' depends on axioms:" in out_direct
+                    or f"{thm}' depends on axioms:" in out_direct
+                    or f"{thm} depends on axioms:" in out_direct
+                    for thm in CORE_THEOREMS
+                ):
+                    result = res_direct
+                    output = out_direct
+            except Exception:
+                pass
+
+        # cleanup
+        if os.path.exists(lean_path):
+            os.remove(lean_path)
 
         for thm in CORE_THEOREMS:
             has_thm_in_output = (
