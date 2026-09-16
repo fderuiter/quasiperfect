@@ -808,6 +808,9 @@ def test_lake_package_sources_not_classified_as_build_artifacts():
     pkg_lean = os.path.join(
         "lean4-proofs", ".lake", "packages", "mathlib", "Mathlib", "Group.lean"
     )
+    pkg_trace = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "lakefile.trace"
+    )
 
     build_olean = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.olean")
     build_trace = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.trace")
@@ -818,13 +821,6 @@ def test_lake_package_sources_not_classified_as_build_artifacts():
         f = os.path.basename(f_path)
         in_build = "build" in parts
         in_packages = ".lake" in parts and "packages" in parts and not in_build
-        is_source = (
-            f.endswith(".lean")
-            or f == "lakefile.lean"
-            or f == "lake-manifest.json"
-            or (f == "ffi.c" and not in_build)
-            or in_packages
-        )
         is_compiled_ext = f.endswith(
             (
                 ".olean",
@@ -837,7 +833,14 @@ def test_lake_package_sources_not_classified_as_build_artifacts():
                 ".so",
                 ".dylib",
                 ".dll",
+                ".rsp",
             )
+        ) or f in ("cache", "cache.rsp")
+        is_source = (
+            f.endswith(".lean")
+            or f in ("lakefile.lean", "lakefile.toml", "lake-manifest.json")
+            or (f == "ffi.c" and not in_build)
+            or (in_packages and not is_compiled_ext)
         )
         return (in_build or is_compiled_ext) and not is_source
 
@@ -845,6 +848,7 @@ def test_lake_package_sources_not_classified_as_build_artifacts():
     assert classify_path(pkg_toml) is False
     assert classify_path(pkg_lean) is False
 
+    assert classify_path(pkg_trace) is True
     assert classify_path(build_olean) is True
     assert classify_path(build_trace) is True
     assert classify_path(build_hash) is True

@@ -748,11 +748,6 @@ fn main() {
                 && parts.iter().any(|&c| c == "packages")
                 && !in_build;
             let file_name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
-            let is_source = file_name.ends_with(".lean")
-                || file_name == "lakefile.lean"
-                || file_name == "lake-manifest.json"
-                || (file_name == "ffi.c" && !in_build)
-                || in_packages;
             let is_compiled_ext = file_name.ends_with(".olean")
                 || file_name.ends_with(".ilean")
                 || file_name.ends_with(".trace")
@@ -762,7 +757,16 @@ fn main() {
                 || file_name.ends_with(".a")
                 || file_name.ends_with(".so")
                 || file_name.ends_with(".dylib")
-                || file_name.ends_with(".dll");
+                || file_name.ends_with(".dll")
+                || file_name.ends_with(".rsp")
+                || file_name == "cache"
+                || file_name == "cache.rsp";
+            let is_source = file_name.ends_with(".lean")
+                || file_name == "lakefile.lean"
+                || file_name == "lakefile.toml"
+                || file_name == "lake-manifest.json"
+                || (file_name == "ffi.c" && !in_build)
+                || (in_packages && !is_compiled_ext);
             let is_build_artifact = (in_build || is_compiled_ext) && !is_source;
 
             if is_build_artifact {
