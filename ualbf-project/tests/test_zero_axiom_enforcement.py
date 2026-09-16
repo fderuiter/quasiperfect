@@ -1004,7 +1004,7 @@ def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
         assert manifest_inside_block["packages"][0]["type"] == "path"
         assert manifest_inside_block["packages"][0]["dir"] == ".lake/packages/mathlib"
         assert 'from ".lake/packages/mathlib"' in lakefile_inside_block
-        assert 'path = "../"' in sub_toml_inside_block
+        assert 'path = "../proofwidgets"' in sub_toml_inside_block
         assert mathlib_git_exists_inside is True
 
         # Check that original contents were restored and created .git removed
