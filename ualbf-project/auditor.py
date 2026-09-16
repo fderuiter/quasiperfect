@@ -499,13 +499,25 @@ def generate_manifest():
         env["GIT_CONFIG_GLOBAL"] = "/dev/null"
         env["GIT_CONFIG_NOSYSTEM"] = "1"
 
+        dynlib_args = []
+        for d in ld_paths:
+            if os.path.exists(d):
+                try:
+                    for f in os.listdir(d):
+                        if f.endswith((".so", ".dylib", ".dll")) and f.startswith("lib"):
+                            full_so = os.path.join(d, f)
+                            if full_so not in dynlib_args:
+                                dynlib_args.extend(["--load-dynlib", full_so])
+                except Exception:
+                    pass
+
         result = None
         output = ""
         with offline_lake_manifest(cwd):
             if os.path.exists(lean_path):
                 try:
                     res_direct = subprocess.run(
-                        ["lean", lean_file],
+                        ["lean"] + dynlib_args + [lean_file],
                         cwd=cwd,
                         env=env,
                         capture_output=True,
