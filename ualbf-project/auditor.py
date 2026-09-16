@@ -73,11 +73,14 @@ def compute_verus_hashes(verus_content):
 def offline_lake_manifest(cwd):
     manifest_path = os.path.join(cwd, "lake-manifest.json")
     lakefile_path = os.path.join(cwd, "lakefile.lean")
+    pkgs_dir = os.path.join(cwd, ".lake", "packages")
 
     manifest_bak = None
     lakefile_bak = None
     manifest_stat = None
     lakefile_stat = None
+    pkg_file_baks = {}
+    created_git_dirs = []
 
     now = time.time()
     past = now - 3600
@@ -129,8 +132,92 @@ def offline_lake_manifest(cwd):
             except Exception as e:
                 print(f"Warning: Failed to patch lakefile.lean: {e}", file=sys.stderr)
 
+        if os.path.isdir(pkgs_dir):
+            for pkg_name in os.listdir(pkgs_dir):
+                pkg_path = os.path.join(pkgs_dir, pkg_name)
+                if not os.path.isdir(pkg_path):
+                    continue
+
+                git_dir = os.path.join(pkg_path, ".git")
+                if not os.path.exists(git_dir):
+                    try:
+                        subprocess.run(
+                            ["git", "init"],
+                            cwd=pkg_path,
+                            capture_output=True,
+                            check=False,
+                        )
+                        subprocess.run(
+                            ["git", "config", "user.name", "CI"],
+                            cwd=pkg_path,
+                            capture_output=True,
+                            check=False,
+                        )
+                        subprocess.run(
+                            ["git", "config", "user.email", "ci@local"],
+                            cwd=pkg_path,
+                            capture_output=True,
+                            check=False,
+                        )
+                        subprocess.run(
+                            ["git", "add", "."],
+                            cwd=pkg_path,
+                            capture_output=True,
+                            check=False,
+                        )
+                        subprocess.run(
+                            ["git", "commit", "-m", "init", "--allow-empty"],
+                            cwd=pkg_path,
+                            capture_output=True,
+                            check=False,
+                        )
+                        created_git_dirs.append(git_dir)
+                    except Exception:
+                        pass
+
+                for fname in ["lakefile.toml", "lakefile.lean"]:
+                    f_path = os.path.join(pkg_path, fname)
+                    if os.path.exists(f_path):
+                        try:
+                            with open(f_path, "r", encoding="utf-8") as f:
+                                f_content = f.read()
+                            pkg_file_baks[f_path] = (f_content, os.stat(f_path))
+                            if fname == "lakefile.toml" and "git =" in f_content:
+                                new_fc = re.sub(
+                                    r'git\s*=\s*".*?"',
+                                    'path = "../"',
+                                    f_content,
+                                )
+                                with open(f_path, "w", encoding="utf-8") as f:
+                                    f.write(new_fc)
+                                os.utime(f_path, (past, past))
+                            elif fname == "lakefile.lean" and "from git" in f_content:
+                                new_fc = re.sub(
+                                    r"from git .*",
+                                    'from "../"',
+                                    f_content,
+                                )
+                                with open(f_path, "w", encoding="utf-8") as f:
+                                    f.write(new_fc)
+                                os.utime(f_path, (past, past))
+                        except Exception:
+                            pass
+
         yield
     finally:
+        for f_path, (orig_content, orig_stat) in pkg_file_baks.items():
+            try:
+                with open(f_path, "w", encoding="utf-8") as f:
+                    f.write(orig_content)
+                os.utime(f_path, (orig_stat.st_atime, orig_stat.st_mtime))
+            except Exception:
+                pass
+        for g_dir in created_git_dirs:
+            try:
+                if os.path.exists(g_dir):
+                    shutil.rmtree(g_dir, ignore_errors=True)
+            except Exception:
+                pass
         if manifest_bak is not None and os.path.exists(manifest_path):
             try:
                 with open(manifest_path, "w", encoding="utf-8") as f:

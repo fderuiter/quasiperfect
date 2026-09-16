@@ -951,12 +951,20 @@ def test_find_axioms_file_closed_before_lake_env_lean_call():
 def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
     """
     Test that auditor.offline_lake_manifest temporarily patches git dependencies in lake-manifest.json
-    and lakefile.lean to path dependencies during execution, and restores original files on exit.
+    and lakefile.lean to path dependencies during execution, initializes dummy git repos, and restores original files on exit.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         cwd = Path(tmpdir)
         manifest_path = cwd / "lake-manifest.json"
         lakefile_path = cwd / "lakefile.lean"
+        pkgs_dir = cwd / ".lake" / "packages"
+        mathlib_dir = pkgs_dir / "mathlib"
+        mathlib_dir.mkdir(parents=True, exist_ok=True)
+        sub_toml_path = mathlib_dir / "lakefile.toml"
+        sub_toml_path.write_text(
+            '[[require]]\nname = "proofwidgets"\ngit = "https://github.com/leanprover-community/ProofWidgets4"\n',
+            encoding="utf-8",
+        )
 
         manifest_data = {
             "version": "1.2.0",
@@ -968,23 +976,39 @@ def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
                 }
             ],
         }
-        manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8")
-        lakefile_path.write_text('require mathlib from git "https://github.com/leanprover-community/mathlib4.git"\n', encoding="utf-8")
+        manifest_path.write_text(
+            json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8"
+        )
+        lakefile_path.write_text(
+            'require mathlib from git "https://github.com/leanprover-community/mathlib4.git"\n',
+            encoding="utf-8",
+        )
 
         original_manifest = manifest_path.read_text(encoding="utf-8")
         original_lakefile = lakefile_path.read_text(encoding="utf-8")
+        original_sub_toml = sub_toml_path.read_text(encoding="utf-8")
 
         manifest_inside_block = None
         lakefile_inside_block = None
+        sub_toml_inside_block = None
+        mathlib_git_exists_inside = False
 
         with auditor.offline_lake_manifest(str(cwd)):
-            manifest_inside_block = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_inside_block = json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
             lakefile_inside_block = lakefile_path.read_text(encoding="utf-8")
+            sub_toml_inside_block = sub_toml_path.read_text(encoding="utf-8")
+            mathlib_git_exists_inside = (mathlib_dir / ".git").exists()
 
         assert manifest_inside_block["packages"][0]["type"] == "path"
         assert manifest_inside_block["packages"][0]["dir"] == ".lake/packages/mathlib"
         assert 'from ".lake/packages/mathlib"' in lakefile_inside_block
+        assert 'path = "../"' in sub_toml_inside_block
+        assert mathlib_git_exists_inside is True
 
-        # Check that original contents were restored
+        # Check that original contents were restored and created .git removed
         assert manifest_path.read_text(encoding="utf-8") == original_manifest
         assert lakefile_path.read_text(encoding="utf-8") == original_lakefile
+        assert sub_toml_path.read_text(encoding="utf-8") == original_sub_toml
+        assert not (mathlib_dir / ".git").exists()
