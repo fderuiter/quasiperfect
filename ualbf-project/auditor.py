@@ -431,7 +431,10 @@ def generate_manifest():
             pass
 
         # Construct LEAN_PATH and LD_LIBRARY_PATH to ensure Lean can locate prebuilt objects and native dynamic libraries
-        lean_path_dirs = [os.path.abspath(os.path.join(cwd, ".lake", "build", "lib"))]
+        lean_path_dirs = [
+            os.path.abspath(os.path.join(cwd, ".lake", "build", "lib", "lean")),
+            os.path.abspath(os.path.join(cwd, ".lake", "build", "lib")),
+        ]
         pkgs_dir = os.path.abspath(os.path.join(cwd, ".lake", "packages"))
         if os.path.exists(pkgs_dir):
             for pkg in os.listdir(pkgs_dir):
@@ -439,8 +442,11 @@ def generate_manifest():
                 if not os.path.isdir(pkg_dir):
                     continue
                 for sub in [
+                    os.path.join(pkg_dir, ".lake", "build", "lib", "lean"),
                     os.path.join(pkg_dir, ".lake", "build", "lib"),
+                    os.path.join(pkg_dir, "build", "lib", "lean"),
                     os.path.join(pkg_dir, "build", "lib"),
+                    os.path.join(pkg_dir, "lib", "lean"),
                     os.path.join(pkg_dir, "lib"),
                 ]:
                     if os.path.exists(sub) and sub not in lean_path_dirs:
@@ -450,12 +456,13 @@ def generate_manifest():
         if os.path.exists(lake_dir):
             for root, dirs, files in os.walk(lake_dir):
                 if any(f.endswith(".olean") for f in files):
+                    if root not in lean_path_dirs:
+                        lean_path_dirs.append(root)
                     curr = root
                     while curr and curr != lake_dir and os.path.dirname(curr) != curr:
-                        if os.path.basename(curr) == "lib":
+                        if os.path.basename(curr) in ("lib", "lean"):
                             if curr not in lean_path_dirs:
                                 lean_path_dirs.append(curr)
-                            break
                         curr = os.path.dirname(curr)
 
         if not lean_sysroot:
