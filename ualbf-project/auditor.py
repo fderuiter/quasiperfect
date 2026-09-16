@@ -159,20 +159,51 @@ def offline_lake_manifest(cwd):
                                 f_content = f.read()
                             pkg_file_baks[f_path] = (f_content, os.stat(f_path))
                             if fname == "lakefile.toml" and "git =" in f_content:
-                                new_fc = re.sub(
-                                    r'git\s*=\s*".*?"',
-                                    'path = "../"',
-                                    f_content,
-                                )
+                                lines = f_content.splitlines(keepends=True)
+                                new_lines = []
+                                curr_dep = None
+                                for line in lines:
+                                    m_name = re.search(
+                                        r'name\s*=\s*["\']([^"\']+)["\']', line
+                                    )
+                                    m_req = re.search(r"\[require\.([^\]]+)\]", line)
+                                    if m_name:
+                                        curr_dep = m_name.group(1)
+                                    elif m_req:
+                                        curr_dep = m_req.group(1)
+
+                                    if "git =" in line and curr_dep:
+                                        new_line = re.sub(
+                                            r'git\s*=\s*".*?"',
+                                            f'path = "../{curr_dep}"',
+                                            line,
+                                        )
+                                        new_lines.append(new_line)
+                                    elif "git =" in line:
+                                        new_line = re.sub(
+                                            r'git\s*=\s*".*?"',
+                                            'path = "../"',
+                                            line,
+                                        )
+                                        new_lines.append(new_line)
+                                    else:
+                                        new_lines.append(line)
+                                new_fc = "".join(new_lines)
                                 with open(f_path, "w", encoding="utf-8") as f:
                                     f.write(new_fc)
                                 os.utime(f_path, (past, past))
                             elif fname == "lakefile.lean" and "from git" in f_content:
                                 new_fc = re.sub(
-                                    r"from git .*",
-                                    'from "../"',
+                                    r"require\s+([a-zA-Z0-9_.-]+)\s+from\s+git\s+.*",
+                                    r'require \1 from "../\1"',
                                     f_content,
                                 )
+                                if new_fc == f_content:
+                                    new_fc = re.sub(
+                                        r"from git .*",
+                                        'from "../"',
+                                        f_content,
+                                    )
                                 with open(f_path, "w", encoding="utf-8") as f:
                                     f.write(new_fc)
                                 os.utime(f_path, (past, past))
