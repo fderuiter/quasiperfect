@@ -147,30 +147,6 @@ def offline_lake_manifest(cwd):
                             capture_output=True,
                             check=False,
                         )
-                        subprocess.run(
-                            ["git", "config", "user.name", "CI"],
-                            cwd=pkg_path,
-                            capture_output=True,
-                            check=False,
-                        )
-                        subprocess.run(
-                            ["git", "config", "user.email", "ci@local"],
-                            cwd=pkg_path,
-                            capture_output=True,
-                            check=False,
-                        )
-                        subprocess.run(
-                            ["git", "add", "."],
-                            cwd=pkg_path,
-                            capture_output=True,
-                            check=False,
-                        )
-                        subprocess.run(
-                            ["git", "commit", "-m", "init", "--allow-empty"],
-                            cwd=pkg_path,
-                            capture_output=True,
-                            check=False,
-                        )
                         created_git_dirs.append(git_dir)
                     except Exception:
                         pass
