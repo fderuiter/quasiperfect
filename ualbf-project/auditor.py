@@ -216,7 +216,11 @@ def ensure_verification_lib():
         for ext in ["so", "dylib", "dll", "a"]
     )
 
-    if not has_so:
+    has_bin = os.path.exists(
+        os.path.join(rel_target, "verification_cli")
+    ) or os.path.exists(os.path.join(verif_target, "verification_cli"))
+
+    if not has_so or not has_bin:
         subprocess.run(
             [
                 "cargo",
@@ -226,6 +230,7 @@ def ensure_verification_lib():
                 "signing",
                 "-p",
                 "verification-lib",
+                "--bins",
                 "--manifest-path",
                 os.path.join(repo_root, "Cargo.toml"),
             ],
@@ -453,6 +458,26 @@ def generate_manifest():
                                 lean_path_dirs.append(curr)
                             break
                         curr = os.path.dirname(curr)
+
+        if not lean_sysroot:
+            try:
+                res_sys = subprocess.run(
+                    ["lean", "--print-prefix"], capture_output=True, text=True
+                )
+                if res_sys.returncode == 0 and res_sys.stdout.strip():
+                    lean_sysroot = res_sys.stdout.strip()
+            except Exception:
+                pass
+
+        if lean_sysroot:
+            env["LEAN_SYSROOT"] = lean_sysroot
+            env["PATH"] = f"{os.path.join(lean_sysroot, 'bin')}:{env.get('PATH', '')}"
+            for sys_sub in [
+                os.path.join(lean_sysroot, "lib", "lean"),
+                os.path.join(lean_sysroot, "lib"),
+            ]:
+                if os.path.exists(sys_sub) and sys_sub not in lean_path_dirs:
+                    lean_path_dirs.append(sys_sub)
 
         if "LEAN_PATH" in env and env["LEAN_PATH"]:
             lean_path_dirs.append(env["LEAN_PATH"])
