@@ -499,21 +499,35 @@ def generate_manifest():
         env["GIT_CONFIG_GLOBAL"] = "/dev/null"
         env["GIT_CONFIG_NOSYSTEM"] = "1"
 
-        dynlib_args = []
-        for d in ld_paths:
-            if lean_sysroot and os.path.abspath(d).startswith(
-                os.path.abspath(lean_sysroot)
-            ):
+        dynlib_scan_dirs = [rel_target, verif_target]
+        for d in lean_path_dirs:
+            abs_d = os.path.abspath(d)
+            if lean_sysroot and abs_d.startswith(os.path.abspath(lean_sysroot)):
                 continue
+            if abs_d not in dynlib_scan_dirs:
+                dynlib_scan_dirs.append(abs_d)
+
+        dynlib_args = []
+        for d in dynlib_scan_dirs:
             if os.path.exists(d):
                 try:
                     for f in os.listdir(d):
-                        if f.startswith("libverification_lib") and f.endswith(
-                            (".so", ".dylib", ".dll")
-                        ):
-                            full_so = os.path.join(d, f)
-                            if full_so not in dynlib_args:
-                                dynlib_args.extend(["--load-dynlib", full_so])
+                        if f.endswith((".so", ".dylib", ".dll")):
+                            if f.startswith("libverification_lib") or (
+                                ".lake" in os.path.abspath(d)
+                                and not f.startswith(
+                                    (
+                                        "libInit",
+                                        "libLean",
+                                        "libLake",
+                                        "libStd",
+                                        "libCore",
+                                    )
+                                )
+                            ):
+                                full_so = os.path.join(d, f)
+                                if full_so not in dynlib_args:
+                                    dynlib_args.extend(["--load-dynlib", full_so])
                 except Exception:
                     pass
 
