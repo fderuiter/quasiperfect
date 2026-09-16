@@ -431,9 +431,29 @@ def generate_manifest():
         pkgs_dir = os.path.abspath(os.path.join(cwd, ".lake", "packages"))
         if os.path.exists(pkgs_dir):
             for pkg in os.listdir(pkgs_dir):
-                pkg_lib = os.path.join(pkgs_dir, pkg, ".lake", "build", "lib")
-                if os.path.exists(pkg_lib):
-                    lean_path_dirs.append(pkg_lib)
+                pkg_dir = os.path.join(pkgs_dir, pkg)
+                if not os.path.isdir(pkg_dir):
+                    continue
+                for sub in [
+                    os.path.join(pkg_dir, ".lake", "build", "lib"),
+                    os.path.join(pkg_dir, "build", "lib"),
+                    os.path.join(pkg_dir, "lib"),
+                ]:
+                    if os.path.exists(sub) and sub not in lean_path_dirs:
+                        lean_path_dirs.append(sub)
+
+        lake_dir = os.path.abspath(os.path.join(cwd, ".lake"))
+        if os.path.exists(lake_dir):
+            for root, dirs, files in os.walk(lake_dir):
+                if any(f.endswith(".olean") for f in files):
+                    curr = root
+                    while curr and curr != lake_dir and os.path.dirname(curr) != curr:
+                        if os.path.basename(curr) == "lib":
+                            if curr not in lean_path_dirs:
+                                lean_path_dirs.append(curr)
+                            break
+                        curr = os.path.dirname(curr)
+
         if "LEAN_PATH" in env and env["LEAN_PATH"]:
             lean_path_dirs.append(env["LEAN_PATH"])
         env["LEAN_PATH"] = ":".join(lean_path_dirs)
@@ -445,10 +465,15 @@ def generate_manifest():
             rel_target,
             verif_target,
             os.path.abspath(os.path.join(cwd, ".lake", "build", "lib")),
-        ]
+        ] + [d for d in lean_path_dirs if d not in [rel_target, verif_target]]
         if "LD_LIBRARY_PATH" in env and env["LD_LIBRARY_PATH"]:
             ld_paths.append(env["LD_LIBRARY_PATH"])
         env["LD_LIBRARY_PATH"] = ":".join(ld_paths)
+
+        env["LAKE_OFFLINE"] = "1"
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        env["GIT_CONFIG_GLOBAL"] = "/dev/null"
+        env["GIT_CONFIG_NOSYSTEM"] = "1"
 
         result = None
         output = ""
