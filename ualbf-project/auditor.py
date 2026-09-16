@@ -80,7 +80,6 @@ def offline_lake_manifest(cwd):
     manifest_stat = None
     lakefile_stat = None
     pkg_file_baks = {}
-    created_git_dirs = []
 
     now = time.time()
     past = now - 3600
@@ -137,25 +136,6 @@ def offline_lake_manifest(cwd):
                 pkg_path = os.path.join(pkgs_dir, pkg_name)
                 if not os.path.isdir(pkg_path):
                     continue
-
-                git_dir = os.path.join(pkg_path, ".git")
-                if not os.path.exists(git_dir):
-                    try:
-                        subprocess.run(
-                            ["git", "init"],
-                            cwd=pkg_path,
-                            capture_output=True,
-                            check=False,
-                        )
-                        created_git_dirs.append(git_dir)
-                        info_dir = os.path.join(git_dir, "info")
-                        os.makedirs(info_dir, exist_ok=True)
-                        with open(
-                            os.path.join(info_dir, "exclude"), "w", encoding="utf-8"
-                        ) as f:
-                            f.write("*\n")
-                    except Exception:
-                        pass
 
                 for fname in ["lakefile.toml", "lakefile.lean"]:
                     f_path = os.path.join(pkg_path, fname)
@@ -259,12 +239,6 @@ def offline_lake_manifest(cwd):
                 with open(f_path, "w", encoding="utf-8") as f:
                     f.write(orig_content)
                 os.utime(f_path, (orig_stat.st_atime, orig_stat.st_mtime))
-            except Exception:
-                pass
-        for g_dir in created_git_dirs:
-            try:
-                if os.path.exists(g_dir):
-                    shutil.rmtree(g_dir, ignore_errors=True)
             except Exception:
                 pass
         if manifest_bak is not None and os.path.exists(manifest_path):
@@ -586,33 +560,32 @@ def generate_manifest():
             ld_paths.append(env["LD_LIBRARY_PATH"])
         env["LD_LIBRARY_PATH"] = ":".join(ld_paths)
 
-        # First try direct lean execution using constructed LEAN_PATH (fast and avoids lake/git overhead)
         result = None
         output = ""
-        if os.path.exists(lean_path):
-            try:
-                res_direct = subprocess.run(
-                    ["lean", lean_file],
-                    cwd=cwd,
-                    env=env,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                out_direct = res_direct.stdout + res_direct.stderr
-                if any(
-                    f"'{thm}' depends on axioms:" in out_direct
-                    or f"{thm}' depends on axioms:" in out_direct
-                    or f"{thm} depends on axioms:" in out_direct
-                    for thm in CORE_THEOREMS
-                ):
-                    result = res_direct
-                    output = out_direct
-            except Exception:
-                pass
+        with offline_lake_manifest(cwd):
+            if os.path.exists(lean_path):
+                try:
+                    res_direct = subprocess.run(
+                        ["lean", lean_file],
+                        cwd=cwd,
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    out_direct = res_direct.stdout + res_direct.stderr
+                    if any(
+                        f"'{thm}' depends on axioms:" in out_direct
+                        or f"{thm}' depends on axioms:" in out_direct
+                        or f"{thm} depends on axioms:" in out_direct
+                        for thm in CORE_THEOREMS
+                    ):
+                        result = res_direct
+                        output = out_direct
+                except Exception:
+                    pass
 
-        if result is None:
-            with offline_lake_manifest(cwd):
+            if result is None:
                 try:
                     result = subprocess.run(
                         ["lake", "env", "lean", lean_file],
@@ -633,7 +606,7 @@ def generate_manifest():
                         stdout="",
                         stderr="Error: Lean axiom extraction timed out.",
                     )
-            output = result.stdout + result.stderr
+                output = result.stdout + result.stderr
 
         has_any_thm_matched = any(
             f"'{thm}' depends on axioms:" in output
