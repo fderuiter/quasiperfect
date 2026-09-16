@@ -230,7 +230,6 @@ def ensure_verification_lib():
                 "signing",
                 "-p",
                 "verification-lib",
-                "--bins",
                 "--manifest-path",
                 os.path.join(repo_root, "Cargo.toml"),
             ],
