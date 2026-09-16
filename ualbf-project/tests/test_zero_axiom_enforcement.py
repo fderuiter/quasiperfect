@@ -1111,8 +1111,6 @@ def test_dynlib_args_excludes_sysroot_and_core_libs():
                 (tmp_path / "rust-engine/src/verus_proofs.rs").write_text("verus! {}")
                 (tmp_path / "target/release").mkdir(parents=True)
                 (tmp_path / "target/release/libverification_lib.so").touch()
-                (tmp_path / "lean4-proofs/.lake/build/lib").mkdir(parents=True)
-                (tmp_path / "lean4-proofs/.lake/build/lib/libUALBF.so").touch()
 
                 old_cwd = os.getcwd()
                 os.chdir(tmpdir)
@@ -1131,9 +1129,8 @@ def test_dynlib_args_excludes_sysroot_and_core_libs():
     loaded_dynlibs = [
         cmd[i + 1] for i in range(len(cmd) - 1) if cmd[i] == "--load-dynlib"
     ]
-    # Verify libverification_lib and compiled Lean shared libraries (libUALBF) are present
+    # Verify libverification_lib is present
     assert any("libverification_lib.so" in lib for lib in loaded_dynlibs)
-    assert any("libUALBF.so" in lib for lib in loaded_dynlibs)
-    # Verify sysroot libraries (libInit_shared, libLean_shared) are excluded
+    # Verify non-FFI libraries (libInit_shared, libLean_shared) are excluded
     assert not any("libInit_shared.so" in lib for lib in loaded_dynlibs)
     assert not any("libLean_shared.so" in lib for lib in loaded_dynlibs)

@@ -500,7 +500,7 @@ def generate_manifest():
         env["GIT_CONFIG_NOSYSTEM"] = "1"
 
         dynlib_scan_dirs = [rel_target, verif_target]
-        for d in lean_path_dirs:
+        for d in ld_paths:
             abs_d = os.path.abspath(d)
             if lean_sysroot and abs_d.startswith(os.path.abspath(lean_sysroot)):
                 continue
@@ -512,22 +512,13 @@ def generate_manifest():
             if os.path.exists(d):
                 try:
                     for f in os.listdir(d):
-                        if f.endswith((".so", ".dylib", ".dll")):
-                            if f.startswith("libverification_lib") or (
-                                ".lake" in os.path.abspath(d)
-                                and not f.startswith(
-                                    (
-                                        "libInit",
-                                        "libLean",
-                                        "libLake",
-                                        "libStd",
-                                        "libCore",
-                                    )
-                                )
-                            ):
-                                full_so = os.path.join(d, f)
-                                if full_so not in dynlib_args:
-                                    dynlib_args.extend(["--load-dynlib", full_so])
+                        if (
+                            f.startswith("libverification_lib")
+                            or f.startswith("verification_lib")
+                        ) and f.endswith((".so", ".dylib", ".dll")):
+                            full_so = os.path.join(d, f)
+                            if full_so not in dynlib_args:
+                                dynlib_args.extend(["--load-dynlib", full_so])
                 except Exception:
                     pass
 
