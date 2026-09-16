@@ -230,8 +230,6 @@ def ensure_verification_lib():
                 "signing",
                 "-p",
                 "verification-lib",
-                "--bin",
-                "verification_cli",
                 "--manifest-path",
                 os.path.join(repo_root, "Cargo.toml"),
             ],
@@ -489,11 +487,27 @@ def generate_manifest():
         repo_root = os.path.dirname(os.path.abspath(__file__))
         rel_target = os.path.join(repo_root, "target", "release")
         verif_target = os.path.join(repo_root, "verification-lib", "target", "release")
+        cwd_rel_target = os.path.abspath(os.path.join(cwd, "target", "release"))
+        cwd_verif_target = os.path.abspath(
+            os.path.join(cwd, "verification-lib", "target", "release")
+        )
         ld_paths = [
+            cwd_rel_target,
+            cwd_verif_target,
             rel_target,
             verif_target,
             os.path.abspath(os.path.join(cwd, ".lake", "build", "lib")),
-        ] + [d for d in lean_path_dirs if d not in [rel_target, verif_target]]
+        ] + [
+            d
+            for d in lean_path_dirs
+            if d
+            not in [
+                cwd_rel_target,
+                cwd_verif_target,
+                rel_target,
+                verif_target,
+            ]
+        ]
         if "LD_LIBRARY_PATH" in env and env["LD_LIBRARY_PATH"]:
             ld_paths.append(env["LD_LIBRARY_PATH"])
         env["LD_LIBRARY_PATH"] = ":".join(ld_paths)
@@ -503,7 +517,12 @@ def generate_manifest():
         env["GIT_CONFIG_GLOBAL"] = "/dev/null"
         env["GIT_CONFIG_NOSYSTEM"] = "1"
 
-        dynlib_scan_dirs = [rel_target, verif_target]
+        dynlib_scan_dirs = [
+            cwd_rel_target,
+            cwd_verif_target,
+            rel_target,
+            verif_target,
+        ]
         for d in ld_paths:
             abs_d = os.path.abspath(d)
             if lean_sysroot and abs_d.startswith(os.path.abspath(lean_sysroot)):
