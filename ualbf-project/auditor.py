@@ -230,6 +230,8 @@ def ensure_verification_lib():
                 "signing",
                 "-p",
                 "verification-lib",
+                "--bin",
+                "verification_cli",
                 "--manifest-path",
                 os.path.join(repo_root, "Cargo.toml"),
             ],
@@ -509,7 +511,9 @@ def generate_manifest():
             ]
         ]
         if "LD_LIBRARY_PATH" in env and env["LD_LIBRARY_PATH"]:
-            ld_paths.append(env["LD_LIBRARY_PATH"])
+            for entry in env["LD_LIBRARY_PATH"].split(":"):
+                if entry and entry not in ld_paths:
+                    ld_paths.append(entry)
         env["LD_LIBRARY_PATH"] = ":".join(ld_paths)
 
         env["LAKE_OFFLINE"] = "1"
@@ -523,12 +527,6 @@ def generate_manifest():
             rel_target,
             verif_target,
         ]
-        for d in ld_paths:
-            abs_d = os.path.abspath(d)
-            if lean_sysroot and abs_d.startswith(os.path.abspath(lean_sysroot)):
-                continue
-            if abs_d not in dynlib_scan_dirs:
-                dynlib_scan_dirs.append(abs_d)
 
         dynlib_args = []
         for d in dynlib_scan_dirs:
