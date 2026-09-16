@@ -487,29 +487,30 @@ def generate_manifest():
         env["LEAN_PATH"] = ":".join(lean_path_dirs)
 
         repo_root = os.path.dirname(os.path.abspath(__file__))
-        rel_target = os.path.join(repo_root, "target", "release")
-        verif_target = os.path.join(repo_root, "verification-lib", "target", "release")
-        cwd_rel_target = os.path.abspath(os.path.join(cwd, "target", "release"))
-        cwd_verif_target = os.path.abspath(
-            os.path.join(cwd, "verification-lib", "target", "release")
-        )
-        ld_paths = [
-            cwd_rel_target,
-            cwd_verif_target,
-            rel_target,
-            verif_target,
-            os.path.abspath(os.path.join(cwd, ".lake", "build", "lib")),
-        ] + [
-            d
-            for d in lean_path_dirs
-            if d
-            not in [
-                cwd_rel_target,
-                cwd_verif_target,
-                rel_target,
-                verif_target,
+        cur_root = os.getcwd()
+        cwd_parent = os.path.dirname(os.path.abspath(cwd))
+
+        project_roots = [cur_root, repo_root, cwd_parent]
+        dynlib_scan_dirs = []
+        for pr in project_roots:
+            for sub in [
+                os.path.join(pr, "target", "release"),
+                os.path.join(pr, "verification-lib", "target", "release"),
+                os.path.join(pr, "lean4-proofs", "target", "release"),
+                os.path.join(cwd, "target", "release"),
+                os.path.join(cwd, "verification-lib", "target", "release"),
+            ]:
+                abs_sub = os.path.abspath(sub)
+                if abs_sub not in dynlib_scan_dirs:
+                    dynlib_scan_dirs.append(abs_sub)
+
+        ld_paths = (
+            list(dynlib_scan_dirs)
+            + [
+                os.path.abspath(os.path.join(cwd, ".lake", "build", "lib")),
             ]
-        ]
+            + [d for d in lean_path_dirs if d not in dynlib_scan_dirs]
+        )
         if "LD_LIBRARY_PATH" in env and env["LD_LIBRARY_PATH"]:
             for entry in env["LD_LIBRARY_PATH"].split(":"):
                 if entry and entry not in ld_paths:
@@ -520,13 +521,6 @@ def generate_manifest():
         env["GIT_TERMINAL_PROMPT"] = "0"
         env["GIT_CONFIG_GLOBAL"] = "/dev/null"
         env["GIT_CONFIG_NOSYSTEM"] = "1"
-
-        dynlib_scan_dirs = [
-            cwd_rel_target,
-            cwd_verif_target,
-            rel_target,
-            verif_target,
-        ]
 
         dynlib_args = []
         for d in dynlib_scan_dirs:
