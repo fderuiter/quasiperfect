@@ -352,13 +352,6 @@ def generate_manifest():
                         in_packages = (
                             ".lake" in parts and "packages" in parts and not in_build
                         )
-                        is_source = (
-                            f.endswith(".lean")
-                            or f == "lakefile.lean"
-                            or f == "lake-manifest.json"
-                            or (f == "ffi.c" and not in_build)
-                            or in_packages
-                        )
                         is_compiled_ext = f.endswith(
                             (
                                 ".olean",
@@ -371,7 +364,15 @@ def generate_manifest():
                                 ".so",
                                 ".dylib",
                                 ".dll",
+                                ".rsp",
                             )
+                        ) or f in ("cache", "cache.rsp")
+                        is_source = (
+                            f.endswith(".lean")
+                            or f
+                            in ("lakefile.lean", "lakefile.toml", "lake-manifest.json")
+                            or (f == "ffi.c" and not in_build)
+                            or (in_packages and not is_compiled_ext)
                         )
                         is_build_artifact = (
                             in_build or is_compiled_ext
