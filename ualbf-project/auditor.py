@@ -73,13 +73,11 @@ def compute_verus_hashes(verus_content):
 def offline_lake_manifest(cwd):
     manifest_path = os.path.join(cwd, "lake-manifest.json")
     lakefile_path = os.path.join(cwd, "lakefile.lean")
-    pkgs_dir = os.path.join(cwd, ".lake", "packages")
 
     manifest_bak = None
     lakefile_bak = None
     manifest_stat = None
     lakefile_stat = None
-    pkg_file_baks = {}
 
     now = time.time()
     past = now - 3600
@@ -131,116 +129,8 @@ def offline_lake_manifest(cwd):
             except Exception as e:
                 print(f"Warning: Failed to patch lakefile.lean: {e}", file=sys.stderr)
 
-        if os.path.isdir(pkgs_dir):
-            for pkg_name in os.listdir(pkgs_dir):
-                pkg_path = os.path.join(pkgs_dir, pkg_name)
-                if not os.path.isdir(pkg_path):
-                    continue
-
-                for fname in ["lakefile.toml", "lakefile.lean"]:
-                    f_path = os.path.join(pkg_path, fname)
-                    if os.path.exists(f_path):
-                        try:
-                            with open(f_path, "r", encoding="utf-8") as f:
-                                f_content = f.read()
-                            pkg_file_baks[f_path] = (f_content, os.stat(f_path))
-                            if fname == "lakefile.toml" and "git =" in f_content:
-                                lines = f_content.splitlines(keepends=True)
-                                new_lines = []
-                                curr_dep = None
-                                for line in lines:
-                                    m_inline = re.search(
-                                        r"([a-zA-Z0-9_.-]+)\s*=\s*\{\s*.*git\s*=.*\}",
-                                        line,
-                                    )
-                                    if m_inline:
-                                        dep_n = m_inline.group(1)
-                                        new_line = re.sub(
-                                            r"\{\s*.*git\s*=.*\}",
-                                            f'{{ path = "../{dep_n}" }}',
-                                            line,
-                                        )
-                                        new_lines.append(new_line)
-                                        continue
-
-                                    m_name = re.search(
-                                        r'name\s*=\s*["\']?«?([^"\'\s»]+)»?["\']?', line
-                                    )
-                                    m_req = re.search(
-                                        r'\[require\.["\']?«?([^"\'\]\s»]+)»?["\']?\]',
-                                        line,
-                                    )
-                                    if line.strip().startswith("[[require]]"):
-                                        curr_dep = None
-                                    elif m_req:
-                                        curr_dep = m_req.group(1)
-                                    elif m_name and ("name" in line and "=" in line):
-                                        curr_dep = m_name.group(1)
-
-                                    if ("git =" in line or "git=" in line) and curr_dep:
-                                        new_line = re.sub(
-                                            r'git\s*=\s*".*?"',
-                                            f'path = "../{curr_dep}"',
-                                            line,
-                                        )
-                                        new_line = re.sub(
-                                            r"git\s*=\s*'.*?'",
-                                            f'path = "../{curr_dep}"',
-                                            new_line,
-                                        )
-                                        new_lines.append(new_line)
-                                    elif "git =" in line or "git=" in line:
-                                        new_line = re.sub(
-                                            r'git\s*=\s*".*?"',
-                                            'path = "../"',
-                                            line,
-                                        )
-                                        new_line = re.sub(
-                                            r"git\s*=\s*'.*?'",
-                                            'path = "../"',
-                                            new_line,
-                                        )
-                                        new_lines.append(new_line)
-                                    elif curr_dep and (
-                                        line.strip().startswith("rev =")
-                                        or line.strip().startswith("rev=")
-                                        or line.strip().startswith("inputRev =")
-                                        or line.strip().startswith("inputRev=")
-                                    ):
-                                        new_lines.append(f"# {line}")
-                                    else:
-                                        new_lines.append(line)
-                                new_fc = "".join(new_lines)
-                                with open(f_path, "w", encoding="utf-8") as f:
-                                    f.write(new_fc)
-                                os.utime(f_path, (past, past))
-                            elif fname == "lakefile.lean" and "from git" in f_content:
-                                new_fc = re.sub(
-                                    r'require\s+["\']?«?([a-zA-Z0-9_.-]+)»?["\']?\s+from\s+git\s+.*',
-                                    r'require \1 from "../\1"',
-                                    f_content,
-                                )
-                                if new_fc == f_content:
-                                    new_fc = re.sub(
-                                        r"from git .*",
-                                        'from "../"',
-                                        f_content,
-                                    )
-                                with open(f_path, "w", encoding="utf-8") as f:
-                                    f.write(new_fc)
-                                os.utime(f_path, (past, past))
-                        except Exception:
-                            pass
-
         yield
     finally:
-        for f_path, (orig_content, orig_stat) in pkg_file_baks.items():
-            try:
-                with open(f_path, "w", encoding="utf-8") as f:
-                    f.write(orig_content)
-                os.utime(f_path, (orig_stat.st_atime, orig_stat.st_mtime))
-            except Exception:
-                pass
         if manifest_bak is not None and os.path.exists(manifest_path):
             try:
                 with open(manifest_path, "w", encoding="utf-8") as f:
