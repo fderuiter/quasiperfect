@@ -508,23 +508,9 @@ def generate_manifest():
             if os.path.exists(d):
                 try:
                     for f in os.listdir(d):
-                        if f.endswith((".so", ".dylib", ".dll")) and f.startswith(
-                            "lib"
+                        if f.startswith("libverification_lib") and f.endswith(
+                            (".so", ".dylib", ".dll")
                         ):
-                            if f.startswith(
-                                (
-                                    "libInit",
-                                    "libLean",
-                                    "libLake",
-                                    "libStd",
-                                    "libCore",
-                                    "libgmp",
-                                    "libc.",
-                                    "libstdc++",
-                                    "libz3",
-                                )
-                            ):
-                                continue
                             full_so = os.path.join(d, f)
                             if full_so not in dynlib_args:
                                 dynlib_args.extend(["--load-dynlib", full_so])
