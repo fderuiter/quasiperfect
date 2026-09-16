@@ -951,7 +951,7 @@ def test_find_axioms_file_closed_before_lake_env_lean_call():
 def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
     """
     Test that auditor.offline_lake_manifest temporarily patches git dependencies in lake-manifest.json
-    and lakefile.lean to path dependencies during execution, initializes dummy git repos, and restores original files on exit.
+    and lakefile.lean to path dependencies during execution and restores original files on exit.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         cwd = Path(tmpdir)
@@ -1005,9 +1005,9 @@ def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
         assert manifest_inside_block["packages"][0]["dir"] == ".lake/packages/mathlib"
         assert 'from ".lake/packages/mathlib"' in lakefile_inside_block
         assert 'path = "../proofwidgets"' in sub_toml_inside_block
-        assert mathlib_git_exists_inside is True
+        assert mathlib_git_exists_inside is False
 
-        # Check that original contents were restored and created .git removed
+        # Check that original contents were restored
         assert manifest_path.read_text(encoding="utf-8") == original_manifest
         assert lakefile_path.read_text(encoding="utf-8") == original_lakefile
         assert sub_toml_path.read_text(encoding="utf-8") == original_sub_toml
