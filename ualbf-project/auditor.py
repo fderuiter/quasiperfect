@@ -230,8 +230,6 @@ def ensure_verification_lib():
                 "signing",
                 "-p",
                 "verification-lib",
-                "--bin",
-                "verification_cli",
                 "--manifest-path",
                 os.path.join(repo_root, "Cargo.toml"),
             ],
@@ -483,7 +481,9 @@ def generate_manifest():
                     lean_path_dirs.append(sys_sub)
 
         if "LEAN_PATH" in env and env["LEAN_PATH"]:
-            lean_path_dirs.append(env["LEAN_PATH"])
+            for entry in env["LEAN_PATH"].split(":"):
+                if entry and entry not in lean_path_dirs:
+                    lean_path_dirs.append(entry)
         env["LEAN_PATH"] = ":".join(lean_path_dirs)
 
         repo_root = os.path.dirname(os.path.abspath(__file__))
@@ -550,8 +550,9 @@ def generate_manifest():
                         text=True,
                         timeout=30,
                     )
-                    result = res_direct
-                    output = res_direct.stdout + res_direct.stderr
+                    if res_direct.returncode == 0:
+                        result = res_direct
+                        output = res_direct.stdout + res_direct.stderr
                 except Exception:
                     pass
 
