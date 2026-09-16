@@ -455,15 +455,9 @@ def generate_manifest():
         lake_dir = os.path.abspath(os.path.join(cwd, ".lake"))
         if os.path.exists(lake_dir):
             for root, dirs, files in os.walk(lake_dir):
-                if any(f.endswith(".olean") for f in files):
+                if os.path.basename(root) in ("lib", "lean"):
                     if root not in lean_path_dirs:
                         lean_path_dirs.append(root)
-                    curr = root
-                    while curr and curr != lake_dir and os.path.dirname(curr) != curr:
-                        if os.path.basename(curr) in ("lib", "lean"):
-                            if curr not in lean_path_dirs:
-                                lean_path_dirs.append(curr)
-                        curr = os.path.dirname(curr)
 
         if not lean_sysroot:
             try:
