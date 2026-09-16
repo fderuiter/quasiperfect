@@ -230,6 +230,8 @@ def ensure_verification_lib():
                 "signing",
                 "-p",
                 "verification-lib",
+                "--bin",
+                "verification_cli",
                 "--manifest-path",
                 os.path.join(repo_root, "Cargo.toml"),
             ],
@@ -537,15 +539,8 @@ def generate_manifest():
                         text=True,
                         timeout=30,
                     )
-                    out_direct = res_direct.stdout + res_direct.stderr
-                    if any(
-                        f"'{thm}' depends on axioms:" in out_direct
-                        or f"{thm}' depends on axioms:" in out_direct
-                        or f"{thm} depends on axioms:" in out_direct
-                        for thm in CORE_THEOREMS
-                    ):
-                        result = res_direct
-                        output = out_direct
+                    result = res_direct
+                    output = res_direct.stdout + res_direct.stderr
                 except Exception:
                     pass
 
