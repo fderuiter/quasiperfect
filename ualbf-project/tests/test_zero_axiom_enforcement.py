@@ -1012,3 +1012,125 @@ def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
         assert lakefile_path.read_text(encoding="utf-8") == original_lakefile
         assert sub_toml_path.read_text(encoding="utf-8") == original_sub_toml
         assert not (mathlib_dir / ".git").exists()
+
+
+def test_dynlib_args_excludes_sysroot_and_core_libs():
+    """
+    Test that auditor excludes lean_sysroot directories and Lean core shared libraries
+    (libInit_shared.so, libLean_shared.so, etc.) when building --load-dynlib arguments.
+    """
+    captured_args = {}
+
+    def mock_run(cmd, *args, **kwargs):
+        if isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "lean":
+            captured_args["cmd"] = cmd
+            return mock.Mock(
+                returncode=0,
+                stdout="depends on axioms: [propext, Classical.choice]",
+                stderr="",
+            )
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        sysroot_dir = tmp_path / "mock_sysroot"
+        sysroot_lib = sysroot_dir / "lib"
+        sysroot_lib.mkdir(parents=True)
+        (sysroot_lib / "libInit_shared.so").touch()
+        (sysroot_lib / "libLean_shared.so").touch()
+
+        user_lib = tmp_path / "user_lib"
+        user_lib.mkdir()
+        (user_lib / "libverification_lib.so").touch()
+
+        with mock.patch("auditor.subprocess.run", side_effect=mock_run), mock.patch(
+            "auditor.check_lean_environment", return_value=True
+        ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+            "auditor.check_imports", return_value=True
+        ):
+            old_sysroot = os.environ.get("LEAN_SYSROOT")
+            os.environ["LEAN_SYSROOT"] = str(sysroot_dir)
+            try:
+                # Set up minimal required files
+                bounds_path = tmp_path / "bounds_manifest.json"
+                bounds_path.write_text(
+                    json.dumps(
+                        {
+                            "omega_bounds": {
+                                "prasad_sunitha": {
+                                    "proof_bound": 10,
+                                    "engine_justified_gap": 0,
+                                    "is_axiomatic": False,
+                                },
+                                "hagis1982": {
+                                    "proof_bound": 10,
+                                    "engine_justified_gap": 0,
+                                    "is_axiomatic": False,
+                                },
+                            },
+                            "search_bounds": {
+                                "target_min_log10": {
+                                    "value": 35,
+                                    "is_axiomatic": False,
+                                },
+                                "target_max_log10": {
+                                    "value": 37,
+                                    "is_axiomatic": False,
+                                },
+                                "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                                "max_exponent": {"value": 4, "is_axiomatic": False},
+                                "prefix_stop_threshold": {
+                                    "value": 100,
+                                    "is_axiomatic": False,
+                                },
+                                "pollard_rho": {
+                                    "iteration_limit": 100,
+                                    "batch_size": 10,
+                                    "is_axiomatic": False,
+                                },
+                                "raycast": {
+                                    "gpu_threshold": 100,
+                                    "chunk_size": 10,
+                                    "is_axiomatic": False,
+                                },
+                            },
+                            "euler_ceiling": {
+                                "num": 2,
+                                "den": 1,
+                                "is_axiomatic": False,
+                            },
+                            "overflow_threshold": {
+                                "num": 2,
+                                "den": 1,
+                                "is_axiomatic": False,
+                            },
+                        }
+                    )
+                )
+                (tmp_path / "rust-engine/src").mkdir(parents=True)
+                (tmp_path / "rust-engine/src/verus_proofs.rs").write_text("verus! {}")
+                (tmp_path / "target/release").mkdir(parents=True)
+                (tmp_path / "target/release/libverification_lib.so").touch()
+
+                old_cwd = os.getcwd()
+                os.chdir(tmpdir)
+                try:
+                    auditor.generate_manifest()
+                finally:
+                    os.chdir(old_cwd)
+            finally:
+                if old_sysroot is None:
+                    os.environ.pop("LEAN_SYSROOT", None)
+                else:
+                    os.environ["LEAN_SYSROOT"] = old_sysroot
+
+    assert "cmd" in captured_args
+    cmd = captured_args["cmd"]
+    loaded_dynlibs = [
+        cmd[i + 1] for i in range(len(cmd) - 1) if cmd[i] == "--load-dynlib"
+    ]
+    # Verify libverification_lib is present
+    assert any("libverification_lib.so" in lib for lib in loaded_dynlibs)
+    # Verify sysroot libraries (libInit_shared, libLean_shared) are excluded
+    assert not any("libInit_shared.so" in lib for lib in loaded_dynlibs)
+    assert not any("libLean_shared.so" in lib for lib in loaded_dynlibs)

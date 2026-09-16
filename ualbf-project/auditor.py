@@ -501,12 +501,30 @@ def generate_manifest():
 
         dynlib_args = []
         for d in ld_paths:
+            if lean_sysroot and os.path.abspath(d).startswith(
+                os.path.abspath(lean_sysroot)
+            ):
+                continue
             if os.path.exists(d):
                 try:
                     for f in os.listdir(d):
                         if f.endswith((".so", ".dylib", ".dll")) and f.startswith(
                             "lib"
                         ):
+                            if f.startswith(
+                                (
+                                    "libInit",
+                                    "libLean",
+                                    "libLake",
+                                    "libStd",
+                                    "libCore",
+                                    "libgmp",
+                                    "libc.",
+                                    "libstdc++",
+                                    "libz3",
+                                )
+                            ):
+                                continue
                             full_so = os.path.join(d, f)
                             if full_so not in dynlib_args:
                                 dynlib_args.extend(["--load-dynlib", full_so])
