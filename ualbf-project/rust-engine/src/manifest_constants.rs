@@ -56,7 +56,7 @@ pub const LATTICE_PRECISION_TOLERANCE: f64 = 1e-09;
 #[cfg(not(verus_keep_ghost))]
 pub const LATTICE_TARGET_PENALTY_BASE: f64 = 1000000000.0;
 #[cfg(not(verus_keep_ghost))]
-pub const MANIFEST_HASH: &str = "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df";
+pub const MANIFEST_HASH: &str = "34637db79282878d4850edae431c554d92cae5c3a76c9c01275aff2cc8cd0f10";
 
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
@@ -86,5 +86,5 @@ verus! {
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
     pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
     pub const CRT_MODULUS_PRODUCT: u32 = 1155;
-    pub const MANIFEST_HASH: &'static str = "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df";
+    pub const MANIFEST_HASH: &'static str = "34637db79282878d4850edae431c554d92cae5c3a76c9c01275aff2cc8cd0f10";
 }

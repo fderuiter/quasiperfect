@@ -129,6 +129,7 @@ struct SearchBounds {
 #[derive(Deserialize)]
 struct OmegaBounds {
     prasad_sunitha: PrasadSunithaBounds,
+    div_5_coprime_3: Option<PrasadSunithaBounds>,
     hagis1982: BaselineBounds,
 }
 
@@ -557,6 +558,11 @@ fn main() {
         && manifest.omega_bounds.prasad_sunitha.citation.is_none()
     {
         panic!("FATAL: prasad_sunitha marked axiomatic but lacks citation metadata.");
+    }
+    if let Some(ref div_5) = manifest.omega_bounds.div_5_coprime_3 {
+        if div_5.is_axiomatic && div_5.citation.is_none() {
+            panic!("FATAL: div_5_coprime_3 marked axiomatic but lacks citation metadata.");
+        }
     }
     if manifest.euler_ceiling.is_axiomatic && manifest.euler_ceiling.citation.is_none() {
         panic!("FATAL: euler_ceiling marked axiomatic but lacks citation metadata.");
