@@ -32,12 +32,20 @@ def test_auditor_fails_when_mock_lean_set():
     os.environ.get("GITHUB_ACTIONS") == "true",
     reason="Decouple Python checks from core builds under GHA environment",
 )
-def test_build_rs_fails_when_mock_lean_set():
+def test_build_rs_succeeds_and_purges_ir_when_mock_lean_set():
     """
-    Test that rust-engine/build.rs fails compilation when MOCK_LEAN is set.
+    Test that rust-engine/build.rs purges .lake/build/ir files and succeeds when MOCK_LEAN=1.
     """
     project_dir = Path(__file__).parent.parent
     rust_engine_dir = project_dir / "rust-engine"
+    lean_project_dir = project_dir / "lean4-proofs"
+    ir_dir = lean_project_dir / ".lake/build/ir"
+
+    ir_dir.mkdir(parents=True, exist_ok=True)
+    ualbf_dir = ir_dir / "UALBF"
+    ualbf_dir.mkdir(parents=True, exist_ok=True)
+    dummy_file = ualbf_dir / "stale.c"
+    dummy_file.write_text("void stale_func() {}")
 
     env = os.environ.copy()
     env["MOCK_LEAN"] = "1"
@@ -55,20 +63,29 @@ def test_build_rs_fails_when_mock_lean_set():
         text=True,
     )
 
-    assert res.returncode != 0
-    assert "MOCK_LEAN is forbidden" in res.stderr
+    assert res.returncode == 0
+    assert not dummy_file.exists(), "Stale C-IR file was not purged under MOCK_LEAN=1!"
+    assert not ualbf_dir.exists(), "Stale UALBF IR directory was not purged under MOCK_LEAN=1!"
 
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") == "true",
     reason="Decouple Python checks from core builds under GHA environment",
 )
-def test_build_rs_fails_when_lean_sysroot_dummy():
+def test_build_rs_succeeds_and_purges_ir_when_lean_sysroot_dummy():
     """
-    Test that rust-engine/build.rs fails compilation when LEAN_SYSROOT is set to DUMMY.
+    Test that rust-engine/build.rs purges .lake/build/ir files and succeeds when LEAN_SYSROOT=DUMMY.
     """
     project_dir = Path(__file__).parent.parent
     rust_engine_dir = project_dir / "rust-engine"
+    lean_project_dir = project_dir / "lean4-proofs"
+    ir_dir = lean_project_dir / ".lake/build/ir"
+
+    ir_dir.mkdir(parents=True, exist_ok=True)
+    ualbf_dir = ir_dir / "UALBF"
+    ualbf_dir.mkdir(parents=True, exist_ok=True)
+    dummy_file = ualbf_dir / "stale.c"
+    dummy_file.write_text("void stale_func() {}")
 
     env = os.environ.copy()
     env.pop("MOCK_LEAN", None)
@@ -87,5 +104,6 @@ def test_build_rs_fails_when_lean_sysroot_dummy():
         text=True,
     )
 
-    assert res.returncode != 0
-    assert "LEAN_SYSROOT is missing or set to DUMMY" in res.stderr
+    assert res.returncode == 0
+    assert not dummy_file.exists(), "Stale C-IR file was not purged under LEAN_SYSROOT=DUMMY!"
+    assert not ualbf_dir.exists(), "Stale UALBF IR directory was not purged under LEAN_SYSROOT=DUMMY!"
