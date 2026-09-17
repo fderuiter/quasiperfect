@@ -30,6 +30,23 @@ from cert_util import load_and_validate_cert, CertificateValidationError
 def make_manifest(theorems=None):
     """Return a minimal proof manifest dict."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    real_manifest_path = os.path.join(base_dir, "proof_manifest.json")
+    proof_files = []
+    if os.path.exists(real_manifest_path):
+        with open(real_manifest_path, "r", encoding="utf-8") as f:
+            real_m = json.load(f)
+            proof_files = real_m.get("proof_files", [])
+
+    if not proof_files:
+        arith_file = "UALBF/Pure/Arithmetic.lean"
+        arith_path = os.path.join(base_dir, "lean4-proofs", arith_file)
+        try:
+            with open(arith_path, "rb") as f:
+                chk = hashlib.sha256(f.read()).hexdigest()
+        except Exception:
+            chk = "aabbccdd"
+        proof_files = [{"file": arith_file, "checksum": chk}]
+
     if theorems is None:
         name = "UALBF.Pure.Arithmetic.foo"
         file = "UALBF/Pure/Arithmetic.lean"
@@ -46,26 +63,21 @@ def make_manifest(theorems=None):
         ]
     else:
         for t in theorems:
+            tf = t["file"]
+            file_path = os.path.join(base_dir, "lean4-proofs", tf)
+            try:
+                with open(file_path, "rb") as f:
+                    content = f.read()
+            except Exception:
+                content = b"mock content for " + tf.encode("utf-8")
             if t.get("checksum") in ["x", "y", "allowed"]:
-                file_path = os.path.join(base_dir, "lean4-proofs", t["file"])
-                try:
-                    with open(file_path, "rb") as f:
-                        content = f.read()
-                except Exception:
-                    content = b"mock content for " + t["file"].encode("utf-8")
                 t["checksum"] = hashlib.sha256(content).hexdigest()
-
-    arith_file = "UALBF/Pure/Arithmetic.lean"
-    arith_path = os.path.join(base_dir, "lean4-proofs", arith_file)
-    try:
-        with open(arith_path, "rb") as f:
-            chk = hashlib.sha256(f.read()).hexdigest()
-    except Exception:
-        chk = "aabbccdd"
+            if not any(pf["file"] == tf for pf in proof_files):
+                proof_files.append({"file": tf, "checksum": hashlib.sha256(content).hexdigest()})
 
     return {
         "theorems": theorems,
-        "proof_files": [{"file": arith_file, "checksum": chk}],
+        "proof_files": proof_files,
     }
 
 
@@ -1954,3 +1966,31 @@ def test_verify_gpu_witnesses_cases(tmp_path):
     with pytest.raises(SystemExit) as excinfo:
         verify_certificate(cert_invalid_idx_path, manifest_path)
     assert excinfo.value.code == 1
+
+
+def test_trace_canonicalization_verification(tmp_path):
+    trace_path = os.path.join(tmp_path, "trace.jsonl")
+    lines_out_of_order = [
+        {"work_unit_id": 1, "step_index": 0, "reason": "target_bound", "n_l": "200", "s_l": "100", "factors": []},
+        {"work_unit_id": 0, "step_index": 1, "reason": "min_factors", "n_l": "150", "s_l": "100", "factors": []},
+        {"work_unit_id": 0, "step_index": 0, "reason": "touchard", "n_l": "100", "s_l": "100", "factors": []},
+    ]
+    with open(trace_path, "w", encoding="utf-8") as f:
+        for rec in lines_out_of_order:
+            f.write(json.dumps(rec) + "\n")
+
+    lines_sorted = [
+        {"work_unit_id": 0, "step_index": 0, "reason": "touchard", "n_l": "100", "s_l": "100", "factors": []},
+        {"work_unit_id": 0, "step_index": 1, "reason": "min_factors", "n_l": "150", "s_l": "100", "factors": []},
+        {"work_unit_id": 1, "step_index": 0, "reason": "target_bound", "n_l": "200", "s_l": "100", "factors": []},
+    ]
+    canonical_text = "".join(json.dumps(rec) + "\n" for rec in lines_sorted)
+    expected_trace_hash = hashlib.sha256(canonical_text.encode("utf-8")).hexdigest()
+
+    cert = {"telemetry": {"trace_hash": expected_trace_hash}}
+
+    verify_trace_file(cert, trace_path)
+
+    with open(trace_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    assert content == canonical_text
