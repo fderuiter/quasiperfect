@@ -28,10 +28,6 @@ def test_auditor_fails_when_mock_lean_set():
     assert "MOCK_LEAN is forbidden" in res.stderr or "MOCK_LEAN is forbidden" in res.stdout
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_rs_succeeds_and_purges_ir_when_mock_lean_set():
     """
     Test that rust-engine/build.rs purges .lake/build/ir files and succeeds when MOCK_LEAN=1.
@@ -68,10 +64,6 @@ def test_build_rs_succeeds_and_purges_ir_when_mock_lean_set():
     assert not ualbf_dir.exists(), "Stale UALBF IR directory was not purged under MOCK_LEAN=1!"
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_rs_succeeds_and_purges_ir_when_lean_sysroot_dummy():
     """
     Test that rust-engine/build.rs purges .lake/build/ir files and succeeds when LEAN_SYSROOT=DUMMY.

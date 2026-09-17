@@ -654,21 +654,19 @@ fn main() {
     let is_gha = env::var("GITHUB_ACTIONS").unwrap_or_default() == "true";
 
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
-    // To avoid triggering complete dependency recompilations (which can take over an hour in GHA),
+    // To avoid triggering complete dependency recompilations,
     // we proactively purge only our own package's intermediate C-IR directories and files.
-    if !is_gha {
-        let ualbf_ir_dir = ir_dir.join("UALBF");
-        if ualbf_ir_dir.exists() {
-            let _ = fs::remove_dir_all(&ualbf_ir_dir);
-        }
-        let validator_ir_c = ir_dir.join("Validator.c");
-        if validator_ir_c.exists() {
-            let _ = fs::remove_file(&validator_ir_c);
-        }
-        let validator_ir_ot = ir_dir.join("Validator.ot");
-        if validator_ir_ot.exists() {
-            let _ = fs::remove_file(&validator_ir_ot);
-        }
+    let ualbf_ir_dir = ir_dir.join("UALBF");
+    if ualbf_ir_dir.exists() {
+        let _ = fs::remove_dir_all(&ualbf_ir_dir);
+    }
+    let validator_ir_c = ir_dir.join("Validator.c");
+    if validator_ir_c.exists() {
+        let _ = fs::remove_file(&validator_ir_c);
+    }
+    let validator_ir_ot = ir_dir.join("Validator.ot");
+    if validator_ir_ot.exists() {
+        let _ = fs::remove_file(&validator_ir_ot);
     }
 
     if lean_sysroot.is_empty() || lean_sysroot == "DUMMY" {
