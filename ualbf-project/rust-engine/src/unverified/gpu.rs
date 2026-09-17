@@ -193,7 +193,9 @@ pub fn run_gpu_sieve_and_generate_witnesses(
     clear_gpu_witnesses();
     let word_count = ((num_bits + 31) / 32) as usize;
 
-    println!("GPU|INFO|Executing parallel GPU-accelerated CRT Tensor Sieve & Bloom filter...");
+    println!(
+        "CPU|INFO|Executing parallel CPU Rayon-accelerated CRT Tensor Sieve & Bloom filter..."
+    );
 
     use std::sync::Arc;
     let bitmap_atomics: Arc<Vec<std::sync::atomic::AtomicU32>> = Arc::new(
@@ -270,7 +272,7 @@ pub fn run_gpu_sieve_and_generate_witnesses(
     }
 
     println!(
-        "GPU|SUCCESS|CRT Tensor Sieve completed. Verified {} mathematical witnesses on CPU gateway.",
+        "CPU|SUCCESS|CRT Tensor Sieve completed. Generated {} mathematical witnesses.",
         components.len()
     );
     Ok(final_bitmap)
