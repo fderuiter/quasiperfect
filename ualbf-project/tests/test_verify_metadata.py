@@ -337,5 +337,69 @@ def test_check_documentation_fqn_rules(tmp_path):
                      assert "Invalid code symbol: 'unrelated_theorem'" not in full_error_output
 
 
+def test_extract_axioms_from_lean_source(tmp_path):
+    from verify_metadata import extract_axioms_from_lean_source
+
+    lean_dir = tmp_path / "lean4-proofs"
+    lean_dir.mkdir()
+
+    file1 = lean_dir / "TestFile.lean"
+    file1.write_text("""
+    namespace UALBF.QPN.PrasadSunitha
+    /-- Comment containing axiom ignored_in_comment -/
+    -- axiom line_comment_ignored
+    axiom qpn_div_5_coprime_3_omega_bound {N : ℕ} : True
+    end UALBF.QPN.PrasadSunitha
+    """)
+
+    axioms = extract_axioms_from_lean_source(str(lean_dir))
+    axiom_names = [a["name"] for a in axioms]
+
+    assert "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound" in axiom_names
+    assert "ignored_in_comment" not in axiom_names
+    assert "line_comment_ignored" not in axiom_names
+
+
+def test_validate_axiomatic_bounds_manifest_detection(tmp_path):
+    from verify_metadata import validate_axiomatic_bounds_manifest
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    lean_dir = project_dir / "lean4-proofs"
+    lean_dir.mkdir()
+
+    file1 = lean_dir / "PrasadSunitha.lean"
+    file1.write_text("""
+    namespace UALBF.QPN.PrasadSunitha
+    axiom qpn_div_5_coprime_3_omega_bound {N : ℕ} : True
+    end UALBF.QPN.PrasadSunitha
+    """)
+
+    # Case 1: is_axiomatic is false -> must return 1 error
+    bounds_false = {
+        "omega_bounds": {
+            "div_5_coprime_3": {
+                "proof_bound": 11,
+                "is_axiomatic": False
+            }
+        }
+    }
+    errors_false = validate_axiomatic_bounds_manifest(str(project_dir), bounds_false)
+    assert errors_false == 1
+
+    # Case 2: is_axiomatic is true -> must return 0 errors
+    bounds_true = {
+        "omega_bounds": {
+            "div_5_coprime_3": {
+                "proof_bound": 11,
+                "is_axiomatic": True
+            }
+        }
+    }
+    errors_true = validate_axiomatic_bounds_manifest(str(project_dir), bounds_true)
+    assert errors_true == 0
+
+
+
 
 

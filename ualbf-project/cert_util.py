@@ -298,6 +298,7 @@ CORE_THEOREMS = [
     "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
     "UALBF.QPN.BasicProperties.qpn_is_odd_square",
     "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
+    "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
     "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
     "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
     "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
