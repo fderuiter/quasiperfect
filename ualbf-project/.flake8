@@ -1,4 +1,4 @@
 [flake8]
 ignore = E501,E402,E741,E203,W503,E226,W293,E401
 max-line-length = 150
-exclude = .lake,.git,__pycache__,scripts,tests,prototypes,experimental,venv,.venv,.direnv,lean-built,result,test-env,test_env,env,.env
+exclude = .lake,.git,__pycache__,scripts,tests,prototypes,experimental,venv,.venv,.direnv,lean-built,result,test-env,test_env,env,.env,target

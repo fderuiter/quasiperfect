@@ -234,6 +234,8 @@
           
           preBuild = ''
             chmod +w ..
+            chmod -R +w . || true
+            find . -maxdepth 2 -name Cargo.toml -exec sed -i 's/crate-type = .*/crate-type = \["staticlib", "cdylib", "rlib"\]/g' {} +
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
             export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
