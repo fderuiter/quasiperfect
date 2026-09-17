@@ -303,10 +303,6 @@ def test_auditor_parses_quoted_lean4_theorem_names():
             os.chdir(old_cwd)
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_script_panics_on_legacy_axiom():
     """
     Test that the compile-time validation gatekeeper (build.rs) panics when encountering
@@ -364,10 +360,6 @@ def test_build_script_panics_on_legacy_axiom():
             build_rs_path.touch()
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_runtime_panics_on_legacy_axiom():
     """
     Test that the engine runtime panics and aborts execution during manifest validation
@@ -520,10 +512,6 @@ def test_auditor_rejects_compilation_failure():
             os.chdir(old_cwd)
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_script_panics_on_undefined_status():
     """
     Test that compile-time validation (build.rs) panics when encountering

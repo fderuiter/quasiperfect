@@ -18,6 +18,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Stage 1: Environment Gating & Evaluation
   core-gating:
     name: Core Nix Verification Gating
     runs-on: ubuntu-latest
@@ -30,6 +31,9 @@ jobs:
           nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Dry-run Evaluate macOS Targets
         run: |
@@ -82,28 +86,46 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
       - name: Run Verus Semantic Verification via Nix
         run: nix build .#checks.${NIX_ARCH}.verus-proofs
 
+  # Stage 2: Parallel Quality Verification (Rust, Lean, and Python)
   verify-and-build:
     name: Build and Verify
     runs-on: ubuntu-latest
-    needs: core-gating
+    needs: [core-gating, verify-verus]
     env:
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
       GIT_SSL_CAINFO: "/etc/ssl/certs/ca-certificates.crt"
     steps:
       - uses: actions/checkout@v4
 
-      # Note: Swatinem/rust-cache has been removed from this job to prevent post-cleanup cache actions
-      # from running on the host runner outside of the Nix development shell, which would otherwise fail
-      # to compile z3-sys/find z3.h and crash the build.
       - name: Setup Nix (Linux)
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Cache Cargo Target Artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            ualbf-project/target
+            ualbf-project/rust-engine/target
+            ualbf-project/verification-lib/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Populate Pre-built Lean Objects
         run: |
@@ -145,18 +167,13 @@ jobs:
       - name: Run Core Logic Tests (lean_ffi)
         run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release lean_ffi"
 
-  # Parallelized Python Quality Checks Job
-  # This job runs formatting, style checks, type-checking, and tests independently from
-  # the core Rust and Lean validation pipelines to optimize the PR feedback loop.
   verify-python:
     name: Run Python Quality Checks
     runs-on: ubuntu-latest
-    needs: core-gating
+    needs: [core-gating, verify-verus]
     steps:
       - uses: actions/checkout@v4
 
-      # Note: This job executes the pytest suite which compiles rust-engine / z3-sys via subprocesses.
-      # To succeed under the Nix development shell, the environment must contain pkgs.z3.dev (Z3 headers).
       - name: Setup Nix (Linux)
         uses: cachix/install-nix-action@v25
         with:
@@ -164,6 +181,24 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Cache Cargo Target Artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/cache
+            ~/.cargo/registry/index
+            ~/.cargo/git/db
+            ualbf-project/target
+            ualbf-project/rust-engine/target
+            ualbf-project/verification-lib/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Run Python Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-python"
+
 

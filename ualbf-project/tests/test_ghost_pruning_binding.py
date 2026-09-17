@@ -76,10 +76,6 @@ def test_ghost_pruning_bindings_present_in_manifest():
             os.chdir(old_cwd)
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
-)
 def test_missing_ghost_binding_fails_cargo_build():
     """
     Test that if a required ghost pruning assumption binding is removed from
@@ -122,10 +118,6 @@ def test_missing_ghost_binding_fails_cargo_build():
             build_rs_path.touch()
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
-)
 def test_mismatched_ghost_theorem_hash_fails_cargo_build():
     """
     Test that if a theorem hash in ghost_pruning_bindings does not match the theorem's checksum,

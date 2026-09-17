@@ -28,10 +28,6 @@ def test_auditor_fails_when_mock_lean_set():
     assert "MOCK_LEAN is forbidden" in res.stderr or "MOCK_LEAN is forbidden" in res.stdout
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_rs_fails_when_mock_lean_set():
     """
     Test that rust-engine/build.rs fails compilation when MOCK_LEAN is set.
@@ -59,10 +55,6 @@ def test_build_rs_fails_when_mock_lean_set():
     assert "MOCK_LEAN is forbidden" in res.stderr
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_rs_fails_when_lean_sysroot_dummy():
     """
     Test that rust-engine/build.rs fails compilation when LEAN_SYSROOT is set to DUMMY.
