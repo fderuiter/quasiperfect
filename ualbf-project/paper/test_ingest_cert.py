@@ -1,10 +1,10 @@
 """Tests for the ingest_cert.py telemetry ingestion script.
 
-Covers the changes introduced in this PR:
-  - Reading baseline_min_prime_factors from telemetry (default 7 when absent)
-  - Reading prasad_sunitha_bound from telemetry (default 16 when absent)
-  - Writing \\TelemetryHagisBaselineMinPrimeFactors and \\TelemetryPrasadSunithaBound
-    LaTeX commands to telemetry.tex
+Covers:
+  - Missing cert file fatal error handling
+  - Duplicate LaTeX macro collision detection
+  - Proof manifest status gates (unverified, unproven theorems)
+  - Deprecated bypass flags
 """
 
 import io
@@ -14,6 +14,12 @@ import sys
 import tempfile
 import types
 import unittest
+
+paper_dir = os.path.dirname(os.path.abspath(__file__))
+if paper_dir not in sys.path:
+    sys.path.insert(0, paper_dir)
+
+import ingest_cert  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,7 +63,6 @@ class TestIngestCertMissingFile(unittest.TestCase):
             orig_cwd = os.getcwd()
 
             # Mock verification_lib
-
             mock_verif = types.ModuleType("verification_lib")
             mock_verif.validate_certificate = lambda x: x
             mock_verif.hash_tcb = lambda: "tcb_hash"
@@ -69,16 +74,9 @@ class TestIngestCertMissingFile(unittest.TestCase):
             try:
                 os.environ["UALBF_CERT_PATH"] = missing_path
                 os.chdir(tmp_dir)
-                script_path = os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)), "ingest_cert.py"
-                )
-                with open(script_path, encoding="utf-8") as fh:
-                    source = fh.read()
 
                 with self.assertRaises(SystemExit) as cm:
-                    exec(
-                        compile(source, script_path, "exec"), {"__file__": script_path}
-                    )  # noqa: S102
+                    ingest_cert.main(cert_path=missing_path, output_dir=tmp_dir)
                 self.assertEqual(cm.exception.code, 1)
             finally:
                 if orig_verif is not None:
@@ -99,7 +97,8 @@ class TestCollisionDetection(unittest.TestCase):
             paper_dir = os.path.join(root_dir, "paper")
             os.mkdir(paper_dir)
 
-            with open(os.path.join(root_dir, "bounds_manifest.json"), "w") as f:
+            bounds_path = os.path.join(root_dir, "bounds_manifest.json")
+            with open(bounds_path, "w", encoding="utf-8") as f:
                 json.dump(
                     {
                         "omega_bounds": {
@@ -118,7 +117,8 @@ class TestCollisionDetection(unittest.TestCase):
                     f,
                 )
 
-            with open(os.path.join(root_dir, "proof_manifest.json"), "w") as f:
+            manifest_path = os.path.join(root_dir, "proof_manifest.json")
+            with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(
                     {
                         "theorems": [
@@ -137,20 +137,18 @@ class TestCollisionDetection(unittest.TestCase):
                     f,
                 )
 
-            with open(os.path.join(root_dir, "cert_util.py"), "w") as f:
+            sys.path.insert(0, root_dir)
+            sys.modules.pop("cert_util", None)
+            with open(
+                os.path.join(root_dir, "cert_util.py"), "w", encoding="utf-8"
+            ) as f:
                 f.write("class CertificateError(Exception): pass\n")
                 f.write("def load_and_validate_cert(path):\n")
                 f.write("    import json\n")
                 f.write("    return json.load(open(path))\n")
 
-            orig_script = os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "ingest_cert.py"
-            )
-            with open(orig_script, "r") as f:
-                source = f.read()
-
             cert_path = os.path.join(paper_dir, "cert.json")
-            with open(cert_path, "w") as f:
+            with open(cert_path, "w", encoding="utf-8") as f:
                 json.dump(_minimal_cert(), f)
 
             orig_env = os.environ.get("UALBF_CERT_PATH")
@@ -168,15 +166,16 @@ class TestCollisionDetection(unittest.TestCase):
             try:
                 os.environ["UALBF_CERT_PATH"] = cert_path
                 os.chdir(paper_dir)
-                script_path = os.path.join(paper_dir, "ingest_cert.py")
 
                 captured_out = io.StringIO()
                 sys.stdout = captured_out
 
                 with self.assertRaises(SystemExit) as cm:
-                    exec(
-                        compile(source, script_path, "exec"),
-                        {"__file__": script_path, "__name__": "__main__"},
+                    ingest_cert.main(
+                        cert_path=cert_path,
+                        manifest_path=manifest_path,
+                        bounds_path=bounds_path,
+                        output_dir=paper_dir,
                     )
 
                 self.assertEqual(cm.exception.code, 1)
@@ -200,19 +199,18 @@ class TestCollisionDetection(unittest.TestCase):
                     os.environ.pop("UALBF_CERT_PATH", None)
                 else:
                     os.environ["UALBF_CERT_PATH"] = orig_env
+                if root_dir in sys.path:
+                    sys.path.remove(root_dir)
+                sys.modules.pop("cert_util", None)
 
 
 class TestManifestStatusGate(unittest.TestCase):
     def _run_ingest_script(self, root_dir, paper_dir, env_vars=None):
-        orig_script = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "ingest_cert.py"
-        )
-        with open(orig_script, "r") as f:
-            source = f.read()
-
+        bounds_path = os.path.join(root_dir, "bounds_manifest.json")
+        manifest_path = os.path.join(root_dir, "proof_manifest.json")
         cert_path = os.path.join(paper_dir, "cert.json")
         if not os.path.exists(cert_path):
-            with open(cert_path, "w") as f:
+            with open(cert_path, "w", encoding="utf-8") as f:
                 json.dump(_minimal_cert(), f)
 
         orig_env = os.environ.copy()
@@ -235,15 +233,16 @@ class TestManifestStatusGate(unittest.TestCase):
                 os.environ.update(env_vars)
 
             os.chdir(paper_dir)
-            script_path = os.path.join(paper_dir, "ingest_cert.py")
 
             captured_out = io.StringIO()
             sys.stdout = captured_out
 
             with self.assertRaises(SystemExit) as cm:
-                exec(
-                    compile(source, script_path, "exec"),
-                    {"__file__": script_path, "__name__": "__main__"},
+                ingest_cert.main(
+                    cert_path=cert_path,
+                    manifest_path=manifest_path,
+                    bounds_path=bounds_path,
+                    output_dir=paper_dir,
                 )
 
             return cm.exception.code, captured_out.getvalue()
@@ -261,7 +260,9 @@ class TestManifestStatusGate(unittest.TestCase):
         paper_dir = os.path.join(root_dir, "paper")
         os.makedirs(paper_dir, exist_ok=True)
 
-        with open(os.path.join(root_dir, "bounds_manifest.json"), "w") as f:
+        with open(
+            os.path.join(root_dir, "bounds_manifest.json"), "w", encoding="utf-8"
+        ) as f:
             json.dump(
                 {
                     "omega_bounds": {
@@ -293,10 +294,14 @@ class TestManifestStatusGate(unittest.TestCase):
         if manifest_status:
             manifest_data["status"] = manifest_status
 
-        with open(os.path.join(root_dir, "proof_manifest.json"), "w") as f:
+        with open(
+            os.path.join(root_dir, "proof_manifest.json"), "w", encoding="utf-8"
+        ) as f:
             json.dump(manifest_data, f)
 
-        with open(os.path.join(root_dir, "cert_util.py"), "w") as f:
+        sys.path.insert(0, root_dir)
+        sys.modules.pop("cert_util", None)
+        with open(os.path.join(root_dir, "cert_util.py"), "w", encoding="utf-8") as f:
             f.write("class CertificateError(Exception): pass\n")
             f.write("def load_and_validate_cert(path):\n")
             f.write("    import json\n")
