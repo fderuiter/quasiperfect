@@ -686,10 +686,66 @@ def generate_manifest():
     )
     rust_src_dir = os.path.join(rust_engine_dir, "src")
 
+    verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
+    with open(verus_proofs_path, "r", encoding="utf-8") as f:
+        verus_hashes = compute_verus_hashes(f.read())
+
+    manifest["verus_hashes"] = dict(sorted(verus_hashes.items()))
+
+    # Scan and hash all 23 proof files
+    proof_files = []
+    for root, _, files in os.walk(cwd):
+        if ".lake" in root:
+            continue
+        for file in files:
+            if (
+                file.endswith(".lean")
+                and file != "lakefile.lean"
+                and file != "find_axioms.lean"
+                and file != "Validator.lean"
+            ):
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, cwd)
+                with open(full_path, "rb") as f:
+                    content = f.read()
+                checksum = hashlib.sha256(content).hexdigest()
+                proof_files.append({"file": rel_path, "checksum": checksum})
+    manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
+
+    # Compute bounds_manifest.json hash
+    bounds_manifest_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json"
+    )
+    if os.path.exists(bounds_manifest_path):
+        with open(bounds_manifest_path, "rb") as f:
+            bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        manifest["bounds_manifest_hash"] = bounds_hash
+    else:
+        print(
+            f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",
+            file=sys.stderr,
+        )
+
+    # Populate ghost_pruning_bindings mapping every ghost function to its Lean theorem checksum
+    thm_checksum_map = {t["name"]: t["checksum"] for t in manifest.get("theorems", [])}
+    ghost_bindings = {}
+    for fn, lean_thm in GHOST_PRUNING_BINDINGS.items():
+        if lean_thm in thm_checksum_map:
+            ghost_bindings[fn] = {
+                "lean_theorem": lean_thm,
+                "theorem_hash": thm_checksum_map[lean_thm],
+            }
+        else:
+            print(
+                f"Warning: Bound Lean theorem '{lean_thm}' for ghost function '{fn}' not found in CORE_THEOREMS.",
+                file=sys.stderr,
+            )
+    manifest["ghost_pruning_bindings"] = ghost_bindings
+
     # To avoid cyclic hashing (hash changing every time it is injected), we must compute the hash on a deterministic version of the file.
     manifest["verified_logic_hash"] = "0" * 64
     manifest["verified_extension_hash"] = "0" * 64
-    with open("proof_manifest.json", "w") as f:
+    with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
 
@@ -787,62 +843,6 @@ def generate_manifest():
     if result_ext.returncode == 0:
         ext_hash = result_ext.stdout.strip()
         manifest["verified_extension_hash"] = ext_hash
-
-    verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
-    with open(verus_proofs_path, "r", encoding="utf-8") as f:
-        verus_hashes = compute_verus_hashes(f.read())
-
-    manifest["verus_hashes"] = dict(sorted(verus_hashes.items()))
-
-    # Scan and hash all 23 proof files
-    proof_files = []
-    for root, _, files in os.walk(cwd):
-        if ".lake" in root:
-            continue
-        for file in files:
-            if (
-                file.endswith(".lean")
-                and file != "lakefile.lean"
-                and file != "find_axioms.lean"
-                and file != "Validator.lean"
-            ):
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, cwd)
-                with open(full_path, "rb") as f:
-                    content = f.read()
-                checksum = hashlib.sha256(content).hexdigest()
-                proof_files.append({"file": rel_path, "checksum": checksum})
-    manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
-
-    # Compute bounds_manifest.json hash
-    bounds_manifest_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json"
-    )
-    if os.path.exists(bounds_manifest_path):
-        with open(bounds_manifest_path, "rb") as f:
-            bounds_hash = hashlib.sha256(f.read()).hexdigest()
-        manifest["bounds_manifest_hash"] = bounds_hash
-    else:
-        print(
-            f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",
-            file=sys.stderr,
-        )
-
-    # Populate ghost_pruning_bindings mapping every ghost function to its Lean theorem checksum
-    thm_checksum_map = {t["name"]: t["checksum"] for t in manifest.get("theorems", [])}
-    ghost_bindings = {}
-    for fn, lean_thm in GHOST_PRUNING_BINDINGS.items():
-        if lean_thm in thm_checksum_map:
-            ghost_bindings[fn] = {
-                "lean_theorem": lean_thm,
-                "theorem_hash": thm_checksum_map[lean_thm],
-            }
-        else:
-            print(
-                f"Warning: Bound Lean theorem '{lean_thm}' for ghost function '{fn}' not found in CORE_THEOREMS.",
-                file=sys.stderr,
-            )
-    manifest["ghost_pruning_bindings"] = ghost_bindings
 
     with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
