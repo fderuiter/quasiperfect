@@ -31,20 +31,20 @@ def test_auditor_rejects_legacy_axiom():
             # Simulate a theorem depending on UALBF.FFI.rust_is_prime_sound
             stdout = "depends on axioms: [UALBF.FFI.rust_is_prime_sound, propext, Classical.choice, Quot.sound]"
             return mock.Mock(returncode=0, stdout=stdout, stderr="")
-        
+
         # Intercept other commands to return success
         if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
             return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
-        
+
         return original_run(args, *extra_args, **kwargs)
 
     # Patch functions to avoid actually running cargo/building
-    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
-         mock.patch("auditor.check_lean_environment", return_value=True), \
-         mock.patch("auditor.check_documentation", return_value=True), \
-         mock.patch("auditor.check_imports", return_value=True), \
-         tempfile.TemporaryDirectory() as tmpdir:
-        
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
         # Point auditor to write to the temp directory
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
@@ -52,27 +52,53 @@ def test_auditor_rejects_legacy_axiom():
             # We also need a dummy bounds_manifest.json and verus_proofs.rs
             bounds_path = Path("bounds_manifest.json")
             with open(bounds_path, "w") as f:
-                json.dump({
-                    "omega_bounds": {
-                        "prasad_sunitha": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False},
-                        "hagis1982": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False}
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
                     },
-                    "search_bounds": {
-                        "target_min_log10": {"value": 35, "is_axiomatic": False},
-                        "target_max_log10": {"value": 37, "is_axiomatic": False},
-                        "sieve_limit": {"value": 1000, "is_axiomatic": False},
-                        "max_exponent": {"value": 4, "is_axiomatic": False},
-                        "prefix_stop_threshold": {"value": 100, "is_axiomatic": False},
-                        "pollard_rho": {"iteration_limit": 100, "batch_size": 10, "is_axiomatic": False},
-                        "raycast": {"gpu_threshold": 100, "chunk_size": 10, "is_axiomatic": False}
-                    },
-                    "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
-                    "overflow_threshold": {"num": 2, "den": 1, "is_axiomatic": False}
-                }, f)
-            
+                    f,
+                )
+
             # Create a dummy lean4-proofs directory structure
             Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
-            
+
             # Create dummy verus_proofs.rs
             Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
             with open("rust-engine/src/verus_proofs.rs", "w") as f:
@@ -81,13 +107,13 @@ def test_auditor_rejects_legacy_axiom():
             # Running auditor.generate_manifest should exit with 1 because of the legacy axiom
             with pytest.raises(SystemExit) as exc_info:
                 auditor.generate_manifest()
-            
+
             assert exc_info.value.code == 1
 
             # Verify that the generated proof_manifest.json contains status 'axiom' for the theorem
             with open("proof_manifest.json", "r") as f:
                 manifest = json.load(f)
-            
+
             for thm in manifest["theorems"]:
                 assert thm["status"] == "axiom"
 
@@ -111,35 +137,61 @@ def test_auditor_allows_standard_lean_axioms():
             return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
         return original_run(args, *extra_args, **kwargs)
 
-    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
-         mock.patch("auditor.check_lean_environment", return_value=True), \
-         mock.patch("auditor.check_documentation", return_value=True), \
-         mock.patch("auditor.check_imports", return_value=True), \
-         tempfile.TemporaryDirectory() as tmpdir:
-        
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
         try:
             bounds_path = Path("bounds_manifest.json")
             with open(bounds_path, "w") as f:
-                json.dump({
-                    "omega_bounds": {
-                        "prasad_sunitha": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False},
-                        "hagis1982": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False}
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
                     },
-                    "search_bounds": {
-                        "target_min_log10": {"value": 35, "is_axiomatic": False},
-                        "target_max_log10": {"value": 37, "is_axiomatic": False},
-                        "sieve_limit": {"value": 1000, "is_axiomatic": False},
-                        "max_exponent": {"value": 4, "is_axiomatic": False},
-                        "prefix_stop_threshold": {"value": 100, "is_axiomatic": False},
-                        "pollard_rho": {"iteration_limit": 100, "batch_size": 10, "is_axiomatic": False},
-                        "raycast": {"gpu_threshold": 100, "chunk_size": 10, "is_axiomatic": False}
-                    },
-                    "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
-                    "overflow_threshold": {"num": 2, "den": 1, "is_axiomatic": False}
-                }, f)
-            
+                    f,
+                )
+
             Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
             Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
             with open("rust-engine/src/verus_proofs.rs", "w") as f:
@@ -150,7 +202,100 @@ def test_auditor_allows_standard_lean_axioms():
 
             with open("proof_manifest.json", "r") as f:
                 manifest = json.load(f)
-            
+
+            for thm in manifest["theorems"]:
+                assert thm["status"] == "proven"
+
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_auditor_parses_quoted_lean4_theorem_names():
+    """
+    Test that auditor.py correctly parses real Lean 4 compiler output where theorem names
+    are enclosed in single quotes, e.g. `'UALBF.Engine.CyclotomicGraph.forced_inclusion' depends on axioms: [...]`.
+    """
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and "find_axioms.lean" in args[-1]:
+            # Simulate real Lean 4 output with single quotes around each theorem name
+            lines = [
+                f"'{thm}' depends on axioms: [propext, Classical.choice, Quot.sound]"
+                for thm in auditor.CORE_THEOREMS
+            ]
+            stdout = "\n".join(lines)
+            return mock.Mock(returncode=0, stdout=stdout, stderr="")
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            bounds_path = Path("bounds_manifest.json")
+            with open(bounds_path, "w") as f:
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
+                    },
+                    f,
+                )
+
+            Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
+            Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
+            with open("rust-engine/src/verus_proofs.rs", "w") as f:
+                f.write("verus! {}")
+
+            # Should generate manifest successfully for single-quoted Lean 4 theorem names
+            auditor.generate_manifest()
+
+            with open("proof_manifest.json", "r") as f:
+                manifest = json.load(f)
+
             for thm in manifest["theorems"]:
                 assert thm["status"] == "proven"
 
@@ -160,7 +305,7 @@ def test_auditor_allows_standard_lean_axioms():
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
+    reason="Decouple Python checks from core builds under GHA environment",
 )
 def test_build_script_panics_on_legacy_axiom():
     """
@@ -170,32 +315,34 @@ def test_build_script_panics_on_legacy_axiom():
     manifest_path = project_dir / "proof_manifest.json"
     backup_path = project_dir / "proof_manifest.json.bak"
     shutil.copy(manifest_path, backup_path)
-    
+
     try:
         # Load and modify the manifest to contain the legacy axiom
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        
+
         manifest["theorems"] = [
             {
                 "name": "UALBF.FFI.rust_is_prime_sound",
                 "file": "UALBF/FFI.lean",
                 "status": "axiom",
-                "checksum": ""
+                "checksum": "",
             }
         ]
-        
+
         payload = "UALBF.FFI.rust_is_prime_sound|UALBF/FFI.lean|axiom"
-        manifest["theorems"][0]["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        
+        manifest["theorems"][0]["checksum"] = hashlib.sha256(
+            payload.encode("utf-8")
+        ).hexdigest()
+
         with open(manifest_path, "w") as f:
             json.dump(manifest, f)
-            
+
         # Touch build.rs to force cargo to run the build script
         build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
-            
+
         # Run cargo check in the real rust-engine
         env = os.environ.copy()
         res = subprocess.run(
@@ -203,12 +350,12 @@ def test_build_script_panics_on_legacy_axiom():
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
-            text=True
+            text=True,
         )
-        
+
         assert res.returncode != 0
         assert "is incomplete (status: axiom). Compilation halted." in res.stderr
-        
+
     finally:
         # Restore the real manifest
         shutil.move(backup_path, manifest_path)
@@ -219,7 +366,7 @@ def test_build_script_panics_on_legacy_axiom():
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
+    reason="Decouple Python checks from core builds under GHA environment",
 )
 def test_runtime_panics_on_legacy_axiom():
     """
@@ -230,10 +377,12 @@ def test_runtime_panics_on_legacy_axiom():
     engine_bin = project_dir / "target/debug/ualbf_engine"
     if not engine_bin.exists():
         engine_bin = project_dir / "target/release/ualbf_engine"
-        
+
     # If binary doesn't exist, we build it once using cargo build in ualbf-project/rust-engine
     if not engine_bin.exists():
-        subprocess.run(["cargo", "build"], cwd=str(project_dir / "rust-engine"), check=True)
+        subprocess.run(
+            ["cargo", "build"], cwd=str(project_dir / "rust-engine"), check=True
+        )
         engine_bin = project_dir / "target/debug/ualbf_engine"
         if not engine_bin.exists():
             engine_bin = project_dir / "rust-engine/target/debug/ualbf_engine"
@@ -241,44 +390,49 @@ def test_runtime_panics_on_legacy_axiom():
     manifest_path = project_dir / "proof_manifest.json"
     backup_path = project_dir / "proof_manifest.json.bak"
     shutil.copy(manifest_path, backup_path)
-    
+
     try:
         # Load and modify the manifest to contain the legacy axiom
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        
+
         manifest["theorems"] = [
             {
                 "name": "UALBF.FFI.rust_is_prime_sound",
                 "file": "UALBF/FFI.lean",
                 "status": "axiom",
-                "checksum": ""
+                "checksum": "",
             }
         ]
-        
+
         payload = "UALBF.FFI.rust_is_prime_sound|UALBF/FFI.lean|axiom"
-        manifest["theorems"][0]["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        
+        manifest["theorems"][0]["checksum"] = hashlib.sha256(
+            payload.encode("utf-8")
+        ).hexdigest()
+
         with open(manifest_path, "w") as f:
             json.dump(manifest, f)
-            
+
         # Run the binary with UALBF_PROOF_MANIFEST env var pointing to our tampered proof_manifest.json
         env = os.environ.copy()
         env["UALBF_PROOF_MANIFEST"] = str(manifest_path)
         env["ALLOW_UNVERIFIED_BUILD"] = "1"  # just in case
-        
+
         res = subprocess.run(
             [str(engine_bin)],
             cwd=str(project_dir),
             env=env,
             capture_output=True,
-            text=True
+            text=True,
         )
-        
+
         # The runtime must panic and return non-zero
         assert res.returncode != 0
-        assert "refuses to start/sign" in res.stderr or "refuses to start/sign" in res.stdout
-        
+        assert (
+            "refuses to start/sign" in res.stderr
+            or "refuses to start/sign" in res.stdout
+        )
+
     finally:
         # Restore the real manifest
         shutil.move(backup_path, manifest_path)
@@ -296,36 +450,62 @@ def test_auditor_rejects_compilation_failure():
             return mock.Mock(returncode=1, stdout="", stderr="Compilation error")
         return original_run(args, *extra_args, **kwargs)
 
-    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
-         mock.patch("auditor.check_lean_environment", return_value=True), \
-         mock.patch("auditor.check_documentation", return_value=True), \
-         mock.patch("auditor.check_imports", return_value=True), \
-         tempfile.TemporaryDirectory() as tmpdir:
-        
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
         try:
             # Setup dummy files
             bounds_path = Path("bounds_manifest.json")
             with open(bounds_path, "w") as f:
-                json.dump({
-                    "omega_bounds": {
-                        "prasad_sunitha": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False},
-                        "hagis1982": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False}
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
                     },
-                    "search_bounds": {
-                        "target_min_log10": {"value": 35, "is_axiomatic": False},
-                        "target_max_log10": {"value": 37, "is_axiomatic": False},
-                        "sieve_limit": {"value": 1000, "is_axiomatic": False},
-                        "max_exponent": {"value": 4, "is_axiomatic": False},
-                        "prefix_stop_threshold": {"value": 100, "is_axiomatic": False},
-                        "pollard_rho": {"iteration_limit": 100, "batch_size": 10, "is_axiomatic": False},
-                        "raycast": {"gpu_threshold": 100, "chunk_size": 10, "is_axiomatic": False}
-                    },
-                    "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
-                    "overflow_threshold": {"num": 2, "den": 1, "is_axiomatic": False}
-                }, f)
-            
+                    f,
+                )
+
             Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
             Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
             with open("rust-engine/src/verus_proofs.rs", "w") as f:
@@ -333,7 +513,7 @@ def test_auditor_rejects_compilation_failure():
 
             with pytest.raises(SystemExit) as exc_info:
                 auditor.generate_manifest()
-            
+
             assert exc_info.value.code == 1
 
         finally:
@@ -342,7 +522,7 @@ def test_auditor_rejects_compilation_failure():
 
 @pytest.mark.skipif(
     os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
+    reason="Decouple Python checks from core builds under GHA environment",
 )
 def test_build_script_panics_on_undefined_status():
     """
@@ -352,42 +532,46 @@ def test_build_script_panics_on_undefined_status():
     manifest_path = project_dir / "proof_manifest.json"
     backup_path = project_dir / "proof_manifest.json.bak"
     shutil.copy(manifest_path, backup_path)
-    
+
     try:
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        
+
         manifest["theorems"] = [
             {
                 "name": "UALBF.FFI.rust_is_prime_sound",
                 "file": "UALBF/FFI.lean",
                 "status": "unknown_status",
-                "checksum": ""
+                "checksum": "",
             }
         ]
-        
+
         payload = "UALBF.FFI.rust_is_prime_sound|UALBF/FFI.lean|unknown_status"
-        manifest["theorems"][0]["checksum"] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        
+        manifest["theorems"][0]["checksum"] = hashlib.sha256(
+            payload.encode("utf-8")
+        ).hexdigest()
+
         with open(manifest_path, "w") as f:
             json.dump(manifest, f)
-            
+
         build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
-            
+
         env = os.environ.copy()
         res = subprocess.run(
             ["cargo", "check"],
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
-            text=True
+            text=True,
         )
-        
+
         assert res.returncode != 0
-        assert "is incomplete (status: unknown_status). Compilation halted." in res.stderr
-        
+        assert (
+            "is incomplete (status: unknown_status). Compilation halted." in res.stderr
+        )
+
     finally:
         shutil.move(backup_path, manifest_path)
         build_rs_path = project_dir / "rust-engine/build.rs"
@@ -403,25 +587,25 @@ def test_verify_certificate_rejects_undefined_status():
     manifest_path = project_dir / "proof_manifest.json"
     backup_path = project_dir / "proof_manifest.json.bak"
     shutil.copy(manifest_path, backup_path)
-    
+
     try:
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
-        
+
         manifest["theorems"][0]["status"] = "corrupted_status"
         thm = manifest["theorems"][0]
         # Calculate physical file content hash under the new design
         file_path = project_dir / "lean4-proofs" / thm["file"]
         with open(file_path, "rb") as f:
             thm["checksum"] = hashlib.sha256(f.read()).hexdigest()
-        
+
         with open(manifest_path, "w") as f:
             json.dump(manifest, f)
-            
+
         with open(manifest_path, "r", encoding="utf-8") as f:
             content = f.read()
         computed_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        
+
         mock_cert = {
             "manifest_hash": computed_hash,
             "public_key": "",
@@ -434,17 +618,18 @@ def test_verify_certificate_rejects_undefined_status():
                 "phase2_execution_time_ms": 0,
                 "total_execution_time_ms": 0,
                 "math_interruptions": 0,
-                "path_ranges": []
+                "path_ranges": [],
             },
             "signature": "",
             "is_conditional": False,
             "conjecture": None,
             "verified_logic_hash": "dummy",
-            "bounds_manifest_hash": "dummy"
+            "bounds_manifest_hash": "dummy",
         }
-        
-        with mock.patch("cert_util.load_and_validate_cert", return_value=mock_cert), \
-             mock.patch("verify_cert.TRUSTED_PUBLIC_KEY", None):
+
+        with mock.patch(
+            "cert_util.load_and_validate_cert", return_value=mock_cert
+        ), mock.patch("verify_cert.TRUSTED_PUBLIC_KEY", None):
             with pytest.raises(SystemExit) as exc_info:
                 verify_certificate("dummy_cert.json", str(manifest_path))
             assert exc_info.value.code == 1
@@ -465,11 +650,11 @@ def test_auditor_fails_on_unmanifested_source_file():
             return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
         return original_run(args, *extra_args, **kwargs)
 
-    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
-         mock.patch("auditor.check_lean_environment", return_value=True), \
-         mock.patch("auditor.check_documentation", return_value=True), \
-         mock.patch("auditor.check_imports", return_value=True), \
-         tempfile.TemporaryDirectory() as tmpdir:
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
 
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
@@ -477,7 +662,7 @@ def test_auditor_fails_on_unmanifested_source_file():
             # Create existing manifest with registered proof_file A.lean
             manifest_data = {
                 "theorems": [],
-                "proof_files": [{"file": "A.lean", "checksum": "dummy_checksum"}]
+                "proof_files": [{"file": "A.lean", "checksum": "dummy_checksum"}],
             }
             with open("proof_manifest.json", "w", encoding="utf-8") as f:
                 json.dump(manifest_data, f)
@@ -504,16 +689,18 @@ def test_auditor_registers_all_discovered_source_files():
 
     def mock_subprocess_run(args, *extra_args, **kwargs):
         if isinstance(args, list) and "find_axioms.lean" in args[-1]:
-            return mock.Mock(returncode=0, stdout="depends on axioms: [propext]", stderr="")
+            return mock.Mock(
+                returncode=0, stdout="depends on axioms: [propext]", stderr=""
+            )
         if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
             return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
         return original_run(args, *extra_args, **kwargs)
 
-    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), \
-         mock.patch("auditor.check_lean_environment", return_value=True), \
-         mock.patch("auditor.check_documentation", return_value=True), \
-         mock.patch("auditor.check_imports", return_value=True), \
-         tempfile.TemporaryDirectory() as tmpdir:
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
 
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
@@ -570,7 +757,7 @@ def test_verify_certificate_rejects_unmanifested_source_file():
         manifest = {
             "theorems": [],
             "proof_files": [{"file": "File1.lean", "checksum": chk1}],
-            "bounds_manifest_hash": bounds_hash
+            "bounds_manifest_hash": bounds_hash,
         }
         manifest_content = json.dumps(manifest)
         manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
@@ -590,19 +777,364 @@ def test_verify_certificate_rejects_unmanifested_source_file():
                 "phase2_execution_time_ms": 0,
                 "total_execution_time_ms": 0,
                 "math_interruptions": 0,
-                "path_ranges": []
+                "path_ranges": [],
             },
             "signature": "",
             "is_conditional": False,
             "conjecture": None,
             "verified_logic_hash": "dummy",
-            "bounds_manifest_hash": bounds_hash
+            "bounds_manifest_hash": bounds_hash,
         }
 
-        with mock.patch("cert_util.load_and_validate_cert", return_value=mock_cert), \
-             mock.patch("verify_cert.TRUSTED_PUBLIC_KEY", None):
+        with mock.patch(
+            "cert_util.load_and_validate_cert", return_value=mock_cert
+        ), mock.patch("verify_cert.TRUSTED_PUBLIC_KEY", None):
             with pytest.raises(SystemExit) as exc_info:
                 verify_certificate("dummy_cert.json", str(manifest_path))
             assert exc_info.value.code == 1
 
 
+def test_lake_package_sources_not_classified_as_build_artifacts():
+    """
+    Test that files inside .lake/packages are classified as source files and NOT build artifacts
+    in auditor.py, while compiled outputs inside .lake/build are classified as build artifacts.
+    """
+    pkg_readme = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "README.md"
+    )
+    pkg_toml = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "lakefile.toml"
+    )
+    pkg_lean = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "Mathlib", "Group.lean"
+    )
+    pkg_trace = os.path.join(
+        "lean4-proofs", ".lake", "packages", "mathlib", "lakefile.trace"
+    )
+
+    build_olean = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.olean")
+    build_trace = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.trace")
+    build_hash = os.path.join("lean4-proofs", ".lake", "build", "ir", "UALBF.hash")
+
+    def classify_path(f_path):
+        parts = f_path.split(os.sep)
+        f = os.path.basename(f_path)
+        in_build = "build" in parts
+        in_packages = ".lake" in parts and "packages" in parts and not in_build
+        is_compiled_ext = f.endswith(
+            (
+                ".olean",
+                ".ilean",
+                ".trace",
+                ".hash",
+                ".o",
+                ".ot",
+                ".a",
+                ".so",
+                ".dylib",
+                ".dll",
+                ".rsp",
+            )
+        ) or f in ("cache", "cache.rsp")
+        is_source = (
+            f.endswith(".lean")
+            or f in ("lakefile.lean", "lakefile.toml", "lake-manifest.json")
+            or (f == "ffi.c" and not in_build)
+            or (in_packages and not is_compiled_ext)
+        )
+        return (in_build or is_compiled_ext) and not is_source
+
+    assert classify_path(pkg_readme) is False
+    assert classify_path(pkg_toml) is False
+    assert classify_path(pkg_lean) is False
+
+    assert classify_path(pkg_trace) is True
+    assert classify_path(build_olean) is True
+    assert classify_path(build_trace) is True
+    assert classify_path(build_hash) is True
+
+
+def test_find_axioms_file_closed_before_lake_env_lean_call():
+    """
+    Test that auditor.generate_manifest closes find_axioms.lean before invoking lake env lean,
+    ensuring Lean can read the populated find_axioms.lean file without file handles being open/unflushed.
+    """
+    file_was_closed = {}
+
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and len(args) > 0 and "find_axioms.lean" in args[-1]:
+            # Verify find_axioms.lean exists, is non-empty, and can be read (i.e. closed and flushed)
+            lean_path = (
+                os.path.join("lean4-proofs", args[-1])
+                if os.path.exists("lean4-proofs")
+                else args[-1]
+            )
+            if os.path.exists(lean_path):
+                with open(lean_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                file_was_closed["has_content"] = (
+                    len(content) > 0 and "import UALBF" in content
+                )
+            stdout = "depends on axioms: [propext, Classical.choice, Quot.sound]"
+            return mock.Mock(returncode=0, stdout=stdout, stderr="")
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch(
+        "auditor.subprocess.run", side_effect=mock_subprocess_run
+    ), mock.patch("auditor.check_lean_environment", return_value=True), mock.patch(
+        "auditor.check_documentation", return_value=True
+    ), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            bounds_path = Path("bounds_manifest.json")
+            with open(bounds_path, "w") as f:
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
+                    },
+                    f,
+                )
+
+            Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
+            Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
+            with open("rust-engine/src/verus_proofs.rs", "w") as f:
+                f.write("verus! {}")
+
+            auditor.generate_manifest()
+            assert file_was_closed.get("has_content") is True
+
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_offline_lake_manifest_temporarily_rewrites_manifest_and_lakefile():
+    """
+    Test that auditor.offline_lake_manifest temporarily patches git dependencies in lake-manifest.json
+    and lakefile.lean to path dependencies during execution and restores original files on exit.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cwd = Path(tmpdir)
+        manifest_path = cwd / "lake-manifest.json"
+        lakefile_path = cwd / "lakefile.lean"
+        pkgs_dir = cwd / ".lake" / "packages"
+        mathlib_dir = pkgs_dir / "mathlib"
+        mathlib_dir.mkdir(parents=True, exist_ok=True)
+        sub_toml_path = mathlib_dir / "lakefile.toml"
+        sub_toml_path.write_text(
+            '[[require]]\nname = "proofwidgets"\ngit = "https://github.com/leanprover-community/ProofWidgets4"\n',
+            encoding="utf-8",
+        )
+
+        manifest_data = {
+            "version": "1.2.0",
+            "packages": [
+                {
+                    "name": "mathlib",
+                    "type": "git",
+                    "url": "https://github.com/leanprover-community/mathlib4.git",
+                }
+            ],
+        }
+        manifest_path.write_text(
+            json.dumps(manifest_data, indent=2) + "\n", encoding="utf-8"
+        )
+        lakefile_path.write_text(
+            'require mathlib from git "https://github.com/leanprover-community/mathlib4.git"\n',
+            encoding="utf-8",
+        )
+
+        original_manifest = manifest_path.read_text(encoding="utf-8")
+        original_lakefile = lakefile_path.read_text(encoding="utf-8")
+        original_sub_toml = sub_toml_path.read_text(encoding="utf-8")
+
+        manifest_inside_block = None
+        lakefile_inside_block = None
+        sub_toml_inside_block = None
+        mathlib_git_exists_inside = False
+
+        with auditor.offline_lake_manifest(str(cwd)):
+            manifest_inside_block = json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )
+            lakefile_inside_block = lakefile_path.read_text(encoding="utf-8")
+            sub_toml_inside_block = sub_toml_path.read_text(encoding="utf-8")
+            mathlib_git_exists_inside = (mathlib_dir / ".git").exists()
+
+        assert manifest_inside_block["packages"][0]["type"] == "path"
+        assert manifest_inside_block["packages"][0]["dir"] == ".lake/packages/mathlib"
+        assert 'from ".lake/packages/mathlib"' in lakefile_inside_block
+        assert sub_toml_inside_block == original_sub_toml
+        assert mathlib_git_exists_inside is False
+
+        # Check that original contents were restored
+        assert manifest_path.read_text(encoding="utf-8") == original_manifest
+        assert lakefile_path.read_text(encoding="utf-8") == original_lakefile
+        assert sub_toml_path.read_text(encoding="utf-8") == original_sub_toml
+        assert not (mathlib_dir / ".git").exists()
+
+
+def test_dynlib_args_excludes_sysroot_and_core_libs():
+    """
+    Test that auditor excludes lean_sysroot directories and Lean core shared libraries
+    (libInit_shared.so, libLean_shared.so, etc.) when building --load-dynlib arguments.
+    """
+    captured_args = {}
+
+    def mock_run(cmd, *args, **kwargs):
+        if isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "lean":
+            captured_args["cmd"] = cmd
+            return mock.Mock(
+                returncode=0,
+                stdout="depends on axioms: [propext, Classical.choice]",
+                stderr="",
+            )
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        sysroot_dir = tmp_path / "mock_sysroot"
+        sysroot_lib = sysroot_dir / "lib"
+        sysroot_lib.mkdir(parents=True)
+        (sysroot_lib / "libInit_shared.so").touch()
+        (sysroot_lib / "libLean_shared.so").touch()
+
+        user_lib = tmp_path / "user_lib"
+        user_lib.mkdir()
+        (user_lib / "libverification_lib.so").touch()
+
+        with mock.patch("auditor.subprocess.run", side_effect=mock_run), mock.patch(
+            "auditor.check_lean_environment", return_value=True
+        ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+            "auditor.check_imports", return_value=True
+        ):
+            old_sysroot = os.environ.get("LEAN_SYSROOT")
+            os.environ["LEAN_SYSROOT"] = str(sysroot_dir)
+            try:
+                # Set up minimal required files
+                bounds_path = tmp_path / "bounds_manifest.json"
+                bounds_path.write_text(
+                    json.dumps(
+                        {
+                            "omega_bounds": {
+                                "prasad_sunitha": {
+                                    "proof_bound": 10,
+                                    "engine_justified_gap": 0,
+                                    "is_axiomatic": False,
+                                },
+                                "hagis1982": {
+                                    "proof_bound": 10,
+                                    "engine_justified_gap": 0,
+                                    "is_axiomatic": False,
+                                },
+                            },
+                            "search_bounds": {
+                                "target_min_log10": {
+                                    "value": 35,
+                                    "is_axiomatic": False,
+                                },
+                                "target_max_log10": {
+                                    "value": 37,
+                                    "is_axiomatic": False,
+                                },
+                                "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                                "max_exponent": {"value": 4, "is_axiomatic": False},
+                                "prefix_stop_threshold": {
+                                    "value": 100,
+                                    "is_axiomatic": False,
+                                },
+                                "pollard_rho": {
+                                    "iteration_limit": 100,
+                                    "batch_size": 10,
+                                    "is_axiomatic": False,
+                                },
+                                "raycast": {
+                                    "gpu_threshold": 100,
+                                    "chunk_size": 10,
+                                    "is_axiomatic": False,
+                                },
+                            },
+                            "euler_ceiling": {
+                                "num": 2,
+                                "den": 1,
+                                "is_axiomatic": False,
+                            },
+                            "overflow_threshold": {
+                                "num": 2,
+                                "den": 1,
+                                "is_axiomatic": False,
+                            },
+                        }
+                    )
+                )
+                (tmp_path / "rust-engine/src").mkdir(parents=True)
+                (tmp_path / "rust-engine/src/verus_proofs.rs").write_text("verus! {}")
+                (tmp_path / "target/release").mkdir(parents=True)
+                (tmp_path / "target/release/libverification_lib.so").touch()
+
+                old_cwd = os.getcwd()
+                os.chdir(tmpdir)
+                try:
+                    auditor.generate_manifest()
+                finally:
+                    os.chdir(old_cwd)
+            finally:
+                if old_sysroot is None:
+                    os.environ.pop("LEAN_SYSROOT", None)
+                else:
+                    os.environ["LEAN_SYSROOT"] = old_sysroot
+
+    assert "cmd" in captured_args
+    cmd = captured_args["cmd"]
+    loaded_dynlibs = [
+        cmd[i + 1] for i in range(len(cmd) - 1) if cmd[i] == "--load-dynlib"
+    ]
+    # Verify libverification_lib is present
+    assert any("libverification_lib.so" in lib for lib in loaded_dynlibs)
+    # Verify non-FFI libraries (libInit_shared, libLean_shared) are excluded
+    assert not any("libInit_shared.so" in lib for lib in loaded_dynlibs)
+    assert not any("libLean_shared.so" in lib for lib in loaded_dynlibs)

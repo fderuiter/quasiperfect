@@ -2,7 +2,7 @@ import Lake
 open System Lake DSL
 
 package ualbf where
-  moreLinkArgs := #["-L../verification-lib/target/release", "-lverification_lib"]
+  moreLinkArgs := #["-L../target/release", "-L../target/debug", "-L../verification-lib/target/release", "-lverification_lib"]
   -- Conditionally treat compiler warnings as fatal errors only when requested,
   -- ensuring third-party community dependencies are not broken by warning-as-error.
   moreLeanArgs := if (get_config? warnings_as_errors).isSome then #["-DwarningAsError=true"] else #[]

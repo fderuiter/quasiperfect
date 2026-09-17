@@ -90,7 +90,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: core-gating
     env:
-      MOCK_LEAN: "1"
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
       GIT_SSL_CAINFO: "/etc/ssl/certs/ca-certificates.crt"
     steps:
@@ -113,6 +112,7 @@ jobs:
           rm -rf ualbf-project/lean4-proofs/.lake || true
           cp -rL ualbf-project/lean-built/.lake ualbf-project/lean4-proofs/.lake
           chmod -R +w ualbf-project/lean4-proofs/.lake || true
+          nix develop --command bash -c "cd ualbf-project && make verification-lib"
 
       - name: Run Unified Quality Checks
         run: |

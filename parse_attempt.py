@@ -8,7 +8,10 @@ def get_parsed_attempt():
     attempts = []
     # Fetch comments up to 5 pages (up to 500 comments)
     for page in [1, 2, 3, 4, 5]:
-        url = f"https://api.github.com/repos/fderuiter/quasipolynomials/issues/401/comments?per_page=100&page={page}"
+        url = (
+            "https://api.github.com/repos/fderuiter/quasipolynomials/"
+            f"issues/401/comments?per_page=100&page={page}"
+        )
         headers = {"User-Agent": "Mozilla/5.0"}
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
         if token:

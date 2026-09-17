@@ -7,7 +7,23 @@ headers package (`libz3-dev` on Ubuntu/Debian) to be installed on the host syste
 import json
 import os
 import re
+import subprocess
 import pytest
+
+
+def is_lean_available():
+    lean_sysroot = os.environ.get("LEAN_SYSROOT")
+    if (
+        lean_sysroot
+        and lean_sysroot != "DUMMY"
+        and os.path.isfile(os.path.join(lean_sysroot, "bin", "lean"))
+    ):
+        return True
+    try:
+        res = subprocess.run(["lean", "--print-prefix"], capture_output=True, text=True)
+        return res.returncode == 0 and bool(res.stdout.strip())
+    except FileNotFoundError:
+        return False
 
 
 def test_specification_parity():
@@ -174,10 +190,12 @@ def test_conjectural_bounds_conflict_fails_build():
             check=True,
         )
 
-        # 2. Run auditor.py with MOCK_LEAN=1 to update proof_manifest.json
+        # 2. Run auditor.py to update proof_manifest.json
         env = os.environ.copy()
-        env["MOCK_LEAN"] = "1"
-        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env)
+        env.pop("MOCK_LEAN", None)
+        if not is_lean_available():
+            pytest.skip("Lean toolchain is absent; skipping mandatory Lean verification test")
+        subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
 
         # Touch build.rs to force rerun
         build_rs_path = project_dir / "rust-engine/build.rs"
@@ -252,9 +270,11 @@ def test_prime_split_threshold_valid_61_success():
             check=True,
         )
 
-        # 2. Run auditor with MOCK_LEAN=1
+        # 2. Run auditor
         env = os.environ.copy()
-        env["MOCK_LEAN"] = "1"
+        env.pop("MOCK_LEAN", None)
+        if not is_lean_available():
+            pytest.skip("Lean toolchain is absent; skipping mandatory Lean verification test")
         subprocess.run(
             ["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True
         )

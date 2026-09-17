@@ -11,7 +11,6 @@ export PYTHONUNBUFFERED=1
 #   make check-core — Runs Rust formatting and Clippy, and Lean formatting
 #   make check-python — Runs Python style checks, type-checking, doc validation, and unit tests
 #   make verify-sync — Verify generated specifications alignment and workspace cleanliness
-#                      (set MOCK_LEAN=1 to run locally without the Lean compiler)
 #
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
@@ -37,9 +36,9 @@ check-python:
 	flake8 .
 	mypy .
 	python3 scripts/validate_docs.py
-	LEAN_SYSROOT=DUMMY pytest tests
+	pytest tests
 
-verify-sync:
+verify-sync: verification-lib
 	./scripts/export_lean_specs.py
 	python3 auditor.py
 	@if [ -n "$$(git status --porcelain --untracked-files=no)" ]; then \

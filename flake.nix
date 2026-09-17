@@ -168,8 +168,9 @@
 
           preBuild = ''
             chmod +w ..
-            mkdir -p ../verification-lib/target/release
+            mkdir -p ../verification-lib/target/release ../target/release ../target/debug
             ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+            ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
           '';
 
           buildPhase = ''
@@ -450,8 +451,9 @@ with open("dummy_cert.json", "w") as f:
 
             preBuild = ''
               chmod +w ..
-              mkdir -p ../verification-lib/target/release
+              mkdir -p ../verification-lib/target/release ../target/release ../target/debug
               ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
+              ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
             '';
 
             buildPhase = ''
