@@ -2,7 +2,7 @@ import os
 import hashlib
 import sys
 
-from matrix_utils import (
+from matrix_utils import (  # noqa: F401
     exact_det,
     mat_mul,
     gram_schmidt_ortho,

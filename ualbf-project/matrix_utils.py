@@ -1,7 +1,6 @@
 """Centralized matrix linear algebra and target penalty utilities for UALBF verification."""
 
 from fractions import Fraction
-import math
 
 
 def exact_det(matrix):

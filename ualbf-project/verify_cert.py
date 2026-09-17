@@ -9,7 +9,6 @@ import cert_util
 from matrix_utils import (
     exact_det,
     mat_mul,
-    gram_schmidt_ortho,
     verify_lll_conditions,
     compute_target_penalty,
 )
