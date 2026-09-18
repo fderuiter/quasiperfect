@@ -2,6 +2,14 @@ import os
 import hashlib
 import sys
 
+from matrix_utils import (  # noqa: F401
+    exact_det,
+    mat_mul,
+    gram_schmidt_ortho,
+    verify_lll_conditions,
+    compute_target_penalty,
+)
+
 _has_verification_lib = True
 try:
     import verification_lib  # type: ignore

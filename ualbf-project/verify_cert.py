@@ -6,6 +6,12 @@ import os
 import struct
 
 import cert_util
+from matrix_utils import (
+    exact_det,
+    mat_mul,
+    verify_lll_conditions,
+    compute_target_penalty,
+)
 
 # Pinned trusted signer public key (hex-encoded Ed25519 public key)
 # This must be set to the legitimate signer's public key to prevent forgery
@@ -301,53 +307,6 @@ from fractions import Fraction
 import math
 
 
-def exact_det(matrix):
-    """
-    Computes the exact determinant of a square matrix with integer/fraction entries
-    using Gaussian elimination over fractions.Fraction.
-    """
-    n = len(matrix)
-    A = [[Fraction(x) for x in row] for row in matrix]
-    det = Fraction(1)
-    for i in range(n):
-        # Find pivot
-        pivot_row = i
-        while pivot_row < n and A[pivot_row][i] == 0:
-            pivot_row += 1
-        if pivot_row == n:
-            return Fraction(0)
-        if pivot_row != i:
-            # Swap rows
-            A[i], A[pivot_row] = A[pivot_row], A[i]
-            det *= -1
-
-        pivot = A[i][i]
-        det *= pivot
-
-        # Eliminate below
-        for r in range(i + 1, n):
-            factor = A[r][i] / pivot
-            for c in range(i, n):
-                A[r][c] -= factor * A[i][c]
-
-    return det
-
-
-def mat_mul(U, B_init):
-    """
-    Multiplies two square matrices U and B_init of size (m+1) x (m+1).
-    """
-    n = len(U)
-    res = [[0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            val = 0
-            for k in range(n):
-                val += U[i][k] * B_init[k][j]
-            res[i][j] = val
-    return res
-
-
 def verify_compositeness_witnesses(cert, manifest_path):
     print("\n--- Verifying Compositeness Witness Certificates ---")
     compositeness_witnesses = cert.get("compositeness_witnesses")
@@ -444,12 +403,6 @@ def verify_compositeness_witnesses(cert, manifest_path):
     print(
         f"✓ Successfully verified {len(compositeness_witnesses)} compositeness witness certificates (all witnesses mathematically refute primality)."
     )
-
-
-def compute_target_penalty(m, base=1000000000.0):
-    if m < 2 or m > 16:
-        return base
-    return base * (1 << (m - 2))
 
 
 def verify_gpu_witnesses(cert):
@@ -680,50 +633,11 @@ def verify_lattice_witnesses(cert, manifest_path):
         B_reduced = mat_mul(U, B_init)
 
         # Gram-Schmidt Orthogonalization (GSO) and LLL Verification
-        n = len(B_reduced)
-        b = [[Fraction(x) for x in row] for row in B_reduced]
-        b_star = []
-        mu = [[Fraction(0)] * n for _ in range(n)]
-
-        for i in range(n):
-            b_i_star = list(b[i])
-            for j in range(i):
-                num = sum(b[i][k] * b_star[j][k] for k in range(dim))
-                den = sum(b_star[j][k] * b_star[j][k] for k in range(dim))
-                if den == 0:
-                    print(
-                        f"ERROR: Gram-Schmidt orthogonalization encountered a zero-norm vector at index {j}."
-                    )
-                    sys.exit(1)
-                mu[i][j] = Fraction(num, den)
-                for k in range(dim):
-                    b_i_star[k] -= mu[i][j] * b_star[j][k]
-            b_star.append(b_i_star)
-
-        # Verify standard LLL size-reduction condition: |mu_{i, j}| <= 1/2
-        for i in range(n):
-            for j in range(i):
-                if abs(mu[i][j]) > Fraction(1, 2):
-                    print(
-                        f"ERROR: Witness {idx} is not LLL size-reduced: mu[{i}][{j}] = {mu[i][j]} (absolute value exceeds 1/2)."
-                    )
-                    sys.exit(1)
-
-        # Verify Lovasz condition: delta * ||b_{i-1}^*||^2 <= ||b_i^*||^2 + mu_{i, i-1}^2 * ||b_{i-1}^*||^2
-        # delta parameter is exactly 3/4 (0.75)
-        delta = Fraction(3, 4)
-        for i in range(1, n):
-            s_prev = sum(b_star[i - 1][k] * b_star[i - 1][k] for k in range(dim))
-            s_curr = sum(b_star[i][k] * b_star[i][k] for k in range(dim))
-            mu_val = mu[i][i - 1]
-            lhs = delta * s_prev
-            rhs = s_curr + (mu_val * mu_val) * s_prev
-            if lhs > rhs:
-                print(
-                    f"ERROR: Witness {idx} violates Lovasz condition at index {i}: "
-                    f"delta * ||b_{i-1}^*||^2 = {lhs} > ||b_{i}^*||^2 + mu_{{{i}, {i-1}}}^2 * ||b_{i-1}^*||^2 = {rhs}."
-                )
-                sys.exit(1)
+        try:
+            b_star, mu = verify_lll_conditions(B_reduced, dim)
+        except ValueError as e:
+            print(f"ERROR: Witness {idx} LLL verification failed: {e}")
+            sys.exit(1)
 
         # 4. Compute shortest vector norm of b_0
         b0 = B_reduced[0]

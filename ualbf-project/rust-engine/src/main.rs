@@ -16,6 +16,7 @@ use std::fs;
 mod dfs_tree;
 mod lean_ffi;
 mod manifest_constants;
+pub mod math;
 mod profile;
 pub mod pruning_dispatch;
 pub mod residue;

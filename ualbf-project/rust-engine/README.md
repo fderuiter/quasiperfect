@@ -66,12 +66,12 @@ By recognizing that quasiperfect numbers satisfy $\sigma(N) = 2N + 1$, we formul
 
 ## 📦 Mathematics Implementation
 
-The math utilities (`src/math_utils.rs`) are built for rigorous handling of giant integers:
-- **`modInverse_spec`**: Computes modular inverses using the Extended Euclidean Algorithm.
-- **`compute_sigma`**: Calculates $(p^{k+1} - 1) / (p - 1)$ strictly for mathematical primes.
-- **`verified_is_prime`**: Stochastic Miller-Rabin test, making the search pseudoprime-safe by verifying that even mathematically valid pseudoprimes are conservatively bounded.
-- **`pollard_rho_brent_u256` & `pollard_rho_brent_u256`**: Robust integer factorization ensuring complete evaluation to pure prime components.
-- **`tonelli_shanks` & `hensels_lift`**: Cutting-edge mechanisms for lifting polynomial ring solutions modulo prime powers.
+The unified math module (`src/math/` re-exported via `src/math_utils.rs` and `src/residue.rs`) is built for rigorous handling of giant integers:
+- **`src/math/modular.rs`**: Modular arithmetic operations including `modpow_u256`, `pow_mod_u128`, `solve_crt` (CRT solvers), `tonelli_shanks`, and `hensels_lift`.
+- **`src/math/factorization.rs`**: Robust integer factorization (`pollard_rho_brent_u256`, `quick_factor_u256`) and primality tests (`verified_is_prime`).
+- **`src/math/sigma.rs`**: Cached divisor sum evaluation (`sigma_cached`).
+- **`src/math/residue.rs`**: Modular residue pre-filters (`is_valid_mod_8`).
+- **`src/math/tests.rs`**: Comprehensive test coverage for all unified mathematical sub-modules.
 
 ## 🚦 Testing and Integrity Validation
 

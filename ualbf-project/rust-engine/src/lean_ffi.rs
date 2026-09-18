@@ -1,5 +1,5 @@
 #![allow(clippy::unnecessary_cast)]
-use crate::types::{Uint, UintExt};
+use crate::types::{Int, IntExt, Uint, UintExt};
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
@@ -639,7 +639,22 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
             let b = words_to_bytes::<8, 64>(&w);
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
-            None
+            let mut sum = Uint::one();
+            let mut current = Uint::one();
+            let p_uint = Uint::from_u64(p);
+            for _ in 1..=pow {
+                if let Some(next) = current.checked_mul(p_uint) {
+                    current = next;
+                    if let Some(next_sum) = sum.checked_add(current) {
+                        sum = next_sum;
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }
+            }
+            Some(sum)
         }
     }
 }
@@ -659,7 +674,42 @@ pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> 
             let b = words_to_bytes::<8, 64>(&w);
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
-            None
+            if m <= &Uint::one() {
+                return None;
+            }
+            let m_int = m.as_int();
+            let mut a_int = a_abs.as_int();
+            if a_neg {
+                a_int = -a_int;
+            }
+            a_int = ((a_int % m_int) + m_int) % m_int;
+            if a_int == Int::zero() {
+                return None;
+            }
+
+            let mut t = Int::zero();
+            let mut new_t = Int::one();
+            let mut r = m_int;
+            let mut new_r = a_int;
+
+            while new_r != Int::zero() {
+                let quotient = r / new_r;
+                let temp_t = t - quotient * new_t;
+                t = new_t;
+                new_t = temp_t;
+
+                let temp_r = r - quotient * new_r;
+                r = new_r;
+                new_r = temp_r;
+            }
+
+            if r > Int::one() {
+                return None;
+            }
+            if t < Int::zero() {
+                t += m_int;
+            }
+            Some(t.as_uint())
         }
     }
 }
