@@ -26,22 +26,9 @@ pub fn normalize_proof_manifest(content: &str) -> String {
     let zero_hash = "0000000000000000000000000000000000000000000000000000000000000000";
     let mut lines = Vec::new();
     for line in content.lines() {
-        if line.contains("\"verified_logic_hash\":") {
-            if let Some(first_colon) = line.find(':') {
-                if let Some(q1) = line[first_colon..].find('"') {
-                    let start = first_colon + q1 + 1;
-                    if let Some(q2) = line[start..].find('"') {
-                        let end = start + q2;
-                        let mut new_line = String::new();
-                        new_line.push_str(&line[..start]);
-                        new_line.push_str(zero_hash);
-                        new_line.push_str(&line[end..]);
-                        lines.push(new_line);
-                        continue;
-                    }
-                }
-            }
-        } else if line.contains("\"verified_extension_hash\":") {
+        if line.contains("\"verified_logic_hash\":")
+            || line.contains("\"verified_extension_hash\":")
+        {
             if let Some(first_colon) = line.find(':') {
                 if let Some(q1) = line[first_colon..].find('"') {
                     let start = first_colon + q1 + 1;
