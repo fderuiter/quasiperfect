@@ -200,9 +200,9 @@ def extract_fqns_from_lean_content(stripped: str) -> list[str]:
     # Matches:
     # 1. namespace <name>
     # 2. end <optional_name>
-    # 3. def/theorem/lemma/structure/inductive/class/instance/abbrev <name>
+    # 3. def/theorem/lemma/structure/inductive/class/instance/abbrev/axiom <name>
     pattern = re.compile(
-        r"\b(namespace|end|def|theorem|lemma|structure|inductive|class|instance|abbrev)\b(?:\s+([a-zA-Z0-9_'\.]+))?"
+        r"\b(namespace|end|def|theorem|lemma|structure|inductive|class|instance|abbrev|axiom)\b(?:\s+([a-zA-Z0-9_'\.]+))?"
     )
 
     for m in re.finditer(pattern, stripped_no_strings):
@@ -236,6 +236,131 @@ def extract_fqns_from_lean_content(stripped: str) -> list[str]:
                 fqns.append(fqn)
 
     return fqns
+
+
+def extract_axioms_from_lean_source(cwd: str) -> list[dict[str, str]]:
+    """
+    Scans all .lean source files under cwd for raw axiom declarations,
+    stripping comments first and keeping track of namespaces.
+    Returns a list of dicts: [{"name": fqn, "file": rel_path}]
+    """
+    discovered_axioms: list[dict[str, str]] = []
+    if not os.path.exists(cwd):
+        return discovered_axioms
+
+    pattern = re.compile(r"\b(namespace|end|axiom)\b(?:\s+([a-zA-Z0-9_'\.]+))?")
+
+    for root, _, files in os.walk(cwd):
+        if ".lake" in root:
+            continue
+        for file in files:
+            if (
+                file.endswith(".lean")
+                and file != "lakefile.lean"
+                and file != "find_axioms.lean"
+                and file != "Validator.lean"
+            ):
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, cwd)
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                except Exception:
+                    continue
+
+                stripped = strip_comments(content, file)
+                stripped_no_strings = re.sub(r'"([^"\\]|\\.)*"', '""', stripped)
+
+                namespace_stack = []
+                for m in re.finditer(pattern, stripped_no_strings):
+                    keyword = m.group(1)
+                    name = m.group(2)
+
+                    if keyword == "namespace":
+                        if name:
+                            namespace_stack.append(name)
+                    elif keyword == "end":
+                        if name:
+                            if name in namespace_stack:
+                                while namespace_stack:
+                                    popped = namespace_stack.pop()
+                                    if popped == name:
+                                        break
+                            elif namespace_stack:
+                                namespace_stack.pop()
+                        else:
+                            if namespace_stack:
+                                namespace_stack.pop()
+                    elif keyword == "axiom":
+                        if name and name not in (
+                            "propext",
+                            "Classical.choice",
+                            "Quot.sound",
+                        ):
+                            full_prefix = ".".join(namespace_stack)
+                            fqn = f"{full_prefix}.{name}" if full_prefix else name
+                            discovered_axioms.append({"name": fqn, "file": rel_path})
+
+    return discovered_axioms
+
+
+def validate_axiomatic_bounds_manifest(base_dir: str, bounds_data: dict) -> int:
+    """
+    Cross-references Lean AST discovered axioms with bounds_manifest.json.
+    Any bound backed by a discovered Lean axiom must have 'is_axiomatic': true.
+    """
+    errors = 0
+    lean_dir = os.path.join(base_dir, "lean4-proofs")
+    discovered_axioms = extract_axioms_from_lean_source(lean_dir)
+
+    known_mappings = {
+        "div_5_coprime_3": ["div_5_coprime_3"],
+        "prasad_sunitha": ["coprime_15"],
+        "hagis1982": ["hagis1982"],
+    }
+
+    bound_entries = {}
+
+    def collect_bounds(data, path=""):
+        if isinstance(data, dict):
+            if "is_axiomatic" in data:
+                bound_entries[path] = data
+            for k, v in data.items():
+                sub_path = f"{path}.{k}" if path else k
+                collect_bounds(v, sub_path)
+
+    collect_bounds(bounds_data)
+
+    for ax in discovered_axioms:
+        ax_fqn = ax["name"]
+        ax_short = ax_fqn.split(".")[-1]
+
+        matched_bound_path = None
+        for bound_path, bound_dict in bound_entries.items():
+            bound_key = bound_path.split(".")[-1]
+            if bound_key in ax_fqn or ax_short.startswith(f"qpn_{bound_key}"):
+                matched_bound_path = bound_path
+                break
+            if bound_key in known_mappings:
+                for alias in known_mappings[bound_key]:
+                    if alias in ax_fqn:
+                        matched_bound_path = bound_path
+                        break
+
+        if matched_bound_path:
+            bound_dict = bound_entries[matched_bound_path]
+            if not bound_dict.get("is_axiomatic", False):
+                print(
+                    f"Error: Discovered Lean AST axiom '{ax_fqn}' in '{ax['file']}' for bound '{matched_bound_path}', but 'is_axiomatic' is set to false in bounds_manifest.json."
+                )
+                errors += 1
+        else:
+            print(
+                f"Error: Discovered Lean AST axiom '{ax_fqn}' in '{ax['file']}' has no corresponding entry in bounds_manifest.json."
+            )
+            errors += 1
+
+    return errors
 
 
 def find_construct(content_stripped: str, construct: str, filename: str) -> bool:
@@ -909,6 +1034,8 @@ def main():
     else:
         with open(bounds_manifest_path, "r", encoding="utf-8") as f:
             bounds_data = json.load(f)
+
+        errors += validate_axiomatic_bounds_manifest(base_dir, bounds_data)
 
         leaf_params = find_leaf_parameters(bounds_data)
         parameter_mappings = manifest.get("parameter_mappings", {})
