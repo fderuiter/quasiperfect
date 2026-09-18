@@ -36,6 +36,7 @@ check-python:
 	flake8 .
 	mypy .
 	python3 scripts/validate_docs.py
+	python3 scripts/validate_tuning_guide.py
 	pytest tests
 
 verify-sync: verification-lib
