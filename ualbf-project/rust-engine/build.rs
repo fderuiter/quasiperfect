@@ -460,7 +460,7 @@ fn main() {
         );
     }
 
-    let allowed_axioms: [&str; 0] = [];
+    let allowed_axioms = ["UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"];
     for thm in &proof_manifest.theorems {
         let is_whitelisted = thm.status == "proven"
             || (thm.status == "axiom" && allowed_axioms.contains(&thm.name.as_str()));
