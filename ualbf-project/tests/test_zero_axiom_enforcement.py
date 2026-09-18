@@ -616,7 +616,7 @@ def test_verify_certificate_rejects_undefined_status():
         }
 
         with mock.patch(
-            "cert_util.load_and_validate_cert", return_value=mock_cert
+            "verify_cert.cert_util.load_and_validate_cert", return_value=mock_cert
         ), mock.patch("verify_cert.TRUSTED_PUBLIC_KEY", None):
             with pytest.raises(SystemExit) as exc_info:
                 verify_certificate("dummy_cert.json", str(manifest_path))
@@ -775,7 +775,7 @@ def test_verify_certificate_rejects_unmanifested_source_file():
         }
 
         with mock.patch(
-            "cert_util.load_and_validate_cert", return_value=mock_cert
+            "verify_cert.cert_util.load_and_validate_cert", return_value=mock_cert
         ), mock.patch("verify_cert.TRUSTED_PUBLIC_KEY", None):
             with pytest.raises(SystemExit) as exc_info:
                 verify_certificate("dummy_cert.json", str(manifest_path))
