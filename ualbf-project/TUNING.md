@@ -17,7 +17,7 @@ The engine expects a `rust-engine/profile.json.template` file in the execution d
 
 ### Parameter Details
 
-- **POLLARD_RHO_BATCH_SIZE**
+- **pollard_rho_batch_size**
   - **Description**: The number of polynomial iterations ($f(x) = x^2 + 1$) performed before applying the GCD step in the Pollard-rho fallback factorization logic.
   - **Tuning Strategy**: For modern processors with deep instruction pipelines, larger batch sizes (e.g., 256 or 512) increase throughput by amortizing the cost of the GCD check. For very large factors or on low-cache systems, smaller sizes (e.g., 64) might prove more responsive.
 
@@ -122,20 +122,14 @@ In addition to user-tunable performance configurations, the engine depends on ve
   - **Description**: The product of the CRT moduli, defining the period of the obstruction pattern.
 
 - **lattice_precision_tolerance**
-  - **Description**: The float value specifying precision tolerance for lattice certifications.
-
-- **lattice_precision_tolerance**
   - **Description**: Precision tolerance threshold for floating point and lattice-based computations in the engine.
-
-- **lattice_precision_tolerance**
-  - **Description**: Floating-point precision tolerance used during lattice reduction and bounds calculations.
 
 - **lattice_target_penalty_base**
   - **Description**: Base scaling penalty factor for target matrix columns in dynamic lattice reduction.
 
 ## Fallback Defaults
 If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
-- POLLARD_RHO_BATCH_SIZE: 128
+- pollard_rho_batch_size: 128
 - active_prime_slots: 64
 - engine_telemetry_interval_ms: 1000
 - dashboard_telemetry_interval_ms: 250

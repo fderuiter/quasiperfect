@@ -64,6 +64,16 @@ def main():
         )
         sys.exit(1)
 
+    # Run tuning guide parameter validation against bounds and profile manifests
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    from validate_tuning_guide import validate_tuning_guide
+
+    ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    if not validate_tuning_guide(ualbf_project_dir):
+        sys.exit(1)
+
     # Check if a specific file list was provided (e.g. from PR)
     if len(sys.argv) > 1:
         pr_files_path = os.path.abspath(sys.argv[1])
