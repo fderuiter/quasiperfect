@@ -578,8 +578,7 @@ pub fn compute_path_continuity(path_ranges_json: &str) -> Result<String, String>
         gaps,
     };
 
-    serde_json::to_string(&result)
-        .map_err(|e| format!("Failed to serialize gaps JSON: {}", e))
+    serde_json::to_string(&result).map_err(|e| format!("Failed to serialize gaps JSON: {}", e))
 }
 
 #[cfg(feature = "python")]

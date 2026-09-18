@@ -9,6 +9,9 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+import auditor
+import cert_util
+
 
 def make_macro_name(s: str) -> str:
     # Replace digits with words
@@ -167,8 +170,6 @@ def write_telemetry_tex(
         else "verification_manifest.tex"
     )
 
-    import cert_util
-
     with open(telemetry_tex_path, "w", encoding="utf-8") as f:
         if has_cert:
             try:
@@ -313,8 +314,6 @@ def write_telemetry_tex(
                 manifest_data_macros = json.loads(mf_bytes.read().decode("utf-8"))
 
             # Requirement 4: Verify current hashes against codebase
-            import auditor
-
             rust_file = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                 "rust-engine",
