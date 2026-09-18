@@ -3,8 +3,6 @@ Modular unit and headless pipeline integration tests for terminal dashboard (run
 """
 
 import json
-import os
-import queue
 import sys
 from pathlib import Path
 
@@ -14,7 +12,6 @@ if str(rust_engine_dir) not in sys.path:
     sys.path.insert(0, str(rust_engine_dir))
 
 import run_gui  # noqa: E402
-
 
 # ==============================================================================
 # 1. CLI Argument Parsing Unit Tests
@@ -162,7 +159,7 @@ def test_lean_proof_status_missing_manifest(tmp_path, monkeypatch):
 
 def test_parse_line_for_ui_patterns():
     """Test regex log extraction in _parse_line_for_ui against engine output lines."""
-    # Progress update tick
+    # Progress update tick with (N total) format
     line_update = (
         "PROGRESS|UPDATE| P-Active: 3, 5, 7 (3 total) | Prefixes: 123 | AbPruned: 456"
     )
@@ -171,6 +168,18 @@ def test_parse_line_for_ui_patterns():
     assert res_update["active_str"] == "3, 5, 7 (3 total)"
     assert res_update["active_cnt"] == 3
     assert res_update["ab_pruned"] == 456
+
+    # Progress update tick without (N total) format
+    line_update_no_total = (
+        "PROGRESS|UPDATE| P-Active: 3, 5, 7, 11 | Prefixes: 100 | AbPruned: 200"
+    )
+    res_update_no_total = run_gui.CursesGUI._parse_line_for_ui(
+        None, line_update_no_total
+    )
+    assert res_update_no_total["type"] == "progress_update"
+    assert res_update_no_total["active_str"] == "3, 5, 7, 11"
+    assert res_update_no_total["active_cnt"] == 4
+    assert res_update_no_total["ab_pruned"] == 200
 
     # JSON progress events
     line_json_phase = '{"Phase": {"phase": 1, "name": "Legendre-Cattaneo Sieve"}}'
@@ -188,10 +197,17 @@ def test_parse_line_for_ui_patterns():
     assert res_json_dfs["type"] == "json_progress"
     assert res_json_dfs["event"]["DFSComplete"]["total_branches"] == 200
 
-    line_json_done = '{"Done": {"target_min_log10": 35, "target_max_log10": 37, "elapsed_ms": 1234}}'
+    line_json_done = (
+        '{"Done": {"target_min_log10": 35, "target_max_log10": 37, "elapsed_ms": 1234}}'
+    )
     res_json_done = run_gui.CursesGUI._parse_line_for_ui(None, line_json_done)
     assert res_json_done["type"] == "json_progress"
     assert res_json_done["event"]["Done"]["target_min_log10"] == 35
+
+    # Corrupted JSON starting with {
+    line_json_corrupt = '{"Phase": invalid_json_syntax'
+    res_json_corrupt = run_gui.CursesGUI._parse_line_for_ui(None, line_json_corrupt)
+    assert res_json_corrupt["type"] == "unstructured"
 
     # Init marker
     res_init = run_gui.CursesGUI._parse_line_for_ui(
@@ -265,13 +281,14 @@ def test_curses_gui_headless_queue_processing(monkeypatch, tmp_path):
 
     gui = run_gui.CursesGUI(stdscr=None, args=args)
 
-    # Inject messages into queue
+    # Inject messages into queue in logical pipeline execution order
     gui.queue.put({"type": "init"})
+    gui.queue.put({"type": "lean_build", "sub": "START"})
+    gui.queue.put({"type": "lean_build", "sub": "OK"})
+    gui.queue.put({"type": "lean_log", "text": "Building module..."})
+    gui.queue.put({"type": "lean_scan", "sorry": 0, "axiom": 0})
     gui.queue.put({"type": "target_bound", "min": "35", "max": "37"})
     gui.queue.put({"type": "retained_pruned", "retained": "120", "pruned": "880"})
-    gui.queue.put({"type": "dfs_complete", "ab_pruned": 15, "z3": 8, "conflicts": 3})
-    gui.queue.put({"type": "overflow"})
-    gui.queue.put({"type": "qp_found", "line": "QUASIPERFECT NUMBER FOUND N=100"})
     gui.queue.put(
         {
             "type": "json_progress",
@@ -293,6 +310,9 @@ def test_curses_gui_headless_queue_processing(monkeypatch, tmp_path):
             },
         }
     )
+    gui.queue.put({"type": "dfs_complete", "ab_pruned": 15, "z3": 8, "conflicts": 3})
+    gui.queue.put({"type": "overflow"})
+    gui.queue.put({"type": "qp_found", "line": "QUASIPERFECT NUMBER FOUND N=100"})
     gui.queue.put(
         {
             "type": "json_progress",
@@ -387,9 +407,7 @@ def test_curses_gui_headless_pipeline_auto_raise(monkeypatch, tmp_path):
 
     monkeypatch.setattr(run_gui.CursesGUI, "_run_engine", mock_run_engine)
     monkeypatch.setattr(run_gui.CursesGUI, "_draw_loop", mock_draw_loop)
-    monkeypatch.setattr(
-        run_gui.LeanProofStatus, "run_lake_build", mock_run_lake_build
-    )
+    monkeypatch.setattr(run_gui.LeanProofStatus, "run_lake_build", mock_run_lake_build)
     monkeypatch.setattr(run_gui.LeanProofStatus, "scan", mock_scan)
 
     monkeypatch.setattr(
