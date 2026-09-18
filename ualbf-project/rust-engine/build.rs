@@ -525,22 +525,24 @@ fn main() {
     }
 
     // --- Runtime Verus Hash Verification ---
-    let verus_proofs_path = PathBuf::from(&manifest_dir).join("src/verus_proofs.rs");
-    if verus_proofs_path.exists() {
-        let verus_content =
-            fs::read_to_string(&verus_proofs_path).expect("Failed to read verus_proofs.rs");
-        if verus_content
-            .split("verus! {")
-            .nth(1)
-            .map_or(false, |s| s.contains("#[cfg("))
-        {
-            panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
+    let mut runtime_verus_hashes = HashMap::new();
+    for verus_file in ["src/verus_proofs.rs", "src/lean_export.rs"] {
+        let path = PathBuf::from(&manifest_dir).join(verus_file);
+        if path.exists() {
+            let verus_content = fs::read_to_string(&path).expect("Failed to read verus file");
+            if verus_content
+                .split("verus! {")
+                .nth(1)
+                .map_or(false, |s| s.contains("#[cfg("))
+            {
+                panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
+            }
+            runtime_verus_hashes.extend(compute_verus_hashes(&verus_content));
         }
-        let runtime_verus_hashes = compute_verus_hashes(&verus_content);
+    }
 
-        if runtime_verus_hashes != proof_manifest.verus_hashes {
-            panic!("FATAL: Runtime Verus specification hashes do not match the proof manifest!");
-        }
+    if runtime_verus_hashes != proof_manifest.verus_hashes {
+        panic!("FATAL: Runtime Verus specification hashes do not match the proof manifest!");
     }
 
     // Citation validation

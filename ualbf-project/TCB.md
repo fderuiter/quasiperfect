@@ -13,7 +13,7 @@ The Bloom filter's wrapping double-hashing logic is formally verified in Lean 4 
 - **Verification Status:** The hash primitives themselves form part of the TCB and remain unverified.
 
 ## 3. Miller-Rabin Verification Boundaries
-The verification pipeline does not treat the 20-base Miller-Rabin sufficiency test as an active, trusted mathematical axiom. To preserve performance guarantees while maintaining complete mathematical certitude and transparency, the system configuration manifest and verification layer reject the assumption that any 20-base probabilistic check is axiomatically sufficient for primality. This is formally represented by the spec function "lean_miller_rabin_20_base_sufficiency" and the system bounds manifest `bounds_manifest.json`, where the "is_axiomatic" status is set to `false`.
+The verification pipeline does not treat the 20-base Miller-Rabin sufficiency test as an active, trusted mathematical axiom. To preserve performance guarantees while maintaining complete mathematical certitude and transparency, the system configuration manifest and verification layer reject the assumption that any 20-base probabilistic check is axiomatically sufficient for primality. This is formally represented by the spec function `lean_miller_rabin_20_base_sufficiency` and the system bounds manifest `bounds_manifest.json`, where the `is_axiomatic` status is set to `false`.
 
 Instead of probabilistic sufficiency assumptions, the framework employs a hybrid tiered primality pipeline in the `verified_is_prime` function:
 
