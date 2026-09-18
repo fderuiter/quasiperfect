@@ -168,3 +168,71 @@ def test_ffi_naming_validation():
         # Restore backup
         ffi_lean_path.write_text(ffi_backup, encoding="utf-8")
 
+
+def test_ffi_safety_layer_null_and_panic():
+    """
+    Test FFI safety layer under normal, null, and panic-inducing input conditions
+    using ctypes to invoke exported C ABI functions.
+    """
+    import ctypes
+    project_dir = Path(__file__).parent.parent
+
+    # Build verification-lib shared library
+    res = subprocess.run(
+        ["cargo", "build", "-p", "verification-lib", "--features", "signing"],
+        cwd=str(project_dir),
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0, f"Failed to build verification-lib: {res.stderr}"
+
+    lib_path = project_dir / "target/debug/libverification_lib.so"
+    if not lib_path.exists():
+        lib_path = project_dir / "target/debug/libverification_lib.dylib"
+    if not lib_path.exists():
+        pytest.skip("Shared library libverification_lib not found")
+
+    lib = ctypes.CDLL(str(lib_path))
+
+    # 1. Test rust_sha256_file with NULL
+    lib.rust_sha256_file.argtypes = [ctypes.c_char_p]
+    lib.rust_sha256_file.restype = ctypes.c_void_p
+    res = lib.rust_sha256_file(None)
+    assert res is None or res == 0
+
+    # 2. Test rust_sha256_file with non-existent file
+    res = lib.rust_sha256_file(b"non_existent_file_path_12345.txt")
+    assert res is None or res == 0
+
+    # 3. Test rust_free_string with NULL (must not crash)
+    lib.rust_free_string.argtypes = [ctypes.c_void_p]
+    lib.rust_free_string.restype = None
+    lib.rust_free_string(None)
+
+    # 4. Test verify_certificate with NULL arguments
+    lib.verify_certificate.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_bool),
+        ctypes.c_char_p,
+        ctypes.c_size_t,
+    ]
+    lib.verify_certificate.restype = ctypes.c_void_p
+    cert_res = lib.verify_certificate(None, None, None, None, 0)
+    assert cert_res is None or cert_res == 0
+
+    # 5. Test verify_certificate with invalid JSON input (should fail gracefully)
+    is_valid_out = ctypes.c_bool(True)
+    buf = ctypes.create_string_buffer(256)
+    cert_res = lib.verify_certificate(
+        b"invalid json {",
+        b"pubkey",
+        ctypes.byref(is_valid_out),
+        buf,
+        256,
+    )
+    assert cert_res is None or cert_res == 0
+    assert not is_valid_out.value
+    assert b"Failed to parse JSON" in buf.value
+
+

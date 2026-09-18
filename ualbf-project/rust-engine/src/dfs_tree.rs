@@ -5,7 +5,7 @@ pub extern "C" fn _rust_dfs_get_components_len(
     ctx: u64,
     _w: *mut crate::lean_ffi::lean_object,
 ) -> *mut crate::lean_ffi::lean_object {
-    let res = __rust_dfs_get_components_len(ctx);
+    let res = crate::ffi_boundary::catch_ffi_panic(0, || __rust_dfs_get_components_len(ctx));
     unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_uint32(res)) }
 }
 
@@ -14,7 +14,7 @@ pub extern "C" fn _rust_dfs_get_curr_last_idx(
     ctx: u64,
     _w: *mut crate::lean_ffi::lean_object,
 ) -> *mut crate::lean_ffi::lean_object {
-    let res = __rust_dfs_get_curr_last_idx(ctx);
+    let res = crate::ffi_boundary::catch_ffi_panic(0, || __rust_dfs_get_curr_last_idx(ctx));
     unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_uint32(res)) }
 }
 
@@ -24,7 +24,7 @@ pub extern "C" fn _rust_dfs_try_push(
     i: u32,
     _w: *mut crate::lean_ffi::lean_object,
 ) -> *mut crate::lean_ffi::lean_object {
-    let res = __rust_dfs_try_push(ctx, i);
+    let res = crate::ffi_boundary::catch_ffi_panic(false, || __rust_dfs_try_push(ctx, i));
     unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_bool(res)) }
 }
 
@@ -33,7 +33,7 @@ pub extern "C" fn _rust_dfs_pop(
     ctx: u64,
     _w: *mut crate::lean_ffi::lean_object,
 ) -> *mut crate::lean_ffi::lean_object {
-    __rust_dfs_pop(ctx);
+    crate::ffi_boundary::catch_ffi_panic((), || __rust_dfs_pop(ctx));
     unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_unit()) }
 }
 
@@ -42,7 +42,7 @@ pub extern "C" fn _rust_dfs_get_prasad_sunitha_info(
     ctx: u64,
     _w: *mut crate::lean_ffi::lean_object,
 ) -> *mut crate::lean_ffi::lean_object {
-    let res = __rust_dfs_get_prasad_sunitha_info(ctx);
+    let res = crate::ffi_boundary::catch_ffi_panic(0, || __rust_dfs_get_prasad_sunitha_info(ctx));
     unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_uint32(res)) }
 }
 
@@ -52,7 +52,9 @@ pub extern "C" fn _rust_dfs_check_evaluate(
     baseline_min: u32,
     _w: *mut crate::lean_ffi::lean_object,
 ) -> *mut crate::lean_ffi::lean_object {
-    let res = __rust_dfs_check_evaluate(ctx, baseline_min);
+    let res = crate::ffi_boundary::catch_ffi_panic(false, || {
+        __rust_dfs_check_evaluate(ctx, baseline_min)
+    });
     unsafe { crate::lean_ffi::rs_lean_io_result_mk_ok(crate::lean_ffi::rs_lean_box_bool(res)) }
 }
 
@@ -1398,18 +1400,45 @@ pub struct DfsContext<'a> {
 }
 
 pub fn __rust_dfs_get_components_len(ctx: u64) -> u32 {
-    let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
+    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+        return 0;
+    };
+    let dfs_ctx = unsafe {
+        match ctx_handle.as_ref() {
+            Some(r) => r,
+            None => return 0,
+        }
+    };
     dfs_ctx.components.len() as u32
 }
 
 pub fn __rust_dfs_get_curr_last_idx(ctx: u64) -> u32 {
-    let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
+    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+        return 0;
+    };
+    let dfs_ctx = unsafe {
+        match ctx_handle.as_ref() {
+            Some(r) => r,
+            None => return 0,
+        }
+    };
     dfs_ctx.curr.last_idx as u32
 }
 
 pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
-    let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
+    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+        return false;
+    };
+    let dfs_ctx = unsafe {
+        match ctx_handle.as_mut() {
+            Some(r) => r,
+            None => return false,
+        }
+    };
     let i = i as usize;
+    if i >= dfs_ctx.components.len() {
+        return false;
+    }
     let comp = &dfs_ctx.components[i];
 
     // RANGE PRUNING
@@ -1533,14 +1562,30 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
 }
 
 pub fn __rust_dfs_pop(ctx: u64) {
-    let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
+    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+        return;
+    };
+    let dfs_ctx = unsafe {
+        match ctx_handle.as_mut() {
+            Some(r) => r,
+            None => return,
+        }
+    };
     if let Some(parent) = dfs_ctx.saved_states.pop() {
         dfs_ctx.curr.restore_state(&parent);
     }
 }
 
 pub fn __rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
-    let dfs_ctx = unsafe { &*(ctx as *const DfsContext) };
+    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+        return 0;
+    };
+    let dfs_ctx = unsafe {
+        match ctx_handle.as_ref() {
+            Some(r) => r,
+            None => return 0,
+        }
+    };
     let curr = &dfs_ctx.curr;
     let mut info = 0;
     if curr.factors.contains(&3) {
@@ -1559,7 +1604,15 @@ pub fn __rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
 }
 
 pub fn __rust_dfs_check_evaluate(ctx: u64, _baseline_min: u32) -> bool {
-    let dfs_ctx = unsafe { &mut *(ctx as *mut DfsContext) };
+    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+        return false;
+    };
+    let dfs_ctx = unsafe {
+        match ctx_handle.as_mut() {
+            Some(r) => r,
+            None => return false,
+        }
+    };
 
     check_and_evaluate_node(
         dfs_ctx.curr,

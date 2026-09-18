@@ -2,6 +2,7 @@
 pub mod backbone;
 pub mod cdg;
 pub mod events;
+pub mod ffi_boundary;
 use crate::types::UintExt;
 pub mod obstruction;
 #[cfg(feature = "signing")]
