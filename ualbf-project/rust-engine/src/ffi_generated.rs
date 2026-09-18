@@ -69,42 +69,74 @@ extern "C" {
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w0(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[0] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[0])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w1(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[1] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[1])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w2(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[2] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[2])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w3(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[3] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[3])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w4(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[4] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[4])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w5(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[5] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[5])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w6(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[6] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[6])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn rust_u512_get_w7(obj: *mut crate::lean_ffi::lean_object) -> u64 {
-    unsafe { (*crate::lean_ffi::get_u512_ptr(obj))[7] }
+    crate::ffi_boundary::catch_ffi_panic(0, || {
+        crate::lean_ffi::get_u512_ptr(obj)
+            .map(|data| data[7])
+            .unwrap_or(0)
+    })
 }
 
 #[no_mangle]

@@ -21,7 +21,10 @@ pub fn lean_ffi_export(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     let #ident = crate::lean_ffi::LeanObjectWrapper::new(#ident);
                 });
                 arg_vars.push(quote! {
-                    let #ident: #ty = crate::lean_ffi::FromLean::from_lean(#ident.as_ptr());
+                    let #ident: #ty = match crate::lean_ffi::TryFromLean::try_from_lean(#ident.as_ptr()) {
+                        Ok(v) => v,
+                        Err(_) => return None,
+                    };
                 });
             }
         }
@@ -32,9 +35,15 @@ pub fn lean_ffi_export(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 #[no_mangle]
                 pub extern "C" fn #fn_name(#(#args),*) {
-                    #(#arg_wrappers)*
-                    #(#arg_vars)*
-                    #block
+                    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        #(#arg_wrappers)*
+                        let body = || -> Option<()> {
+                            #(#arg_vars)*
+                            #block;
+                            Some(())
+                        };
+                        body();
+                    }));
                 }
             }
         }
@@ -42,10 +51,15 @@ pub fn lean_ffi_export(_attr: TokenStream, item: TokenStream) -> TokenStream {
             quote! {
                 #[no_mangle]
                 pub extern "C" fn #fn_name(#(#args),*) -> *mut crate::lean_ffi::lean_object {
-                    #(#arg_wrappers)*
-                    #(#arg_vars)*
-                    let result: #ty = #block;
-                    crate::lean_ffi::ToLean::to_lean(&result).into_raw()
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        #(#arg_wrappers)*
+                        let body = || -> Option<*mut crate::lean_ffi::lean_object> {
+                            #(#arg_vars)*
+                            let result: #ty = #block;
+                            Some(crate::lean_ffi::ToLean::to_lean(&result).into_raw())
+                        };
+                        body().unwrap_or(std::ptr::null_mut())
+                    })).unwrap_or(std::ptr::null_mut())
                 }
             }
         }

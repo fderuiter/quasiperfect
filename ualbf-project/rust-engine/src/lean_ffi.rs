@@ -179,16 +179,16 @@ impl TryFromLean for Uint {
         if obj.is_null() {
             return Err(FfiError::NullPointer);
         }
-        let w = get_u512(obj);
-        let bytes = words_to_bytes::<8, 64>(&w);
+        let w = get_u512(obj).ok_or(FfiError::InvalidLayout)?;
+        let bytes = words_to_bytes::<8, 64>(w);
         Uint::from_le_slice(&bytes).ok_or(FfiError::InvalidLayout)
     }
 }
 impl FromLean for Uint {
     fn from_lean(obj: *mut lean_object) -> Self {
-        let w = get_u512(obj);
+        let w = get_u512(obj).copied().unwrap_or(ZERO_U512);
         let bytes = words_to_bytes::<8, 64>(&w);
-        Uint::from_le_slice(&bytes).unwrap()
+        Uint::from_le_slice(&bytes).unwrap_or_default()
     }
 }
 
@@ -226,16 +226,20 @@ pub fn alloc_u512(data: crate::lean_ffi::U512Data) -> *mut lean_object {
     }
 }
 
-pub unsafe fn get_u512_ptr(obj: *mut lean_object) -> *const crate::lean_ffi::U512Data {
-    unsafe { rs_lean_get_external_data(obj) as *const crate::lean_ffi::U512Data }
+pub fn get_u512_ptr(obj: *mut lean_object) -> Option<&'static crate::lean_ffi::U512Data> {
+    if obj.is_null() {
+        return None;
+    }
+    initialize_lean_runtime();
+    let ptr = unsafe { rs_lean_get_external_data(obj) as *const crate::lean_ffi::U512Data };
+    if ptr.is_null() || (ptr as usize) % std::mem::align_of::<crate::lean_ffi::U512Data>() != 0 {
+        return None;
+    }
+    unsafe { ptr.as_ref() }
 }
 
-pub fn get_u512(obj: *mut lean_object) -> crate::lean_ffi::U512Data {
-    initialize_lean_runtime();
-    unsafe {
-        let ptr = rs_lean_get_external_data(obj) as *mut crate::lean_ffi::U512Data;
-        *ptr
-    }
+pub fn get_u512(obj: *mut lean_object) -> Option<&'static crate::lean_ffi::U512Data> {
+    get_u512_ptr(obj)
 }
 
 #[inline(always)]
@@ -634,7 +638,7 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
         let opt_obj = ualbf_compute_sigma(p, pow as u64);
         if !is_none(opt_obj) {
             let obj = get_some(opt_obj);
-            let w = get_u512(obj);
+            let w = get_u512(obj).copied().unwrap_or(ZERO_U512);
             rs_lean_dec(opt_obj);
             let b = words_to_bytes::<8, 64>(&w);
             Some(Uint::from_le_slice(&b).unwrap())
@@ -669,7 +673,7 @@ pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> 
 
         if !is_none(opt_obj) {
             let obj = get_some(opt_obj);
-            let w = get_u512(obj);
+            let w = get_u512(obj).copied().unwrap_or(ZERO_U512);
             rs_lean_dec(opt_obj);
             let b = words_to_bytes::<8, 64>(&w);
             Some(Uint::from_le_slice(&b).unwrap())
@@ -806,7 +810,7 @@ pub fn run_cyclotomic_differential_fuzzing() {
                     let opt_obj = ualbf_cyclotomic_eval_pub(d, p_obj.as_ptr());
                     if !is_none(opt_obj) {
                         let obj = get_some(opt_obj);
-                        let w = get_u512(obj);
+                        let w = get_u512(obj).copied().unwrap_or(ZERO_U512);
                         rs_lean_dec(opt_obj);
                         let b = words_to_bytes::<8, 64>(&w);
                         Some(Uint::from_le_slice(&b).unwrap())
@@ -1196,6 +1200,12 @@ mod tests {
         let div_5_bound_pure = get_div_5_coprime_3_bound();
         std::env::remove_var("UALBF_PROOF_MODE");
         assert_eq!(div_5_bound_pure, 7);
+    }
+
+    #[test]
+    fn test_lean_ffi_export_null_and_panic_safety() {
+        let res = rust_dummy_macro_test(std::ptr::null_mut(), std::ptr::null_mut());
+        assert!(res.is_null());
     }
 }
 
