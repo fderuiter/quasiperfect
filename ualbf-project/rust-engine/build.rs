@@ -629,21 +629,25 @@ fn main() {
 
     let ir_dir = lean_project.join(".lake/build/ir");
     let is_gha = env::var("GITHUB_ACTIONS").unwrap_or_default() == "true";
+    let has_prebuilt = ir_dir.exists() && lean_project.join(".lake/build/lib/libUALBF.a").exists();
 
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
     // To avoid triggering complete dependency recompilations,
-    // we proactively purge only our own package's intermediate C-IR directories and files.
-    let ualbf_ir_dir = ir_dir.join("UALBF");
-    if ualbf_ir_dir.exists() {
-        let _ = fs::remove_dir_all(&ualbf_ir_dir);
-    }
-    let validator_ir_c = ir_dir.join("Validator.c");
-    if validator_ir_c.exists() {
-        let _ = fs::remove_file(&validator_ir_c);
-    }
-    let validator_ir_ot = ir_dir.join("Validator.ot");
-    if validator_ir_ot.exists() {
-        let _ = fs::remove_file(&validator_ir_ot);
+    // we proactively purge only our own package's intermediate C-IR directories and files,
+    // except when reusing pre-built Lean objects under GitHub Actions.
+    if !(is_gha && has_prebuilt) {
+        let ualbf_ir_dir = ir_dir.join("UALBF");
+        if ualbf_ir_dir.exists() {
+            let _ = fs::remove_dir_all(&ualbf_ir_dir);
+        }
+        let validator_ir_c = ir_dir.join("Validator.c");
+        if validator_ir_c.exists() {
+            let _ = fs::remove_file(&validator_ir_c);
+        }
+        let validator_ir_ot = ir_dir.join("Validator.ot");
+        if validator_ir_ot.exists() {
+            let _ = fs::remove_file(&validator_ir_ot);
+        }
     }
 
     // --- 1. Resolve Lean sysroot ---
