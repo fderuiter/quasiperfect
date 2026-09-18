@@ -958,6 +958,7 @@ fn main() {
     }
 
     fs::write(&dynamic_stubs_path, stubs).expect("Failed to write dynamic stubs");
+    let stubs_path = dynamic_stubs_path.clone();
     c_files.push(dynamic_stubs_path);
 
     // Verify all C files exist (they are produced by `lake build`)
@@ -972,8 +973,14 @@ fn main() {
     let mut builder = cc::Build::new();
     builder.include(&lean_include).warnings(false).opt_level(2);
 
-    for f in &c_files {
-        builder.file(f);
+    if has_prebuilt {
+        // When prebuilt Lean objects exist, libUALBF.a already contains all compiled UALBF C-IR symbols.
+        // Recompiling all C-IR files with cc::Build is redundant; we only compile dynamic_stubs_path.
+        builder.file(&stubs_path);
+    } else {
+        for f in &c_files {
+            builder.file(f);
+        }
     }
 
     builder.file("src/c_shims.c");
