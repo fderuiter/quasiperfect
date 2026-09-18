@@ -73,7 +73,9 @@ def make_manifest(theorems=None):
             if t.get("checksum") in ["x", "y", "allowed"]:
                 t["checksum"] = hashlib.sha256(content).hexdigest()
             if not any(pf["file"] == tf for pf in proof_files):
-                proof_files.append({"file": tf, "checksum": hashlib.sha256(content).hexdigest()})
+                proof_files.append(
+                    {"file": tf, "checksum": hashlib.sha256(content).hexdigest()}
+                )
 
     return {
         "theorems": theorems,
@@ -152,6 +154,7 @@ def build_cert(
         sig_bytes = bytearray(bytes.fromhex(sig_hex))
         sig_bytes[0] ^= 0xFF
         sig_hex = sig_bytes.hex()
+    os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
     return {
         "manifest_hash": manifest_hash,
         "verified_logic_hash": verified_logic_hash,
@@ -217,7 +220,12 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
         "trace_hash": trace_hash,
         "factorization_depth": factorization_depth,
     }
-    sidecar_hash = tel.get("sidecar_hash") or tel.get("sidecar_log_digest") or cert.get("sidecar_hash") or cert.get("sidecar_log_digest")
+    sidecar_hash = (
+        tel.get("sidecar_hash")
+        or tel.get("sidecar_log_digest")
+        or cert.get("sidecar_hash")
+        or cert.get("sidecar_log_digest")
+    )
     if sidecar_hash:
         map_obj["sidecar_hash"] = sidecar_hash
     if "path_ranges" in tel:
@@ -228,6 +236,7 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     pub_hex, sig_hex = sign_payload(payload)
     cert["signature"] = sig_hex
     cert["public_key"] = pub_hex
+    os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
 
     with open(cert_path, "w", encoding="utf-8") as f:
         json.dump(cert, f)
@@ -395,10 +404,13 @@ class TestPayloadFormat:
         local_cert = locals().get("cert")
         if local_cert is not None and "path_ranges" in local_cert.get("telemetry", {}):
             map_obj["path_ranges"] = local_cert["telemetry"]["path_ranges"]
-        elif local_cert is not None and "inner_paths" in local_cert.get("telemetry", {}):
+        elif local_cert is not None and "inner_paths" in local_cert.get(
+            "telemetry", {}
+        ):
             map_obj["path_ranges"] = local_cert["telemetry"]["inner_paths"]
         payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
         pub_hex, sig_hex = sign_payload(payload)
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
 
         cert = {
             "manifest_hash": manifest_hash,
@@ -690,6 +702,7 @@ class TestSidecarLogVerification:
         cert_path, manifest_path = write_files(manifest, cert)
 
         from verify_cert import verify_sidecar_file
+
         with open(cert_path, "r", encoding="utf-8") as f:
             loaded_cert = json.load(f)
 
@@ -707,6 +720,7 @@ class TestSidecarLogVerification:
         cert_path, manifest_path = write_files(manifest, cert)
 
         from verify_cert import verify_sidecar_file
+
         with open(cert_path, "r", encoding="utf-8") as f:
             loaded_cert = json.load(f)
 
@@ -807,6 +821,12 @@ class TestAggregationE2E:
         with open(os.path.join(tmpdir, "proof_manifest.json"), "w") as f:
             json.dump(manifest, f)
 
+        private_key = Ed25519PrivateKey.generate()
+        pub_bytes = private_key.public_key().public_bytes(
+            Encoding.Raw, PublicFormat.Raw
+        )
+        shared_pub_hex = pub_bytes.hex()
+
         def write_signed_cert(idx, t_min, t_max, path_ranges):
             cert = build_cert(
                 manifest["bounds_manifest_hash"],
@@ -834,9 +854,9 @@ class TestAggregationE2E:
             elif "inner_paths" in tel:
                 map_obj["path_ranges"] = tel["inner_paths"]
             payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
-            pub_hex, sig_hex = sign_payload(payload)
-            cert["signature"] = sig_hex
-            cert["public_key"] = pub_hex
+            sig = private_key.sign(payload.encode("utf-8"))
+            cert["signature"] = sig.hex()
+            cert["public_key"] = shared_pub_hex
 
             with open(os.path.join(cert_dir, f"cert_{idx}.json"), "w") as f:
                 json.dump(cert, f)
@@ -850,6 +870,7 @@ class TestAggregationE2E:
             os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
         )
         env = os.environ.copy()
+        env["UALBF_TRUSTED_PUBLIC_KEY"] = shared_pub_hex
 
         res = subprocess.run(
             [
@@ -956,6 +977,7 @@ class TestConditionalCertificates:
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
 
         cert_path = os.path.join(str(tmp_path), "formal_certificate.json")
         manifest_path = os.path.join(str(tmp_path), "proof_manifest.json")
@@ -1038,6 +1060,7 @@ class TestConditionalCertificates:
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
         with open(cert_path, "w") as f:
             json.dump(cert, f)
 
@@ -1205,6 +1228,7 @@ class TestDirectMappingAndSchemaEnforcement:
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
 
         # Check it passes first
         import verification_lib  # type: ignore
@@ -1301,6 +1325,7 @@ class TestDirectMappingAndSchemaEnforcement:
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
 
         import cert_util
 
@@ -1370,6 +1395,7 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
         return cert
 
     # Construct a mathematically valid witness (fully LLL-reduced and satisfying Schmidt bound):
@@ -1518,18 +1544,20 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     assert excinfo.value.code == 1
 
     # Case 6: Basis is not size-reduced is rejected
-    non_sizered_witnesses = [{
-        "dimension": 3,
-        "w": ["100", "200"],
-        "t": "50",
-        "transformation_matrix": [
-            ["1", "0", "0"],
-            ["0", "1", "0"],
-            ["0", "0", "1"]
-        ],
-        "epsilon": 1e-15,
-        "target_log": 0.1
-    }]
+    non_sizered_witnesses = [
+        {
+            "dimension": 3,
+            "w": ["100", "200"],
+            "t": "50",
+            "transformation_matrix": [
+                ["1", "0", "0"],
+                ["0", "1", "0"],
+                ["0", "0", "1"],
+            ],
+            "epsilon": 1e-15,
+            "target_log": 0.1,
+        }
+    ]
     cert_non_sizered = build_signed_cert_with_witnesses(non_sizered_witnesses)
     cert_non_sizered_path = os.path.join(str(tmp_path), "cert_non_sizered.json")
     with open(cert_non_sizered_path, "w") as f:
@@ -1540,18 +1568,20 @@ def test_post_execution_schmidt_bound_lattice_certification(tmp_path):
     assert excinfo.value.code == 1
 
     # Case 7: Basis size-reduced but violates Lovasz condition is rejected
-    non_lovasz_witnesses = [{
-        "dimension": 3,
-        "w": ["4", "0"],
-        "t": "2",
-        "transformation_matrix": [
-            ["1", "0", "0"],
-            ["0", "1", "0"],
-            ["0", "0", "1"]
-        ],
-        "epsilon": 1e-15,
-        "target_log": 0.1
-    }]
+    non_lovasz_witnesses = [
+        {
+            "dimension": 3,
+            "w": ["4", "0"],
+            "t": "2",
+            "transformation_matrix": [
+                ["1", "0", "0"],
+                ["0", "1", "0"],
+                ["0", "0", "1"],
+            ],
+            "epsilon": 1e-15,
+            "target_log": 0.1,
+        }
+    ]
     cert_non_lovasz = build_signed_cert_with_witnesses(non_lovasz_witnesses)
     cert_non_lovasz_path = os.path.join(str(tmp_path), "cert_non_lovasz.json")
     with open(cert_non_lovasz_path, "w") as f:
@@ -1572,7 +1602,7 @@ class TestGraphTopologyVerification:
             "adjacency": [[1], [2], []],
             "scc_map": [0, 1, 2],
             "scc_components": [[0], [1], [2]],
-            "forced_candidates": [[1], [2], []]
+            "forced_candidates": [[1], [2], []],
         }
         reachable_paths = [[0, 1, 2]]
         record = {
@@ -1582,7 +1612,7 @@ class TestGraphTopologyVerification:
             "reachable_paths": reachable_paths,
             "n_l": "1",
             "s_l": "1",
-            "factors": []
+            "factors": [],
         }
         trace_content = json.dumps(record) + "\n"
         with open(trace_path, "w", encoding="utf-8") as f:
@@ -1601,7 +1631,7 @@ class TestGraphTopologyVerification:
             "verification_status": "formally verified",
             "n_l": "1",
             "s_l": "1",
-            "factors": []
+            "factors": [],
         }
         trace_content = json.dumps(record) + "\n"
         with open(trace_path, "w", encoding="utf-8") as f:
@@ -1617,10 +1647,10 @@ class TestGraphTopologyVerification:
     def test_invalid_neighbor_out_of_bounds_fails(self, tmp_path):
         trace_path = os.path.join(tmp_path, "trace.jsonl")
         topology_manifest = {
-            "adjacency": [[99]], # 99 is out of bounds
+            "adjacency": [[99]],  # 99 is out of bounds
             "scc_map": [0],
             "scc_components": [[0]],
-            "forced_candidates": [[99]]
+            "forced_candidates": [[99]],
         }
         record = {
             "reason": "cdg_forced_cascade",
@@ -1629,7 +1659,7 @@ class TestGraphTopologyVerification:
             "reachable_paths": [[0]],
             "n_l": "1",
             "s_l": "1",
-            "factors": []
+            "factors": [],
         }
         trace_content = json.dumps(record) + "\n"
         with open(trace_path, "w", encoding="utf-8") as f:
@@ -1646,9 +1676,12 @@ class TestGraphTopologyVerification:
         trace_path = os.path.join(tmp_path, "trace.jsonl")
         topology_manifest = {
             "adjacency": [[1], []],
-            "scc_map": [0, 0], # node 1 mapped to scc 0, but missing from scc_components[0]
+            "scc_map": [
+                0,
+                0,
+            ],  # node 1 mapped to scc 0, but missing from scc_components[0]
             "scc_components": [[0], [1]],
-            "forced_candidates": [[1], []]
+            "forced_candidates": [[1], []],
         }
         record = {
             "reason": "cdg_forced_cascade",
@@ -1657,7 +1690,7 @@ class TestGraphTopologyVerification:
             "reachable_paths": [[0, 1]],
             "n_l": "1",
             "s_l": "1",
-            "factors": []
+            "factors": [],
         }
         trace_content = json.dumps(record) + "\n"
         with open(trace_path, "w", encoding="utf-8") as f:
@@ -1673,10 +1706,10 @@ class TestGraphTopologyVerification:
     def test_unreachable_path_step_fails(self, tmp_path):
         trace_path = os.path.join(tmp_path, "trace.jsonl")
         topology_manifest = {
-            "adjacency": [[], []], # no edges
+            "adjacency": [[], []],  # no edges
             "scc_map": [0, 1],
             "scc_components": [[0], [1]],
-            "forced_candidates": [[], []]
+            "forced_candidates": [[], []],
         }
         # Path claims 0 -> 1, but 0 -> 1 is NOT reachable
         reachable_paths = [[0, 1]]
@@ -1687,7 +1720,7 @@ class TestGraphTopologyVerification:
             "reachable_paths": reachable_paths,
             "n_l": "1",
             "s_l": "1",
-            "factors": []
+            "factors": [],
         }
         trace_content = json.dumps(record) + "\n"
         with open(trace_path, "w", encoding="utf-8") as f:
@@ -1715,12 +1748,7 @@ def test_compositeness_witness_certification(tmp_path):
     from verify_cert import verify_certificate
 
     bounds_manifest = {
-        "search_bounds": {
-            "target_min_log10": {
-                "value": 35,
-                "is_axiomatic": False
-            }
-        }
+        "search_bounds": {"target_min_log10": {"value": 35, "is_axiomatic": False}}
     }
     bounds_content = json.dumps(bounds_manifest).encode("utf-8")
     bounds_hash = hashlib.sha256(bounds_content).hexdigest()
@@ -1757,6 +1785,7 @@ def test_compositeness_witness_certification(tmp_path):
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
         return cert
 
     # Case 1: Valid divisor and Miller-Rabin witnesses pass
@@ -1812,9 +1841,7 @@ def test_compositeness_witness_certification(tmp_path):
     assert excinfo.value.code == 1
 
     # Case 5: Unknown witness_type is rejected
-    unknown_type_witnesses = [
-        {"candidate": 100, "witness_type": "magic", "witness": 2}
-    ]
+    unknown_type_witnesses = [{"candidate": 100, "witness_type": "magic", "witness": 2}]
     cert_unknown = build_signed_cert_with_comp_witnesses(unknown_type_witnesses)
     cert_unknown_path = os.path.join(str(tmp_path), "cert_unknown.json")
     with open(cert_unknown_path, "w") as f:
@@ -1894,6 +1921,7 @@ def test_verify_gpu_witnesses_cases(tmp_path):
         pub_hex, sig_hex = sign_payload(payload)
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
         return cert
 
     # Component p=3, two_e=2 -> residues:
@@ -1971,18 +1999,60 @@ def test_verify_gpu_witnesses_cases(tmp_path):
 def test_trace_canonicalization_verification(tmp_path):
     trace_path = os.path.join(tmp_path, "trace.jsonl")
     lines_out_of_order = [
-        {"work_unit_id": 1, "step_index": 0, "reason": "target_bound", "n_l": "200", "s_l": "100", "factors": []},
-        {"work_unit_id": 0, "step_index": 1, "reason": "min_factors", "n_l": "150", "s_l": "100", "factors": []},
-        {"work_unit_id": 0, "step_index": 0, "reason": "touchard", "n_l": "100", "s_l": "100", "factors": []},
+        {
+            "work_unit_id": 1,
+            "step_index": 0,
+            "reason": "target_bound",
+            "n_l": "200",
+            "s_l": "100",
+            "factors": [],
+        },
+        {
+            "work_unit_id": 0,
+            "step_index": 1,
+            "reason": "min_factors",
+            "n_l": "150",
+            "s_l": "100",
+            "factors": [],
+        },
+        {
+            "work_unit_id": 0,
+            "step_index": 0,
+            "reason": "touchard",
+            "n_l": "100",
+            "s_l": "100",
+            "factors": [],
+        },
     ]
     with open(trace_path, "w", encoding="utf-8") as f:
         for rec in lines_out_of_order:
             f.write(json.dumps(rec) + "\n")
 
     lines_sorted = [
-        {"work_unit_id": 0, "step_index": 0, "reason": "touchard", "n_l": "100", "s_l": "100", "factors": []},
-        {"work_unit_id": 0, "step_index": 1, "reason": "min_factors", "n_l": "150", "s_l": "100", "factors": []},
-        {"work_unit_id": 1, "step_index": 0, "reason": "target_bound", "n_l": "200", "s_l": "100", "factors": []},
+        {
+            "work_unit_id": 0,
+            "step_index": 0,
+            "reason": "touchard",
+            "n_l": "100",
+            "s_l": "100",
+            "factors": [],
+        },
+        {
+            "work_unit_id": 0,
+            "step_index": 1,
+            "reason": "min_factors",
+            "n_l": "150",
+            "s_l": "100",
+            "factors": [],
+        },
+        {
+            "work_unit_id": 1,
+            "step_index": 0,
+            "reason": "target_bound",
+            "n_l": "200",
+            "s_l": "100",
+            "factors": [],
+        },
     ]
     canonical_text = "".join(json.dumps(rec) + "\n" for rec in lines_sorted)
     expected_trace_hash = hashlib.sha256(canonical_text.encode("utf-8")).hexdigest()
@@ -1994,3 +2064,105 @@ def test_trace_canonicalization_verification(tmp_path):
     with open(trace_path, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == canonical_text
+
+
+class TestPinnedTrustedKeyValidation:
+    """Tests enforcing mandatory pinned trusted public key validation across all verification paths."""
+
+    def test_unset_trusted_key_fails_closed(self, capsys):
+        """When UALBF_TRUSTED_PUBLIC_KEY is unset, verification fails closed with exit code 1 and error on stderr."""
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        if "UALBF_TRUSTED_PUBLIC_KEY" in os.environ:
+            del os.environ["UALBF_TRUSTED_PUBLIC_KEY"]
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert (
+            "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set)."
+            in captured.err
+        )
+
+    def test_empty_trusted_key_fails_closed(self, capsys):
+        """When UALBF_TRUSTED_PUBLIC_KEY is empty, verification fails closed with exit code 1 and error on stderr."""
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = "   "
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert (
+            "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set)."
+            in captured.err
+        )
+
+    def test_mismatched_trusted_key_fails_closed(self, capsys):
+        """When embedded public key does not match UALBF_TRUSTED_PUBLIC_KEY, verification fails with exit code 1."""
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        wrong_key = "00" * 32
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = wrong_key
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert (
+            "Certificate public key does not match trusted signer key" in captured.err
+            or "Certificate public key does not match trusted signer key"
+            in captured.out
+        )
+
+    def test_valid_matching_trusted_key_passes(self):
+        """When UALBF_TRUSTED_PUBLIC_KEY matches the embedded key, verification succeeds."""
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = cert["public_key"]
+
+        verified_cert = verify_certificate(cert_path, manifest_path)
+        assert verified_cert["public_key"] == cert["public_key"]
+
+    def test_cert_util_load_and_validate_cert_rejects_missing_key(self):
+        """cert_util.load_and_validate_cert raises CertificateValidationError if trusted key is missing."""
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        if "UALBF_TRUSTED_PUBLIC_KEY" in os.environ:
+            del os.environ["UALBF_TRUSTED_PUBLIC_KEY"]
+
+        with pytest.raises(CertificateValidationError) as exc_info:
+            load_and_validate_cert(cert_path)
+        assert "No trusted public key is pinned" in str(exc_info.value)
+
+    def test_native_lib_validate_certificate_rejects_missing_or_mismatched_key(self):
+        """verification_lib.validate_certificate raises ValueError if trusted key is missing or mismatched."""
+        import verification_lib
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+        if "UALBF_TRUSTED_PUBLIC_KEY" in os.environ:
+            del os.environ["UALBF_TRUSTED_PUBLIC_KEY"]
+
+        with open(cert_path, "r", encoding="utf-8") as f:
+            cert_str = f.read()
+
+        with pytest.raises(ValueError) as exc_info:
+            verification_lib.validate_certificate(cert_str)
+        assert "No trusted public key is pinned" in str(exc_info.value)
+
+        with pytest.raises(ValueError) as exc_info:
+            verification_lib.validate_certificate(
+                cert_str, trusted_public_key="11" * 32
+            )
+        assert "Certificate public key does not match trusted signer key" in str(
+            exc_info.value
+        )

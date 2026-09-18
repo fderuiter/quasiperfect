@@ -244,7 +244,7 @@ def extract_axioms_from_lean_source(cwd: str) -> list[dict[str, str]]:
     stripping comments first and keeping track of namespaces.
     Returns a list of dicts: [{"name": fqn, "file": rel_path}]
     """
-    discovered_axioms = []
+    discovered_axioms: list[dict[str, str]] = []
     if not os.path.exists(cwd):
         return discovered_axioms
 

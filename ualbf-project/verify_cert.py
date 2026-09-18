@@ -751,16 +751,20 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     # Verify the certificate's public key matches the pinned trusted key
-    if TRUSTED_PUBLIC_KEY is not None:
-        if cert["public_key"] != TRUSTED_PUBLIC_KEY:
-            print(
-                f"ERROR: Certificate public key does not match trusted signer key!\nCertificate key: {cert['public_key']}\nTrusted key: {TRUSTED_PUBLIC_KEY}"
-            )
-            sys.exit(1)
-    else:
+    trusted_public_key = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
+    if not trusted_public_key or not trusted_public_key.strip():
         print(
-            "WARNING: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set). Accepting certificate's embedded key without validation."
+            "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set).",
+            file=sys.stderr,
         )
+        sys.exit(1)
+
+    if cert["public_key"] != trusted_public_key.strip():
+        print(
+            f"ERROR: Certificate public key does not match trusted signer key!\nCertificate key: {cert['public_key']}\nTrusted key: {trusted_public_key.strip()}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     tel = cert["telemetry"]
 

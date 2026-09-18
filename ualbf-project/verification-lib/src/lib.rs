@@ -310,9 +310,11 @@ use pyo3::types::{PyDict, PyList};
 
 #[cfg(feature = "python")]
 #[pyfunction]
+#[pyo3(signature = (cert_json_str, trusted_public_key=None))]
 pub fn validate_certificate<'py>(
     py: Python<'py>,
     cert_json_str: &str,
+    trusted_public_key: Option<&str>,
 ) -> PyResult<Bound<'py, PyAny>> {
     use pyo3::exceptions::{PyException, PyValueError};
 
@@ -322,6 +324,20 @@ pub fn validate_certificate<'py>(
             "Null byte detected in certificate content",
         ));
     }
+
+    // Resolve expected trusted public key from argument or environment variable
+    let env_key = std::env::var("UALBF_TRUSTED_PUBLIC_KEY").ok();
+    let trusted_key_str = match trusted_public_key.filter(|k| !k.trim().is_empty()) {
+        Some(k) => k.trim(),
+        None => match env_key.as_deref().filter(|k| !k.trim().is_empty()) {
+            Some(k) => k.trim(),
+            None => {
+                return Err(PyValueError::new_err(
+                    "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set).",
+                ));
+            }
+        },
+    };
 
     // Parse the JSON string
     let cert: serde_json::Value = serde_json::from_str(cert_json_str)
@@ -355,6 +371,25 @@ pub fn validate_certificate<'py>(
     let verified_extension_hash = obj.get("verified_extension_hash").and_then(|v| v.as_str());
     let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
     let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+
+    // Check mandatory fields to prevent empty strings being valid
+    if manifest_hash.is_empty() {
+        return Err(PyValueError::new_err("Missing manifest_hash"));
+    }
+    if public_key.is_empty() {
+        return Err(PyValueError::new_err("Missing public_key"));
+    }
+    if signature.is_empty() {
+        return Err(PyValueError::new_err("Missing signature"));
+    }
+
+    // Ensure embedded certificate public key matches trusted public key
+    if public_key != trusted_key_str {
+        return Err(PyValueError::new_err(format!(
+            "ERROR: Certificate public key does not match trusted signer key!\nCertificate key: {}\nTrusted key: {}",
+            public_key, trusted_key_str
+        )));
+    }
 
     let actual_manifest_hash = get_manifest_hash_at_runtime().map_err(|e| {
         PyException::new_err(format!("Failed to retrieve runtime manifest hash: {}", e))
@@ -439,23 +474,12 @@ pub fn validate_certificate<'py>(
         sidecar_hash,
     );
 
-    // Verify signature
-    let is_valid = verify_signature(public_key, signature, &payload)
+    // Verify signature strictly against the verified trusted key
+    let is_valid = verify_signature(trusted_key_str, signature, &payload)
         .map_err(|e| PyException::new_err(format!("Signature verification error: {}", e)))?;
 
     if !is_valid {
         return Err(PyException::new_err("Invalid cryptographic signature"));
-    }
-
-    // Check mandatory fields to prevent empty strings being valid
-    if manifest_hash.is_empty() {
-        return Err(PyValueError::new_err("Missing manifest_hash"));
-    }
-    if public_key.is_empty() {
-        return Err(PyValueError::new_err("Missing public_key"));
-    }
-    if signature.is_empty() {
-        return Err(PyValueError::new_err("Missing signature"));
     }
 
     // Return PyObject/PyDict directly to Python

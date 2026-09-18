@@ -254,7 +254,7 @@ class CertificateValidationError(CertificateError):
     pass
 
 
-def load_and_validate_cert(cert_path):
+def load_and_validate_cert(cert_path, trusted_public_key=None):
     """
     Loads and validates an exhaustion certificate from the given path.
     Delegates to the shared Rust native library to ensure 100% schema parity
@@ -267,6 +267,16 @@ def load_and_validate_cert(cert_path):
 
     if not os.path.exists(cert_path):
         raise CertificateValidationError(f"Certificate file not found: {cert_path}")
+
+    trusted_key = trusted_public_key or os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
+    if not trusted_key or not trusted_key.strip():
+        print(
+            "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set).",
+            file=sys.stderr,
+        )
+        raise CertificateValidationError(
+            "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set)."
+        )
 
     with open(cert_path, "r", encoding="utf-8") as f:
         cert_str = f.read()
@@ -283,8 +293,8 @@ def load_and_validate_cert(cert_path):
             )
             sys.exit(1)
 
-        # The native library validates the signature and structure
-        cert = verification_lib.validate_certificate(cert_str)
+        # The native library validates the signature, key, and structure
+        cert = verification_lib.validate_certificate(cert_str, trusted_key.strip())
     except Exception as e:
         raise CertificateValidationError(f"Validation failed: {e}")
 
