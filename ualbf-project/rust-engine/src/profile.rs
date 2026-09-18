@@ -22,7 +22,11 @@ impl Default for PerformanceProfile {
 }
 
 pub fn load_profile() -> PerformanceProfile {
-    match fs::read_to_string("profile.json") {
+    load_profile_from_path("profile.json")
+}
+
+pub fn load_profile_from_path<P: AsRef<std::path::Path>>(path: P) -> PerformanceProfile {
+    match fs::read_to_string(path) {
         Ok(content) => match serde_json::from_str(&content) {
             Ok(profile) => profile,
             Err(_) => PerformanceProfile::default(),
@@ -39,8 +43,6 @@ pub fn get_profile() -> &'static PerformanceProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    static TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_performance_profile_default() {
@@ -69,43 +71,40 @@ mod tests {
 
     #[test]
     fn test_load_profile_fallback_behavior() {
-        let _guard = TEST_MUTEX.lock().unwrap();
-        let orig_dir = std::env::current_dir().expect("Failed to get current dir");
         let temp_dir =
             std::env::temp_dir().join(format!("ualbf_test_profile_{}", std::process::id()));
         let _ = std::fs::create_dir_all(&temp_dir);
 
-        std::env::set_current_dir(&temp_dir).expect("Failed to set current dir");
-
         // 1. Missing file fallback
-        let profile_missing = load_profile();
+        let missing_path = temp_dir.join("non_existent_profile.json");
+        let profile_missing = load_profile_from_path(&missing_path);
         assert_eq!(profile_missing.pollard_rho_batch_size, 128);
         assert_eq!(profile_missing.active_prime_slots, 64);
 
         // 2. Corrupt file fallback
-        let corrupt_path = temp_dir.join("profile.json");
+        let corrupt_path = temp_dir.join("corrupt_profile.json");
         std::fs::write(&corrupt_path, "{ invalid json }").expect("Failed to write corrupt file");
 
-        let profile_corrupt = load_profile();
+        let profile_corrupt = load_profile_from_path(&corrupt_path);
         assert_eq!(profile_corrupt.pollard_rho_batch_size, 128);
         assert_eq!(profile_corrupt.active_prime_slots, 64);
 
         // 3. Valid profile loading
+        let valid_path = temp_dir.join("valid_profile.json");
         let valid_json = r#"{
             "pollard_rho_batch_size": 512,
             "active_prime_slots": 32,
             "engine_telemetry_interval_ms": 1500,
             "dashboard_telemetry_interval_ms": 300
         }"#;
-        std::fs::write(&corrupt_path, valid_json).expect("Failed to write valid file");
+        std::fs::write(&valid_path, valid_json).expect("Failed to write valid file");
 
-        let profile_valid = load_profile();
+        let profile_valid = load_profile_from_path(&valid_path);
         assert_eq!(profile_valid.pollard_rho_batch_size, 512);
         assert_eq!(profile_valid.active_prime_slots, 32);
         assert_eq!(profile_valid.engine_telemetry_interval_ms, 1500);
         assert_eq!(profile_valid.dashboard_telemetry_interval_ms, 300);
 
-        std::env::set_current_dir(orig_dir).expect("Failed to restore orig dir");
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 
