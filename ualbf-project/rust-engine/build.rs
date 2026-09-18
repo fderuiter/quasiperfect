@@ -533,7 +533,7 @@ fn main() {
             if verus_content
                 .split("verus! {")
                 .nth(1)
-                .map_or(false, |s| s.contains("#[cfg("))
+                .is_some_and(|s| s.contains("#[cfg("))
             {
                 panic!("FATAL: Bypass macros are not allowed inside verus! blocks");
             }
