@@ -157,6 +157,7 @@ def test_build_directories_excluded(tmp_path, monkeypatch):
     monkeypatch.setattr(validate_docs, "__file__", str(mock_script))
 
     monkeypatch.syspath_prepend(str(repo_root / "ualbf-project" / "scripts"))
+    monkeypatch.setattr(validate_docs, "validate_spec_sync", lambda repo_root: True)
 
     validate_docs.main()
 
