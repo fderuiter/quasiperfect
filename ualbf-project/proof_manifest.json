@@ -85,6 +85,12 @@
       "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
     },
     {
+      "name": "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
+      "file": "UALBF/QPN/PrasadSunitha.lean",
+      "status": "axiom",
+      "checksum": "6c80da50da0143084d998245ba9995d50b29b560b46e7ed26b40c545b2408cf9"
+    },
+    {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
       "file": "UALBF/Engine/Obstruction.lean",
       "status": "proven",
@@ -346,7 +352,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "9f2547f782b25bb2c93bc4c6669ccf83fd144706ab9ed3783f49a5d58c44e9a2"
+      "checksum": "00e20bbb39fba324d90e0480883a8ed37ae1a010f343911c3aa379aa3f61af2f"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
@@ -401,7 +407,7 @@
       "checksum": "ea74bcd0b0504f867b312064a41584a5d43fee87049299889ca0f732d095316b"
     }
   ],
-  "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
+  "bounds_manifest_hash": "34637db79282878d4850edae431c554d92cae5c3a76c9c01275aff2cc8cd0f10",
   "ghost_pruning_bindings": {
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",

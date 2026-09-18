@@ -303,10 +303,6 @@ def test_auditor_parses_quoted_lean4_theorem_names():
             os.chdir(old_cwd)
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_script_panics_on_legacy_axiom():
     """
     Test that the compile-time validation gatekeeper (build.rs) panics when encountering
@@ -364,10 +360,6 @@ def test_build_script_panics_on_legacy_axiom():
             build_rs_path.touch()
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_runtime_panics_on_legacy_axiom():
     """
     Test that the engine runtime panics and aborts execution during manifest validation
@@ -520,10 +512,6 @@ def test_auditor_rejects_compilation_failure():
             os.chdir(old_cwd)
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_build_script_panics_on_undefined_status():
     """
     Test that compile-time validation (build.rs) panics when encountering
@@ -1138,3 +1126,112 @@ def test_dynlib_args_excludes_sysroot_and_core_libs():
     # Verify non-FFI libraries (libInit_shared, libLean_shared) are excluded
     assert not any("libInit_shared.so" in lib for lib in loaded_dynlibs)
     assert not any("libLean_shared.so" in lib for lib in loaded_dynlibs)
+
+
+def test_auditor_scans_and_detects_qpn_div_5_coprime_3_omega_bound():
+    """
+    Test that auditor.py scans Lean source files and detects qpn_div_5_coprime_3_omega_bound,
+    setting its status to 'axiom' and failing audit generation under zero-axiom policy.
+    """
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and "find_axioms.lean" in args[-1]:
+            stdout = "depends on axioms: [propext, Classical.choice, Quot.sound]"
+            return mock.Mock(returncode=0, stdout=stdout, stderr="")
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            bounds_path = Path("bounds_manifest.json")
+            with open(bounds_path, "w") as f:
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 15,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "div_5_coprime_3": {
+                                "proof_bound": 11,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": True,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 7,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
+                    },
+                    f,
+                )
+
+            lean_dir = Path("lean4-proofs/UALBF/QPN")
+            lean_dir.mkdir(parents=True, exist_ok=True)
+            proof_file = lean_dir / "PrasadSunitha.lean"
+            proof_file.write_text("""
+            namespace UALBF.QPN.PrasadSunitha
+            axiom qpn_div_5_coprime_3_omega_bound {N : ℕ} : True
+            axiom custom_unmanifested_axiom {N : ℕ} : True
+            end UALBF.QPN.PrasadSunitha
+            """)
+
+            Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
+            with open("rust-engine/src/verus_proofs.rs", "w") as f:
+                f.write("verus! {}")
+
+            # Must exit with 1 due to presence of non-whitelisted axiom status in CORE_THEOREMS
+            with pytest.raises(SystemExit) as exc_info:
+                auditor.generate_manifest()
+
+            assert exc_info.value.code == 1
+
+            with open("proof_manifest.json", "r") as f:
+                manifest = json.load(f)
+
+            thm_entry = next(
+                (t for t in manifest["theorems"] if "custom_unmanifested_axiom" in t["name"]), None
+            )
+            assert thm_entry is not None
+            assert thm_entry["status"] == "axiom"
+
+        finally:
+            os.chdir(old_cwd)
+

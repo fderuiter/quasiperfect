@@ -141,17 +141,10 @@ def test_specification_parity():
     ), "Spec mismatch for CRT modulus product"
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_conjectural_bounds_conflict_fails_build():
     """
     Test that if conjectural bounds are active but the ceiling is set below the search floor,
     cargo check fails to compile and describes the conflicting parameters.
-
-    Note: This test is skipped under GHA parallel runs to decouple Python quality checks
-    from heavy Rust/Z3 cargo check compilation subprocesses, preventing execution timeouts.
     """
     import subprocess
     import shutil
@@ -229,10 +222,6 @@ def test_conjectural_bounds_conflict_fails_build():
             build_rs_path.touch()
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_prime_split_threshold_valid_61_success():
     """
     Test that configuring the exact baseline prime split threshold (61) builds successfully,
@@ -325,10 +314,6 @@ def test_prime_split_threshold_valid_61_success():
             build_rs_path.touch()
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_prime_split_threshold_invalid_above_61_fails():
     """
     Test that configuring a prime split threshold above 61 (e.g. 67) fails the build.
@@ -399,10 +384,6 @@ def test_prime_split_threshold_invalid_above_61_fails():
             build_rs_path.touch()
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_prime_split_threshold_invalid_below_61_fails():
     """
     Test that setting prime split threshold below 61 (e.g. 59) fails the build.
@@ -473,10 +454,6 @@ def test_prime_split_threshold_invalid_below_61_fails():
             build_rs_path.touch()
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment",
-)
 def test_prime_split_threshold_invalid_composite_fails():
     """
     Test that setting prime split threshold to a composite odd number (e.g. 69) fails the build.

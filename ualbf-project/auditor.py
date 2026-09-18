@@ -12,6 +12,7 @@ import re
 import contextlib
 from verify_metadata import (
     extract_fqns_from_lean_content,
+    extract_axioms_from_lean_source,
     strip_comments,
     SAFE_COMMON_WORDS,
 )
@@ -679,6 +680,29 @@ def generate_manifest():
         manifest["theorems"].append(
             {"name": thm, "file": rel_file, "status": status, "checksum": checksum}
         )
+
+    # Discover and incorporate Lean AST source code axioms
+    ast_discovered_axioms = extract_axioms_from_lean_source(cwd)
+    for ax in ast_discovered_axioms:
+        ax_name = ax["name"]
+        ax_file = ax["file"]
+
+        existing = next((t for t in manifest["theorems"] if t["name"] == ax_name), None)
+        if not existing:
+            status = (
+                "axiom" if has_lean else existing_statuses.get(ax_name, "unverified")
+            )
+            checksum = theorem_checksum(ax_name, ax_file, status)
+            manifest["theorems"].append(
+                {
+                    "name": ax_name,
+                    "file": ax_file,
+                    "status": status,
+                    "checksum": checksum,
+                }
+            )
+            if has_lean:
+                has_error = True
 
     # Add Verus-verified Rust component hashes
     rust_engine_dir = os.path.join(

@@ -6,10 +6,6 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
-)
 def test_guarded_rebuild_success():
     """
     Test that when lake build succeeds:
@@ -79,10 +75,6 @@ def test_guarded_rebuild_success():
         assert "FATAL: Lean proof verification failed!" not in res.stderr
 
 
-@pytest.mark.skipif(
-    os.environ.get("GITHUB_ACTIONS") == "true",
-    reason="Decouple Python checks from core builds under GHA environment"
-)
 def test_guarded_rebuild_failure():
     """
     Test that when lake build fails:
