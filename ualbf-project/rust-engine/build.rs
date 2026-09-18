@@ -627,14 +627,24 @@ fn main() {
 
     let ir_dir = lean_project.join(".lake/build/ir");
     let is_gha = env::var("GITHUB_ACTIONS").unwrap_or_default() == "true";
-    let has_prebuilt = ir_dir.exists() && lean_project.join(".lake/build/lib/libUALBF.a").exists();
+    let sysroot_env = env::var("LEAN_SYSROOT").unwrap_or_default();
+    let is_mock = env::var("MOCK_LEAN").unwrap_or_default() == "1"
+        || sysroot_env == "DUMMY"
+        || sysroot_env.contains("mock_lean_sysroot");
+    let ualbf_ir_dir = ir_dir.join("UALBF");
+    let has_prebuilt = is_gha
+        && !is_mock
+        && ualbf_ir_dir.exists()
+        && ualbf_ir_dir
+            .read_dir()
+            .map_or(false, |mut entries| entries.next().is_some())
+        && lean_project.join(".lake/build/lib/libUALBF.a").exists();
 
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
     // To avoid triggering complete dependency recompilations,
     // we proactively purge only our own package's intermediate C-IR directories and files,
     // except when reusing pre-built Lean objects under GitHub Actions.
-    if !(is_gha && has_prebuilt) {
-        let ualbf_ir_dir = ir_dir.join("UALBF");
+    if !has_prebuilt {
         if ualbf_ir_dir.exists() {
             let _ = fs::remove_dir_all(&ualbf_ir_dir);
         }
@@ -812,8 +822,7 @@ fn main() {
     }
 
     // Execute targeted module compilation instead of a full project build
-    let has_prebuilt = ir_dir.exists() && lean_project.join(".lake/build/lib/libUALBF.a").exists();
-    let lake_success = if is_gha && has_prebuilt {
+    let lake_success = if has_prebuilt {
         println!("cargo:warning=Running under GitHub Actions. Skipping redundant lake build since Lean objects are pre-built.");
         true
     } else {
