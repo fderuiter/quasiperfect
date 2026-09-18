@@ -594,6 +594,7 @@ SAFE_COMMON_WORDS = {
     "profile.rs",
     "state.rs",
     "lean_ffi.rs",
+    "ffi_boundary.rs",
     "backbone.rs",
     "universal_bounds.rs",
     "manifest_constants.rs",
