@@ -314,8 +314,6 @@ def write_telemetry_tex(
                 manifest_data_macros = json.loads(mf_bytes.read().decode("utf-8"))
 
             # Requirement 4: Verify current hashes against codebase
-            import auditor
-
             local_verus = {}
             for verus_file in ["verus_proofs.rs", "lean_export.rs"]:
                 rust_file = os.path.join(
