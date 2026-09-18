@@ -136,3 +136,168 @@ impl SearchBackbone {
         max_allowed
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::OnceLock;
+
+    #[test]
+    fn test_backbone_new_empty_inputs() {
+        let components: Vec<PrimePower> = vec![];
+        let lazy_cache: Arc<Vec<OnceLock<Result<Vec<Uint>, ()>>>> = Arc::new(vec![]);
+
+        let backbone = SearchBackbone::new(&components, &lazy_cache);
+
+        assert_eq!(backbone.num_components, 0);
+        assert!(backbone.compatibility_matrix.is_empty());
+        assert!(backbone.min_n_product.is_empty());
+
+        assert_eq!(
+            backbone.max_allowed_factors(0, Uint::one(), Uint::from_u64(1000)),
+            0
+        );
+        assert_eq!(
+            backbone.max_allowed_factors(5, Uint::one(), Uint::from_u64(1000)),
+            0
+        );
+    }
+
+    #[test]
+    fn test_backbone_multi_component_pre_resolved_and_compatibility() {
+        // Create 3 components:
+        // comp0: p = 3, val = 9, sigma_factors = [13]
+        // comp1: p = 5, val = 25, sigma_factors = [31]
+        // comp2: p = 13, val = 169, sigma_factors = [3, 61]
+        let comp0 = PrimePower {
+            p: 3,
+            two_e: 2,
+            val: Uint::from_u64(9),
+            sigma: Uint::from_u64(13),
+            sigma_factors: vec![Uint::from_u64(13)],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+        let comp1 = PrimePower {
+            p: 5,
+            two_e: 2,
+            val: Uint::from_u64(25),
+            sigma: Uint::from_u64(31),
+            sigma_factors: vec![Uint::from_u64(31)],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+        let comp2 = PrimePower {
+            p: 13,
+            two_e: 2,
+            val: Uint::from_u64(169),
+            sigma: Uint::from_u64(183),
+            sigma_factors: vec![Uint::from_u64(3), Uint::from_u64(61)],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+
+        let components = vec![comp0, comp1, comp2];
+
+        // Set up lazy cache: comp0 lazy cache includes 7
+        let lock0 = OnceLock::new();
+        let _ = lock0.set(Ok(vec![Uint::from_u64(7)]));
+        let lock1 = OnceLock::new();
+        let _ = lock1.set(Ok(vec![]));
+        let lock2 = OnceLock::new();
+        let _ = lock2.set(Ok(vec![]));
+
+        let lazy_cache = Arc::new(vec![lock0, lock1, lock2]);
+
+        let backbone = SearchBackbone::new(&components, &lazy_cache);
+
+        assert_eq!(backbone.num_components, 3);
+        assert_eq!(backbone.compatibility_matrix.len(), 3);
+
+        // Check compatibility matrix bits:
+        // comp0 (p=3) & comp1 (p=5): compatible -> bit 1 in row 0 is 1
+        assert_ne!(backbone.compatibility_matrix[0][0] & (1 << 1), 0);
+        // comp0 (sigma_factors contains 13) & comp2 (p=13): INcompatible -> bit 2 in row 0 is 0
+        assert_eq!(backbone.compatibility_matrix[0][0] & (1 << 2), 0);
+        // comp2 (sigma_factors contains 3) & comp0 (p=3): INcompatible -> bit 0 in row 2 is 0
+        assert_eq!(backbone.compatibility_matrix[2][0] & (1 << 0), 0);
+    }
+
+    #[test]
+    fn test_backbone_max_allowed_factors() {
+        let comp0 = PrimePower {
+            p: 3,
+            two_e: 2,
+            val: Uint::from_u64(9),
+            sigma: Uint::from_u64(13),
+            sigma_factors: vec![Uint::from_u64(13)],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+        let comp1 = PrimePower {
+            p: 5,
+            two_e: 2,
+            val: Uint::from_u64(25),
+            sigma: Uint::from_u64(31),
+            sigma_factors: vec![Uint::from_u64(31)],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+        let comp2 = PrimePower {
+            p: 7,
+            two_e: 2,
+            val: Uint::from_u64(49),
+            sigma: Uint::from_u64(57),
+            sigma_factors: vec![Uint::from_u64(19)],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+
+        let components = vec![comp0, comp1, comp2];
+        let lazy_cache = Arc::new(vec![OnceLock::new(), OnceLock::new(), OnceLock::new()]);
+
+        let backbone = SearchBackbone::new(&components, &lazy_cache);
+
+        // min_n_product[0]: [9, 225, 11025]
+        // 1 * 9 = 9 <= 100 -> 1 factor
+        // 1 * 225 = 225 > 100 -> stop -> 1 factor
+        assert_eq!(
+            backbone.max_allowed_factors(0, Uint::one(), Uint::from_u64(100)),
+            1
+        );
+
+        // 1 * 225 <= 1000 -> 2 factors
+        // 1 * 11025 > 1000 -> stop -> 2 factors
+        assert_eq!(
+            backbone.max_allowed_factors(0, Uint::one(), Uint::from_u64(1000)),
+            2
+        );
+
+        // Target bound 20000 -> all 3 factors allowed
+        assert_eq!(
+            backbone.max_allowed_factors(0, Uint::one(), Uint::from_u64(20000)),
+            3
+        );
+
+        // current_n = 50, target = 1000
+        // 50 * 9 = 450 <= 1000
+        // 50 * 225 = 11250 > 1000 -> 1 factor
+        assert_eq!(
+            backbone.max_allowed_factors(0, Uint::from_u64(50), Uint::from_u64(1000)),
+            1
+        );
+
+        // start_idx out of bounds
+        assert_eq!(
+            backbone.max_allowed_factors(3, Uint::one(), Uint::from_u64(1000)),
+            0
+        );
+
+        // Overflow boundary condition: current_n large enough to cause overflow
+        let huge_n = Uint::MAX;
+        assert_eq!(
+            backbone.max_allowed_factors(0, huge_n, Uint::from_u64(1000)),
+            0
+        );
+    }
+}

@@ -40,3 +40,62 @@ impl Prefix {
         self.sigma_mod24 = snap.sigma_mod24;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::UintExt;
+
+    #[test]
+    fn test_prefix_capture_and_restore_state() {
+        let mut prefix = Prefix {
+            n_l: Uint::from_u64(100),
+            s_l: Uint::from_u64(200),
+            last_idx: 5,
+            factors: vec![3, 5, 7],
+            sigma_factors: vec![Uint::from_u64(13), Uint::from_u64(31)],
+            sigma_factors_u64: vec![13, 31],
+            active_mask: vec![0b101, 0b010],
+            sigma_mod24: 1,
+        };
+
+        let snap = prefix.capture_state();
+
+        // Check captured snapshot
+        assert_eq!(snap.n_l, Uint::from_u64(100));
+        assert_eq!(snap.s_l, Uint::from_u64(200));
+        assert_eq!(snap.last_idx, 5);
+        assert_eq!(snap.factors_len, 3);
+        assert_eq!(snap.sigma_factors_len, 2);
+        assert_eq!(snap.sigma_factors_u64_len, 2);
+        assert_eq!(snap.active_mask, vec![0b101, 0b010]);
+        assert_eq!(snap.sigma_mod24, 1);
+
+        // Mutate prefix state
+        prefix.n_l = Uint::from_u64(999);
+        prefix.s_l = Uint::from_u64(888);
+        prefix.last_idx = 42;
+        prefix.factors.push(11);
+        prefix.factors.push(13);
+        prefix.sigma_factors.push(Uint::from_u64(57));
+        prefix.sigma_factors_u64.push(57);
+        prefix.active_mask = vec![0b111, 0b111, 0b111];
+        prefix.sigma_mod24 = 17;
+
+        // Restore state
+        prefix.restore_state(&snap);
+
+        // Assert restored values
+        assert_eq!(prefix.n_l, Uint::from_u64(100));
+        assert_eq!(prefix.s_l, Uint::from_u64(200));
+        assert_eq!(prefix.last_idx, 5);
+        assert_eq!(prefix.factors, vec![3, 5, 7]);
+        assert_eq!(
+            prefix.sigma_factors,
+            vec![Uint::from_u64(13), Uint::from_u64(31)]
+        );
+        assert_eq!(prefix.sigma_factors_u64, vec![13, 31]);
+        assert_eq!(prefix.active_mask, vec![0b101, 0b010]);
+        assert_eq!(prefix.sigma_mod24, 1);
+    }
+}
