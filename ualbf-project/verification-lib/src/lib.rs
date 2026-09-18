@@ -1,3 +1,5 @@
+pub mod ffi_boundary;
+
 #[cfg(feature = "signing")]
 pub use ed25519_dalek;
 #[cfg(feature = "signing")]
@@ -933,7 +935,6 @@ fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[cfg(feature = "signing")]
 #[no_mangle]
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn verify_certificate(
     cert_json_ptr: *const std::ffi::c_char,
     pub_key_ptr: *const std::ffi::c_char,
@@ -941,194 +942,216 @@ pub extern "C" fn verify_certificate(
     out_manifest_hash_buf: *mut std::ffi::c_char,
     out_manifest_hash_len: usize,
 ) -> *mut std::ffi::c_void {
+    use ffi_boundary::{FfiMutPtr, FfiPtr};
     use std::ffi::CStr;
 
-    unsafe {
-        *is_valid_out = false;
-    }
-
-    let write_error = |err: &str| unsafe {
-        if !out_manifest_hash_buf.is_null() && out_manifest_hash_len > 0 {
-            let bytes = err.as_bytes();
-            let copy_len = std::cmp::min(bytes.len(), out_manifest_hash_len - 1);
-            std::ptr::copy_nonoverlapping(
-                bytes.as_ptr(),
-                out_manifest_hash_buf as *mut u8,
-                copy_len,
-            );
-            *out_manifest_hash_buf.add(copy_len) = 0;
+    safe_ffi_boundary!(std::ptr::null_mut(), {
+        if let Some(mut valid_out) = FfiMutPtr::new(is_valid_out) {
+            *valid_out = false;
         }
-    };
 
-    if cert_json_ptr.is_null() || pub_key_ptr.is_null() {
-        return std::ptr::null_mut();
-    }
+        let write_error = |err: &str| {
+            if let Some(mut buf_ptr) = FfiMutPtr::new(out_manifest_hash_buf) {
+                if out_manifest_hash_len > 0 {
+                    let bytes = err.as_bytes();
+                    let copy_len = std::cmp::min(bytes.len(), out_manifest_hash_len - 1);
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            bytes.as_ptr(),
+                            buf_ptr.as_mut() as *mut std::ffi::c_char as *mut u8,
+                            copy_len,
+                        );
+                        *(buf_ptr.as_mut() as *mut std::ffi::c_char as *mut std::ffi::c_char)
+                            .add(copy_len) = 0;
+                    }
+                }
+            }
+        };
 
-    let cert_json_str = unsafe { CStr::from_ptr(cert_json_ptr) }.to_string_lossy();
-    let expected_pub_key = unsafe { CStr::from_ptr(pub_key_ptr) }.to_string_lossy();
+        let cert_json_ffi = match FfiPtr::new(cert_json_ptr) {
+            Some(p) => p,
+            None => return std::ptr::null_mut(),
+        };
+        let pub_key_ffi = match FfiPtr::new(pub_key_ptr) {
+            Some(p) => p,
+            None => return std::ptr::null_mut(),
+        };
 
-    let cert: serde_json::Value = match serde_json::from_str(&cert_json_str) {
-        Ok(c) => c,
-        Err(_) => {
-            write_error("Failed to parse JSON");
+        let cert_json_str =
+            unsafe { CStr::from_ptr(cert_json_ffi.as_ref() as *const std::ffi::c_char) }
+                .to_string_lossy();
+        let expected_pub_key =
+            unsafe { CStr::from_ptr(pub_key_ffi.as_ref() as *const std::ffi::c_char) }
+                .to_string_lossy();
+
+        let cert: serde_json::Value = match serde_json::from_str(&cert_json_str) {
+            Ok(c) => c,
+            Err(_) => {
+                write_error("Failed to parse JSON");
+                return std::ptr::null_mut();
+            }
+        };
+
+        let obj = match cert.as_object() {
+            Some(o) => o,
+            None => {
+                write_error("Certificate is not a JSON object");
+                return std::ptr::null_mut();
+            }
+        };
+
+        let telemetry_val = match obj.get("telemetry") {
+            Some(t) => t,
+            None => {
+                write_error("Missing or invalid telemetry object");
+                return std::ptr::null_mut();
+            }
+        };
+
+        if let Err(e) = validate_telemetry_numbers(telemetry_val) {
+            write_error(&format!("Telemetry validation failed: {}", e));
             return std::ptr::null_mut();
         }
-    };
 
-    let obj = match cert.as_object() {
-        Some(o) => o,
-        None => {
-            write_error("Certificate is not a JSON object");
+        let telemetry = match telemetry_val.as_object() {
+            Some(t) => t,
+            None => {
+                write_error("Telemetry is not a JSON object");
+                return std::ptr::null_mut();
+            }
+        };
+
+        let manifest_hash = obj
+            .get("manifest_hash")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let verified_logic_hash = obj
+            .get("verified_logic_hash")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let verified_extension_hash = obj.get("verified_extension_hash").and_then(|v| v.as_str());
+        let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
+        let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+
+        if public_key != expected_pub_key {
+            write_error("Certificate public key does not match trusted signer key!");
             return std::ptr::null_mut();
         }
-    };
 
-    let telemetry_val = match obj.get("telemetry") {
-        Some(t) => t,
-        None => {
-            write_error("Missing or invalid telemetry object");
-            return std::ptr::null_mut();
-        }
-    };
-
-    if let Err(e) = validate_telemetry_numbers(telemetry_val) {
-        write_error(&format!("Telemetry validation failed: {}", e));
-        return std::ptr::null_mut();
-    }
-
-    let telemetry = match telemetry_val.as_object() {
-        Some(t) => t,
-        None => {
-            write_error("Telemetry is not a JSON object");
-            return std::ptr::null_mut();
-        }
-    };
-
-    let manifest_hash = obj
-        .get("manifest_hash")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let verified_logic_hash = obj
-        .get("verified_logic_hash")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let verified_extension_hash = obj.get("verified_extension_hash").and_then(|v| v.as_str());
-    let public_key = obj.get("public_key").and_then(|v| v.as_str()).unwrap_or("");
-    let signature = obj.get("signature").and_then(|v| v.as_str()).unwrap_or("");
-
-    if public_key != expected_pub_key {
-        write_error("Certificate public key does not match trusted signer key!");
-        return std::ptr::null_mut();
-    }
-
-    match get_manifest_hash_at_runtime() {
-        Ok(actual_manifest_hash) => {
-            if manifest_hash != actual_manifest_hash {
-                write_error("Manifest hash mismatch in core verification engine!");
+        match get_manifest_hash_at_runtime() {
+            Ok(actual_manifest_hash) => {
+                if manifest_hash != actual_manifest_hash {
+                    write_error("Manifest hash mismatch in core verification engine!");
+                    return std::ptr::null_mut();
+                }
+            }
+            Err(e) => {
+                write_error(&format!("Failed to retrieve runtime manifest hash: {}", e));
                 return std::ptr::null_mut();
             }
         }
-        Err(e) => {
-            write_error(&format!("Failed to retrieve runtime manifest hash: {}", e));
+
+        let total_branches_searched = telemetry
+            .get("total_branches_searched")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+        let target_min_log10 = telemetry
+            .get("target_min_log10")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+        let target_max_log10 = telemetry
+            .get("target_max_log10")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+        let trace_hash = telemetry
+            .get("trace_hash")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let factorization_depth = telemetry
+            .get("factorization_depth")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as u32;
+        let (sampling_rate, deterministic_seed) = if let Some(profile) = telemetry
+            .get("verification_profile")
+            .and_then(|v| v.as_object())
+        {
+            (
+                profile.get("sampling_rate").and_then(|v| v.as_f64()),
+                profile.get("deterministic_seed").and_then(|v| v.as_u64()),
+            )
+        } else {
+            (None, None)
+        };
+
+        let is_conditional = obj.get("is_conditional").and_then(|v| v.as_bool());
+        let conjecture_name = obj
+            .get("conjecture")
+            .and_then(|v| v.as_object())
+            .and_then(|o| o.get("conjecture_name"))
+            .and_then(|v| v.as_str());
+
+        let path_ranges = telemetry
+            .get("path_ranges")
+            .or_else(|| telemetry.get("inner_paths"))
+            .or_else(|| telemetry.get("explored_ranges"))
+            .cloned();
+
+        let sidecar_hash = telemetry
+            .get("sidecar_hash")
+            .or_else(|| telemetry.get("sidecar_log_digest"))
+            .or_else(|| obj.get("sidecar_hash"))
+            .or_else(|| obj.get("sidecar_log_digest"))
+            .and_then(|v| v.as_str());
+
+        let verification_mode = obj.get("verification_mode").and_then(|v| v.as_str());
+
+        let payload = format_payload(
+            manifest_hash,
+            verified_logic_hash,
+            verified_extension_hash,
+            total_branches_searched,
+            target_min_log10,
+            target_max_log10,
+            trace_hash,
+            factorization_depth,
+            sampling_rate,
+            deterministic_seed,
+            is_conditional,
+            conjecture_name,
+            path_ranges,
+            verification_mode,
+            sidecar_hash,
+        );
+
+        let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);
+
+        if !is_valid || manifest_hash.is_empty() || signature.is_empty() {
+            write_error("Invalid cryptographic signature!");
             return std::ptr::null_mut();
         }
-    }
 
-    let total_branches_searched = telemetry
-        .get("total_branches_searched")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as usize;
-    let target_min_log10 = telemetry
-        .get("target_min_log10")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u32;
-    let target_max_log10 = telemetry
-        .get("target_max_log10")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u32;
-    let trace_hash = telemetry
-        .get("trace_hash")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let factorization_depth = telemetry
-        .get("factorization_depth")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u32;
-    let (sampling_rate, deterministic_seed) = if let Some(profile) = telemetry
-        .get("verification_profile")
-        .and_then(|v| v.as_object())
-    {
-        (
-            profile.get("sampling_rate").and_then(|v| v.as_f64()),
-            profile.get("deterministic_seed").and_then(|v| v.as_u64()),
-        )
-    } else {
-        (None, None)
-    };
+        if let Some(mut valid_out) = FfiMutPtr::new(is_valid_out) {
+            *valid_out = true;
+        }
+        write_error(manifest_hash);
 
-    let is_conditional = obj.get("is_conditional").and_then(|v| v.as_bool());
-    let conjecture_name = obj
-        .get("conjecture")
-        .and_then(|v| v.as_object())
-        .and_then(|o| o.get("conjecture_name"))
-        .and_then(|v| v.as_str());
-
-    let path_ranges = telemetry
-        .get("path_ranges")
-        .or_else(|| telemetry.get("inner_paths"))
-        .or_else(|| telemetry.get("explored_ranges"))
-        .cloned();
-
-    let sidecar_hash = telemetry
-        .get("sidecar_hash")
-        .or_else(|| telemetry.get("sidecar_log_digest"))
-        .or_else(|| obj.get("sidecar_hash"))
-        .or_else(|| obj.get("sidecar_log_digest"))
-        .and_then(|v| v.as_str());
-
-    let verification_mode = obj.get("verification_mode").and_then(|v| v.as_str());
-
-    let payload = format_payload(
-        manifest_hash,
-        verified_logic_hash,
-        verified_extension_hash,
-        total_branches_searched,
-        target_min_log10,
-        target_max_log10,
-        trace_hash,
-        factorization_depth,
-        sampling_rate,
-        deterministic_seed,
-        is_conditional,
-        conjecture_name,
-        path_ranges,
-        verification_mode,
-        sidecar_hash,
-    );
-
-    let is_valid = verify_signature(public_key, signature, &payload).unwrap_or(false);
-
-    if !is_valid || manifest_hash.is_empty() || signature.is_empty() {
-        write_error("Invalid cryptographic signature!");
-        return std::ptr::null_mut();
-    }
-
-    unsafe {
-        *is_valid_out = true;
-    }
-    write_error(manifest_hash);
-
-    Box::into_raw(Box::new(cert)) as *mut std::ffi::c_void
+        Box::into_raw(Box::new(cert)) as *mut std::ffi::c_void
+    })
 }
 
 #[cfg(feature = "signing")]
 #[no_mangle]
 pub extern "C" fn free_certificate(cert_ptr: *mut std::ffi::c_void) {
-    if !cert_ptr.is_null() {
-        unsafe {
-            let _ = Box::from_raw(cert_ptr as *mut serde_json::Value);
+    use ffi_boundary::FfiMutPtr;
+
+    safe_ffi_boundary!((), {
+        if let Some(mut ptr) = FfiMutPtr::new(cert_ptr) {
+            unsafe {
+                let _ =
+                    Box::from_raw(ptr.as_mut() as *mut std::ffi::c_void as *mut serde_json::Value);
+            }
         }
-    }
+    });
 }
 
 #[cfg(feature = "signing")]
@@ -1173,37 +1196,45 @@ fn get_manifest_hash_at_runtime() -> Result<String, String> {
 
 #[cfg(feature = "signing")]
 #[no_mangle]
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn rust_sha256_file(path_ptr: *const std::ffi::c_char) -> *mut std::ffi::c_char {
+    use ffi_boundary::FfiPtr;
     use sha2::{Digest, Sha256};
-    if path_ptr.is_null() {
-        return std::ptr::null_mut();
-    }
-    let c_str = unsafe { std::ffi::CStr::from_ptr(path_ptr) };
-    let path_str = match c_str.to_str() {
-        Ok(s) => s,
-        Err(_) => return std::ptr::null_mut(),
-    };
-    let bytes = match std::fs::read(path_str) {
-        Ok(b) => b,
-        Err(_) => return std::ptr::null_mut(),
-    };
-    let mut hasher = Sha256::new();
-    hasher.update(&bytes);
-    let hash_str = hex::encode(hasher.finalize());
-    let c_string = std::ffi::CString::new(hash_str).unwrap();
-    c_string.into_raw()
+
+    safe_ffi_boundary!(std::ptr::null_mut(), {
+        let path_ffi = match FfiPtr::new(path_ptr) {
+            Some(p) => p,
+            None => return std::ptr::null_mut(),
+        };
+        let c_str =
+            unsafe { std::ffi::CStr::from_ptr(path_ffi.as_ref() as *const std::ffi::c_char) };
+        let path_str = match c_str.to_str() {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let bytes = match std::fs::read(path_str) {
+            Ok(b) => b,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let mut hasher = Sha256::new();
+        hasher.update(&bytes);
+        let hash_str = hex::encode(hasher.finalize());
+        let c_string = std::ffi::CString::new(hash_str).unwrap();
+        c_string.into_raw()
+    })
 }
 
 #[cfg(feature = "signing")]
 #[no_mangle]
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn rust_free_string(ptr: *mut std::ffi::c_char) {
-    if !ptr.is_null() {
-        unsafe {
-            let _ = std::ffi::CString::from_raw(ptr);
+    use ffi_boundary::FfiMutPtr;
+
+    safe_ffi_boundary!((), {
+        if let Some(mut p) = FfiMutPtr::new(ptr) {
+            unsafe {
+                let _ = std::ffi::CString::from_raw(p.as_mut() as *mut std::ffi::c_char);
+            }
         }
-    }
+    });
 }
 
 #[cfg(test)]

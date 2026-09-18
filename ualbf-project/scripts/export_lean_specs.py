@@ -628,7 +628,7 @@ def generate_ffi(repo_root, schema, schema_hash):
 
     for i in range(limb_count):
         out.append(
-            f'#[no_mangle]\npub extern "C" fn rust_u512_get_w{i}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ unsafe {{ (*crate::lean_ffi::get_u512_ptr(obj))[{i}] }} }}\n'
+            f'#[no_mangle]\npub extern "C" fn rust_u512_get_w{i}(obj: *mut crate::lean_ffi::lean_object) -> u64 {{ crate::ffi_boundary::catch_ffi_panic(0, || crate::lean_ffi::get_u512_ptr(obj).map(|data| data[{i}]).unwrap_or(0)) }}\n'
         )
 
     mk_args = ", ".join(f"w{i}: u64" for i in range(limb_count))

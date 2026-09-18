@@ -130,6 +130,7 @@ To ensure 100% layout coverage and prevent documentation drift, the following co
 - `src/raycast.rs`
 - `src/math_utils.rs`
 - `src/lean_ffi.rs`
+- `src/ffi_boundary.rs`
 - `src/obstruction.rs`
 - `src/ffi_generated.rs`
 - `src/verus_proofs.rs`
