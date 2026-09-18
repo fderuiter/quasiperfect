@@ -29,7 +29,7 @@ check-core:
 	cargo clippy --workspace -- -D warnings
 	./scripts/check_lean_fmt.sh
 
-check-python:
+check-python: verification-lib
 	python3 scripts/check_literals.py
 	python3 verify_metadata.py
 	black --check .
