@@ -8,6 +8,7 @@ Covers:
 """
 
 import io
+import hashlib
 import json
 import os
 import sys
@@ -370,6 +371,277 @@ class TestManifestStatusGate(unittest.TestCase):
                 self.assertFalse(
                     os.path.exists(os.path.join(paper_dir, "telemetry.tex"))
                 )
+
+
+class TestMakeMacroName(unittest.TestCase):
+    def test_make_macro_name_formatting(self):
+        self.assertEqual(ingest_cert.make_macro_name("thm_123"), "HashThmOneTwoThree")
+        self.assertEqual(
+            ingest_cert.make_macro_name("fermat.3_sub"), "HashFermatThreeSub"
+        )
+        self.assertEqual(ingest_cert.make_macro_name("pure_spec"), "HashPureSpec")
+        self.assertEqual(
+            ingest_cert.make_macro_name("0123456789"),
+            "HashZeroOneTwoThreeFourFiveSixSevenEightNine",
+        )
+
+
+class TestLoadBounds(unittest.TestCase):
+    def test_load_bounds_missing_file_raises_exit(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            missing_path = os.path.join(tmp_dir, "no_bounds.json")
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.load_bounds(missing_path)
+            self.assertEqual(cm.exception.code, 1)
+
+    def test_load_bounds_missing_required_key_raises_exit(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            bounds_path = os.path.join(tmp_dir, "bad_bounds.json")
+            with open(bounds_path, "w", encoding="utf-8") as f:
+                json.dump({"omega_bounds": {}}, f)
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.load_bounds(bounds_path)
+            self.assertEqual(cm.exception.code, 1)
+
+    def test_load_bounds_success(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            bounds_path = os.path.join(tmp_dir, "bounds.json")
+            valid_data = {
+                "omega_bounds": {},
+                "euler_ceiling": 100,
+                "search_bounds": {},
+            }
+            with open(bounds_path, "w", encoding="utf-8") as f:
+                json.dump(valid_data, f)
+            res = ingest_cert.load_bounds(bounds_path)
+            self.assertEqual(res["euler_ceiling"], 100)
+
+
+class TestTelemetryMathAndHalts(unittest.TestCase):
+    def _create_env(self, root_dir, cert_extra=None, manifest_data=None):
+        paper_dir = os.path.join(root_dir, "paper")
+        os.makedirs(paper_dir, exist_ok=True)
+
+        bounds_data = {
+            "omega_bounds": {
+                "prasad_sunitha": {"proof_bound": 15, "engine_justified_gap": 0},
+                "hagis1982": {"proof_bound": 7, "engine_justified_gap": 0},
+            },
+            "euler_ceiling": 100,
+            "search_bounds": {
+                "target_min_log10": {"value": 35},
+                "target_max_log10": {"value": 37},
+            },
+        }
+        bounds_bytes = json.dumps(bounds_data).encode("utf-8")
+        bounds_hash = hashlib.sha256(bounds_bytes).hexdigest()
+
+        bounds_path = os.path.join(root_dir, "bounds_manifest.json")
+        with open(bounds_path, "wb") as f:
+            f.write(bounds_bytes)
+
+        if manifest_data is None:
+            manifest_data = {
+                "status": "verified",
+                "bounds_manifest_hash": bounds_hash,
+                "theorems": [
+                    {"name": "thm_one", "status": "proven", "checksum": "abc1"}
+                ],
+            }
+        else:
+            manifest_data["bounds_manifest_hash"] = bounds_hash
+
+        manifest_bytes = json.dumps(manifest_data).encode("utf-8")
+        manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
+
+        manifest_path = os.path.join(root_dir, "proof_manifest.json")
+        with open(manifest_path, "wb") as f:
+            f.write(manifest_bytes)
+
+        cert = _minimal_cert(cert_extra)
+        cert["manifest_hash"] = manifest_hash
+        cert_path = os.path.join(paper_dir, "cert.json")
+        with open(cert_path, "w", encoding="utf-8") as f:
+            json.dump(cert, f)
+
+        return paper_dir, bounds_path, manifest_path, cert_path
+
+    def test_missing_required_telemetry_field_halts(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            paper_dir = os.path.join(root_dir, "paper")
+            os.makedirs(paper_dir, exist_ok=True)
+            cert = _minimal_cert()
+            del cert["telemetry"]["phase2_execution_time_ms"]
+            cert_path = os.path.join(paper_dir, "cert.json")
+            with open(cert_path, "w", encoding="utf-8") as f:
+                json.dump(cert, f)
+
+            bounds_path = os.path.join(root_dir, "bounds_manifest.json")
+            with open(bounds_path, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 15,
+                                "engine_justified_gap": 0,
+                            },
+                            "hagis1982": {"proof_bound": 7, "engine_justified_gap": 0},
+                        },
+                        "euler_ceiling": 100,
+                        "search_bounds": {},
+                    },
+                    f,
+                )
+
+            manifest_path = os.path.join(root_dir, "proof_manifest.json")
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump({"status": "verified", "theorems": []}, f)
+
+            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+            try:
+                with self.assertRaises(SystemExit) as cm:
+                    ingest_cert.write_telemetry_tex(
+                        cert_path=cert_path,
+                        manifest_path=manifest_path,
+                        bounds_path=bounds_path,
+                        output_dir=paper_dir,
+                    )
+                self.assertEqual(cm.exception.code, 1)
+            finally:
+                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+
+    def test_bounds_exceeded_halts(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            paper_dir, bounds_path, manifest_path, cert_path = self._create_env(
+                root_dir, cert_extra={"bounds_exceeded": True}
+            )
+            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+            try:
+                with self.assertRaises(SystemExit) as cm:
+                    ingest_cert.write_telemetry_tex(
+                        cert_path=cert_path,
+                        manifest_path=manifest_path,
+                        bounds_path=bounds_path,
+                        output_dir=paper_dir,
+                    )
+                self.assertEqual(cm.exception.code, 1)
+            finally:
+                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+
+    def test_math_interruptions_halts(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            paper_dir, bounds_path, manifest_path, cert_path = self._create_env(
+                root_dir, cert_extra={"math_interruptions": 3}
+            )
+            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+            try:
+                with self.assertRaises(SystemExit) as cm:
+                    ingest_cert.write_telemetry_tex(
+                        cert_path=cert_path,
+                        manifest_path=manifest_path,
+                        bounds_path=bounds_path,
+                        output_dir=paper_dir,
+                    )
+                self.assertEqual(cm.exception.code, 1)
+            finally:
+                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+
+    def test_telemetry_math_successful_write(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            paper_dir, bounds_path, manifest_path, cert_path = self._create_env(
+                root_dir,
+                cert_extra={
+                    "abundance_pruned": 800,
+                    "raycast_pruned": 200,
+                    "phase2_execution_time_ms": 2000,
+                },
+            )
+            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+            try:
+                ingest_cert.write_telemetry_tex(
+                    cert_path=cert_path,
+                    manifest_path=manifest_path,
+                    bounds_path=bounds_path,
+                    output_dir=paper_dir,
+                )
+                tex_content = open(os.path.join(paper_dir, "telemetry.tex")).read()
+                self.assertIn(
+                    "\\newcommand{\\TelemetryPhaseTwoTime}{2.00}", tex_content
+                )
+                self.assertIn("\\newcommand{\\TelemetryPruned}{1,000}", tex_content)
+                self.assertIn(
+                    "\\newcommand{\\TelemetryAbundancePct}{80.0}", tex_content
+                )
+                self.assertIn("\\newcommand{\\TelemetryRaycastPct}{20.0}", tex_content)
+            finally:
+                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+
+
+class TestChainOfTrust(unittest.TestCase):
+    def test_manifest_hash_mismatch_halts(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            paper_dir = os.path.join(root_dir, "paper")
+            os.makedirs(paper_dir, exist_ok=True)
+
+            bounds_path = os.path.join(root_dir, "bounds_manifest.json")
+            with open(bounds_path, "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 15,
+                                "engine_justified_gap": 0,
+                            },
+                            "hagis1982": {"proof_bound": 7, "engine_justified_gap": 0},
+                        },
+                        "euler_ceiling": 100,
+                        "search_bounds": {},
+                    },
+                    f,
+                )
+
+            manifest_path = os.path.join(root_dir, "proof_manifest.json")
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump({"status": "verified", "theorems": []}, f)
+
+            cert = _minimal_cert()
+            cert["manifest_hash"] = (
+                "0000000000000000000000000000000000000000000000000000000000000000"
+            )
+            cert_path = os.path.join(paper_dir, "cert.json")
+            with open(cert_path, "w", encoding="utf-8") as f:
+                json.dump(cert, f)
+
+            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+            try:
+                with self.assertRaises(SystemExit) as cm:
+                    ingest_cert.write_telemetry_tex(
+                        cert_path=cert_path,
+                        manifest_path=manifest_path,
+                        bounds_path=bounds_path,
+                        output_dir=paper_dir,
+                    )
+                self.assertEqual(cm.exception.code, 1)
+            finally:
+                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+
+
+class TestCheckManuscriptCompliance(unittest.TestCase):
+    def test_manual_macro_definition_detected(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryPhaseTwoTime}{2.00}\n")
+
+            bad_tex = os.path.join(tmp_dir, "bad_section.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\ClaimedPhaseTwoTime}{2.00}\n")
+
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.check_manuscript_compliance(
+                    base_dir=tmp_dir, telemetry_tex_path=telemetry_path
+                )
+            self.assertEqual(cm.exception.code, 1)
 
 
 if __name__ == "__main__":

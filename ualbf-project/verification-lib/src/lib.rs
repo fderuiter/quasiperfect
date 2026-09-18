@@ -516,13 +516,9 @@ pub struct ContinuityResult {
     pub gaps: Vec<RangeWorkUnit>,
 }
 
-#[cfg(feature = "python")]
-#[pyfunction]
-pub fn check_path_continuity(path_ranges_json: &str) -> PyResult<String> {
-    use pyo3::exceptions::PyValueError;
-
+pub fn compute_path_continuity(path_ranges_json: &str) -> Result<String, String> {
     let mut ranges: Vec<RangeWorkUnit> = serde_json::from_str(path_ranges_json)
-        .map_err(|e| PyValueError::new_err(format!("Failed to parse path ranges JSON: {}", e)))?;
+        .map_err(|e| format!("Failed to parse path ranges JSON: {}", e))?;
 
     // Sort ranges lexicographically by start_bound, then by end_bound
     ranges.sort_by(|a, b| match a.start_bound.cmp(&b.start_bound) {
@@ -582,10 +578,15 @@ pub fn check_path_continuity(path_ranges_json: &str) -> PyResult<String> {
         gaps,
     };
 
-    let gaps_json = serde_json::to_string(&result)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize gaps JSON: {}", e)))?;
+    serde_json::to_string(&result)
+        .map_err(|e| format!("Failed to serialize gaps JSON: {}", e))
+}
 
-    Ok(gaps_json)
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn check_path_continuity(path_ranges_json: &str) -> PyResult<String> {
+    use pyo3::exceptions::PyValueError;
+    compute_path_continuity(path_ranges_json).map_err(PyValueError::new_err)
 }
 
 /// Strips comments and docstrings, preserving string and character literals.
@@ -1166,6 +1167,24 @@ mod tests {
     }
 
     #[test]
+    fn test_clean_source_nested_comments_and_literals() {
+        let code = r#"
+            // Line comment with { braces }
+            /* Outer comment
+               /* Nested comment */
+            */
+            let s = "String with // not a comment and /* block */";
+            let c = '/';
+        "#;
+        let cleaned = clean_source(code);
+        assert!(!cleaned.contains("Line comment"));
+        assert!(!cleaned.contains("Outer comment"));
+        assert!(!cleaned.contains("Nested comment"));
+        assert!(cleaned.contains(r#"let s = "String with // not a comment and /* block */";"#));
+        assert!(cleaned.contains("let c = '/';"));
+    }
+
+    #[test]
     fn test_braces_in_comments_and_strings() {
         let code = r#"
             pub fn my_func() {
@@ -1176,5 +1195,133 @@ mod tests {
         "#;
         let hashes = compute_verus_hashes(code);
         assert!(hashes.contains_key("my_func"));
+    }
+
+    #[test]
+    fn test_path_continuity_contiguous() {
+        let input = r#"[
+            {"start_bound": [], "end_bound": [10]},
+            {"start_bound": [10], "end_bound": [20]},
+            {"start_bound": [20], "end_bound": []}
+        ]"#;
+        let res_json = compute_path_continuity(input).expect("Should parse");
+        let res: ContinuityResult = serde_json::from_str(&res_json).unwrap();
+        assert!(res.is_continuous);
+        assert!(res.gaps.is_empty());
+    }
+
+    #[test]
+    fn test_path_continuity_out_of_order() {
+        let input = r#"[
+            {"start_bound": [10], "end_bound": [20]},
+            {"start_bound": [], "end_bound": [10]},
+            {"start_bound": [20], "end_bound": []}
+        ]"#;
+        let res_json = compute_path_continuity(input).expect("Should parse");
+        let res: ContinuityResult = serde_json::from_str(&res_json).unwrap();
+        assert!(res.is_continuous);
+        assert!(res.gaps.is_empty());
+    }
+
+    #[test]
+    fn test_path_continuity_overlapping() {
+        let input = r#"[
+            {"start_bound": [], "end_bound": [15]},
+            {"start_bound": [10], "end_bound": []}
+        ]"#;
+        let res_json = compute_path_continuity(input).expect("Should parse");
+        let res: ContinuityResult = serde_json::from_str(&res_json).unwrap();
+        assert!(!res.is_continuous);
+    }
+
+    #[test]
+    fn test_path_continuity_gap_recovery() {
+        // Gap in middle
+        let input_mid_gap = r#"[
+            {"start_bound": [], "end_bound": [10]},
+            {"start_bound": [15], "end_bound": []}
+        ]"#;
+        let res_json = compute_path_continuity(input_mid_gap).expect("Should parse");
+        let res: ContinuityResult = serde_json::from_str(&res_json).unwrap();
+        assert!(!res.is_continuous);
+        assert_eq!(res.gaps.len(), 1);
+        assert_eq!(res.gaps[0].start_bound, vec![10]);
+        assert_eq!(res.gaps[0].end_bound, vec![15]);
+
+        // Empty input
+        let empty_json = compute_path_continuity("[]").expect("Should parse");
+        let res_empty: ContinuityResult = serde_json::from_str(&empty_json).unwrap();
+        assert!(!res_empty.is_continuous);
+        assert_eq!(res_empty.gaps.len(), 1);
+    }
+
+    #[test]
+    fn test_validate_telemetry_numbers_valid() {
+        let v1 = serde_json::json!(100);
+        let v2 = serde_json::json!(-500);
+        let v3 = serde_json::json!(9223372036854775807u64);
+        let v4 = serde_json::json!({"branches": 1000, "depths": [1, 2, 3]});
+        assert!(validate_telemetry_numbers(&v1).is_ok());
+        assert!(validate_telemetry_numbers(&v2).is_ok());
+        assert!(validate_telemetry_numbers(&v3).is_ok());
+        assert!(validate_telemetry_numbers(&v4).is_ok());
+    }
+
+    #[test]
+    fn test_validate_telemetry_numbers_exceeds_limits() {
+        // Number exceeding 64-bit integer limits
+        let v_huge = serde_json::json!(1e25);
+        assert!(validate_telemetry_numbers(&v_huge).is_err());
+    }
+
+    #[cfg(feature = "signing")]
+    #[test]
+    fn test_hash_tcb_runtime() {
+        let temp_dir = std::env::temp_dir().join("ualbf_tcb_test");
+        let base_dir = temp_dir.join("rust-engine/src");
+        let _ = std::fs::create_dir_all(&base_dir);
+
+        for file in CORE_TCB_FILES {
+            let path = base_dir.join(file);
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(&path, b"test content");
+        }
+
+        let hash_res = compute_verified_core_hash_runtime(&temp_dir);
+        assert!(hash_res.is_ok());
+        let hash = hash_res.unwrap();
+        assert_eq!(hash.len(), 64);
+
+        let hash_ext_res = compute_verified_extension_hash_runtime(&temp_dir);
+        assert!(hash_ext_res.is_ok());
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[cfg(feature = "signing")]
+    #[test]
+    fn test_rust_free_string_and_sha256() {
+        let temp_path = std::env::temp_dir().join("test_sha256_file.txt");
+        let _ = std::fs::write(&temp_path, b"hello world");
+
+        let c_path = std::ffi::CString::new(temp_path.to_str().unwrap()).unwrap();
+        let ptr = rust_sha256_file(c_path.as_ptr());
+        assert!(!ptr.is_null());
+
+        let c_str = unsafe { std::ffi::CStr::from_ptr(ptr) };
+        assert_eq!(
+            c_str.to_str().unwrap(),
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+
+        // Safe free pointer
+        rust_free_string(ptr);
+
+        // Safe free null pointer
+        rust_free_string(std::ptr::null_mut());
+
+        let _ = std::fs::remove_file(&temp_path);
     }
 }
