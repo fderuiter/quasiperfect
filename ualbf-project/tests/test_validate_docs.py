@@ -137,6 +137,7 @@ def test_build_directories_excluded(tmp_path, monkeypatch):
     # Create markdown files inside build directories that should be excluded
     exclude_dirs = [
         ".lake",
+        "lake-packages",
         "target",
         "node_modules",
         "build",
@@ -222,9 +223,7 @@ class TestSlugifyAndAnchorExtraction(unittest.TestCase):
         self.assertEqual(
             validate_docs.slugify("1. Quick Start & Setup!"), "1-quick-start-setup"
         )
-        self.assertEqual(
-            validate_docs.slugify("Heading <a name='tag'></a>"), "heading"
-        )
+        self.assertEqual(validate_docs.slugify("Heading <a name='tag'></a>"), "heading")
 
     def test_extract_anchors(self):
         content = """# Main Heading
@@ -326,17 +325,13 @@ class TestLinkValidation(unittest.TestCase):
 
 class TestSpecSyncValidation(unittest.TestCase):
     def test_validate_spec_sync_pass(self):
-        repo_root = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..")
-        )
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         # Run validate_spec_sync on clean repo root
         result = validate_docs.validate_spec_sync(repo_root)
         self.assertTrue(result)
 
     def test_validate_spec_sync_detects_mismatch(self):
-        repo_root = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..")
-        )
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         bounds_path = os.path.join(repo_root, "ualbf-project", "bounds_manifest.json")
         spec_full = os.path.join(
             repo_root, "ualbf-project", "rust-engine", "src", "ffi_generated.rs"
