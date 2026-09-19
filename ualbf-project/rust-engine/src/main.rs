@@ -570,7 +570,9 @@ fn main() {
 
     // --- Runtime Audit: Verus Specification Hashes ---
     let verus_content = include_str!("verus_proofs.rs");
-    let runtime_verus_hashes = verification_lib::compute_verus_hashes(verus_content);
+    let lean_export_content = include_str!("lean_export.rs");
+    let mut runtime_verus_hashes = verification_lib::compute_verus_hashes(verus_content);
+    runtime_verus_hashes.extend(verification_lib::compute_verus_hashes(lean_export_content));
 
     if runtime_verus_hashes != manifest.verus_hashes {
         println!("ERROR: Runtime Verus specification hashes do not match the proof manifest!");

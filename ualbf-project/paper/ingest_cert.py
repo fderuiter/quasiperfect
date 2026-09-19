@@ -314,23 +314,25 @@ def write_telemetry_tex(
                 manifest_data_macros = json.loads(mf_bytes.read().decode("utf-8"))
 
             # Requirement 4: Verify current hashes against codebase
-            rust_file = os.path.join(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                "rust-engine",
-                "src",
-                "verus_proofs.rs",
-            )
-            if os.path.exists(rust_file):
-                with open(rust_file, "r", encoding="utf-8") as rf:
-                    local_verus = auditor.compute_verus_hashes(rf.read())
+            local_verus = {}
+            for verus_file in ["verus_proofs.rs", "lean_export.rs"]:
+                rust_file = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    "rust-engine",
+                    "src",
+                    verus_file,
+                )
+                if os.path.exists(rust_file):
+                    with open(rust_file, "r", encoding="utf-8") as rf:
+                        local_verus.update(auditor.compute_verus_hashes(rf.read()))
 
-                expected_verus = manifest_data_macros.get("verus_hashes", {})
-                for fn, expected_hash in expected_verus.items():
-                    if local_verus.get(fn) != expected_hash:
-                        print(
-                            f"Error: Local codebase hashes do not match proof_manifest.json! Modification detected in {fn}."
-                        )
-                        sys.exit(1)
+            expected_verus = manifest_data_macros.get("verus_hashes", {})
+            for fn, expected_hash in expected_verus.items():
+                if local_verus.get(fn) != expected_hash:
+                    print(
+                        f"Error: Local codebase hashes do not match proof_manifest.json! Modification detected in {fn}."
+                    )
+                    sys.exit(1)
 
             # Write LaTeX macros
             for thm in manifest_data_macros.get("theorems", []):
