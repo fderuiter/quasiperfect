@@ -295,32 +295,16 @@ def main():
     os.chdir(repo_root)
     all_md_files = glob.glob("**/*.md", recursive=True)
 
-    # Filter out common build directories
-    # Note: hidden directories like .pytest_cache are natively skipped by glob.glob unless include_hidden is set.
-    exclude_dirs = {
-        ".lake",
-        "target",
-        "node_modules",
-        "build",
-        ".git",
-        "venv",
-        ".venv",
-        ".direnv",
-        "lean-built",
-        "result",
-        ".mypy_cache",
-        ".pytest_cache",
-        "test-env",
-        "test_env",
-        "env",
-        ".env",
-    }
+    # Filter out common build, hidden, and virtual environment directories
+    exclude_exact = {"target", "node_modules", "build", "dist", "lean-built", "test-env", "test_env", "env", "venv", "virtualenv"}
     filtered_md_files = []
     for md_file in all_md_files:
         parts = md_file.split(os.sep)
         if not any(
-            p in exclude_dirs or p.startswith("result") or (p.startswith(".") and p != ".")
-            for p in parts[:-1]
+            part.startswith(".")
+            or part.startswith("result")
+            or part in exclude_exact
+            for part in parts
         ):
             filtered_md_files.append(md_file)
 
