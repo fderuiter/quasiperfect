@@ -20,14 +20,14 @@ import subprocess
 def slugify(text: str) -> str:
     """Convert heading text to a markdown anchor slug following GitHub conventions."""
     # Remove HTML tags if present
-    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r"<[^>]+>", "", text)
     # Convert to lowercase
     text = text.lower()
     # Strip punctuation except spaces and hyphens
-    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r"[^\w\s-]", "", text)
     # Replace spaces / whitespace with hyphens
-    text = re.sub(r'[\s]+', '-', text)
-    return text.strip('-')
+    text = re.sub(r"[\s]+", "-", text)
+    return text.strip("-")
 
 
 def extract_anchors(content: str) -> set:
@@ -45,19 +45,23 @@ def extract_anchors(content: str) -> set:
             continue
 
         # Match ATX headings: # Heading
-        m = re.match(r'^(#{1,6})\s+(.+)$', line_stripped)
+        m = re.match(r"^(#{1,6})\s+(.+)$", line_stripped)
         if m:
             heading_text = m.group(2).strip()
             # Strip trailing #s if any
-            heading_text = re.sub(r'\s+#+$', '', heading_text)
+            heading_text = re.sub(r"\s+#+$", "", heading_text)
             slug = slugify(heading_text)
             if slug:
                 anchors.add(slug)
                 # Also add single-hyphen collapsed slug for resilience
-                anchors.add(re.sub(r'-+', '-', slug))
+                anchors.add(re.sub(r"-+", "-", slug))
 
         # Match explicit HTML anchor names or ids: <a name="foo"> or <a id="foo">
-        html_anchors = re.findall(r'<(?:a|span|div)[^>]*(?:name|id)=["\']([^"\'\s>]+)["\']', line, re.IGNORECASE)
+        html_anchors = re.findall(
+            r'<(?:a|span|div)[^>]*(?:name|id)=["\']([^"\'\s>]+)["\']',
+            line,
+            re.IGNORECASE,
+        )
         for ha in html_anchors:
             anchors.add(ha)
             anchors.add(slugify(ha))
@@ -83,7 +87,7 @@ def extract_links(content: str) -> list:
             continue
 
         # Regex for markdown links: [text](url) and ![alt](url)
-        matches = re.findall(r'!?\[([^\]]*)\]\(([^)]+)\)', line)
+        matches = re.findall(r"!?\[([^\]]*)\]\(([^)]+)\)", line)
         for text, url in matches:
             links.append((idx, text, url.strip()))
 
@@ -100,7 +104,7 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
         abs_path = os.path.join(repo_root, rel_path)
         if os.path.exists(abs_path):
             try:
-                with open(abs_path, 'r', encoding='utf-8') as f:
+                with open(abs_path, "r", encoding="utf-8") as f:
                     content = f.read()
                 file_anchors[rel_path] = extract_anchors(content)
             except Exception as e:
@@ -113,7 +117,7 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
             continue
 
         try:
-            with open(abs_path, 'r', encoding='utf-8') as f:
+            with open(abs_path, "r", encoding="utf-8") as f:
                 content = f.read()
         except Exception:
             continue
@@ -123,18 +127,18 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
 
         for line_no, text, url in links:
             # Skip external links and email addresses
-            if url.startswith(('http://', 'https://', 'mailto:', 'ftp://', 'tel:')):
+            if url.startswith(("http://", "https://", "mailto:", "ftp://", "tel:")):
                 continue
 
             # Separate file path and anchor
-            if '#' in url:
-                target_path, anchor = url.split('#', 1)
+            if "#" in url:
+                target_path, anchor = url.split("#", 1)
             else:
                 target_path, anchor = url, None
 
             # Remove query parameters if present
-            if '?' in target_path:
-                target_path = target_path.split('?', 1)[0]
+            if "?" in target_path:
+                target_path = target_path.split("?", 1)[0]
 
             # If target_path is empty, it refers to an anchor in the current file
             if not target_path:
@@ -149,7 +153,7 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
                 print(
                     f"Error: Broken relative link in '{rel_path}:{line_no}':\n"
                     f"  Link text: '{text}' -> Target path '{target_path}' not found (resolved to '{target_rel}').",
-                    file=sys.stderr
+                    file=sys.stderr,
                 )
                 valid = False
                 continue
@@ -157,15 +161,17 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
             # If anchor is specified, check if anchor exists in target file
             if anchor:
                 # Skip line number anchors (e.g. #L100 or #L100-L200) or non-markdown file anchors
-                if re.match(r'^L\d+(?:-L\d+)?$', anchor, re.IGNORECASE) or not target_abs.endswith('.md'):
+                if re.match(
+                    r"^L\d+(?:-L\d+)?$", anchor, re.IGNORECASE
+                ) or not target_abs.endswith(".md"):
                     continue
 
                 # Get target file anchors
                 if target_rel in file_anchors:
                     anchors = file_anchors[target_rel]
-                elif target_abs.endswith('.md'):
+                elif target_abs.endswith(".md"):
                     try:
-                        with open(target_abs, 'r', encoding='utf-8') as tf:
+                        with open(target_abs, "r", encoding="utf-8") as tf:
                             anchors = extract_anchors(tf.read())
                             file_anchors[target_rel] = anchors
                     except Exception:
@@ -174,13 +180,17 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
                     anchors = set()
 
                 norm_anchor = slugify(anchor)
-                collapsed_anchor = re.sub(r'-+', '-', norm_anchor)
+                collapsed_anchor = re.sub(r"-+", "-", norm_anchor)
 
-                if norm_anchor not in anchors and collapsed_anchor not in anchors and anchor not in anchors:
+                if (
+                    norm_anchor not in anchors
+                    and collapsed_anchor not in anchors
+                    and anchor not in anchors
+                ):
                     print(
                         f"Error: Broken section anchor in '{rel_path}:{line_no}':\n"
                         f"  Link text: '{text}' -> Section anchor '#{anchor}' not found in '{target_rel}'.",
-                        file=sys.stderr
+                        file=sys.stderr,
                     )
                     valid = False
 
@@ -190,10 +200,15 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
 def validate_spec_sync(repo_root: str) -> bool:
     """Verify that generated specification artifacts match schema_manifest.json and bounds_manifest.json."""
     ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
-    spec_export_script = os.path.join(ualbf_project_dir, "scripts", "export_lean_specs.py")
+    spec_export_script = os.path.join(
+        ualbf_project_dir, "scripts", "export_lean_specs.py"
+    )
 
     if not os.path.exists(spec_export_script):
-        print(f"Error: export_lean_specs.py not found at {spec_export_script}.", file=sys.stderr)
+        print(
+            f"Error: export_lean_specs.py not found at {spec_export_script}.",
+            file=sys.stderr,
+        )
         return False
 
     spec_files = [
@@ -220,7 +235,7 @@ def validate_spec_sync(repo_root: str) -> bool:
         [sys.executable, spec_export_script],
         cwd=ualbf_project_dir,
         capture_output=True,
-        text=True
+        text=True,
     )
 
     if res.returncode != 0:
@@ -249,13 +264,13 @@ def validate_spec_sync(repo_root: str) -> bool:
         print(
             "Error: Specification synchronization check failed!\n"
             "The following generated specification files are out of sync with bounds_manifest.json / schema_manifest.json:",
-            file=sys.stderr
+            file=sys.stderr,
         )
         for m in mismatched:
             print(f"  - ualbf-project/{m}", file=sys.stderr)
         print(
             "\nRemedy: Run 'make verify-sync' or 'python3 scripts/export_lean_specs.py' to update generated specification artifacts.",
-            file=sys.stderr
+            file=sys.stderr,
         )
         return False
 
@@ -281,7 +296,9 @@ def main():
     manifest_path = os.path.join(repo_root, "docs_manifest.json")
 
     if not os.path.exists(manifest_path):
-        print(f"Error: docs_manifest.json not found at {manifest_path}.", file=sys.stderr)
+        print(
+            f"Error: docs_manifest.json not found at {manifest_path}.", file=sys.stderr
+        )
         sys.exit(1)
 
     with open(manifest_path, "r", encoding="utf-8") as f:
@@ -296,13 +313,29 @@ def main():
     all_md_files = glob.glob("**/*.md", recursive=True)
 
     # Filter out common build, hidden, and virtual environment directories
-    exclude_exact = {"target", "node_modules", "build", "dist", "lean-built", "test-env", "test_env", "env", "venv", "virtualenv"}
+    exclude_exact = {
+        "target",
+        "node_modules",
+        "build",
+        "dist",
+        "lean-built",
+        "test-env",
+        "test_env",
+        "env",
+        "venv",
+        "virtualenv",
+        "virtualenvs",
+        "lake-packages",
+        "lake-manifest",
+        "site-packages",
+    }
     filtered_md_files = []
     for md_file in all_md_files:
         parts = md_file.split(os.sep)
         if not any(
             part.startswith(".")
             or part.startswith("result")
+            or part.startswith("lake-")
             or part in exclude_exact
             for part in parts
         ):
