@@ -37,7 +37,7 @@ check-python: verification-lib
 	mypy .
 	python3 scripts/validate_docs.py --check-specs
 	python3 scripts/validate_tuning_guide.py
-	pytest tests
+	LEAN_SYSROOT=DUMMY pytest tests
 
 verify-sync: verification-lib
 	./scripts/export_lean_specs.py
