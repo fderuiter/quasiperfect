@@ -446,7 +446,7 @@ def test_auditor_rejects_compilation_failure():
         "auditor.check_lean_environment", return_value=True
     ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
         "auditor.check_imports", return_value=True
-    ), tempfile.TemporaryDirectory() as tmpdir:
+    ), mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}), tempfile.TemporaryDirectory() as tmpdir:
 
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
