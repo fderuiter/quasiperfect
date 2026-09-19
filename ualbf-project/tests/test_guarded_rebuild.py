@@ -18,61 +18,82 @@ def test_guarded_rebuild_success():
     lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
-    # Make sure we clean up only our targeted items within ir_dir to avoid destroying other precompiled objects
     ir_dir.mkdir(parents=True, exist_ok=True)
     ualbf_dir = ir_dir / "UALBF"
-    if ualbf_dir.exists():
-        shutil.rmtree(ualbf_dir)
-    ualbf_dir.mkdir(parents=True, exist_ok=True)
-    dummy_file = ualbf_dir / "dummy.c"
-    dummy_file.write_text("void some_func() {}")
-    
     validator_file = ir_dir / "Validator.c"
-    if validator_file.exists():
-        os.remove(validator_file)
-    validator_file.write_text("void some_func() {}")
 
-    # Create a temporary directory for mock tools and fake lean sysroot
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
 
-        # 1. Create a fake LEAN_SYSROOT include directory
-        fake_sysroot = tmp_path / "mock_lean_sysroot"
-        (fake_sysroot / "include").mkdir(parents=True, exist_ok=True)
+        # Backup existing precompiled artifacts to preserve workspace state after test execution
+        ualbf_backup = None
+        validator_backup = None
+        if ualbf_dir.exists():
+            ualbf_backup = tmp_path / "UALBF_backup"
+            shutil.copytree(ualbf_dir, ualbf_backup)
+        if validator_file.exists():
+            validator_backup = tmp_path / "Validator.c.backup"
+            shutil.copy2(validator_file, validator_backup)
 
-        # 2. Create a mock lake executable that succeeds
-        mock_lake = tmp_path / "lake"
-        mock_lake.write_text("#!/bin/sh\nexit 0\n")
-        mock_lake.chmod(0o755)
+        try:
+            if ualbf_dir.exists():
+                shutil.rmtree(ualbf_dir)
+            ualbf_dir.mkdir(parents=True, exist_ok=True)
+            dummy_file = ualbf_dir / "dummy.c"
+            dummy_file.write_text("void some_func() {}")
 
-        # Build environment
-        env = os.environ.copy()
-        env["LEAN_SYSROOT"] = str(fake_sysroot)
-        env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
+            if validator_file.exists():
+                os.remove(validator_file)
+            validator_file.write_text("void some_func() {}")
 
-        # Touch build.rs to force cargo to rerun it
-        build_rs_path = project_dir / "rust-engine/build.rs"
-        if build_rs_path.exists():
-            build_rs_path.touch()
+            # 1. Create a fake LEAN_SYSROOT include directory
+            fake_sysroot = tmp_path / "mock_lean_sysroot"
+            (fake_sysroot / "include").mkdir(parents=True, exist_ok=True)
 
-        # Run cargo check in rust-engine
-        res = subprocess.run(
-            ["cargo", "check"],
-            cwd=str(project_dir / "rust-engine"),
-            env=env,
-            capture_output=True,
-            text=True,
-        )
+            # 2. Create a mock lake executable that succeeds
+            mock_lake = tmp_path / "lake"
+            mock_lake.write_text("#!/bin/sh\nexit 0\n")
+            mock_lake.chmod(0o755)
 
-        # The dummy file and targeted directories/files should have been purged by build script
-        assert (
-            not dummy_file.exists()
-        ), "The intermediate C-IR dummy file was not purged!"
-        assert not ualbf_dir.exists(), "The intermediate UALBF directory was not purged!"
-        assert not validator_file.exists(), "The intermediate Validator.c file was not purged!"
+            # Build environment
+            env = os.environ.copy()
+            env["LEAN_SYSROOT"] = str(fake_sysroot)
+            env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
 
-        # The custom panic should NOT be in the output
-        assert "FATAL: Lean proof verification failed!" not in res.stderr
+            # Touch build.rs to force cargo to rerun it
+            build_rs_path = project_dir / "rust-engine/build.rs"
+            if build_rs_path.exists():
+                build_rs_path.touch()
+
+            # Run cargo check in rust-engine
+            res = subprocess.run(
+                ["cargo", "check"],
+                cwd=str(project_dir / "rust-engine"),
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+
+            # The dummy file and targeted directories/files should have been purged by build script
+            assert (
+                not dummy_file.exists()
+            ), "The intermediate C-IR dummy file was not purged!"
+            assert not ualbf_dir.exists(), "The intermediate UALBF directory was not purged!"
+            assert not validator_file.exists(), "The intermediate Validator.c file was not purged!"
+
+            # The custom panic should NOT be in the output
+            assert "FATAL: Lean proof verification failed!" not in res.stderr
+        finally:
+            # Restore backups if present
+            if ualbf_dir.exists():
+                shutil.rmtree(ualbf_dir)
+            if ualbf_backup and ualbf_backup.exists():
+                shutil.copytree(ualbf_backup, ualbf_dir)
+
+            if validator_file.exists():
+                os.remove(validator_file)
+            if validator_backup and validator_backup.exists():
+                shutil.copy2(validator_backup, validator_file)
 
 
 def test_guarded_rebuild_failure():
@@ -85,56 +106,77 @@ def test_guarded_rebuild_failure():
     lean_project_dir = project_dir / "lean4-proofs"
     ir_dir = lean_project_dir / ".lake/build/ir"
 
-    # Do not destroy the entire precompiled ir_dir. Only clean up our own targets if present.
     ualbf_dir = ir_dir / "UALBF"
-    if ualbf_dir.exists():
-        shutil.rmtree(ualbf_dir)
     validator_file = ir_dir / "Validator.c"
-    if validator_file.exists():
-        os.remove(validator_file)
 
-    # Create a temporary directory for mock tools and fake lean sysroot
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
 
-        # 1. Create a fake LEAN_SYSROOT include directory
-        fake_sysroot = tmp_path / "mock_lean_sysroot"
-        (fake_sysroot / "include").mkdir(parents=True, exist_ok=True)
+        # Backup existing precompiled artifacts to preserve workspace state after test execution
+        ualbf_backup = None
+        validator_backup = None
+        if ualbf_dir.exists():
+            ualbf_backup = tmp_path / "UALBF_backup"
+            shutil.copytree(ualbf_dir, ualbf_backup)
+        if validator_file.exists():
+            validator_backup = tmp_path / "Validator.c.backup"
+            shutil.copy2(validator_file, validator_backup)
 
-        # 2. Create a mock lake executable that fails
-        mock_lake = tmp_path / "lake"
-        mock_lake.write_text(
-            "#!/bin/sh\n" "echo 'Mock lake: simulated build error' >&2\n" "exit 1\n"
-        )
-        mock_lake.chmod(0o755)
+        try:
+            if ualbf_dir.exists():
+                shutil.rmtree(ualbf_dir)
+            if validator_file.exists():
+                os.remove(validator_file)
 
-        # Build environment
-        env = os.environ.copy()
-        env["LEAN_SYSROOT"] = str(fake_sysroot)
-        env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
+            # 1. Create a fake LEAN_SYSROOT include directory
+            fake_sysroot = tmp_path / "mock_lean_sysroot"
+            (fake_sysroot / "include").mkdir(parents=True, exist_ok=True)
 
-        # Touch build.rs to force cargo to rerun it
-        build_rs_path = project_dir / "rust-engine/build.rs"
-        if build_rs_path.exists():
-            build_rs_path.touch()
+            # 2. Create a mock lake executable that fails
+            mock_lake = tmp_path / "lake"
+            mock_lake.write_text(
+                "#!/bin/sh\n" "echo 'Mock lake: simulated build error' >&2\n" "exit 1\n"
+            )
+            mock_lake.chmod(0o755)
 
-        # Run cargo check in rust-engine
-        res = subprocess.run(
-            ["cargo", "check"],
-            cwd=str(project_dir / "rust-engine"),
-            env=env,
-            capture_output=True,
-            text=True,
-        )
+            # Build environment
+            env = os.environ.copy()
+            env["LEAN_SYSROOT"] = str(fake_sysroot)
+            env["PATH"] = f"{tmpdir}:{env.get('PATH', '')}"
 
-        # The build must fail
-        assert res.returncode != 0, "Cargo check succeeded when it should have failed!"
+            # Touch build.rs to force cargo to rerun it
+            build_rs_path = project_dir / "rust-engine/build.rs"
+            if build_rs_path.exists():
+                build_rs_path.touch()
 
-        # Verify detailed diagnostics and exact rerun command are in stderr
-        assert "FATAL: Lean proof verification failed!" in res.stderr
-        assert "Proof Logs / Build Directory:" in res.stderr
-        assert (
-            "To troubleshoot and rerun the verification manually, execute:"
-            in res.stderr
-        )
-        assert "cd lean4-proofs && lake build UALBF" in res.stderr
+            # Run cargo check in rust-engine
+            res = subprocess.run(
+                ["cargo", "check"],
+                cwd=str(project_dir / "rust-engine"),
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+
+            # The build must fail
+            assert res.returncode != 0, "Cargo check succeeded when it should have failed!"
+
+            # Verify detailed diagnostics and exact rerun command are in stderr
+            assert "FATAL: Lean proof verification failed!" in res.stderr
+            assert "Proof Logs / Build Directory:" in res.stderr
+            assert (
+                "To troubleshoot and rerun the verification manually, execute:"
+                in res.stderr
+            )
+            assert "cd lean4-proofs && lake build UALBF" in res.stderr
+        finally:
+            # Restore backups if present
+            if ualbf_dir.exists():
+                shutil.rmtree(ualbf_dir)
+            if ualbf_backup and ualbf_backup.exists():
+                shutil.copytree(ualbf_backup, ualbf_dir)
+
+            if validator_file.exists():
+                os.remove(validator_file)
+            if validator_backup and validator_backup.exists():
+                shutil.copy2(validator_backup, validator_file)

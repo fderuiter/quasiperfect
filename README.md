@@ -15,7 +15,7 @@
   - [Terminal Dashboard (Python)](#terminal-dashboard-python)
   - [Research Paper (LaTeX)](#research-paper-latex)
 - [Prerequisites](#prerequisites)
-- [Building](#building)
+- [Local Building](#local-building)
 - [Running](#running)
 - [Testing](#testing)
 - [Configuration](#configuration)
@@ -524,6 +524,12 @@ The engine:
 ### Legendre-Cattaneo Sieve (Phase 1)
 
 For each prime power p²ᵉ, σ(p²ᵉ) is computed and fully factored. If any prime factor q of σ(p²ᵉ) satisfies q ≡ 5 or 7 (mod 8), the component is pruned — formally justified by `legendre_cattaneo_obstruction` in `UALBF/QPN/Obstruction.lean`.
+
+---
+
+## Contributing
+
+Contributions to UALBF are welcome. Please ensure that all Lean 4 proofs compile cleanly (`lake build`), all Rust code passes tests (`cargo test`), and Python scripts pass validation (`make check-python`).
 
 ---
 

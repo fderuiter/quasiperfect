@@ -8,19 +8,30 @@ Covers:
   - Detection of unregistered markdown files
   - Build and virtual environment directory exclusions
   - PR argument file parsing and authoritative document flags
+  - Documentation link and anchor validation
+  - Specification synchronization verification
 """
 
 import io
 import json
 import os
 import sys
+import tempfile
 import types
+import unittest
+from pathlib import Path
+from unittest import mock
+
 import pytest
 
-# Ensure ualbf-project root is on sys.path
+# Ensure ualbf-project root and scripts directory are on sys.path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+scripts_dir = os.path.join(project_root, "scripts")
+if scripts_dir not in sys.path:
+    sys.path.insert(0, scripts_dir)
 
 import scripts.validate_docs as validate_docs  # noqa: E402
 
@@ -126,6 +137,7 @@ def test_build_directories_excluded(tmp_path, monkeypatch):
     # Create markdown files inside build directories that should be excluded
     exclude_dirs = [
         ".lake",
+        "lake-packages",
         "target",
         "node_modules",
         "build",
@@ -145,10 +157,8 @@ def test_build_directories_excluded(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "argv", [str(mock_script)])
     monkeypatch.setattr(validate_docs, "__file__", str(mock_script))
 
-    # Should run and exit normally without error (no SystemExit or exit code 0)
-    # validate_docs.main() does not exit when all files are registered unless pr_files requires it
-    # We mock validate_tuning_guide to avoid needing full project structure
     monkeypatch.syspath_prepend(str(repo_root / "ualbf-project" / "scripts"))
+    monkeypatch.setattr(validate_docs, "validate_spec_sync", lambda repo_root: True)
 
     validate_docs.main()
 
@@ -205,3 +215,146 @@ def test_pr_argument_unregistered_file_causes_exit(tmp_path, monkeypatch):
         "PR introduces a documentation file 'NEW_DOC.md' not registered in docs_manifest.json"
         in captured_err.getvalue()
     )
+
+
+class TestSlugifyAndAnchorExtraction(unittest.TestCase):
+    def test_slugify(self):
+        self.assertEqual(validate_docs.slugify("Overview"), "overview")
+        self.assertEqual(
+            validate_docs.slugify("1. Quick Start & Setup!"), "1-quick-start-setup"
+        )
+        self.assertEqual(validate_docs.slugify("Heading <a name='tag'></a>"), "heading")
+
+    def test_extract_anchors(self):
+        content = """# Main Heading
+
+## Sub Heading
+
+```markdown
+# Ignored Code Heading
+```
+
+<a name="custom-html-anchor"></a>
+### Section 2.1 (Details)
+"""
+        anchors = validate_docs.extract_anchors(content)
+        self.assertIn("main-heading", anchors)
+        self.assertIn("sub-heading", anchors)
+        self.assertIn("custom-html-anchor", anchors)
+        self.assertIn("section-21-details", anchors)
+        self.assertNotIn("ignored-code-heading", anchors)
+
+    def test_extract_links(self):
+        content = """
+Here is a [valid link](relative/doc.md#section).
+![An image](images/logo.png)
+
+```markdown
+[Ignored in code](ignored.md)
+```
+"""
+        links = validate_docs.extract_links(content)
+        self.assertEqual(len(links), 2)
+        self.assertEqual(links[0][1], "valid link")
+        self.assertEqual(links[0][2], "relative/doc.md#section")
+        self.assertEqual(links[1][1], "An image")
+        self.assertEqual(links[1][2], "images/logo.png")
+
+
+class TestLinkValidation(unittest.TestCase):
+    def test_validate_markdown_links_success(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            doc1 = tmp_path / "doc1.md"
+            doc2 = tmp_path / "doc2.md"
+
+            doc1.write_text(
+                "# Doc 1\n\nLink to [Doc 2](doc2.md#section-title).\nLink to [Self](#doc-1).\nLink to [External](https://example.com).\n",
+                encoding="utf-8",
+            )
+            doc2.write_text(
+                "# Doc 2\n\n## Section Title\n\nContent.\n", encoding="utf-8"
+            )
+
+            registered = ["doc1.md", "doc2.md"]
+            valid = validate_docs.validate_markdown_links(tmpdir, registered)
+            self.assertTrue(valid)
+
+    def test_validate_markdown_links_missing_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            doc1 = tmp_path / "doc1.md"
+            doc1.write_text("[Missing File](non_existent.md)\n", encoding="utf-8")
+
+            registered = ["doc1.md"]
+            valid = validate_docs.validate_markdown_links(tmpdir, registered)
+            self.assertFalse(valid)
+
+    def test_validate_markdown_links_missing_anchor(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            doc1 = tmp_path / "doc1.md"
+            doc2 = tmp_path / "doc2.md"
+
+            doc1.write_text(
+                "[Bad Anchor](doc2.md#non-existent-anchor)\n", encoding="utf-8"
+            )
+            doc2.write_text("# Doc 2\n\n## Existing Section\n", encoding="utf-8")
+
+            registered = ["doc1.md", "doc2.md"]
+            valid = validate_docs.validate_markdown_links(tmpdir, registered)
+            self.assertFalse(valid)
+
+    def test_validate_markdown_links_skips_line_anchors_and_code_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            doc1 = tmp_path / "doc1.md"
+            code1 = tmp_path / "Main.lean"
+
+            doc1.write_text(
+                "[Code line reference](Main.lean#L100-L120)\n", encoding="utf-8"
+            )
+            code1.write_text(
+                'def main : IO Unit := IO.println "hello"\n', encoding="utf-8"
+            )
+
+            registered = ["doc1.md"]
+            valid = validate_docs.validate_markdown_links(tmpdir, registered)
+            self.assertTrue(valid)
+
+
+class TestSpecSyncValidation(unittest.TestCase):
+    def test_validate_spec_sync_pass(self):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        # Run validate_spec_sync on clean repo root
+        result = validate_docs.validate_spec_sync(repo_root)
+        self.assertTrue(result)
+
+    def test_validate_spec_sync_detects_mismatch(self):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        bounds_path = os.path.join(repo_root, "ualbf-project", "bounds_manifest.json")
+        spec_full = os.path.join(
+            repo_root, "ualbf-project", "rust-engine", "src", "ffi_generated.rs"
+        )
+
+        original_bounds = Path(bounds_path).read_text(encoding="utf-8")
+        original_spec = Path(spec_full).read_text(encoding="utf-8")
+        try:
+            # Modify bounds manifest content
+            data = json.loads(original_bounds)
+            data["omega_bounds"]["prasad_sunitha"]["proof_bound"] = 99
+            Path(bounds_path).write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+            # validate_spec_sync should detect mismatch and restore original generated spec files
+            result = validate_docs.validate_spec_sync(repo_root)
+            self.assertFalse(result)
+
+            # Confirm original generated spec file content was preserved
+            restored_spec = Path(spec_full).read_text(encoding="utf-8")
+            self.assertEqual(restored_spec, original_spec)
+        finally:
+            Path(bounds_path).write_text(original_bounds, encoding="utf-8")
+
+
+if __name__ == "__main__":
+    unittest.main()
