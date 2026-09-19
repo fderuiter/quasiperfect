@@ -295,11 +295,17 @@ def main():
     os.chdir(repo_root)
     all_md_files = glob.glob("**/*.md", recursive=True)
 
-    # Filter out common build directories
-    exclude_dirs = [".lake", "target", "node_modules", "build", ".git", "venv", ".venv", ".direnv", "lean-built", "result", "test-env", "test_env", "env", ".env"]
+    # Filter out common build, hidden, and virtual environment directories
+    exclude_exact = {"target", "node_modules", "build", "dist", "lean-built", "test-env", "test_env", "env", "venv", "virtualenv"}
     filtered_md_files = []
     for md_file in all_md_files:
-        if not any(part in exclude_dirs for part in md_file.split(os.sep)):
+        parts = md_file.split(os.sep)
+        if not any(
+            part.startswith(".")
+            or part.startswith("result")
+            or part in exclude_exact
+            for part in parts
+        ):
             filtered_md_files.append(md_file)
 
     # Check if all .md files are registered in manifest
