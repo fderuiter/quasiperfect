@@ -43,4 +43,5 @@ hex = "0.4.3"
 
 [dev-dependencies]
 proptest = "1.0"
+cc = "1"
 
