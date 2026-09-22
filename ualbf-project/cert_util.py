@@ -254,6 +254,42 @@ class CertificateValidationError(CertificateError):
     pass
 
 
+def validate_sidecar_schema(sidecar_path: str) -> None:
+    """
+    Streams and validates line-by-line schema and numerical integrity for an overflow sidecar log.
+
+    Each non-empty line must contain exactly two comma-separated fields representing
+    prime base 'p' and power exponent 'pow', both as non-negative decimal integer strings.
+
+    Raises:
+        CertificateValidationError: If any line is malformed or contains non-numeric/negative values.
+    """
+    if not os.path.exists(sidecar_path):
+        raise CertificateValidationError(f"Sidecar log file not found: {sidecar_path}")
+
+    try:
+        with open(sidecar_path, "r", encoding="utf-8") as f:
+            for line_num, line in enumerate(f, start=1):
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                parts = line_str.split(",")
+                if len(parts) != 2:
+                    raise CertificateValidationError(
+                        f"Line {line_num}: invalid field count ({len(parts)} fields, expected 2) in record '{line_str}'"
+                    )
+                p_str = parts[0].strip()
+                pow_str = parts[1].strip()
+                if not p_str.isdigit() or not pow_str.isdigit():
+                    raise CertificateValidationError(
+                        f"Line {line_num}: non-numeric or negative field value in record '{line_str}'"
+                    )
+    except UnicodeDecodeError as e:
+        raise CertificateValidationError(
+            f"Sidecar log contains invalid UTF-8 encoding: {e}"
+        )
+
+
 def load_and_validate_cert(cert_path, trusted_public_key=None):
     """
     Loads and validates an exhaustion certificate from the given path.

@@ -242,7 +242,7 @@ def verify_trace_file(cert, trace_path):
 
 
 def verify_sidecar_file(cert, sidecar_path):
-    print("\n--- Verifying Sidecar Log Digest ---")
+    print("\n--- Verifying Sidecar Log Digest & Schema ---")
     tel = cert.get("telemetry", {})
     expected_hash = (
         tel.get("sidecar_hash")
@@ -261,9 +261,11 @@ def verify_sidecar_file(cert, sidecar_path):
         )
         sys.exit(1)
 
+    hasher = hashlib.sha256()
     with open(sidecar_path, "rb") as f:
-        sidecar_data = f.read()
-    computed_hash = hashlib.sha256(sidecar_data).hexdigest()
+        while chunk := f.read(65536):
+            hasher.update(chunk)
+    computed_hash = hasher.hexdigest()
 
     if computed_hash != expected_hash:
         print(
@@ -271,7 +273,13 @@ def verify_sidecar_file(cert, sidecar_path):
         )
         sys.exit(1)
 
-    print(f"✓ Sidecar log digest verified ({computed_hash}).")
+    try:
+        cert_util.validate_sidecar_schema(sidecar_path)
+    except cert_util.CertificateValidationError as e:
+        print(f"ERROR: Sidecar log schema validation failed: {e}")
+        sys.exit(1)
+
+    print(f"✓ Sidecar log digest and schema verified ({computed_hash}).")
 
 
 def verify_theorem_checksum(thm, manifest_path=None):

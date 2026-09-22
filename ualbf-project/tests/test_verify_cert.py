@@ -728,6 +728,101 @@ class TestSidecarLogVerification:
             verify_sidecar_file(loaded_cert, str(sidecar_file))
         assert exc_info.value.code != 0
 
+    def test_sidecar_schema_validation_field_count_mismatch(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        for bad_content in [b"3\n", b"3,2,1\n", b"3,\n", b",2\n"]:
+            sidecar_file = tmp_path / "overflow_sidecar_bad.log"
+            sidecar_file.write_bytes(bad_content)
+            digest = hashlib.sha256(bad_content).hexdigest()
+
+            manifest = make_manifest()
+            cert = build_cert("placeholder")
+            cert["telemetry"]["sidecar_hash"] = digest
+            cert_path, manifest_path = write_files(manifest, cert)
+
+            with open(cert_path, "r", encoding="utf-8") as f:
+                loaded_cert = json.load(f)
+
+            with pytest.raises(SystemExit) as exc_info:
+                verify_sidecar_file(loaded_cert, str(sidecar_file))
+            assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_non_numeric_and_negative(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        for bad_content in [b"abc,10\n", b"3,-1\n", b"-3,2\n", b"3.5,2\n", b"3,2.5\n"]:
+            sidecar_file = tmp_path / "overflow_sidecar_bad_val.log"
+            sidecar_file.write_bytes(bad_content)
+            digest = hashlib.sha256(bad_content).hexdigest()
+
+            manifest = make_manifest()
+            cert = build_cert("placeholder")
+            cert["telemetry"]["sidecar_hash"] = digest
+            cert_path, manifest_path = write_files(manifest, cert)
+
+            with open(cert_path, "r", encoding="utf-8") as f:
+                loaded_cert = json.load(f)
+
+            with pytest.raises(SystemExit) as exc_info:
+                verify_sidecar_file(loaded_cert, str(sidecar_file))
+            assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_blank_lines_and_whitespace(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        valid_content = b"\n\n  3 , 2  \n5,4\n\n  \n"
+        sidecar_file = tmp_path / "overflow_sidecar_valid.log"
+        sidecar_file.write_bytes(valid_content)
+        digest = hashlib.sha256(valid_content).hexdigest()
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = digest
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        # Should pass without SystemExit
+        verify_sidecar_file(loaded_cert, str(sidecar_file))
+
+    def test_cert_util_validate_sidecar_schema_directly(self, tmp_path):
+        from cert_util import validate_sidecar_schema, CertificateValidationError
+
+        # Test valid
+        valid_file = tmp_path / "valid.log"
+        valid_file.write_text("3,2\n11,100\n", encoding="utf-8")
+        validate_sidecar_schema(str(valid_file))
+
+        # Test invalid field count
+        bad_field_file = tmp_path / "bad_field.log"
+        bad_field_file.write_text("3,2\n5\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_field_file))
+        assert "Line 2" in str(exc_info.value)
+        assert "invalid field count" in str(exc_info.value)
+
+        # Test non-numeric
+        bad_num_file = tmp_path / "bad_num.log"
+        bad_num_file.write_text("3,2\nfoo,bar\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_num_file))
+        assert "Line 2" in str(exc_info.value)
+        assert "non-numeric" in str(exc_info.value)
+
+        # Test negative value
+        bad_neg_file = tmp_path / "bad_neg.log"
+        bad_neg_file.write_text("3,-2\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_neg_file))
+        assert "Line 1" in str(exc_info.value)
+
+        # Test missing file
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(tmp_path / "nonexistent.log"))
+        assert "not found" in str(exc_info.value)
+
 
 # ---------------------------------------------------------------------------
 # Tests: bound output
