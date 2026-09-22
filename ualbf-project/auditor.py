@@ -281,9 +281,10 @@ def _setup_staging_workspace(host_dir, staging_dir):
             ".direnv",
             "node_modules",
             "target",
+            "build",
         }
-        if os.path.basename(path) == ".lake" and "packages" in names:
-            ignored.add("packages")
+        if ".lake" in names:
+            ignored.add(".lake")
         return list(ignored)
 
     for item in os.listdir(host_dir):
@@ -308,12 +309,12 @@ def _setup_staging_workspace(host_dir, staging_dir):
         else:
             shutil.copy2(src_item, dst_item)
 
-    # Symlink .lake/packages if it exists in host
-    host_packages = os.path.join(host_dir, "lean4-proofs", ".lake", "packages")
-    staging_packages = os.path.join(staging_dir, "lean4-proofs", ".lake", "packages")
-    if os.path.exists(host_packages) and not os.path.exists(staging_packages):
-        os.makedirs(os.path.dirname(staging_packages), exist_ok=True)
-        os.symlink(host_packages, staging_packages)
+    # Symlink .lake if it exists in host
+    host_lake = os.path.join(host_dir, "lean4-proofs", ".lake")
+    staging_lake = os.path.join(staging_dir, "lean4-proofs", ".lake")
+    if os.path.exists(host_lake) and not os.path.exists(staging_lake):
+        os.makedirs(os.path.dirname(staging_lake), exist_ok=True)
+        os.symlink(host_lake, staging_lake)
 
     # Symlink prebuilt verification_cli and libverification_lib binaries if present
     for rel_sub in ["target/release", "verification-lib/target/release"]:
