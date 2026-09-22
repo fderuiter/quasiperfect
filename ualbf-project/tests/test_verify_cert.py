@@ -13,6 +13,7 @@ import os
 import sys
 import tempfile
 import subprocess
+from typing import Optional, List
 from unittest import mock
 import pytest  # type: ignore
 
@@ -144,7 +145,7 @@ def build_cert(
     target_max_log10: int = 37,
     target_min_log10: int = 35,
     tamper_sig: bool = False,
-    path_ranges: list | None = None,
+    path_ranges: Optional[list] = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
     payload = (
@@ -2322,7 +2323,9 @@ class TestMetaCertificateRecursionLimit:
 
             from verify_cert import verify_meta_certificate
 
-            with mock.patch("verify_cert.verify_certificate", return_value=leaf_cert):
+            with mock.patch("verify_cert.verify_certificate", return_value=leaf_cert), mock.patch(
+                "verify_cert.verify_telemetry_paths"
+            ), mock.patch("verify_cert.check_continuity"):
                 res = verify_meta_certificate(current_node, manifest_path, current_depth=0)
                 assert res is not None
         finally:

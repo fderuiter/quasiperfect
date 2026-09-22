@@ -149,10 +149,10 @@ def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
 
 
 def write_telemetry_tex(
-    cert_path: str | None = None,
-    manifest_path: str | None = None,
-    bounds_path: str | None = None,
-    output_dir: str | None = None,
+    cert_path: Optional[str] = None,
+    manifest_path: Optional[str] = None,
+    bounds_path: Optional[str] = None,
+    output_dir: Optional[str] = None,
 ) -> None:
     if bounds_path is None:
         bounds_path = os.path.join(
@@ -411,7 +411,7 @@ def write_telemetry_tex(
 
 
 def check_manuscript_compliance(
-    base_dir: str | None = None, telemetry_tex_path: str | None = None
+    base_dir: Optional[str] = None, telemetry_tex_path: Optional[str] = None
 ) -> None:
     if base_dir is None:
         base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -477,10 +477,10 @@ def check_manuscript_compliance(
 
 
 def main(
-    cert_path: str | None = None,
-    manifest_path: str | None = None,
-    bounds_path: str | None = None,
-    output_dir: str | None = None,
+    cert_path: Optional[str] = None,
+    manifest_path: Optional[str] = None,
+    bounds_path: Optional[str] = None,
+    output_dir: Optional[str] = None,
 ) -> None:
     check_deprecated_bypass()
     write_telemetry_tex(

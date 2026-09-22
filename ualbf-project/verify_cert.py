@@ -1229,7 +1229,7 @@ def verify_meta_certificate(
             print(msg, file=sys.stderr)
             raise cert_util.CertificateValidationError(msg)
 
-    if verified_leaf_certs:
+    if current_depth == 0 and verified_leaf_certs:
         check_continuity(verified_leaf_certs)
         verify_telemetry_paths(verified_leaf_certs)
 
