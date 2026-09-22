@@ -22,6 +22,37 @@ pub const CORE_TCB_FILES: &[&str] = &[
 
 pub const EXTENSION_TCB_FILES: &[&str] = &[];
 
+pub fn normalize_proof_manifest(content: &str) -> String {
+    let zero_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let mut lines = Vec::new();
+    for line in content.lines() {
+        if line.contains("\"verified_logic_hash\":")
+            || line.contains("\"verified_extension_hash\":")
+        {
+            if let Some(first_colon) = line.find(':') {
+                if let Some(q1) = line[first_colon..].find('"') {
+                    let start = first_colon + q1 + 1;
+                    if let Some(q2) = line[start..].find('"') {
+                        let end = start + q2;
+                        let mut new_line = String::new();
+                        new_line.push_str(&line[..start]);
+                        new_line.push_str(zero_hash);
+                        new_line.push_str(&line[end..]);
+                        lines.push(new_line);
+                        continue;
+                    }
+                }
+            }
+        }
+        lines.push(line.to_string());
+    }
+    let mut result = lines.join("\n");
+    if content.ends_with('\n') {
+        result.push('\n');
+    }
+    result
+}
+
 #[macro_export]
 #[cfg(feature = "signing")]
 macro_rules! compute_core_tcb_hash_at_compile_time {
@@ -35,7 +66,12 @@ macro_rules! compute_core_tcb_hash_at_compile_time {
         logic_hasher.update(include_bytes!("manifest_constants.rs"));
         logic_hasher.update(include_bytes!("lean_ffi.rs"));
         logic_hasher.update(include_bytes!("unverified/dummy_ffi.c"));
-        logic_hasher.update(include_bytes!("../../proof_manifest.json"));
+
+        let manifest_bytes = include_bytes!("../../proof_manifest.json");
+        let manifest_str = String::from_utf8_lossy(manifest_bytes);
+        let normalized = $crate::normalize_proof_manifest(&manifest_str);
+        logic_hasher.update(normalized.as_bytes());
+
         logic_hasher.update(include_bytes!("../build.rs"));
         logic_hasher.update(include_bytes!("../../bounds_manifest.json"));
         $crate::hex::encode(logic_hasher.finalize())
@@ -67,7 +103,13 @@ pub fn compute_verified_core_hash_runtime(repo_root: &std::path::Path) -> std::i
         let path = base_dir.join(file);
         let path = path.canonicalize().unwrap_or(path);
         let content = std::fs::read(&path)?;
-        logic_hasher.update(&content);
+        if path.file_name() == Some(std::ffi::OsStr::new("proof_manifest.json")) {
+            let manifest_str = String::from_utf8_lossy(&content);
+            let normalized = normalize_proof_manifest(&manifest_str);
+            logic_hasher.update(normalized.as_bytes());
+        } else {
+            logic_hasher.update(&content);
+        }
     }
     Ok(hex::encode(logic_hasher.finalize()))
 }
@@ -1353,5 +1395,16 @@ mod tests {
         rust_free_string(std::ptr::null_mut());
 
         let _ = std::fs::remove_file(&temp_path);
+    }
+
+    #[test]
+    fn test_normalize_proof_manifest() {
+        let raw = r#"{
+  "verified_logic_hash": "73b1c6a115b09bf8a39ac1c0536aefe55ef90731b75b3427cdddba8a365ee9f3",
+  "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}"#;
+        let normalized = normalize_proof_manifest(raw);
+        assert!(normalized.contains("\"verified_logic_hash\": \"0000000000000000000000000000000000000000000000000000000000000000\""));
+        assert!(normalized.contains("\"verified_extension_hash\": \"0000000000000000000000000000000000000000000000000000000000000000\""));
     }
 }

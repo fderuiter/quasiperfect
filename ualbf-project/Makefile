@@ -29,13 +29,13 @@ check-core:
 	cargo clippy --workspace -- -D warnings
 	./scripts/check_lean_fmt.sh
 
-check-python:
+check-python: verification-lib
 	python3 scripts/check_literals.py
 	python3 verify_metadata.py
 	black --check .
 	flake8 .
 	mypy .
-	python3 scripts/validate_docs.py
+	python3 scripts/validate_docs.py --check-specs
 	python3 scripts/validate_tuning_guide.py
 	LEAN_SYSROOT=DUMMY pytest tests
 

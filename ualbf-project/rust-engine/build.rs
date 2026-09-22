@@ -629,21 +629,35 @@ fn main() {
 
     let ir_dir = lean_project.join(".lake/build/ir");
     let is_gha = env::var("GITHUB_ACTIONS").unwrap_or_default() == "true";
+    let sysroot_env = env::var("LEAN_SYSROOT").unwrap_or_default();
+    let is_mock = env::var("MOCK_LEAN").unwrap_or_default() == "1"
+        || sysroot_env == "DUMMY"
+        || sysroot_env.contains("mock_lean_sysroot");
+    let ualbf_ir_dir = ir_dir.join("UALBF");
+    let has_prebuilt = is_gha
+        && !is_mock
+        && ualbf_ir_dir.exists()
+        && ualbf_ir_dir
+            .read_dir()
+            .map_or(false, |mut entries| entries.next().is_some())
+        && lean_project.join(".lake/build/lib/libUALBF.a").exists();
 
     // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
     // To avoid triggering complete dependency recompilations,
-    // we proactively purge only our own package's intermediate C-IR directories and files.
-    let ualbf_ir_dir = ir_dir.join("UALBF");
-    if ualbf_ir_dir.exists() {
-        let _ = fs::remove_dir_all(&ualbf_ir_dir);
-    }
-    let validator_ir_c = ir_dir.join("Validator.c");
-    if validator_ir_c.exists() {
-        let _ = fs::remove_file(&validator_ir_c);
-    }
-    let validator_ir_ot = ir_dir.join("Validator.ot");
-    if validator_ir_ot.exists() {
-        let _ = fs::remove_file(&validator_ir_ot);
+    // we proactively purge only our own package's intermediate C-IR directories and files,
+    // except when reusing pre-built Lean objects under GitHub Actions.
+    if !has_prebuilt {
+        if ualbf_ir_dir.exists() {
+            let _ = fs::remove_dir_all(&ualbf_ir_dir);
+        }
+        let validator_ir_c = ir_dir.join("Validator.c");
+        if validator_ir_c.exists() {
+            let _ = fs::remove_file(&validator_ir_c);
+        }
+        let validator_ir_ot = ir_dir.join("Validator.ot");
+        if validator_ir_ot.exists() {
+            let _ = fs::remove_file(&validator_ir_ot);
+        }
     }
 
     // --- 1. Resolve Lean sysroot ---
@@ -810,8 +824,7 @@ fn main() {
     }
 
     // Execute targeted module compilation instead of a full project build
-    let has_prebuilt = ir_dir.exists() && lean_project.join(".lake/build/lib/libUALBF.a").exists();
-    let lake_success = if is_gha && has_prebuilt {
+    let lake_success = if has_prebuilt {
         println!("cargo:warning=Running under GitHub Actions. Skipping redundant lake build since Lean objects are pre-built.");
         true
     } else {
@@ -947,6 +960,7 @@ fn main() {
     }
 
     fs::write(&dynamic_stubs_path, stubs).expect("Failed to write dynamic stubs");
+    let stubs_path = dynamic_stubs_path.clone();
     c_files.push(dynamic_stubs_path);
 
     // Verify all C files exist (they are produced by `lake build`)
@@ -961,8 +975,14 @@ fn main() {
     let mut builder = cc::Build::new();
     builder.include(&lean_include).warnings(false).opt_level(2);
 
-    for f in &c_files {
-        builder.file(f);
+    if has_prebuilt {
+        // When prebuilt Lean objects exist, libUALBF.a already contains all compiled UALBF C-IR symbols.
+        // Recompiling all C-IR files with cc::Build is redundant; we only compile dynamic_stubs_path.
+        builder.file(&stubs_path);
+    } else {
+        for f in &c_files {
+            builder.file(f);
+        }
     }
 
     builder.file("src/c_shims.c");
