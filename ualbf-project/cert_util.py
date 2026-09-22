@@ -341,6 +341,10 @@ CORE_THEOREMS = [
     "UALBF.Engine.Mod1155Bridge.mod1155_to_mod11",
     "UALBF.Engine.Mod1155Bridge.mod1155_soundness",
     "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound",
+    "UALBF.Fixed64.scaleBoundCeil_conservative",
+    "UALBF.Engine.SieveSoundness.rust_sieve_soundness_mod_5",
+    "UALBF.Engine.Mod5Bridge.ualbf_check_mod_5_soundness_ffi",
+    "UALBF.Engine.SieveSoundness.ModularSieve",
 ]
 
 

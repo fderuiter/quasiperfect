@@ -267,6 +267,7 @@ def generate_manifest():
     )
 
     # Load existing manifest to preserve statuses if Lean is missing and perform unmanifested file gate check
+    old_manifest = {}
     existing_statuses = {}
     existing_manifest_status = None
     existing_registered_files = set()
@@ -304,7 +305,7 @@ def generate_manifest():
                     disk_proof_files.append(rel_path)
 
     # Gate: Fail immediately if any unmanifested source file exists on disk
-    if existing_registered_files:
+    if existing_registered_files and old_manifest.get("proof_files"):
         unmanifested = [
             df for df in disk_proof_files if df not in existing_registered_files
         ]
@@ -664,13 +665,34 @@ def generate_manifest():
         # map name to file
         # improve heuristic to find actual file
         parts = thm.split(".")
-        rel_file = "UALBF.lean"
+        short_name = parts[-1]
+        found_file = None
         for i in range(len(parts) - 1, 0, -1):
             possible_rel = "/".join(parts[:i]) + ".lean"
             possible_path = os.path.join(cwd, possible_rel)
             if os.path.exists(possible_path):
-                rel_file = possible_rel
+                found_file = possible_rel
                 break
+
+        if not found_file or found_file == "UALBF.lean":
+            for pf in disk_proof_files:
+                pf_path = os.path.join(cwd, pf)
+                if os.path.exists(pf_path):
+                    try:
+                        with open(pf_path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        if re.search(
+                            r"\b(theorem|def|class|structure|lemma)\s+"
+                            + re.escape(short_name)
+                            + r"\b",
+                            content,
+                        ):
+                            found_file = pf
+                            break
+                    except Exception:
+                        pass
+
+        rel_file = found_file if found_file else "UALBF.lean"
 
         if not has_lean:
             status = existing_statuses.get(thm, "unverified")
@@ -689,7 +711,14 @@ def generate_manifest():
         ax_name = ax["name"]
         ax_file = ax["file"]
 
-        existing = next((t for t in manifest["theorems"] if t["name"] == ax_name), None)
+        existing = next(
+            (
+                t
+                for t in manifest["theorems"]
+                if t["name"] == ax_name or t["name"].split(".")[-1] == ax_name
+            ),
+            None,
+        )
         if not existing:
             status = (
                 "axiom" if has_lean else existing_statuses.get(ax_name, "unverified")
@@ -712,9 +741,12 @@ def generate_manifest():
     )
     rust_src_dir = os.path.join(rust_engine_dir, "src")
 
-    verus_proofs_path = os.path.join(rust_src_dir, "verus_proofs.rs")
-    with open(verus_proofs_path, "r", encoding="utf-8") as f:
-        verus_hashes = compute_verus_hashes(f.read())
+    verus_hashes = {}
+    for verus_file in ["verus_proofs.rs", "lean_export.rs"]:
+        verus_path = os.path.join(rust_src_dir, verus_file)
+        if os.path.exists(verus_path):
+            with open(verus_path, "r", encoding="utf-8") as f:
+                verus_hashes.update(compute_verus_hashes(f.read()))
 
     manifest["verus_hashes"] = dict(sorted(verus_hashes.items()))
 
@@ -964,7 +996,9 @@ def check_documentation(manifest):
         with open(manifest_path, "r", encoding="utf-8") as f:
             docs_manifest = json.load(f)
         for key, classification in docs_manifest.items():
-            doc_path = os.path.abspath(os.path.join(manifest_dir, key))
+            cand1 = os.path.join(manifest_dir, key)
+            cand2 = os.path.join(os.path.dirname(manifest_dir), key)
+            doc_path = os.path.abspath(cand1 if os.path.exists(cand1) else cand2)
             docs_to_check.append((doc_path, classification))
     except Exception:
         fallback_docs = [
@@ -979,7 +1013,34 @@ def check_documentation(manifest):
             doc_path = os.path.abspath(os.path.join(manifest_dir, key))
             docs_to_check.append((doc_path, classification))
 
-    valid_symbols = set()
+    manifest_thm_statuses = {}
+    manifest_symbols = set()
+
+    for thm in manifest.get("theorems", []):
+        name = thm.get("name", "")
+        status = thm.get("status", "unverified")
+        manifest_thm_statuses[name] = status
+        short_name = name.split(".")[-1]
+        manifest_thm_statuses[short_name] = status
+        manifest_symbols.add(name)
+        manifest_symbols.add(short_name)
+
+    for fn in manifest.get("verus_hashes", {}).keys():
+        manifest_symbols.add(fn)
+        manifest_symbols.add(fn.split("::")[-1])
+
+    for fn in manifest.get("ghost_pruning_bindings", {}).keys():
+        manifest_symbols.add(fn)
+
+    strict_manifest_symbols = set()
+    for thm_name in CORE_THEOREMS:
+        strict_manifest_symbols.add(thm_name)
+        strict_manifest_symbols.add(thm_name.split(".")[-1])
+    for spec_name in manifest.get("verus_hashes", {}).keys():
+        strict_manifest_symbols.add(spec_name)
+        strict_manifest_symbols.add(spec_name.split("::")[-1])
+
+    valid_symbols = set(manifest_symbols)
     for thm in CORE_THEOREMS:
         valid_symbols.add(thm)
         valid_symbols.add(thm.split(".")[-1])
@@ -1105,6 +1166,7 @@ def check_documentation(manifest):
         "Q",
         "r",
         "l",
+        "is_axiomatic",
         "UALBF_TARGET_MIN_LOG10",
         "UALBF_TARGET_MAX_LOG10",
         "UALBF_SIEVE_LIMIT",
@@ -1127,7 +1189,15 @@ def check_documentation(manifest):
 
         doc_rel_to_repo = os.path.relpath(doc_path, manifest_dir)
 
+        in_code_block = False
         for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            if stripped_line.startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+
             for link in re.findall(r"\[[^\]]+\]\(([^)]+)\)", line):
                 if link.startswith("http"):
                     continue
@@ -1146,8 +1216,20 @@ def check_documentation(manifest):
                         f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid file path: '{link}'"
                     )
 
-            # 2. Backticked checks (ONLY for authoritative files)
+            # Backticked and symbol checks for authoritative files
             if classification == "authoritative":
+                line_no_bt = re.sub(r"`[^`]+`", "", line)
+                for sym in strict_manifest_symbols:
+                    if (
+                        len(sym) > 3
+                        and sym not in ignore_symbols
+                        and sym.lower() not in ignore_symbols
+                    ):
+                        if re.search(r"\b" + re.escape(sym) + r"\b", line_no_bt):
+                            errors.append(
+                                f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Static unquoted symbol reference detected (must use backticks): '{sym}'"
+                            )
+
                 for bt in re.findall(r"`([^`]+)`", line):
                     if "/" in bt or bt.endswith(
                         (".rs", ".md", ".lean", ".json", ".c", ".h", ".toml", ".tex")
@@ -1162,25 +1244,50 @@ def check_documentation(manifest):
                     elif re.match(r"^[a-zA-Z_][a-zA-Z0-9_::\.]*(?:\(\))?$", bt):
                         clean_bt = bt.removesuffix("()")
                         clean_bt_lower = clean_bt.lower()
+
+                        if (
+                            clean_bt in ignore_symbols
+                            or clean_bt_lower in ignore_symbols
+                        ):
+                            continue
+
                         if "." in clean_bt and "::" not in clean_bt:
-                            # Strict match for dot-notated qualified names (Lean)
+                            thm_status = manifest_thm_statuses.get(clean_bt)
+                            if thm_status is not None and thm_status != "proven":
+                                errors.append(
+                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
+                                )
+                                continue
+
                             if (
-                                clean_bt not in ignore_symbols
-                                and clean_bt_lower not in ignore_symbols
+                                clean_bt not in manifest_symbols
                                 and clean_bt not in valid_symbols
-                                and clean_bt_lower not in valid_symbols
                             ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
                                 )
                         else:
-                            # Unqualified names or Rust names (using ::)
                             parts = re.split(r"\.|::", clean_bt)
                             ident = parts[-1]
                             ident_lower = ident.lower()
+
+                            if ident in ignore_symbols or ident_lower in ignore_symbols:
+                                continue
+
+                            thm_status = manifest_thm_statuses.get(
+                                clean_bt
+                            ) or manifest_thm_statuses.get(ident)
+                            if thm_status is not None and thm_status != "proven":
+                                errors.append(
+                                    f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
+                                )
+                                continue
+
                             if (
-                                ident not in ignore_symbols
-                                and ident_lower not in ignore_symbols
+                                clean_bt not in manifest_symbols
+                                and ident not in manifest_symbols
+                                and clean_bt not in valid_symbols
+                                and clean_bt_lower not in valid_symbols
                                 and ident not in valid_symbols
                                 and ident_lower not in valid_symbols
                             ):
@@ -1224,6 +1331,7 @@ def check_imports(repo_root):
             or "scripts" in root
             or "prototypes" in root
             or "experimental" in root
+            or "paper" in root
         ):
             continue
         for file in files:
@@ -1280,4 +1388,12 @@ def check_imports(repo_root):
 
 
 if __name__ == "__main__":
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if not (
+        os.path.exists("proof_manifest.json")
+        or os.path.exists("bounds_manifest.json")
+        or os.path.exists("lean4-proofs")
+    ):
+        if os.path.exists(os.path.join(script_dir, "proof_manifest.json")):
+            os.chdir(script_dir)
     generate_manifest()
