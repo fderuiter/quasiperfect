@@ -281,7 +281,6 @@ def _setup_staging_workspace(host_dir, staging_dir):
             ".direnv",
             "node_modules",
             "target",
-            "build",
         }
         if os.path.basename(path) == ".lake" and "packages" in names:
             ignored.add("packages")
