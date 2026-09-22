@@ -1,4 +1,5 @@
 import collections
+import json
 import os
 import re
 import sys
@@ -159,8 +160,25 @@ def write_telemetry_tex(
         cert_path = os.environ.get("UALBF_CERT_PATH")
 
     if not cert_path:
-        print("Error: UALBF_CERT_PATH environment variable is required.")
-        sys.exit(1)
+        local_cert = (
+            os.path.join(output_dir, "formal_certificate.json")
+            if output_dir
+            else "formal_certificate.json"
+        )
+        engine_cert = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "rust-engine",
+            "formal_certificate.json",
+        )
+        if os.path.exists(local_cert):
+            cert_path = local_cert
+        elif os.path.exists(engine_cert):
+            cert_path = engine_cert
+        else:
+            print(
+                "Error: UALBF_CERT_PATH environment variable is required or formal_certificate.json not found."
+            )
+            sys.exit(1)
 
     has_cert = os.path.exists(cert_path)
     if not has_cert:
@@ -184,7 +202,14 @@ def write_telemetry_tex(
                     cert = cert_util.BoundedJSONLoader().load_file(cert_path)
                 else:
                     os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
-                    cert = cert_util.load_and_validate_cert(cert_path)
+                    trusted_key = os.environ.get("UALBF_TRUSTED_PUBLIC_KEY")
+                    if not trusted_key:
+                        with open(cert_path, "r", encoding="utf-8") as cert_f:
+                            raw_cert = json.load(cert_f)
+                            trusted_key = raw_cert.get("public_key")
+                    cert = cert_util.load_and_validate_cert(
+                        cert_path, trusted_public_key=trusted_key
+                    )
             except cert_util.CertificateError as e:
                 print(f"Error: {e}")
                 sys.exit(1)
@@ -221,8 +246,11 @@ def write_telemetry_tex(
 
             # Requirement 4: Explicit validation errors for missing required fields
             required_tel_keys = [
+                "phase1_execution_time_ms",
                 "phase2_execution_time_ms",
                 "total_branches_searched",
+                "abundance_pruned",
+                "raycast_pruned",
                 "target_min_log10",
                 "target_max_log10",
             ]

@@ -70,6 +70,34 @@ impl TrialSieve {
         TrialSieve { small_primes }
     }
 
+    pub fn trial_factor_only(&self, mut n: Uint) -> (smallvec::SmallVec<[Uint; 8]>, Uint) {
+        if n <= Uint::one() {
+            return (smallvec::SmallVec::new(), Uint::one());
+        }
+        let mut factors = smallvec::SmallVec::<[Uint; 8]>::new();
+        for &p in &self.small_primes {
+            let p_u = Uint::from_u128((p) as u128);
+            if p_u * p_u > n {
+                break;
+            }
+            while n % p_u == Uint::zero() {
+                factors.push(p_u);
+                n /= p_u;
+            }
+        }
+        if n > Uint::one() {
+            let limit_u = Uint::from_u128(self.small_primes.last().copied().unwrap_or(2) as u128);
+            if n <= limit_u * limit_u {
+                factors.push(n);
+                (factors, Uint::one())
+            } else {
+                (factors, n)
+            }
+        } else {
+            (factors, Uint::one())
+        }
+    }
+
     pub fn factor(&self, mut n: Uint) -> FactorizationResult {
         if n <= Uint::one() {
             return FactorizationResult::Complete(smallvec::SmallVec::new());
