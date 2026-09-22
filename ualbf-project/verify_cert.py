@@ -1143,7 +1143,9 @@ def verify_meta_certificate(
 
     if "node_certificates" not in meta_cert_data:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_cert_path = os.path.join(tmp_dir, f"tmp_cert_leaf_{id(meta_cert_data)}.json")
+            tmp_cert_path = os.path.join(
+                tmp_dir, f"tmp_cert_leaf_{id(meta_cert_data)}.json"
+            )
             with open(tmp_cert_path, "w", encoding="utf-8") as tf:
                 json.dump(meta_cert_data, tf)
             cert_util.validate_file_size(tmp_cert_path)
@@ -1213,7 +1215,9 @@ def verify_meta_certificate(
                     verified_leaf = verify_certificate(nc, manifest_path)
                     verified_leaf_certs.append(verified_leaf)
             elif isinstance(nc, dict):
-                tmp_cert_path = os.path.join(tmp_dir, f"tmp_cert_{current_depth}_{i}.json")
+                tmp_cert_path = os.path.join(
+                    tmp_dir, f"tmp_cert_{current_depth}_{i}.json"
+                )
                 with open(tmp_cert_path, "w", encoding="utf-8") as tf:
                     json.dump(nc, tf)
                 cert_util.validate_file_size(tmp_cert_path)
