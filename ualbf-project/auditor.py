@@ -638,7 +638,7 @@ def _generate_manifest_impl():
                     lean_path_dirs.append(entry)
         env["LEAN_PATH"] = ":".join(lean_path_dirs)
 
-        repo_root = os.path.dirname(os.path.abspath(__file__))
+        repo_root = get_repo_root()
         cur_root = os.getcwd()
         cwd_parent = os.path.dirname(os.path.abspath(cwd))
 
@@ -950,99 +950,104 @@ def _generate_manifest_impl():
         f.write("\n")
 
     # Use verification-cli to compute the unified verified_logic_hash
-    repo_root = os.path.dirname(os.path.abspath(__file__))
-    candidate_cli_paths = [
-        os.path.join(repo_root, "target", "release", "verification_cli"),
-        os.path.join(
-            os.path.dirname(repo_root), "target", "release", "verification_cli"
-        ),
-        os.path.join(
-            repo_root, "verification-lib", "target", "release", "verification_cli"
-        ),
-    ]
-    cli_path = None
-    for cand in candidate_cli_paths:
-        if os.path.exists(cand):
-            cli_path = cand
-            break
-
-    # Fallback to cargo if binary is not pre-compiled
-    if cli_path and os.path.exists(cli_path):
-        result = subprocess.run(
-            [cli_path, "hash-tcb", repo_root], capture_output=True, text=True
-        )
-    else:
-        # Note: the constraints mention not requiring rust toolchain during *verification*,
-        # but the auditor is an internal dev tool run by `make audit`, so cargo run is okay here.
-        result = subprocess.run(
-            [
-                "cargo",
-                "run",
-                "--release",
-                "--features",
-                "signing",
-                "--manifest-path",
-                os.path.join(repo_root, "Cargo.toml"),
-                "-p",
-                "verification-lib",
-                "--bin",
-                "verification_cli",
-                "--",
-                "hash-tcb",
-                repo_root,
-            ],
-            capture_output=True,
-            text=True,
-        )
-
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to compute verified_logic_hash: {result.stderr}")
-
-    if not cli_path:
+    repo_root = get_repo_root()
+    if os.path.exists(os.path.join(repo_root, "Cargo.toml")):
+        candidate_cli_paths = [
+            os.path.join(repo_root, "target", "release", "verification_cli"),
+            os.path.join(
+                os.path.dirname(repo_root), "target", "release", "verification_cli"
+            ),
+            os.path.join(
+                repo_root, "verification-lib", "target", "release", "verification_cli"
+            ),
+        ]
+        cli_path = None
         for cand in candidate_cli_paths:
             if os.path.exists(cand):
                 cli_path = cand
                 break
 
-    logic_hash = result.stdout.strip()
-    manifest["verified_logic_hash"] = logic_hash
-
-    # Compute extension hash
-    if cli_path and os.path.exists(cli_path):
-        result_ext = subprocess.run(
-            [cli_path, "hash-tcb", repo_root, "--extension"],
-            capture_output=True,
-            text=True,
-        )
-    else:
-        result_ext = subprocess.run(
-            [
-                "cargo",
-                "run",
-                "--release",
-                "--features",
-                "signing",
-                "--manifest-path",
-                os.path.join(
+        # Fallback to cargo if binary is not pre-compiled
+        result = None
+        if cli_path and os.path.exists(cli_path):
+            result = subprocess.run(
+                [cli_path, "hash-tcb", repo_root], capture_output=True, text=True
+            )
+        if not result or result.returncode != 0:
+            # Note: the constraints mention not requiring rust toolchain during *verification*,
+            # but the auditor is an internal dev tool run by `make audit`, so cargo run is okay here.
+            result = subprocess.run(
+                [
+                    "cargo",
+                    "run",
+                    "--release",
+                    "--features",
+                    "signing",
+                    "--manifest-path",
+                    os.path.join(repo_root, "Cargo.toml"),
+                    "-p",
+                    "verification-lib",
+                    "--bin",
+                    "verification_cli",
+                    "--",
+                    "hash-tcb",
                     repo_root,
-                    "Cargo.toml",
-                ),
-                "-p",
-                "verification-lib",
-                "--bin",
-                "verification_cli",
-                "--",
-                "hash-tcb",
-                repo_root,
-                "--extension",
-            ],
-            capture_output=True,
-            text=True,
-        )
+                ],
+                capture_output=True,
+                text=True,
+            )
 
-    if result_ext.returncode == 0:
-        ext_hash = result_ext.stdout.strip()
-        manifest["verified_extension_hash"] = ext_hash
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to compute verified_logic_hash: {result.stderr}"
+            )
+
+        if not cli_path:
+            for cand in candidate_cli_paths:
+                if os.path.exists(cand):
+                    cli_path = cand
+                    break
+
+        logic_hash = result.stdout.strip()
+        manifest["verified_logic_hash"] = logic_hash
+
+        # Compute extension hash
+        result_ext = None
+        if cli_path and os.path.exists(cli_path):
+            result_ext = subprocess.run(
+                [cli_path, "hash-tcb", repo_root, "--extension"],
+                capture_output=True,
+                text=True,
+            )
+        if not result_ext or result_ext.returncode != 0:
+            result_ext = subprocess.run(
+                [
+                    "cargo",
+                    "run",
+                    "--release",
+                    "--features",
+                    "signing",
+                    "--manifest-path",
+                    os.path.join(
+                        repo_root,
+                        "Cargo.toml",
+                    ),
+                    "-p",
+                    "verification-lib",
+                    "--bin",
+                    "verification_cli",
+                    "--",
+                    "hash-tcb",
+                    repo_root,
+                    "--extension",
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+        if result_ext.returncode == 0:
+            ext_hash = result_ext.stdout.strip()
+            manifest["verified_extension_hash"] = ext_hash
 
     with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
