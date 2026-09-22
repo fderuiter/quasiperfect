@@ -175,7 +175,7 @@ def check_lean_environment():
     lean_sysroot = os.environ.get("LEAN_SYSROOT")
     lean_found = False
 
-    if lean_sysroot:
+    if lean_sysroot and lean_sysroot != "DUMMY":
         # Check if the sysroot actually exists and has a bin/lean
         lean_bin = os.path.join(lean_sysroot, "bin", "lean")
         if os.path.isfile(lean_bin) and os.access(lean_bin, os.X_OK):
@@ -186,7 +186,7 @@ def check_lean_environment():
                 file=sys.stderr,
             )
 
-    if not lean_found:
+    if not lean_found and lean_sysroot != "DUMMY":
         try:
             result = subprocess.run(
                 ["lean", "--print-prefix"], capture_output=True, text=True
