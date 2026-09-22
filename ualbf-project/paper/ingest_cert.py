@@ -185,6 +185,34 @@ def write_telemetry_tex(
 
             tel = cert["telemetry"]
 
+            if os.environ.get("UALBF_DUMMY_PAPER_CI") != "1":
+                try:
+                    import subprocess
+
+                    active_commit = subprocess.check_output(
+                        ["git", "rev-parse", "HEAD"],
+                        cwd=project_root,
+                        text=True,
+                        stderr=subprocess.DEVNULL,
+                    ).strip()
+                    cert_commit = cert.get("commit_hash", "")
+                    if cert_commit and cert_commit != "unknown" and active_commit:
+                        if cert_commit != active_commit:
+                            print(
+                                f"Error: Certificate commit hash '{cert_commit}' does not match active build commit '{active_commit}'."
+                            )
+                            sys.exit(1)
+                except Exception:
+                    pass
+
+                cert_ts = cert.get("timestamp") or tel.get("timestamp")
+                if cert_ts is not None:
+                    import time
+
+                    if cert_ts > time.time() + 300:
+                        print("Error: Certificate timestamp is in the future.")
+                        sys.exit(1)
+
             # Requirement 4: Explicit validation errors for missing required fields
             required_tel_keys = [
                 "phase2_execution_time_ms",

@@ -1,11 +1,16 @@
 DOC = main
 
-.PHONY: all clean telemetry
+.PHONY: all clean telemetry execute-engine
 
 all: telemetry $(DOC).pdf
 
-telemetry:
-	PYTHONPATH="..:$$PYTHONPATH" python3 ingest_cert.py
+execute-engine:
+	@if [ "$(UALBF_DUMMY_PAPER_CI)" != "1" ]; then \
+		cd ../rust-engine && cargo run --release --features signing ; \
+	fi
+
+telemetry: execute-engine
+	UALBF_CERT_PATH="$${UALBF_CERT_PATH:-../rust-engine/formal_certificate.json}" PYTHONPATH="..:$$PYTHONPATH" python3 ingest_cert.py
 
 $(DOC).pdf: $(DOC).tex references.bib lean-setup.tex telemetry
 	pdflatex -shell-escape -interaction=nonstopmode -halt-on-error $(DOC).tex || true
