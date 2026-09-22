@@ -267,6 +267,61 @@ def ensure_verification_lib():
                                 pass
 
 
+def _copy_packages_with_build_isolation(host_packages, staging_packages):
+    if not os.path.exists(host_packages) or os.path.exists(staging_packages):
+        return
+    os.makedirs(staging_packages, exist_ok=True)
+    for pkg in os.listdir(host_packages):
+        h_pkg = os.path.join(host_packages, pkg)
+        s_pkg = os.path.join(staging_packages, pkg)
+        if os.path.islink(h_pkg):
+            try:
+                os.symlink(os.readlink(h_pkg), s_pkg)
+            except Exception:
+                pass
+        elif os.path.isdir(h_pkg):
+            os.makedirs(s_pkg, exist_ok=True)
+            for entry in os.listdir(h_pkg):
+                h_entry = os.path.join(h_pkg, entry)
+                s_entry = os.path.join(s_pkg, entry)
+                if entry == ".lake":
+                    os.makedirs(s_entry, exist_ok=True)
+                    for sub in os.listdir(h_entry):
+                        h_sub = os.path.join(h_entry, sub)
+                        s_sub = os.path.join(s_entry, sub)
+                        if sub == "build":
+                            try:
+                                shutil.copytree(h_sub, s_sub, symlinks=True)
+                            except Exception:
+                                pass
+                        else:
+                            try:
+                                if os.path.islink(h_sub):
+                                    os.symlink(os.readlink(h_sub), s_sub)
+                                else:
+                                    os.symlink(h_sub, s_sub)
+                            except Exception:
+                                pass
+                elif entry == "build":
+                    try:
+                        shutil.copytree(h_entry, s_entry, symlinks=True)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        if os.path.islink(h_entry):
+                            os.symlink(os.readlink(h_entry), s_entry)
+                        else:
+                            os.symlink(h_entry, s_entry)
+                    except Exception:
+                        pass
+        else:
+            try:
+                os.symlink(h_pkg, s_pkg)
+            except Exception:
+                pass
+
+
 def _setup_staging_workspace(host_dir, staging_dir):
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -309,18 +364,14 @@ def _setup_staging_workspace(host_dir, staging_dir):
         else:
             shutil.copy2(src_item, dst_item)
 
-    # Symlink .lake/packages and copy .lake/build if present in host
+    # Symlink .lake/packages sources and copy .lake/build / .lake/packages/*/.lake/build if present in host
     host_lake = os.path.join(host_dir, "lean4-proofs", ".lake")
     staging_lake = os.path.join(staging_dir, "lean4-proofs", ".lake")
     if os.path.exists(host_lake) and not os.path.exists(staging_lake):
         os.makedirs(staging_lake, exist_ok=True)
         host_packages = os.path.join(host_lake, "packages")
         staging_packages = os.path.join(staging_lake, "packages")
-        if os.path.exists(host_packages) and not os.path.exists(staging_packages):
-            try:
-                os.symlink(host_packages, staging_packages)
-            except Exception:
-                pass
+        _copy_packages_with_build_isolation(host_packages, staging_packages)
 
         host_build = os.path.join(host_lake, "build")
         staging_build = os.path.join(staging_lake, "build")
