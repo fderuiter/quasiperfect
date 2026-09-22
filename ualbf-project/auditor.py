@@ -7,7 +7,6 @@ import os
 import hash_util
 import shutil
 import cert_util
-import time
 import re
 import contextlib
 import uuid
@@ -90,7 +89,23 @@ def offline_lake_manifest(cwd):
     manifest_bak = None
     lakefile_bak = None
 
-    past = 0.0
+    min_mtime = None
+    lake_dir = os.path.join(cwd, ".lake")
+    if os.path.exists(lake_dir):
+        for root, _, files in os.walk(lake_dir):
+            for f in files:
+                if f.endswith((".olean", ".trace", ".hash", ".o", ".a", ".so")):
+                    try:
+                        st = os.stat(os.path.join(root, f))
+                        if min_mtime is None or st.st_mtime < min_mtime:
+                            min_mtime = st.st_mtime
+                    except Exception:
+                        pass
+
+    if min_mtime is None:
+        past = 0.0
+    else:
+        past = max(0.0, min_mtime - 3600.0)
 
     try:
         if os.path.exists(manifest_path):
@@ -258,61 +273,6 @@ def ensure_verification_lib():
                                 pass
 
 
-def _copy_packages_with_build_isolation(host_packages, staging_packages):
-    if not os.path.exists(host_packages) or os.path.exists(staging_packages):
-        return
-    os.makedirs(staging_packages, exist_ok=True)
-    for pkg in os.listdir(host_packages):
-        h_pkg = os.path.join(host_packages, pkg)
-        s_pkg = os.path.join(staging_packages, pkg)
-        if os.path.islink(h_pkg):
-            try:
-                os.symlink(os.readlink(h_pkg), s_pkg)
-            except Exception:
-                pass
-        elif os.path.isdir(h_pkg):
-            os.makedirs(s_pkg, exist_ok=True)
-            for entry in os.listdir(h_pkg):
-                h_entry = os.path.join(h_pkg, entry)
-                s_entry = os.path.join(s_pkg, entry)
-                if entry == ".lake":
-                    os.makedirs(s_entry, exist_ok=True)
-                    for sub in os.listdir(h_entry):
-                        h_sub = os.path.join(h_entry, sub)
-                        s_sub = os.path.join(s_entry, sub)
-                        if sub == "build":
-                            try:
-                                shutil.copytree(h_sub, s_sub, symlinks=True)
-                            except Exception:
-                                pass
-                        else:
-                            try:
-                                if os.path.islink(h_sub):
-                                    os.symlink(os.readlink(h_sub), s_sub)
-                                else:
-                                    os.symlink(h_sub, s_sub)
-                            except Exception:
-                                pass
-                elif entry == "build":
-                    try:
-                        shutil.copytree(h_entry, s_entry, symlinks=True)
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        if os.path.islink(h_entry):
-                            os.symlink(os.readlink(h_entry), s_entry)
-                        else:
-                            os.symlink(h_entry, s_entry)
-                    except Exception:
-                        pass
-        else:
-            try:
-                os.symlink(h_pkg, s_pkg)
-            except Exception:
-                pass
-
-
 def _setup_staging_workspace(host_dir, staging_dir):
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -355,44 +315,14 @@ def _setup_staging_workspace(host_dir, staging_dir):
         else:
             shutil.copy2(src_item, dst_item)
 
-    # Symlink .lake/packages sources and copy .lake/build / .lake/packages/*/.lake/build if present in host
+    # Symlink .lake directory if present in host
     host_lake = os.path.join(host_dir, "lean4-proofs", ".lake")
     staging_lake = os.path.join(staging_dir, "lean4-proofs", ".lake")
     if os.path.exists(host_lake) and not os.path.exists(staging_lake):
-        os.makedirs(staging_lake, exist_ok=True)
-        host_packages = os.path.join(host_lake, "packages")
-        staging_packages = os.path.join(staging_lake, "packages")
-        _copy_packages_with_build_isolation(host_packages, staging_packages)
-
-        host_build = os.path.join(host_lake, "build")
-        staging_build = os.path.join(staging_lake, "build")
-        if os.path.exists(host_build) and not os.path.exists(staging_build):
-            try:
-                shutil.copytree(host_build, staging_build, symlinks=True)
-            except Exception:
-                pass
-
-        for entry in os.listdir(host_lake):
-            if entry in ("packages", "build"):
-                continue
-            h_ent = os.path.join(host_lake, entry)
-            s_ent = os.path.join(staging_lake, entry)
-            if not os.path.exists(s_ent):
-                if os.path.islink(h_ent):
-                    try:
-                        os.symlink(os.readlink(h_ent), s_ent)
-                    except Exception:
-                        pass
-                elif os.path.isdir(h_ent):
-                    try:
-                        shutil.copytree(h_ent, s_ent, symlinks=True)
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        shutil.copy2(h_ent, s_ent)
-                    except Exception:
-                        pass
+        try:
+            os.symlink(host_lake, staging_lake)
+        except Exception:
+            pass
 
     # Symlink prebuilt verification_cli and libverification_lib binaries if present
     for rel_sub in ["target/release", "verification-lib/target/release"]:
@@ -551,8 +481,23 @@ def _generate_manifest_impl():
 
     # Robust touch logic to resolve Nix epoch mtimes mismatch and prevent Lean cache invalidation
     if has_lean:
-        now = time.time()
-        past = now - 3600.0
+        min_mtime = None
+        lake_dir = os.path.join(cwd, ".lake")
+        if os.path.exists(lake_dir):
+            for root, _, files in os.walk(lake_dir):
+                for f in files:
+                    if f.endswith((".olean", ".trace", ".hash", ".o", ".a", ".so")):
+                        try:
+                            st = os.stat(os.path.join(root, f))
+                            if min_mtime is None or st.st_mtime < min_mtime:
+                                min_mtime = st.st_mtime
+                        except Exception:
+                            pass
+
+        if min_mtime is None:
+            past = 0.0
+        else:
+            past = max(0.0, min_mtime - 3600.0)
 
         if os.path.exists(cwd):
             for root, dirs, files in os.walk(cwd):
@@ -579,36 +524,7 @@ def _generate_manifest_impl():
                             os.chmod(f_path, st.st_mode | 0o200)
                         except Exception:
                             pass
-                        parts = f_path.split(os.sep)
-                        in_build = "build" in parts
-                        is_compiled_ext = f.endswith(
-                            (
-                                ".olean",
-                                ".ilean",
-                                ".trace",
-                                ".hash",
-                                ".o",
-                                ".ot",
-                                ".a",
-                                ".so",
-                                ".dylib",
-                                ".dll",
-                                ".rsp",
-                            )
-                        ) or f in ("cache", "cache.rsp")
-                        is_source = (
-                            f.endswith(".lean")
-                            or f
-                            in ("lakefile.lean", "lakefile.toml", "lake-manifest.json")
-                            or (f == "ffi.c" and not in_build)
-                        )
-                        is_build_artifact = (
-                            in_build or is_compiled_ext
-                        ) and not is_source
-                        if is_build_artifact:
-                            os.utime(f_path, (now, now))
-                        else:
-                            os.utime(f_path, (past, past))
+                        os.utime(f_path, (past, past))
                     except Exception:
                         pass
 
