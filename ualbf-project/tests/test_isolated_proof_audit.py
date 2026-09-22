@@ -18,7 +18,7 @@ def test_proof_audit_staging_workspace_immutability():
     manifest_path = project_dir / "proof_manifest.json"
     backup_path = project_dir / "proof_manifest.json.bak"
     if manifest_path.exists():
-        shutil.copy(manifest_path, backup_path)
+        shutil.copy2(manifest_path, backup_path)
 
     # Record mtime and permissions of host workspace files before audit
     host_file_snapshots = {}
