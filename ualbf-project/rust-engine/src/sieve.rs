@@ -125,7 +125,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     let total_factor_ns = AtomicU64::new(0);
 
     let mut valid_components: Vec<PrimePower> = primes
-        .chunks(2048)
+        .chunks(64)
         .par_bridge()
         .flat_map(|chunk| {
             let mut local_components = Vec::new();

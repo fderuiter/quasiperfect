@@ -211,7 +211,7 @@ pub fn pollard_rho_brent_u256(n: Uint) -> Option<Uint> {
     if n & Uint::one() == Uint::zero() {
         return Some(Uint::from_u128((2u32) as u128));
     }
-    for c in 1..40u32 {
+    for c in 1..5u32 {
         let mut x = Uint::from_u128((2u32) as u128);
         let mut y = Uint::from_u128((2u32) as u128);
         let mut d = Uint::one();
@@ -675,66 +675,11 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
         if remaining < Uint::from_u128((100_000_000u32) as u128) || verified_is_prime(remaining) {
             factors.push(remaining);
         } else {
-            if remaining <= Uint::from_u128((u128::MAX) as u128) {
-                if let Ok(res) = catch_unwind(|| Factorization::run(remaining.as_u128())) {
-                    factors.extend(res.factors.into_iter().map(Uint::from_u128));
-                } else {
-                    let rho_res = rho_factor_u256(remaining);
-                    match rho_res {
-                        FactorizationResult::Complete(v) => factors.extend(v),
-                        FactorizationResult::Partial {
-                            known_factors,
-                            remaining: r,
-                        } => {
-                            factors.extend(known_factors);
-                            factors.sort_unstable();
-                            return FactorizationResult::Partial {
-                                known_factors: factors,
-                                remaining: r,
-                            };
-                        }
-                        FactorizationResult::Failure(u) => {
-                            factors.sort_unstable();
-                            return FactorizationResult::Partial {
-                                known_factors: factors,
-                                remaining: u,
-                            };
-                        }
-                    }
-                }
-            } else {
-                let limit_256 = (Uint::one() << 256) - Uint::one();
-                if remaining <= limit_256 {
-                    let ecm_factors = rho_factor_u256(remaining);
-                    match ecm_factors {
-                        FactorizationResult::Complete(v) => factors.extend(v),
-                        FactorizationResult::Partial {
-                            known_factors,
-                            remaining: r,
-                        } => {
-                            factors.extend(known_factors);
-                            factors.sort_unstable();
-                            return FactorizationResult::Partial {
-                                known_factors: factors,
-                                remaining: r,
-                            };
-                        }
-                        FactorizationResult::Failure(u) => {
-                            factors.sort_unstable();
-                            return FactorizationResult::Partial {
-                                known_factors: factors,
-                                remaining: u,
-                            };
-                        }
-                    }
-                } else {
-                    factors.sort_unstable();
-                    return FactorizationResult::Partial {
-                        known_factors: factors,
-                        remaining,
-                    };
-                }
-            }
+            factors.sort_unstable();
+            return FactorizationResult::Partial {
+                known_factors: factors,
+                remaining,
+            };
         }
     }
     factors.sort_unstable();
