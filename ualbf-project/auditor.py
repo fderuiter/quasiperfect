@@ -10,12 +10,25 @@ import cert_util
 import time
 import re
 import contextlib
+import uuid
 from verify_metadata import (
     extract_fqns_from_lean_content,
     extract_axioms_from_lean_source,
     strip_comments,
     SAFE_COMMON_WORDS,
 )
+
+
+def get_repo_root():
+    if (
+        os.environ.get("UALBF_IN_STAGING_WORKSPACE") == "1"
+        or os.path.exists("proof_manifest.json")
+        or os.path.exists("bounds_manifest.json")
+        or os.path.exists("lean4-proofs")
+    ):
+        return os.getcwd()
+    return os.path.dirname(os.path.abspath(__file__))
+
 
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 ALLOWED_AXIOMS = {"UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"}
@@ -55,8 +68,8 @@ GHOST_PRUNING_BINDINGS = {
 
 
 def theorem_checksum(name, rel_file, status):
-    # Find the ualbf-project directory relative to this script
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Find the ualbf-project directory relative to current working workspace
+    base_dir = get_repo_root()
     file_path = os.path.join(base_dir, "lean4-proofs", rel_file)
     if os.path.exists(file_path):
         return hash_util.hash_file(file_path)
@@ -201,7 +214,7 @@ def check_lean_environment():
 
 
 def ensure_verification_lib():
-    repo_root = os.path.dirname(os.path.abspath(__file__))
+    repo_root = get_repo_root()
     verif_lib_dir = os.path.join(repo_root, "verification-lib")
     rel_target = os.path.join(repo_root, "target", "release")
     verif_target = os.path.join(verif_lib_dir, "target", "release")
@@ -254,14 +267,137 @@ def ensure_verification_lib():
                                 pass
 
 
+def _setup_staging_workspace(host_dir, staging_dir):
+    os.makedirs(staging_dir, exist_ok=True)
+
+    def ignore_patterns(path, names):
+        ignored = {
+            ".git",
+            ".pytest_cache",
+            "__pycache__",
+            ".mypy_cache",
+            ".venv",
+            "venv",
+            ".direnv",
+            "node_modules",
+            "target",
+            "build",
+        }
+        if os.path.basename(path) == ".lake" and "packages" in names:
+            ignored.add("packages")
+        return list(ignored)
+
+    for item in os.listdir(host_dir):
+        if item in (
+            "target",
+            "build",
+            ".git",
+            "__pycache__",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".venv",
+            "venv",
+        ):
+            continue
+        src_item = os.path.join(host_dir, item)
+        dst_item = os.path.join(staging_dir, item)
+        if os.path.islink(src_item):
+            link_target = os.readlink(src_item)
+            os.symlink(link_target, dst_item)
+        elif os.path.isdir(src_item):
+            shutil.copytree(src_item, dst_item, symlinks=True, ignore=ignore_patterns)
+        else:
+            shutil.copy2(src_item, dst_item)
+
+    # Symlink .lake/packages if it exists in host
+    host_packages = os.path.join(host_dir, "lean4-proofs", ".lake", "packages")
+    staging_packages = os.path.join(staging_dir, "lean4-proofs", ".lake", "packages")
+    if os.path.exists(host_packages) and not os.path.exists(staging_packages):
+        os.makedirs(os.path.dirname(staging_packages), exist_ok=True)
+        os.symlink(host_packages, staging_packages)
+
+    # Symlink prebuilt verification_cli and libverification_lib binaries if present
+    for rel_sub in ["target/release", "verification-lib/target/release"]:
+        h_sub = os.path.join(host_dir, rel_sub)
+        s_sub = os.path.join(staging_dir, rel_sub)
+        if os.path.exists(h_sub):
+            os.makedirs(s_sub, exist_ok=True)
+            for f in os.listdir(h_sub):
+                if f.startswith("verification_cli") or f.startswith(
+                    "libverification_lib"
+                ):
+                    h_f = os.path.join(h_sub, f)
+                    s_f = os.path.join(s_sub, f)
+                    if os.path.isfile(h_f) and not os.path.exists(s_f):
+                        try:
+                            os.symlink(h_f, s_f)
+                        except Exception:
+                            shutil.copy2(h_f, s_f)
+
+    # Copy parent docs_manifest.json if present and not in staging_dir
+    parent_docs = os.path.abspath(os.path.join(host_dir, "..", "docs_manifest.json"))
+    if os.path.exists(parent_docs) and not os.path.exists(
+        os.path.join(staging_dir, "docs_manifest.json")
+    ):
+        try:
+            shutil.copy2(parent_docs, os.path.join(staging_dir, "docs_manifest.json"))
+        except Exception:
+            pass
+
+
 def generate_manifest():
+    if os.environ.get("UALBF_IN_STAGING_WORKSPACE") == "1":
+        return _generate_manifest_impl()
+
+    host_dir = get_repo_root()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if not (
+        os.path.exists(os.path.join(host_dir, "proof_manifest.json"))
+        or os.path.exists(os.path.join(host_dir, "bounds_manifest.json"))
+        or os.path.exists(os.path.join(host_dir, "lean4-proofs"))
+    ):
+        if os.path.exists(os.path.join(script_dir, "proof_manifest.json")):
+            host_dir = script_dir
+
+    audit_id = uuid.uuid4().hex
+    staging_dir = f"/tmp/ualbf_audit_{audit_id}"
+
+    old_cwd = os.getcwd()
+    old_env_staging = os.environ.get("UALBF_IN_STAGING_WORKSPACE")
+
+    try:
+        _setup_staging_workspace(host_dir, staging_dir)
+
+        os.environ["UALBF_IN_STAGING_WORKSPACE"] = "1"
+        os.chdir(staging_dir)
+
+        try:
+            return _generate_manifest_impl()
+        finally:
+            staging_manifest = os.path.join(staging_dir, "proof_manifest.json")
+            host_manifest = os.path.join(host_dir, "proof_manifest.json")
+            if os.path.exists(staging_manifest):
+                shutil.copy2(staging_manifest, host_manifest)
+    finally:
+        os.chdir(old_cwd)
+        if old_env_staging is None:
+            os.environ.pop("UALBF_IN_STAGING_WORKSPACE", None)
+        else:
+            os.environ["UALBF_IN_STAGING_WORKSPACE"] = old_env_staging
+
+        if os.path.exists(staging_dir):
+            shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+def _generate_manifest_impl():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
 
+    repo_root = get_repo_root()
     cwd = (
         "lean4-proofs"
         if os.path.exists("lean4-proofs")
-        else os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
+        else os.path.join(repo_root, "lean4-proofs")
     )
 
     # Load existing manifest to preserve statuses if Lean is missing and perform unmanifested file gate check
@@ -394,17 +530,19 @@ def generate_manifest():
         if lean_sysroot:
             env["LEAN_SYSROOT"] = lean_sysroot
             env["PATH"] = f"{os.path.join(lean_sysroot, 'bin')}:{env.get('PATH', '')}"
-        mock_bin = os.path.abspath(
-            os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "build", "mock-bin"
-            )
-        )
+        mock_bin = os.path.abspath(os.path.join(repo_root, "build", "mock-bin"))
         env["PATH"] = f"{mock_bin}:{env.get('PATH', '')}"
-        subprocess.run(
-            ["make", "mock-ui"],
-            cwd=os.path.dirname(os.path.abspath(__file__)),
-            check=True,
+        make_dir = (
+            repo_root
+            if os.path.exists(os.path.join(repo_root, "Makefile"))
+            else os.path.dirname(os.path.abspath(__file__))
         )
+        if os.path.exists(os.path.join(make_dir, "Makefile")):
+            subprocess.run(
+                ["make", "mock-ui"],
+                cwd=make_dir,
+                check=True,
+            )
         # Skip redundant Mathlib cache fetching and Lean rebuilding under GHA or when .lake/build already exists
         is_gha = os.environ.get("GITHUB_ACTIONS") == "true"
         lake_build_dir = os.path.join(cwd, ".lake", "build")
@@ -423,6 +561,7 @@ def generate_manifest():
     if has_lean:
         lean_file = "find_axioms.lean"
         lean_path = os.path.join(cwd, lean_file)
+        os.makedirs(os.path.dirname(os.path.abspath(lean_path)), exist_ok=True)
         with open(lean_path, "w", encoding="utf-8") as f:
             f.write("import UALBF\n")
             for thm in CORE_THEOREMS:
@@ -734,9 +873,7 @@ def generate_manifest():
                 has_error = True
 
     # Add Verus-verified Rust component hashes
-    rust_engine_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "rust-engine"
-    )
+    rust_engine_dir = os.path.join(repo_root, "rust-engine")
     rust_src_dir = os.path.join(rust_engine_dir, "src")
 
     verus_hashes = {}
@@ -767,9 +904,7 @@ def generate_manifest():
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
     # Compute bounds_manifest.json hash
-    bounds_manifest_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json"
-    )
+    bounds_manifest_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_manifest_path):
         bounds_hash = hash_util.hash_file(bounds_manifest_path)
         manifest["bounds_manifest_hash"] = bounds_hash
@@ -877,7 +1012,7 @@ def generate_manifest():
                 "signing",
                 "--manifest-path",
                 os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
+                    repo_root,
                     "Cargo.toml",
                 ),
                 "-p",
@@ -921,7 +1056,7 @@ def generate_manifest():
 
 
 def check_documentation(manifest):
-    repo_root = os.path.dirname(os.path.abspath(__file__))
+    repo_root = get_repo_root()
 
     manifest_path = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
     manifest_dir = os.path.dirname(manifest_path)
