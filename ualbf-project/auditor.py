@@ -336,11 +336,23 @@ def _setup_staging_workspace(host_dir, staging_dir):
 
     # Copy parent docs_manifest.json if present and not in staging_dir
     parent_docs = os.path.abspath(os.path.join(host_dir, "..", "docs_manifest.json"))
+    if not os.path.exists(parent_docs):
+        parent_docs = os.path.abspath(os.path.join(host_dir, "docs_manifest.json"))
     if os.path.exists(parent_docs) and not os.path.exists(
         os.path.join(staging_dir, "docs_manifest.json")
     ):
         try:
             shutil.copy2(parent_docs, os.path.join(staging_dir, "docs_manifest.json"))
+        except Exception:
+            pass
+
+    # Copy parent README.md if present and not in staging_dir
+    parent_readme = os.path.abspath(os.path.join(host_dir, "..", "README.md"))
+    if os.path.exists(parent_readme) and not os.path.exists(
+        os.path.join(staging_dir, "README.md")
+    ):
+        try:
+            shutil.copy2(parent_readme, os.path.join(staging_dir, "README.md"))
         except Exception:
             pass
 
@@ -1058,8 +1070,17 @@ def _generate_manifest_impl():
 def check_documentation(manifest):
     repo_root = get_repo_root()
 
-    manifest_path = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
-    manifest_dir = os.path.dirname(manifest_path)
+    cand_staging = os.path.join(repo_root, "docs_manifest.json")
+    cand_parent = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
+    if os.path.exists(cand_staging):
+        manifest_path = cand_staging
+        manifest_dir = repo_root
+    elif os.path.exists(cand_parent):
+        manifest_path = cand_parent
+        manifest_dir = os.path.dirname(cand_parent)
+    else:
+        manifest_path = cand_parent
+        manifest_dir = os.path.dirname(cand_parent)
 
     # Build a file and directory cache for flexible document path resolution
     all_files_cache = {}
@@ -1105,6 +1126,10 @@ def check_documentation(manifest):
         target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
         if os.path.exists(target_repo_rel):
             return True
+        if target.lstrip("/").startswith("ualbf-project/"):
+            target_stripped = target.lstrip("/")[len("ualbf-project/") :]
+            if os.path.exists(os.path.join(manifest_dir, target_stripped)):
+                return True
         # 3. Suffix matching via cache
         target_base = os.path.basename(target)
         if target_base in all_files_cache:
@@ -1128,7 +1153,19 @@ def check_documentation(manifest):
         for key, classification in docs_manifest.items():
             cand1 = os.path.join(manifest_dir, key)
             cand2 = os.path.join(os.path.dirname(manifest_dir), key)
-            doc_path = os.path.abspath(cand1 if os.path.exists(cand1) else cand2)
+            cand3 = (
+                os.path.join(manifest_dir, key[len("ualbf-project/") :])
+                if key.startswith("ualbf-project/")
+                else cand1
+            )
+            if os.path.exists(cand1):
+                doc_path = os.path.abspath(cand1)
+            elif os.path.exists(cand3):
+                doc_path = os.path.abspath(cand3)
+            elif os.path.exists(cand2):
+                doc_path = os.path.abspath(cand2)
+            else:
+                doc_path = os.path.abspath(cand1)
             docs_to_check.append((doc_path, classification))
     except Exception:
         fallback_docs = [
