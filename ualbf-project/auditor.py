@@ -309,14 +309,48 @@ def _setup_staging_workspace(host_dir, staging_dir):
         else:
             shutil.copy2(src_item, dst_item)
 
-    # Copy .lake if present in host
+    # Symlink .lake/packages and copy .lake/build if present in host
     host_lake = os.path.join(host_dir, "lean4-proofs", ".lake")
     staging_lake = os.path.join(staging_dir, "lean4-proofs", ".lake")
     if os.path.exists(host_lake) and not os.path.exists(staging_lake):
-        try:
-            shutil.copytree(host_lake, staging_lake, symlinks=True)
-        except Exception:
-            pass
+        os.makedirs(staging_lake, exist_ok=True)
+        host_packages = os.path.join(host_lake, "packages")
+        staging_packages = os.path.join(staging_lake, "packages")
+        if os.path.exists(host_packages) and not os.path.exists(staging_packages):
+            try:
+                os.symlink(host_packages, staging_packages)
+            except Exception:
+                pass
+
+        host_build = os.path.join(host_lake, "build")
+        staging_build = os.path.join(staging_lake, "build")
+        if os.path.exists(host_build) and not os.path.exists(staging_build):
+            try:
+                shutil.copytree(host_build, staging_build, symlinks=True)
+            except Exception:
+                pass
+
+        for entry in os.listdir(host_lake):
+            if entry in ("packages", "build"):
+                continue
+            h_ent = os.path.join(host_lake, entry)
+            s_ent = os.path.join(staging_lake, entry)
+            if not os.path.exists(s_ent):
+                if os.path.islink(h_ent):
+                    try:
+                        os.symlink(os.readlink(h_ent), s_ent)
+                    except Exception:
+                        pass
+                elif os.path.isdir(h_ent):
+                    try:
+                        shutil.copytree(h_ent, s_ent, symlinks=True)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        shutil.copy2(h_ent, s_ent)
+                    except Exception:
+                        pass
 
     # Symlink prebuilt verification_cli and libverification_lib binaries if present
     for rel_sub in ["target/release", "verification-lib/target/release"]:
