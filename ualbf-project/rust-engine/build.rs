@@ -691,7 +691,7 @@ fn main() {
             .map_or(false, |mut entries| entries.next().is_some())
         && lean_project.join(".lake/build/lib/libUALBF.a").exists();
 
-    if !is_gha && !has_prebuilt {
+    if !has_prebuilt {
         if ualbf_ir_dir.exists() {
             let _ = fs::remove_dir_all(&ualbf_ir_dir);
         }
