@@ -4,6 +4,7 @@ import sys
 import hashlib
 import os
 import struct
+import tempfile
 
 import cert_util
 from matrix_utils import (
@@ -1141,15 +1142,14 @@ def verify_meta_certificate(
         raise cert_util.CertificateValidationError(msg)
 
     if "node_certificates" not in meta_cert_data:
-        tmp = f"tmp_cert_leaf_{id(meta_cert_data)}.json"
-        with open(tmp, "w", encoding="utf-8") as tf:
-            json.dump(meta_cert_data, tf)
-        try:
-            cert_util.validate_file_size(tmp)
-            return verify_certificate(tmp, manifest_path)
-        finally:
-            if os.path.exists(tmp):
-                os.remove(tmp)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_cert_path = os.path.join(
+                tmp_dir, f"tmp_cert_leaf_{id(meta_cert_data)}.json"
+            )
+            with open(tmp_cert_path, "w", encoding="utf-8") as tf:
+                json.dump(meta_cert_data, tf)
+            cert_util.validate_file_size(tmp_cert_path)
+            return verify_certificate(tmp_cert_path, manifest_path)
 
     print(f"\n=== Verifying Meta-Certificate (Depth {current_depth}) ===")
     loaded_certs = meta_cert_data["node_certificates"]
@@ -1179,29 +1179,11 @@ def verify_meta_certificate(
         print("!" * 80 + "\n")
 
     verified_leaf_certs = []
-    for i, nc in enumerate(loaded_certs):
-        if isinstance(nc, dict) and "node_certificates" in nc:
-            res = verify_meta_certificate(
-                nc,
-                manifest_path,
-                current_depth=current_depth + 1,
-                max_depth=max_depth,
-            )
-            if isinstance(res, list):
-                verified_leaf_certs.extend(res)
-            elif isinstance(res, dict):
-                verified_leaf_certs.append(res)
-        elif isinstance(nc, str):
-            try:
-                cert_util.validate_file_size(nc)
-                with open(nc, "r", encoding="utf-8") as f:
-                    nc_data = json.load(f)
-            except cert_util.CertificateError as e:
-                print(f"ERROR: {e}")
-                sys.exit(1)
-            if isinstance(nc_data, dict) and "node_certificates" in nc_data:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        for i, nc in enumerate(loaded_certs):
+            if isinstance(nc, dict) and "node_certificates" in nc:
                 res = verify_meta_certificate(
-                    nc_data,
+                    nc,
                     manifest_path,
                     current_depth=current_depth + 1,
                     max_depth=max_depth,
@@ -1210,24 +1192,41 @@ def verify_meta_certificate(
                     verified_leaf_certs.extend(res)
                 elif isinstance(res, dict):
                     verified_leaf_certs.append(res)
+            elif isinstance(nc, str):
+                try:
+                    cert_util.validate_file_size(nc)
+                    with open(nc, "r", encoding="utf-8") as f:
+                        nc_data = json.load(f)
+                except cert_util.CertificateError as e:
+                    print(f"ERROR: {e}")
+                    sys.exit(1)
+                if isinstance(nc_data, dict) and "node_certificates" in nc_data:
+                    res = verify_meta_certificate(
+                        nc_data,
+                        manifest_path,
+                        current_depth=current_depth + 1,
+                        max_depth=max_depth,
+                    )
+                    if isinstance(res, list):
+                        verified_leaf_certs.extend(res)
+                    elif isinstance(res, dict):
+                        verified_leaf_certs.append(res)
+                else:
+                    verified_leaf = verify_certificate(nc, manifest_path)
+                    verified_leaf_certs.append(verified_leaf)
+            elif isinstance(nc, dict):
+                tmp_cert_path = os.path.join(
+                    tmp_dir, f"tmp_cert_{current_depth}_{i}.json"
+                )
+                with open(tmp_cert_path, "w", encoding="utf-8") as tf:
+                    json.dump(nc, tf)
+                cert_util.validate_file_size(tmp_cert_path)
+                verified_leaf = verify_certificate(tmp_cert_path, manifest_path)
+                verified_leaf_certs.append(verified_leaf)
             else:
-                verified_leaf = verify_certificate(nc, manifest_path)
-                verified_leaf_certs.append(verified_leaf)
-        elif isinstance(nc, dict):
-            tmp = f"tmp_cert_{current_depth}_{i}.json"
-            with open(tmp, "w", encoding="utf-8") as tf:
-                json.dump(nc, tf)
-            try:
-                cert_util.validate_file_size(tmp)
-                verified_leaf = verify_certificate(tmp, manifest_path)
-                verified_leaf_certs.append(verified_leaf)
-            finally:
-                if os.path.exists(tmp):
-                    os.remove(tmp)
-        else:
-            msg = f"ERROR: Invalid node certificate format at index {i}."
-            print(msg, file=sys.stderr)
-            raise cert_util.CertificateValidationError(msg)
+                msg = f"ERROR: Invalid node certificate format at index {i}."
+                print(msg, file=sys.stderr)
+                raise cert_util.CertificateValidationError(msg)
 
     if current_depth == 0 and verified_leaf_certs:
         check_continuity(verified_leaf_certs)
