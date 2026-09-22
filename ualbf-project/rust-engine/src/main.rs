@@ -895,7 +895,7 @@ fn main() {
         serde_json::to_string(&crate::events::SearchEvent::Done {
             target_min_log10,
             target_max_log10,
-            elapsed_ms: phase2_elapsed.as_millis()
+            elapsed_ms: phase2_elapsed.as_millis() as u64
         })
         .unwrap()
     );
