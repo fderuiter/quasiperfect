@@ -1,8 +1,9 @@
-import os
-import hashlib
-import sys
 import json
+import os
+import sys
 from typing import Optional
+
+import hash_util
 
 from matrix_utils import (  # noqa: F401
     exact_det,
@@ -210,18 +211,14 @@ except ImportError:
                     open_b, close_b = count_non_literal_braces_py(line)
                     brace_count = open_b - close_b
                     if brace_count == 0 and "{" in line:
-                        verus_hashes[current_fn] = hashlib.sha256(
-                            current_body.encode("utf-8")
-                        ).hexdigest()
+                        verus_hashes[current_fn] = hash_util.hash_string(current_body)
                         in_spec = False
             elif in_spec:
                 current_body += "\n" + line
                 open_b, close_b = count_non_literal_braces_py(line)
                 brace_count += open_b - close_b
                 if brace_count == 0:
-                    verus_hashes[current_fn] = hashlib.sha256(
-                        current_body.encode("utf-8")
-                    ).hexdigest()
+                    verus_hashes[current_fn] = hash_util.hash_string(current_body)
                     in_spec = False
             elif not in_spec and module_brace_depth > 0:
                 open_b, close_b = count_non_literal_braces_py(line)
