@@ -167,9 +167,6 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
       - name: Run Python Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-python"
 
