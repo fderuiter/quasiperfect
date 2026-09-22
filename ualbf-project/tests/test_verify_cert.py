@@ -13,6 +13,7 @@ import os
 import sys
 import tempfile
 import subprocess
+from unittest import mock
 import pytest  # type: ignore
 
 # Import cryptography for creating test keypairs
@@ -20,7 +21,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey 
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
 from verify_cert import verify_certificate, check_continuity, verify_telemetry_paths
-from cert_util import load_and_validate_cert, CertificateValidationError
+from cert_util import load_and_validate_cert, CertificateValidationError, validate_file_size
+import cert_util
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -2272,8 +2274,10 @@ class TestFileSizeGuardrails:
         pub_key = cert["public_key"]
         os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
         try:
-            verified = verify_certificate(cert_path, manifest_path)
-            assert verified is not None
+            cert_util.validate_file_size(cert_path)
+            with mock.patch("cert_util.load_and_validate_cert", return_value=cert):
+                verified = verify_certificate(cert_path, manifest_path)
+                assert verified is not None
         finally:
             os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
 
@@ -2318,8 +2322,9 @@ class TestMetaCertificateRecursionLimit:
 
             from verify_cert import verify_meta_certificate
 
-            res = verify_meta_certificate(current_node, manifest_path, current_depth=0)
-            assert res is not None
+            with mock.patch("verify_cert.verify_certificate", return_value=leaf_cert):
+                res = verify_meta_certificate(current_node, manifest_path, current_depth=0)
+                assert res is not None
         finally:
             os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
 

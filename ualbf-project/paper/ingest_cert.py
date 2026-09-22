@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+from typing import Optional, Tuple
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
@@ -46,7 +47,7 @@ def check_deprecated_bypass() -> None:
         sys.exit(1)
 
 
-def load_bounds(bounds_path: str | None = None) -> dict:
+def load_bounds(bounds_path: Optional[str] = None) -> dict:
     if bounds_path is None:
         bounds_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -75,7 +76,7 @@ def load_bounds(bounds_path: str | None = None) -> dict:
     return bounds
 
 
-def check_manifest(manifest_path: str | None = None) -> tuple[dict, str]:
+def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
     if manifest_path is None:
         manifest_path = os.environ.get("UALBF_PROOF_MANIFEST")
     if not manifest_path or not os.path.exists(manifest_path):
