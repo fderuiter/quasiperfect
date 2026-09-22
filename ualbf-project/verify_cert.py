@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 import json
 import sys
-import hashlib
 import os
 import struct
+import hash_util
 
 import cert_util
 from matrix_utils import (
@@ -54,9 +54,7 @@ def verify_trace_file(cert, trace_path):
 
     canonicalize_trace(trace_path)
 
-    with open(trace_path, "rb") as f:
-        trace_data = f.read()
-    computed_hash = hashlib.sha256(trace_data).hexdigest()
+    computed_hash = hash_util.hash_file(trace_path)
     expected_hash = cert["telemetry"].get("trace_hash")
     if expected_hash and computed_hash != expected_hash:
         print(
@@ -261,11 +259,7 @@ def verify_sidecar_file(cert, sidecar_path):
         )
         sys.exit(1)
 
-    hasher = hashlib.sha256()
-    with open(sidecar_path, "rb") as f:
-        while chunk := f.read(65536):
-            hasher.update(chunk)
-    computed_hash = hasher.hexdigest()
+    computed_hash = hash_util.hash_file(sidecar_path)
 
     if computed_hash != expected_hash:
         print(
@@ -301,13 +295,13 @@ def verify_theorem_checksum(thm, manifest_path=None):
         file_path = os.path.join("lean4-proofs", thm["file"])
 
     if os.path.exists(file_path):
-        with open(file_path, "rb") as f:
-            computed = hashlib.sha256(f.read()).hexdigest()
+        computed = hash_util.hash_file(file_path)
         return computed == thm.get("checksum", "")
     else:
         # Fallback to metadata-based hash if the physical file does not exist anywhere
-        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-        computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        computed = hash_util.hash_theorem_metadata(
+            thm["name"], thm["file"], thm["status"]
+        )
         return computed == thm.get("checksum", "")
 
 
@@ -423,7 +417,7 @@ def verify_gpu_witnesses(cert):
     # Deterministic hash function equivalent to the one in Rust
     def get_component_hashes(p: int, two_e: int) -> tuple[int, int]:
         data = struct.pack(">Q I", p, two_e)
-        h = hashlib.sha256(data).digest()
+        h = hash_util.raw_digest(data)
         hash1 = struct.unpack(">Q", h[0:8])[0]
         hash2 = struct.unpack(">Q", h[8:16])[0]
         return hash1, hash2
@@ -751,7 +745,7 @@ def verify_certificate(cert_path, manifest_path):
         manifest_content = f.read()
 
     # Verify manifest hash
-    manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+    manifest_hash = hash_util.hash_string(manifest_content)
     if manifest_hash != cert.get("manifest_hash"):
         print(
             f"ERROR: Manifest hash mismatch!\nExpected: {cert.get('manifest_hash')}\nGot:      {manifest_hash}"
@@ -839,8 +833,7 @@ def verify_certificate(cert_path, manifest_path):
                 f"ERROR: Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest."
             )
             sys.exit(1)
-        with open(bounds_path, "rb") as f:
-            computed_bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        computed_bounds_hash = hash_util.hash_file(bounds_path)
         if computed_bounds_hash != bounds_manifest_hash:
             print(
                 f"ERROR: Bounds manifest hash mismatch!\nExpected: {bounds_manifest_hash}\nGot:      {computed_bounds_hash}"
@@ -915,7 +908,7 @@ def verify_certificate(cert_path, manifest_path):
                     f"ERROR: Unverified tactic ('sorry' or 'admit') detected in {pf['file']}"
                 )
                 sys.exit(1)
-            computed = hashlib.sha256(content).hexdigest()
+            computed = hash_util.hash_bytes(content)
             if computed != pf["checksum"]:
                 print(f"ERROR: Checksum mismatch for file '{pf['file']}'")
                 print(f"Expected: {pf['checksum']}")
@@ -943,11 +936,11 @@ def verify_certificate(cert_path, manifest_path):
                 file_path = os.path.join("lean4-proofs", thm["file"])
 
             if os.path.exists(file_path):
-                with open(file_path, "rb") as f:
-                    computed = hashlib.sha256(f.read()).hexdigest()
+                computed = hash_util.hash_file(file_path)
             else:
-                payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
-                computed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+                computed = hash_util.hash_theorem_metadata(
+                    thm["name"], thm["file"], thm["status"]
+                )
             print(f"Computed: {computed}")
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")

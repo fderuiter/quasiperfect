@@ -1,5 +1,4 @@
 import collections
-import hashlib
 import json
 import os
 import re
@@ -11,6 +10,7 @@ if project_root not in sys.path:
 
 import auditor
 import cert_util
+import hash_util
 
 
 def make_macro_name(s: str) -> str:
@@ -274,13 +274,13 @@ def write_telemetry_tex(
                 )
                 sys.exit(1)
 
-            with open(manifest_path, "rb") as mf_bytes:
-                manifest_content_bytes = mf_bytes.read()
-
-            computed_manifest_hash = hashlib.sha256(manifest_content_bytes).hexdigest()
+            computed_manifest_hash = hash_util.hash_file(manifest_path)
             if computed_manifest_hash != cert.get("manifest_hash"):
                 print("Error: Proof manifest hash mismatch in chain of trust.")
                 sys.exit(1)
+
+            with open(manifest_path, "rb") as mf_bytes:
+                manifest_content_bytes = mf_bytes.read()
 
             manifest_data = json.loads(manifest_content_bytes.decode("utf-8"))
             expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
@@ -288,8 +288,7 @@ def write_telemetry_tex(
                 print("Error: Proof manifest missing bounds_manifest_hash.")
                 sys.exit(1)
 
-            with open(bounds_path, "rb") as bf_bytes:
-                computed_bounds_hash = hashlib.sha256(bf_bytes.read()).hexdigest()
+            computed_bounds_hash = hash_util.hash_file(bounds_path)
             if computed_bounds_hash != expected_bounds_hash:
                 print("Error: Bounds manifest hash mismatch in chain of trust.")
                 sys.exit(1)

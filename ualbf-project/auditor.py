@@ -4,7 +4,7 @@ import subprocess
 import json
 import sys
 import os
-import hashlib
+import hash_util
 import shutil
 import cert_util
 import time
@@ -59,12 +59,10 @@ def theorem_checksum(name, rel_file, status):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_dir, "lean4-proofs", rel_file)
     if os.path.exists(file_path):
-        with open(file_path, "rb") as f:
-            return hashlib.sha256(f.read()).hexdigest()
+        return hash_util.hash_file(file_path)
     else:
         # Fallback to metadata-based hash if the physical file does not exist (useful for testing/mock environments)
-        payload = f"{name}|{rel_file}|{status}"
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return hash_util.hash_theorem_metadata(name, rel_file, status)
 
 
 def compute_verus_hashes(verus_content):
@@ -764,9 +762,7 @@ def generate_manifest():
             ):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, cwd)
-                with open(full_path, "rb") as f:
-                    content = f.read()
-                checksum = hashlib.sha256(content).hexdigest()
+                checksum = hash_util.hash_file(full_path)
                 proof_files.append({"file": rel_path, "checksum": checksum})
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
@@ -775,8 +771,7 @@ def generate_manifest():
         os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json"
     )
     if os.path.exists(bounds_manifest_path):
-        with open(bounds_manifest_path, "rb") as f:
-            bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        bounds_hash = hash_util.hash_file(bounds_manifest_path)
         manifest["bounds_manifest_hash"] = bounds_hash
     else:
         print(

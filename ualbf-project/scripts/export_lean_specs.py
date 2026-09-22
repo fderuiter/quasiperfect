@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 import subprocess
-import hashlib
 import os
+import sys
 import json
 import re
+
+repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
+import hash_util
 
 
 def generate_rust_types(schema, repo_root, schema_hash):
@@ -656,7 +662,7 @@ def main():
         with open(schema_path, "r", encoding="utf-8") as f:
             schema_content = f.read()
             schema = json.loads(schema_content)
-            schema_hash = hashlib.sha256(schema_content.encode("utf-8")).hexdigest()
+            schema_hash = hash_util.hash_file(schema_path)
         generate_rust_types(schema, repo_root, schema_hash)
         generate_lean_types(schema, repo_root)
         generate_ffi_lean_spec(schema, repo_root, schema_hash)
@@ -673,7 +679,7 @@ def main():
         with open(bounds_path, "r", encoding="utf-8") as f:
             bounds_content = f.read()
             bounds = json.loads(bounds_content)
-            bounds_hash = hashlib.sha256(bounds_content.encode("utf-8")).hexdigest()
+            bounds_hash = hash_util.hash_file(bounds_path)
         generate_verus_specs(bounds, repo_root, bounds_hash)
         print(f"Verus specs generated from {bounds_path}")
         generate_ffi(repo_root, schema, schema_hash)
