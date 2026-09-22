@@ -52,6 +52,12 @@ def verify_trace_file(cert, trace_path):
         print(f"ERROR: Trace file '{trace_path}' not found.")
         sys.exit(1)
 
+    try:
+        cert_util.validate_file_size(trace_path)
+    except cert_util.CertificateError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
+
     canonicalize_trace(trace_path)
 
     with open(trace_path, "rb") as f:
@@ -259,6 +265,12 @@ def verify_sidecar_file(cert, sidecar_path):
         print(
             f"ERROR: Sidecar log file '{sidecar_path}' not found, but certificate requires sidecar digest ({expected_hash})."
         )
+        sys.exit(1)
+
+    try:
+        cert_util.validate_file_size(sidecar_path)
+    except cert_util.CertificateError as e:
+        print(f"ERROR: {e}")
         sys.exit(1)
 
     hasher = hashlib.sha256()
@@ -568,8 +580,12 @@ def verify_lattice_witnesses(cert, manifest_path):
         sys.exit(1)
 
     try:
+        cert_util.validate_file_size(bounds_path)
         with open(bounds_path, "r", encoding="utf-8") as f:
             bounds_data = json.load(f)
+    except cert_util.CertificateError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
     except Exception as e:
         print(f"ERROR: Failed to parse bounds manifest: {e}")
         sys.exit(1)
@@ -707,8 +723,12 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     try:
+        cert_util.validate_file_size(manifest_path)
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest_to_check = json.load(f)
+    except cert_util.CertificateError as e:
+        print(f"ERROR: {e}")
+        sys.exit(1)
     except Exception as e:
         print(f"ERROR: Failed to parse manifest JSON: {e}")
         sys.exit(1)
@@ -839,8 +859,13 @@ def verify_certificate(cert_path, manifest_path):
                 f"ERROR: Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest."
             )
             sys.exit(1)
-        with open(bounds_path, "rb") as f:
-            computed_bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        try:
+            cert_util.validate_file_size(bounds_path)
+            with open(bounds_path, "rb") as f:
+                computed_bounds_hash = hashlib.sha256(f.read()).hexdigest()
+        except cert_util.CertificateError as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
         if computed_bounds_hash != bounds_manifest_hash:
             print(
                 f"ERROR: Bounds manifest hash mismatch!\nExpected: {bounds_manifest_hash}\nGot:      {computed_bounds_hash}"
@@ -1085,6 +1110,133 @@ def check_continuity(certs_list):
             sys.exit(1)
 
 
+MAX_RECURSION_DEPTH = 5
+
+
+def verify_meta_certificate(
+    meta_cert, manifest_path, current_depth=0, max_depth=MAX_RECURSION_DEPTH
+):
+    """
+    Recursively verifies a meta-certificate and its nested node certificates,
+    tracking traversal depth and aborting if recursion depth exceeds max_depth (5 levels).
+    """
+    if current_depth > max_depth:
+        msg = f"ERROR: Meta-certificate recursion depth ({current_depth}) exceeds maximum limit of {max_depth} levels."
+        print(msg, file=sys.stderr)
+        raise cert_util.CertificateValidationError(msg)
+
+    if isinstance(meta_cert, str):
+        try:
+            cert_util.validate_file_size(meta_cert)
+            with open(meta_cert, "r", encoding="utf-8") as f:
+                meta_cert_data = json.load(f)
+        except cert_util.CertificateError as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
+    elif isinstance(meta_cert, dict):
+        meta_cert_data = meta_cert
+    else:
+        msg = "ERROR: Meta-certificate must be a file path string or JSON object."
+        print(msg, file=sys.stderr)
+        raise cert_util.CertificateValidationError(msg)
+
+    if "node_certificates" not in meta_cert_data:
+        tmp = f"tmp_cert_leaf_{id(meta_cert_data)}.json"
+        with open(tmp, "w", encoding="utf-8") as tf:
+            json.dump(meta_cert_data, tf)
+        try:
+            cert_util.validate_file_size(tmp)
+            return verify_certificate(tmp, manifest_path)
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+
+    print(f"\n=== Verifying Meta-Certificate (Depth {current_depth}) ===")
+    loaded_certs = meta_cert_data["node_certificates"]
+    if not isinstance(loaded_certs, list):
+        msg = "ERROR: 'node_certificates' field in meta-certificate must be a list."
+        print(msg, file=sys.stderr)
+        raise cert_util.CertificateValidationError(msg)
+
+    is_conditional = meta_cert_data.get("is_conditional", False) or any(
+        isinstance(c, dict) and c.get("is_conditional", False) for c in loaded_certs
+    )
+    conjecture = meta_cert_data.get("conjecture")
+    if not conjecture:
+        for c in loaded_certs:
+            if isinstance(c, dict) and c.get("conjecture"):
+                conjecture = c.get("conjecture")
+                break
+    if is_conditional or conjecture:
+        conjecture_name = "Unknown"
+        if conjecture:
+            conjecture_name = conjecture.get("conjecture_name", "Unknown Conjecture")
+        print("\n" + "!" * 80)
+        print("! WARNING: THIS META-CERTIFICATE CONTAINS CONJECTURAL CERTIFICATES!")
+        print(
+            f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'."
+        )
+        print("!" * 80 + "\n")
+
+    verified_leaf_certs = []
+    for i, nc in enumerate(loaded_certs):
+        if isinstance(nc, dict) and "node_certificates" in nc:
+            res = verify_meta_certificate(
+                nc,
+                manifest_path,
+                current_depth=current_depth + 1,
+                max_depth=max_depth,
+            )
+            if isinstance(res, list):
+                verified_leaf_certs.extend(res)
+            elif isinstance(res, dict):
+                verified_leaf_certs.append(res)
+        elif isinstance(nc, str):
+            try:
+                cert_util.validate_file_size(nc)
+                with open(nc, "r", encoding="utf-8") as f:
+                    nc_data = json.load(f)
+            except cert_util.CertificateError as e:
+                print(f"ERROR: {e}")
+                sys.exit(1)
+            if isinstance(nc_data, dict) and "node_certificates" in nc_data:
+                res = verify_meta_certificate(
+                    nc_data,
+                    manifest_path,
+                    current_depth=current_depth + 1,
+                    max_depth=max_depth,
+                )
+                if isinstance(res, list):
+                    verified_leaf_certs.extend(res)
+                elif isinstance(res, dict):
+                    verified_leaf_certs.append(res)
+            else:
+                verified_leaf = verify_certificate(nc, manifest_path)
+                verified_leaf_certs.append(verified_leaf)
+        elif isinstance(nc, dict):
+            tmp = f"tmp_cert_{current_depth}_{i}.json"
+            with open(tmp, "w", encoding="utf-8") as tf:
+                json.dump(nc, tf)
+            try:
+                cert_util.validate_file_size(tmp)
+                verified_leaf = verify_certificate(tmp, manifest_path)
+                verified_leaf_certs.append(verified_leaf)
+            finally:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+        else:
+            msg = f"ERROR: Invalid node certificate format at index {i}."
+            print(msg, file=sys.stderr)
+            raise cert_util.CertificateValidationError(msg)
+
+    if current_depth == 0 and verified_leaf_certs:
+        check_continuity(verified_leaf_certs)
+        verify_telemetry_paths(verified_leaf_certs)
+
+    print("✓ Meta-certificate signature (composite) verified.")
+    return verified_leaf_certs
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -1125,49 +1277,15 @@ if __name__ == "__main__":
     # If the user passed a single meta-certificate
     if len(certs) == 1 and not os.path.isdir(certs[0]):
         try:
+            cert_util.validate_file_size(certs[0])
             with open(certs[0], "r", encoding="utf-8") as f:
                 content_json = json.load(f)
             if "node_certificates" in content_json:
-                print("\n=== Verifying Meta-Certificate ===")
-                loaded_certs = content_json["node_certificates"]
-
-                is_conditional = content_json.get("is_conditional", False) or any(
-                    c.get("is_conditional", False) for c in loaded_certs
-                )
-                conjecture = content_json.get("conjecture")
-                if not conjecture:
-                    for c in loaded_certs:
-                        if c.get("conjecture"):
-                            conjecture = c.get("conjecture")
-                            break
-                if is_conditional or conjecture:
-                    conjecture_name = "Unknown"
-                    if conjecture:
-                        conjecture_name = conjecture.get(
-                            "conjecture_name", "Unknown Conjecture"
-                        )
-                    print("\n" + "!" * 80)
-                    print(
-                        "! WARNING: THIS META-CERTIFICATE CONTAINS CONJECTURAL CERTIFICATES!"
-                    )
-                    print(
-                        f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'."
-                    )
-                    print("!" * 80 + "\n")
-
-                check_continuity(loaded_certs)
-                for i, nc in enumerate(loaded_certs):
-                    tmp = f"tmp_cert_{i}.json"
-                    with open(tmp, "w", encoding="utf-8") as tf:
-                        json.dump(nc, tf)
-                    try:
-                        verify_certificate(tmp, args.manifest)
-                    finally:
-                        os.remove(tmp)
-
-                verify_telemetry_paths(loaded_certs)
-                print("✓ Meta-certificate signature (composite) verified.")
+                verify_meta_certificate(content_json, args.manifest, current_depth=0)
                 sys.exit(0)
+        except cert_util.CertificateError as e:
+            print(f"ERROR: {e}")
+            sys.exit(1)
         except Exception:
             pass
 
