@@ -406,7 +406,7 @@
     },
     {
       "file": "UALBF/Engine/SearchState.lean",
-      "checksum": "44546d1fe7291bab89199ba778a7116662c684104ce4cb06ae48196e344b1e3b"
+      "checksum": "a8b5a5ff9747f00f682bfcc9a79d99e260d902bc7bd0e988d755438cef385c68"
     },
     {
       "file": "UALBF/Engine/SieveSoundness.lean",
@@ -422,7 +422,7 @@
     },
     {
       "file": "UALBF/FFI_generated.lean",
-      "checksum": "b14cd50d2ebeca4b97ebbcc317efb7cf1af886d098ec4802e57fe8a1a1f21cef"
+      "checksum": "f2bc8643427d23cce2e8911e00f1d9a835c37696618e9a91630fd96ed4e3285c"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
@@ -604,6 +604,6 @@
       "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     }
   },
-  "verified_logic_hash": "4e2ebe778f374e0dfda4b456d7fdc6e3cd1cc490eedc7732925303c58d17fbe9",
+  "verified_logic_hash": "d213dde4e45aaccdc0dd98494f1061b1926e0a15146a08622404ab2a624260b8",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

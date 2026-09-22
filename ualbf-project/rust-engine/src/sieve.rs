@@ -491,8 +491,22 @@ mod tests {
         let content = std::fs::read_to_string(test_log).unwrap();
         let lines: Vec<&str> = content.trim().lines().collect();
         assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0], "12345,1000");
-        assert_eq!(lines[1], format!("{},10", p_512));
+        assert_eq!(
+            lines[0],
+            serde_json::to_string(&crate::events::SearchEvent::Overflow {
+                p: "12345".to_string(),
+                pow: 1000
+            })
+            .unwrap()
+        );
+        assert_eq!(
+            lines[1],
+            serde_json::to_string(&crate::events::SearchEvent::Overflow {
+                p: p_512.to_string(),
+                pow: 10
+            })
+            .unwrap()
+        );
 
         assert!(run_offline_verification(test_log).is_ok());
 
@@ -591,7 +605,19 @@ pub fn init_sidecar_logger(path: &str) -> std::io::Result<()> {
 
     let handle = std::thread::spawn(move || {
         for (p, pow) in rx {
-            if let Err(e) = writeln!(writer, "{},{}", p, pow) {
+            let event = crate::events::SearchEvent::Overflow {
+                p: p.to_string(),
+                pow,
+            };
+            let json = match serde_json::to_string(&event) {
+                Ok(j) => j,
+                Err(e) => {
+                    eprintln!("FATAL: Failed to serialize sidecar SearchEvent: {}", e);
+                    SIDECAR_ERROR.store(true, std::sync::atomic::Ordering::SeqCst);
+                    break;
+                }
+            };
+            if let Err(e) = writeln!(writer, "{}", json) {
                 eprintln!("FATAL: Failed to write to sidecar log: {}", e);
                 SIDECAR_ERROR.store(true, std::sync::atomic::Ordering::SeqCst);
                 break;
@@ -657,15 +683,24 @@ pub fn run_offline_verification(sidecar_path: &str) -> Result<(), Box<dyn std::e
 
     for line in reader.lines() {
         let line = line?;
-        if line.trim().is_empty() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
             continue;
         }
-        let parts: Vec<&str> = line.split(',').collect();
-        if parts.len() != 2 {
-            return Err(format!("Invalid sidecar log line: {}", line).into());
-        }
-        let p: BigUint = parts[0].trim().parse()?;
-        let pow_val: u32 = parts[1].trim().parse()?;
+        let event: crate::events::SearchEvent = match serde_json::from_str(trimmed) {
+            Ok(ev) => ev,
+            Err(e) => return Err(format!("Invalid JSON in sidecar log line: {}", e).into()),
+        };
+
+        let (p_str, pow_val) = match event {
+            crate::events::SearchEvent::Overflow { p, pow } => (p, pow),
+            _ => return Err(format!("Unexpected event in sidecar log line: {}", trimmed).into()),
+        };
+
+        let p: BigUint = match p_str.parse() {
+            Ok(val) => val,
+            Err(e) => return Err(format!("Invalid prime value in sidecar log: {}", e).into()),
+        };
 
         if p <= BigUint::one() {
             return Err(format!("Invalid prime value in sidecar log: {}", p).into());

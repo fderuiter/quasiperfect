@@ -39,4 +39,10 @@ def SearchStateTransport.toNative (t : SearchStateTransport) : SearchState := {
   sigma_mod24 := t.sigma_mod24,
 }
 
+structure SidecarEvent where
+  event : String
+  p : String
+  pow : UInt32
+deriving Inhabited, Repr
+
 end UALBF.Engine

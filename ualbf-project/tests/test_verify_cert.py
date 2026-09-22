@@ -695,7 +695,12 @@ class TestTheoremChecking:
 class TestSidecarLogVerification:
     def test_sidecar_log_digest_verification_pass(self, tmp_path):
         sidecar_file = tmp_path / "overflow_sidecar.log"
-        sidecar_content = b"3,2\n5,4\n"
+        sidecar_content = (
+            json.dumps({"event": "overflow", "p": "3", "pow": 2})
+            + "\n"
+            + json.dumps({"event": "overflow", "p": "5", "pow": 4})
+            + "\n"
+        ).encode("utf-8")
         sidecar_file.write_bytes(sidecar_content)
         sidecar_digest = hashlib.sha256(sidecar_content).hexdigest()
 
@@ -714,7 +719,9 @@ class TestSidecarLogVerification:
 
     def test_sidecar_log_digest_mismatch_fails(self, tmp_path):
         sidecar_file = tmp_path / "overflow_sidecar.log"
-        sidecar_content = b"3,2\n5,4\n"
+        sidecar_content = (
+            json.dumps({"event": "overflow", "p": "3", "pow": 2}) + "\n"
+        ).encode("utf-8")
         sidecar_file.write_bytes(sidecar_content)
 
         manifest = make_manifest()
@@ -731,10 +738,34 @@ class TestSidecarLogVerification:
             verify_sidecar_file(loaded_cert, str(sidecar_file))
         assert exc_info.value.code != 0
 
-    def test_sidecar_schema_validation_field_count_mismatch(self, tmp_path):
+    def test_legacy_csv_sidecar_format_fails(self, tmp_path):
         from verify_cert import verify_sidecar_file
 
-        for bad_content in [b"3\n", b"3,2,1\n", b"3,\n", b",2\n"]:
+        sidecar_file = tmp_path / "overflow_sidecar_legacy.log"
+        legacy_content = b"3,2\n5,4\n"
+        sidecar_file.write_bytes(legacy_content)
+        digest = hashlib.sha256(legacy_content).hexdigest()
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = digest
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_sidecar_file(loaded_cert, str(sidecar_file))
+        assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_malformed_json(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        for bad_content in [
+            b"{bad json}\n",
+            b'{"event": "overflow", "p": "3", "pow": 2}\nnot json\n',
+            b"[\"not an object\"]\n",
+        ]:
             sidecar_file = tmp_path / "overflow_sidecar_bad.log"
             sidecar_file.write_bytes(bad_content)
             digest = hashlib.sha256(bad_content).hexdigest()
@@ -751,11 +782,49 @@ class TestSidecarLogVerification:
                 verify_sidecar_file(loaded_cert, str(sidecar_file))
             assert exc_info.value.code != 0
 
-    def test_sidecar_schema_validation_non_numeric_and_negative(self, tmp_path):
+    def test_sidecar_schema_validation_missing_or_extra_keys(self, tmp_path):
         from verify_cert import verify_sidecar_file
 
-        for bad_content in [b"abc,10\n", b"3,-1\n", b"-3,2\n", b"3.5,2\n", b"3,2.5\n"]:
-            sidecar_file = tmp_path / "overflow_sidecar_bad_val.log"
+        bad_records = [
+            {"event": "overflow", "p": "3"},  # missing pow
+            {"event": "overflow", "pow": 2},  # missing p
+            {"p": "3", "pow": 2},  # missing event
+            {"event": "overflow", "p": "3", "pow": 2, "extra": "val"},  # extra key
+        ]
+        for rec in bad_records:
+            bad_content = (json.dumps(rec) + "\n").encode("utf-8")
+            sidecar_file = tmp_path / "overflow_sidecar_bad_keys.log"
+            sidecar_file.write_bytes(bad_content)
+            digest = hashlib.sha256(bad_content).hexdigest()
+
+            manifest = make_manifest()
+            cert = build_cert("placeholder")
+            cert["telemetry"]["sidecar_hash"] = digest
+            cert_path, manifest_path = write_files(manifest, cert)
+
+            with open(cert_path, "r", encoding="utf-8") as f:
+                loaded_cert = json.load(f)
+
+            with pytest.raises(SystemExit) as exc_info:
+                verify_sidecar_file(loaded_cert, str(sidecar_file))
+            assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_invalid_field_types(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        bad_records = [
+            {"event": "overflow", "p": 3, "pow": 2},  # p is int instead of str
+            {"event": "overflow", "p": "abc", "pow": 2},  # p non-numeric str
+            {"event": "overflow", "p": "3.5", "pow": 2},  # p decimal float str
+            {"event": "overflow", "p": "-3", "pow": 2},  # p negative
+            {"event": "overflow", "p": "3", "pow": "2"},  # pow is str
+            {"event": "overflow", "p": "3", "pow": -1},  # pow is negative
+            {"event": "overflow", "p": "3", "pow": True},  # pow is bool
+            {"event": "progress", "p": "3", "pow": 2},  # wrong event value
+        ]
+        for rec in bad_records:
+            bad_content = (json.dumps(rec) + "\n").encode("utf-8")
+            sidecar_file = tmp_path / "overflow_sidecar_bad_type.log"
             sidecar_file.write_bytes(bad_content)
             digest = hashlib.sha256(bad_content).hexdigest()
 
@@ -774,7 +843,9 @@ class TestSidecarLogVerification:
     def test_sidecar_schema_validation_blank_lines_and_whitespace(self, tmp_path):
         from verify_cert import verify_sidecar_file
 
-        valid_content = b"\n\n  3 , 2  \n5,4\n\n  \n"
+        rec1 = json.dumps({"event": "overflow", "p": "3", "pow": 2})
+        rec2 = json.dumps({"event": "overflow", "p": "5", "pow": 4})
+        valid_content = f"\n\n  {rec1}  \n{rec2}\n\n  \n".encode("utf-8")
         sidecar_file = tmp_path / "overflow_sidecar_valid.log"
         sidecar_file.write_bytes(valid_content)
         digest = hashlib.sha256(valid_content).hexdigest()
@@ -795,31 +866,58 @@ class TestSidecarLogVerification:
 
         # Test valid
         valid_file = tmp_path / "valid.log"
-        valid_file.write_text("3,2\n11,100\n", encoding="utf-8")
+        valid_rec1 = json.dumps({"event": "overflow", "p": "3", "pow": 2})
+        valid_rec2 = json.dumps({"event": "overflow", "p": "11", "pow": 100})
+        valid_file.write_text(f"{valid_rec1}\n{valid_rec2}\n", encoding="utf-8")
         validate_sidecar_schema(str(valid_file))
 
-        # Test invalid field count
-        bad_field_file = tmp_path / "bad_field.log"
-        bad_field_file.write_text("3,2\n5\n", encoding="utf-8")
+        # Test legacy CSV format raises CertificateValidationError
+        legacy_file = tmp_path / "legacy.log"
+        legacy_file.write_text("3,2\n11,100\n", encoding="utf-8")
         with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_field_file))
-        assert "Line 2" in str(exc_info.value)
-        assert "invalid field count" in str(exc_info.value)
-
-        # Test non-numeric
-        bad_num_file = tmp_path / "bad_num.log"
-        bad_num_file.write_text("3,2\nfoo,bar\n", encoding="utf-8")
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_num_file))
-        assert "Line 2" in str(exc_info.value)
-        assert "non-numeric" in str(exc_info.value)
-
-        # Test negative value
-        bad_neg_file = tmp_path / "bad_neg.log"
-        bad_neg_file.write_text("3,-2\n", encoding="utf-8")
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_neg_file))
+            validate_sidecar_schema(str(legacy_file))
         assert "Line 1" in str(exc_info.value)
+        assert "invalid JSON syntax" in str(exc_info.value)
+
+        # Test malformed JSON line
+        bad_json_file = tmp_path / "bad_json.log"
+        bad_json_file.write_text(f"{valid_rec1}\n{{bad json}}\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_json_file))
+        assert "Line 2" in str(exc_info.value)
+        assert "invalid JSON syntax" in str(exc_info.value)
+
+        # Test missing required key
+        missing_key_file = tmp_path / "missing_key.log"
+        missing_key_file.write_text(
+            json.dumps({"event": "overflow", "p": "3"}) + "\n", encoding="utf-8"
+        )
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(missing_key_file))
+        assert "Line 1" in str(exc_info.value)
+        assert "Missing required key" in str(exc_info.value)
+
+        # Test extra key
+        extra_key_file = tmp_path / "extra_key.log"
+        extra_key_file.write_text(
+            json.dumps({"event": "overflow", "p": "3", "pow": 2, "foo": "bar"}) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(extra_key_file))
+        assert "Line 1" in str(exc_info.value)
+        assert "Unexpected extra key" in str(exc_info.value)
+
+        # Test non-numeric p
+        bad_p_file = tmp_path / "bad_p.log"
+        bad_p_file.write_text(
+            json.dumps({"event": "overflow", "p": "abc", "pow": 2}) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_p_file))
+        assert "Line 1" in str(exc_info.value)
+        assert "invalid 'p' field value" in str(exc_info.value)
 
         # Test missing file
         with pytest.raises(CertificateValidationError) as exc_info:

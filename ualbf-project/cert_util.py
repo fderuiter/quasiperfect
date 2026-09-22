@@ -1,6 +1,7 @@
 import os
 import hashlib
 import sys
+import json
 from typing import Optional
 
 from matrix_utils import (  # noqa: F401
@@ -259,11 +260,12 @@ def validate_sidecar_schema(sidecar_path: str) -> None:
     """
     Streams and validates line-by-line schema and numerical integrity for an overflow sidecar log.
 
-    Each non-empty line must contain exactly two comma-separated fields representing
-    prime base 'p' and power exponent 'pow', both as non-negative decimal integer strings.
+    Each non-empty line must parse as a JSON object matching SearchEvent::Overflow schema:
+    {"event": "overflow", "p": "<decimal string>", "pow": <non-negative integer>}
 
     Raises:
-        CertificateValidationError: If any line is malformed or contains non-numeric/negative values.
+        CertificateValidationError: If any line is malformed, missing required fields,
+                                    contains unexpected fields, or has incorrect types.
     """
     if not os.path.exists(sidecar_path):
         raise CertificateValidationError(f"Sidecar log file not found: {sidecar_path}")
@@ -274,16 +276,48 @@ def validate_sidecar_schema(sidecar_path: str) -> None:
                 line_str = line.strip()
                 if not line_str:
                     continue
-                parts = line_str.split(",")
-                if len(parts) != 2:
+                try:
+                    record = json.loads(line_str)
+                except json.JSONDecodeError as e:
                     raise CertificateValidationError(
-                        f"Line {line_num}: invalid field count ({len(parts)} fields, expected 2) in record '{line_str}'"
+                        f"Line {line_num}: invalid JSON syntax in record '{line_str}': {e}"
                     )
-                p_str = parts[0].strip()
-                pow_str = parts[1].strip()
-                if not p_str.isdigit() or not pow_str.isdigit():
+                if not isinstance(record, dict):
                     raise CertificateValidationError(
-                        f"Line {line_num}: non-numeric or negative field value in record '{line_str}'"
+                        f"Line {line_num}: record is not a JSON object: '{line_str}'"
+                    )
+
+                expected_keys = {"event", "p", "pow"}
+                actual_keys = set(record.keys())
+                if actual_keys != expected_keys:
+                    missing = expected_keys - actual_keys
+                    extra = actual_keys - expected_keys
+                    err_msg = (
+                        f"Line {line_num}: schema mismatch in record '{line_str}'."
+                    )
+                    if missing:
+                        err_msg += f" Missing required key(s): {sorted(missing)}."
+                    if extra:
+                        err_msg += f" Unexpected extra key(s): {sorted(extra)}."
+                    raise CertificateValidationError(err_msg)
+
+                if record["event"] != "overflow":
+                    raise CertificateValidationError(
+                        f"Line {line_num}: invalid 'event' value in record '{line_str}' (expected 'overflow', got '{record['event']}')"
+                    )
+
+                if not isinstance(record["p"], str) or not record["p"].isdigit():
+                    raise CertificateValidationError(
+                        f"Line {line_num}: invalid 'p' field value in record '{line_str}' (expected decimal string)"
+                    )
+
+                if (
+                    not isinstance(record["pow"], int)
+                    or isinstance(record["pow"], bool)
+                    or record["pow"] < 0
+                ):
+                    raise CertificateValidationError(
+                        f"Line {line_num}: invalid 'pow' field value in record '{line_str}' (expected non-negative integer)"
                     )
     except UnicodeDecodeError as e:
         raise CertificateValidationError(

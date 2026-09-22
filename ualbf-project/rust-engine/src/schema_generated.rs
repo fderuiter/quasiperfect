@@ -1,7 +1,7 @@
 // AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str =
-    "dcf4d6074ba46690077ed7b21ec0a2f77b605f80374c4f43e90e2eab54b5ab08";
+    "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb";
 
 use crate::types::Uint;
 use serde::{Deserialize, Serialize};
@@ -107,6 +107,38 @@ impl Prefix {
             active_mask: self.active_mask.as_ptr(),
             active_mask_len: self.active_mask.len(),
             sigma_mod24: self.sigma_mod24.clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SidecarEvent {
+    pub event: String,
+    pub p: String,
+    pub pow: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SerializedSidecarEvent {
+    pub event: String,
+    pub p: String,
+    pub pow: u32,
+}
+
+impl SerializedSidecarEvent {
+    pub fn from_sidecarevent(p: &SidecarEvent) -> Self {
+        Self {
+            event: p.event.clone(),
+            p: p.p.clone(),
+            pow: p.pow.clone(),
+        }
+    }
+
+    pub fn to_sidecarevent(&self) -> SidecarEvent {
+        SidecarEvent {
+            event: self.event.clone(),
+            p: self.p.clone(),
+            pow: self.pow.clone(),
         }
     }
 }
