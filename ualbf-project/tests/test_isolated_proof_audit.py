@@ -57,7 +57,7 @@ def test_proof_audit_staging_workspace_immutability():
                     )
                 return mock.Mock(
                     returncode=0,
-                    stdout="d213dde4e45aaccdc0dd98494f1061b1926e0a15146a08622404ab2a624260b8\n",
+                    stdout="03e50fb3a0659b0a795ae03323b3919e1aef470e99f20f671bae11ae2e6de95c\n",
                     stderr="",
                 )
             if cmd[0] in ("lean", "lake", "cargo", "make"):
