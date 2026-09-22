@@ -9,3 +9,5 @@ env/
 .mypy_cache/
 lean-built
 *.log
+verification_lib.so
+verification_lib.dylib
