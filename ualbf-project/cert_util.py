@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from typing import Optional
+from typing import Any, Optional
 
 import hash_util
 
@@ -253,6 +253,116 @@ class CertificateValidationError(CertificateError):
     pass
 
 
+class BoundedJSONLoader:
+    """
+    Encapsulates JSON deserialization and certificate file reading with
+    streaming size limits and AST depth verification to prevent resource exhaustion.
+    """
+
+    DEFAULT_MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+    DEFAULT_MAX_DEPTH = 10
+
+    def __init__(
+        self,
+        max_size_bytes: int = DEFAULT_MAX_SIZE_BYTES,
+        max_depth: int = DEFAULT_MAX_DEPTH,
+    ):
+        self.max_size_bytes = max_size_bytes
+        self.max_depth = max_depth
+
+    def _verify_depth(self, obj: Any, current_depth: int = 0) -> None:
+        if current_depth > self.max_depth:
+            raise CertificateValidationError(
+                f"JSON object nesting depth ({current_depth}) exceeds maximum allowed limit of {self.max_depth} levels."
+            )
+        if isinstance(obj, dict):
+            for v in obj.values():
+                self._verify_depth(v, current_depth + 1)
+        elif isinstance(obj, list):
+            for item in obj:
+                self._verify_depth(item, current_depth + 1)
+
+    def read_file_bytes(self, filepath_or_file: Any, chunk_size: int = 65536) -> bytes:
+        if isinstance(filepath_or_file, (str, bytes, os.PathLike)):
+            if not os.path.exists(filepath_or_file):
+                path_str = (
+                    filepath_or_file.decode("utf-8", errors="replace")
+                    if isinstance(filepath_or_file, bytes)
+                    else os.fspath(filepath_or_file)
+                )
+                raise CertificateValidationError(f"File not found: {path_str}")
+            with open(filepath_or_file, "rb") as f:
+                return self._read_stream_bytes(f, chunk_size=chunk_size)
+        elif hasattr(filepath_or_file, "read"):
+            return self._read_stream_bytes(filepath_or_file, chunk_size=chunk_size)
+        else:
+            raise CertificateValidationError(
+                f"Invalid file source: {type(filepath_or_file)}"
+            )
+
+    def _read_stream_bytes(self, fp: Any, chunk_size: int = 65536) -> bytes:
+        chunks = []
+        total_size = 0
+        while True:
+            chunk = fp.read(chunk_size)
+            if not chunk:
+                break
+            if isinstance(chunk, str):
+                chunk = chunk.encode("utf-8")
+            total_size += len(chunk)
+            if total_size > self.max_size_bytes:
+                raise CertificateValidationError(
+                    f"File payload size ({total_size} bytes) exceeds maximum allowed limit of {self.max_size_bytes} bytes."
+                )
+            chunks.append(chunk)
+        return b"".join(chunks)
+
+    def read_file_text(
+        self, filepath_or_file: Any, encoding: str = "utf-8", chunk_size: int = 65536
+    ) -> str:
+        data_bytes = self.read_file_bytes(filepath_or_file, chunk_size=chunk_size)
+        try:
+            return data_bytes.decode(encoding)
+        except UnicodeDecodeError as e:
+            raise CertificateValidationError(
+                f"Invalid encoding ({encoding}) in file: {e}"
+            )
+
+    def loads(self, s: str | bytes | bytearray, **kwargs: Any) -> Any:
+        if isinstance(s, (bytes, bytearray)):
+            byte_len = len(s)
+            text = s.decode(kwargs.pop("encoding", "utf-8"))
+        elif isinstance(s, str):
+            byte_len = len(s.encode("utf-8"))
+            text = s
+        else:
+            raise CertificateValidationError(f"Invalid JSON input type: {type(s)}")
+
+        if byte_len > self.max_size_bytes:
+            raise CertificateValidationError(
+                f"JSON payload size ({byte_len} bytes) exceeds maximum allowed limit of {self.max_size_bytes} bytes."
+            )
+
+        try:
+            data = json.loads(text, **kwargs)
+        except json.JSONDecodeError as e:
+            raise CertificateValidationError(f"Invalid JSON payload: {e}")
+        except CertificateValidationError:
+            raise
+        except Exception as e:
+            raise CertificateValidationError(f"Failed to parse JSON payload: {e}")
+
+        self._verify_depth(data, current_depth=0)
+        return data
+
+    def load(self, fp: Any, encoding: str = "utf-8", **kwargs: Any) -> Any:
+        text = self.read_file_text(fp, encoding=encoding)
+        return self.loads(text, **kwargs)
+
+    def load_file(self, filepath: Any, encoding: str = "utf-8", **kwargs: Any) -> Any:
+        return self.load(filepath, encoding=encoding, **kwargs)
+
+
 def validate_sidecar_schema(sidecar_path: str) -> None:
     """
     Streams and validates line-by-line schema and numerical integrity for an overflow sidecar log.
@@ -380,8 +490,8 @@ def load_and_validate_cert(cert_path, trusted_public_key=None):
             "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set)."
         )
 
-    with open(cert_path, "r", encoding="utf-8") as f:
-        cert_str = f.read()
+    loader = BoundedJSONLoader()
+    cert_str = loader.read_file_text(cert_path)
 
     try:
         # If skip validation is requested, reject it completely

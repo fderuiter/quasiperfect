@@ -1,5 +1,4 @@
 import collections
-import json
 import os
 import re
 import sys
@@ -58,13 +57,10 @@ def load_bounds(bounds_path: Optional[str] = None) -> dict:
         sys.exit(1)
 
     try:
-        cert_util.validate_file_size(bounds_path)
+        bounds = cert_util.BoundedJSONLoader().load_file(bounds_path)
     except cert_util.CertificateError as e:
         print(f"Error: {e}")
         sys.exit(1)
-
-    with open(bounds_path, "r", encoding="utf-8") as bf:
-        bounds = json.load(bf)
 
     # Enforce required keys
     required_keys = ["omega_bounds", "euler_ceiling", "search_bounds"]
@@ -89,13 +85,10 @@ def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
         sys.exit(1)
 
     try:
-        cert_util.validate_file_size(manifest_path)
+        manifest_data_macros = cert_util.BoundedJSONLoader().load_file(manifest_path)
     except cert_util.CertificateError as e:
         print(f"Error: {e}")
         sys.exit(1)
-
-    with open(manifest_path, "r", encoding="utf-8") as mf:
-        manifest_data_macros = json.load(mf)
 
     # Enforce top-level manifest status gate
     if manifest_data_macros.get("status") in ["unverified", "error", "failed"]:
@@ -188,8 +181,7 @@ def write_telemetry_tex(
             try:
                 cert_util.validate_file_size(cert_path)
                 if os.environ.get("UALBF_DUMMY_PAPER_CI") == "1":
-                    with open(cert_path, "r", encoding="utf-8") as cert_f:
-                        cert = json.load(cert_f)
+                    cert = cert_util.BoundedJSONLoader().load_file(cert_path)
                 else:
                     os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
                     cert = cert_util.load_and_validate_cert(cert_path)
@@ -316,33 +308,24 @@ def write_telemetry_tex(
                 )
                 sys.exit(1)
 
-            try:
-                cert_util.validate_file_size(manifest_path)
-            except cert_util.CertificateError as e:
-                print(f"Error: {e}")
-                sys.exit(1)
+            manifest_content_bytes = cert_util.BoundedJSONLoader().read_file_bytes(
+                manifest_path
+            )
 
-            computed_manifest_hash = hash_util.hash_file(manifest_path)
+            computed_manifest_hash = hash_util.hash_bytes(manifest_content_bytes)
             if computed_manifest_hash != cert.get("manifest_hash"):
                 print("Error: Proof manifest hash mismatch in chain of trust.")
                 sys.exit(1)
 
-            with open(manifest_path, "rb") as mf_bytes:
-                manifest_content_bytes = mf_bytes.read()
-
-            manifest_data = json.loads(manifest_content_bytes.decode("utf-8"))
+            manifest_data = cert_util.BoundedJSONLoader().loads(manifest_content_bytes)
             expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
             if not expected_bounds_hash:
                 print("Error: Proof manifest missing bounds_manifest_hash.")
                 sys.exit(1)
 
-            try:
-                cert_util.validate_file_size(bounds_path)
-            except cert_util.CertificateError as e:
-                print(f"Error: {e}")
-                sys.exit(1)
-
-            computed_bounds_hash = hash_util.hash_file(bounds_path)
+            computed_bounds_hash = hash_util.hash_bytes(
+                cert_util.BoundedJSONLoader().read_file_bytes(bounds_path)
+            )
             if computed_bounds_hash != expected_bounds_hash:
                 print("Error: Bounds manifest hash mismatch in chain of trust.")
                 sys.exit(1)
@@ -363,8 +346,9 @@ def write_telemetry_tex(
 
         # Generate verification macros and check hashes
         if os.path.exists(manifest_path):
-            with open(manifest_path, "rb") as mf_bytes:
-                manifest_data_macros = json.loads(mf_bytes.read().decode("utf-8"))
+            manifest_data_macros = cert_util.BoundedJSONLoader().load_file(
+                manifest_path
+            )
 
             # Requirement 4: Verify current hashes against codebase
             local_verus = {}
@@ -376,8 +360,8 @@ def write_telemetry_tex(
                     verus_file,
                 )
                 if os.path.exists(rust_file):
-                    with open(rust_file, "r", encoding="utf-8") as rf:
-                        local_verus.update(auditor.compute_verus_hashes(rf.read()))
+                    rf_text = cert_util.BoundedJSONLoader().read_file_text(rust_file)
+                    local_verus.update(auditor.compute_verus_hashes(rf_text))
 
             expected_verus = manifest_data_macros.get("verus_hashes", {})
             for fn, expected_hash in expected_verus.items():
