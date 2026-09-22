@@ -9,12 +9,19 @@ Covers:
 
 import io
 import hashlib
+import importlib
 import json
 import os
 import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
+
+try:
+    importlib.import_module("verification_lib")
+except ImportError:
+    pass
 
 paper_dir = os.path.dirname(os.path.abspath(__file__))
 if paper_dir not in sys.path:
@@ -84,6 +91,10 @@ class TestIngestCertMissingFile(unittest.TestCase):
                     sys.modules["verification_lib"] = orig_verif
                 else:
                     sys.modules.pop("verification_lib", None)
+                    try:
+                        importlib.import_module("verification_lib")
+                    except ImportError:
+                        pass
                 os.chdir(orig_cwd)
                 if orig_env is None:
                     os.environ.pop("UALBF_CERT_PATH", None)
@@ -138,16 +149,6 @@ class TestCollisionDetection(unittest.TestCase):
                     f,
                 )
 
-            sys.path.insert(0, root_dir)
-            sys.modules.pop("cert_util", None)
-            with open(
-                os.path.join(root_dir, "cert_util.py"), "w", encoding="utf-8"
-            ) as f:
-                f.write("class CertificateError(Exception): pass\n")
-                f.write("def load_and_validate_cert(path):\n")
-                f.write("    import json\n")
-                f.write("    return json.load(open(path))\n")
-
             cert_path = os.path.join(paper_dir, "cert.json")
             with open(cert_path, "w", encoding="utf-8") as f:
                 json.dump(_minimal_cert(), f)
@@ -171,13 +172,17 @@ class TestCollisionDetection(unittest.TestCase):
                 captured_out = io.StringIO()
                 sys.stdout = captured_out
 
-                with self.assertRaises(SystemExit) as cm:
-                    ingest_cert.main(
-                        cert_path=cert_path,
-                        manifest_path=manifest_path,
-                        bounds_path=bounds_path,
-                        output_dir=paper_dir,
-                    )
+                with mock.patch(
+                    "cert_util.load_and_validate_cert",
+                    side_effect=lambda p: json.load(open(p)),
+                ):
+                    with self.assertRaises(SystemExit) as cm:
+                        ingest_cert.main(
+                            cert_path=cert_path,
+                            manifest_path=manifest_path,
+                            bounds_path=bounds_path,
+                            output_dir=paper_dir,
+                        )
 
                 self.assertEqual(cm.exception.code, 1)
 
@@ -195,6 +200,10 @@ class TestCollisionDetection(unittest.TestCase):
                     sys.modules["verification_lib"] = orig_verif
                 else:
                     sys.modules.pop("verification_lib", None)
+                    try:
+                        importlib.import_module("verification_lib")
+                    except ImportError:
+                        pass
                 os.chdir(orig_cwd)
                 if orig_env is None:
                     os.environ.pop("UALBF_CERT_PATH", None)
@@ -238,13 +247,17 @@ class TestManifestStatusGate(unittest.TestCase):
             captured_out = io.StringIO()
             sys.stdout = captured_out
 
-            with self.assertRaises(SystemExit) as cm:
-                ingest_cert.main(
-                    cert_path=cert_path,
-                    manifest_path=manifest_path,
-                    bounds_path=bounds_path,
-                    output_dir=paper_dir,
-                )
+            with mock.patch(
+                "cert_util.load_and_validate_cert",
+                side_effect=lambda p: json.load(open(p)),
+            ):
+                with self.assertRaises(SystemExit) as cm:
+                    ingest_cert.main(
+                        cert_path=cert_path,
+                        manifest_path=manifest_path,
+                        bounds_path=bounds_path,
+                        output_dir=paper_dir,
+                    )
 
             return cm.exception.code, captured_out.getvalue()
         finally:
@@ -253,6 +266,12 @@ class TestManifestStatusGate(unittest.TestCase):
                 sys.modules["verification_lib"] = orig_verif
             else:
                 sys.modules.pop("verification_lib", None)
+                try:
+                    importlib.import_module("verification_lib")
+                except ImportError:
+                    pass
+            if root_dir in sys.path:
+                sys.path.remove(root_dir)
             os.chdir(orig_cwd)
             os.environ.clear()
             os.environ.update(orig_env)
@@ -299,14 +318,6 @@ class TestManifestStatusGate(unittest.TestCase):
             os.path.join(root_dir, "proof_manifest.json"), "w", encoding="utf-8"
         ) as f:
             json.dump(manifest_data, f)
-
-        sys.path.insert(0, root_dir)
-        sys.modules.pop("cert_util", None)
-        with open(os.path.join(root_dir, "cert_util.py"), "w", encoding="utf-8") as f:
-            f.write("class CertificateError(Exception): pass\n")
-            f.write("def load_and_validate_cert(path):\n")
-            f.write("    import json\n")
-            f.write("    return json.load(open(path))\n")
 
         return paper_dir
 
@@ -641,6 +652,28 @@ class TestCheckManuscriptCompliance(unittest.TestCase):
                 ingest_cert.check_manuscript_compliance(
                     base_dir=tmp_dir, telemetry_tex_path=telemetry_path
                 )
+            self.assertEqual(cm.exception.code, 1)
+
+
+class TestIngestCertFileSizeLimit(unittest.TestCase):
+    def test_oversized_bounds_manifest_raises_error(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            bounds_path = os.path.join(tmp_dir, "large_bounds.json")
+            with open(bounds_path, "wb") as f:
+                f.write(b"x" * (11 * 1024 * 1024))
+
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.load_bounds(bounds_path=bounds_path)
+            self.assertEqual(cm.exception.code, 1)
+
+    def test_oversized_proof_manifest_raises_error(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            manifest_path = os.path.join(tmp_dir, "large_manifest.json")
+            with open(manifest_path, "wb") as f:
+                f.write(b"x" * (11 * 1024 * 1024))
+
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.check_manifest(manifest_path=manifest_path)
             self.assertEqual(cm.exception.code, 1)
 
 

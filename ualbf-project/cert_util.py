@@ -1,6 +1,7 @@
 import os
 import hashlib
 import sys
+from typing import Optional
 
 from matrix_utils import (  # noqa: F401
     exact_det,
@@ -254,19 +255,89 @@ class CertificateValidationError(CertificateError):
     pass
 
 
+def validate_sidecar_schema(sidecar_path: str) -> None:
+    """
+    Streams and validates line-by-line schema and numerical integrity for an overflow sidecar log.
+
+    Each non-empty line must contain exactly two comma-separated fields representing
+    prime base 'p' and power exponent 'pow', both as non-negative decimal integer strings.
+
+    Raises:
+        CertificateValidationError: If any line is malformed or contains non-numeric/negative values.
+    """
+    if not os.path.exists(sidecar_path):
+        raise CertificateValidationError(f"Sidecar log file not found: {sidecar_path}")
+
+    try:
+        with open(sidecar_path, "r", encoding="utf-8") as f:
+            for line_num, line in enumerate(f, start=1):
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                parts = line_str.split(",")
+                if len(parts) != 2:
+                    raise CertificateValidationError(
+                        f"Line {line_num}: invalid field count ({len(parts)} fields, expected 2) in record '{line_str}'"
+                    )
+                p_str = parts[0].strip()
+                pow_str = parts[1].strip()
+                if not p_str.isdigit() or not pow_str.isdigit():
+                    raise CertificateValidationError(
+                        f"Line {line_num}: non-numeric or negative field value in record '{line_str}'"
+                    )
+    except UnicodeDecodeError as e:
+        raise CertificateValidationError(
+            f"Sidecar log contains invalid UTF-8 encoding: {e}"
+        )
+
+
+DEFAULT_MAX_CERT_SIZE_MB = 10.0
+
+
+def get_max_cert_size_bytes() -> int:
+    """Returns the maximum allowed certificate file size in bytes based on UALBF_MAX_CERT_SIZE_MB."""
+    env_val = os.getenv("UALBF_MAX_CERT_SIZE_MB")
+    if env_val:
+        try:
+            val = float(env_val.strip())
+            if val > 0:
+                return int(val * 1024 * 1024)
+        except (ValueError, TypeError):
+            pass
+    return int(DEFAULT_MAX_CERT_SIZE_MB * 1024 * 1024)
+
+
+def validate_file_size(file_path: str, max_bytes: Optional[int] = None) -> None:
+    """Validates that the given file size does not exceed max_bytes prior to reading."""
+    if max_bytes is None:
+        max_bytes = get_max_cert_size_bytes()
+
+    if os.path.exists(file_path):
+        file_size = os.path.getsize(file_path)
+        if file_size > max_bytes:
+            actual_mb = file_size / (1024 * 1024)
+            max_mb = max_bytes / (1024 * 1024)
+            raise CertificateValidationError(
+                f"File size of '{file_path}' ({actual_mb:.2f} MB / {file_size} bytes) "
+                f"exceeds maximum allowed limit of {max_mb:.2f} MB ({max_bytes} bytes)."
+            )
+
+
 def load_and_validate_cert(cert_path, trusted_public_key=None):
     """
     Loads and validates an exhaustion certificate from the given path.
     Delegates to the shared Rust native library to ensure 100% schema parity
     and correct cryptographic logic.
     """
+    if not os.path.exists(cert_path):
+        raise CertificateValidationError(f"Certificate file not found: {cert_path}")
+
+    validate_file_size(cert_path)
+
     if not _has_verification_lib:
         raise ImportError(
             "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`)."
         )
-
-    if not os.path.exists(cert_path):
-        raise CertificateValidationError(f"Certificate file not found: {cert_path}")
 
     trusted_key = trusted_public_key or os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
     if not trusted_key or not trusted_key.strip():

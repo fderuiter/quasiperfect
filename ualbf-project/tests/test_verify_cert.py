@@ -13,6 +13,8 @@ import os
 import sys
 import tempfile
 import subprocess
+from typing import Optional, List
+from unittest import mock
 import pytest  # type: ignore
 
 # Import cryptography for creating test keypairs
@@ -20,7 +22,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey 
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
 from verify_cert import verify_certificate, check_continuity, verify_telemetry_paths
-from cert_util import load_and_validate_cert, CertificateValidationError
+from cert_util import load_and_validate_cert, CertificateValidationError, validate_file_size
+import cert_util
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -142,7 +145,7 @@ def build_cert(
     target_max_log10: int = 37,
     target_min_log10: int = 35,
     tamper_sig: bool = False,
-    path_ranges: list | None = None,
+    path_ranges: Optional[list] = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
     payload = (
@@ -727,6 +730,101 @@ class TestSidecarLogVerification:
         with pytest.raises(SystemExit) as exc_info:
             verify_sidecar_file(loaded_cert, str(sidecar_file))
         assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_field_count_mismatch(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        for bad_content in [b"3\n", b"3,2,1\n", b"3,\n", b",2\n"]:
+            sidecar_file = tmp_path / "overflow_sidecar_bad.log"
+            sidecar_file.write_bytes(bad_content)
+            digest = hashlib.sha256(bad_content).hexdigest()
+
+            manifest = make_manifest()
+            cert = build_cert("placeholder")
+            cert["telemetry"]["sidecar_hash"] = digest
+            cert_path, manifest_path = write_files(manifest, cert)
+
+            with open(cert_path, "r", encoding="utf-8") as f:
+                loaded_cert = json.load(f)
+
+            with pytest.raises(SystemExit) as exc_info:
+                verify_sidecar_file(loaded_cert, str(sidecar_file))
+            assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_non_numeric_and_negative(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        for bad_content in [b"abc,10\n", b"3,-1\n", b"-3,2\n", b"3.5,2\n", b"3,2.5\n"]:
+            sidecar_file = tmp_path / "overflow_sidecar_bad_val.log"
+            sidecar_file.write_bytes(bad_content)
+            digest = hashlib.sha256(bad_content).hexdigest()
+
+            manifest = make_manifest()
+            cert = build_cert("placeholder")
+            cert["telemetry"]["sidecar_hash"] = digest
+            cert_path, manifest_path = write_files(manifest, cert)
+
+            with open(cert_path, "r", encoding="utf-8") as f:
+                loaded_cert = json.load(f)
+
+            with pytest.raises(SystemExit) as exc_info:
+                verify_sidecar_file(loaded_cert, str(sidecar_file))
+            assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_blank_lines_and_whitespace(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        valid_content = b"\n\n  3 , 2  \n5,4\n\n  \n"
+        sidecar_file = tmp_path / "overflow_sidecar_valid.log"
+        sidecar_file.write_bytes(valid_content)
+        digest = hashlib.sha256(valid_content).hexdigest()
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = digest
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        # Should pass without SystemExit
+        verify_sidecar_file(loaded_cert, str(sidecar_file))
+
+    def test_cert_util_validate_sidecar_schema_directly(self, tmp_path):
+        from cert_util import validate_sidecar_schema, CertificateValidationError
+
+        # Test valid
+        valid_file = tmp_path / "valid.log"
+        valid_file.write_text("3,2\n11,100\n", encoding="utf-8")
+        validate_sidecar_schema(str(valid_file))
+
+        # Test invalid field count
+        bad_field_file = tmp_path / "bad_field.log"
+        bad_field_file.write_text("3,2\n5\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_field_file))
+        assert "Line 2" in str(exc_info.value)
+        assert "invalid field count" in str(exc_info.value)
+
+        # Test non-numeric
+        bad_num_file = tmp_path / "bad_num.log"
+        bad_num_file.write_text("3,2\nfoo,bar\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_num_file))
+        assert "Line 2" in str(exc_info.value)
+        assert "non-numeric" in str(exc_info.value)
+
+        # Test negative value
+        bad_neg_file = tmp_path / "bad_neg.log"
+        bad_neg_file.write_text("3,-2\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_neg_file))
+        assert "Line 1" in str(exc_info.value)
+
+        # Test missing file
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(tmp_path / "nonexistent.log"))
+        assert "not found" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -2166,3 +2264,87 @@ class TestPinnedTrustedKeyValidation:
         assert "Certificate public key does not match trusted signer key" in str(
             exc_info.value
         )
+
+
+class TestFileSizeGuardrails:
+    def test_file_size_under_limit_passes(self, tmp_path):
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        pub_key = cert["public_key"]
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
+        try:
+            cert_util.validate_file_size(cert_path)
+            with mock.patch("cert_util.load_and_validate_cert", return_value=cert):
+                verified = verify_certificate(cert_path, manifest_path)
+                assert verified is not None
+        finally:
+            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
+
+    def test_file_size_exceeding_default_10mb_fails(self, tmp_path):
+        large_file = tmp_path / "oversized_cert.json"
+        with open(large_file, "wb") as f:
+            f.write(b"x" * (11 * 1024 * 1024))
+
+        with pytest.raises(CertificateValidationError) as exc_info:
+            load_and_validate_cert(str(large_file))
+        assert "exceeds maximum allowed limit" in str(exc_info.value)
+
+    def test_custom_file_size_limit_via_env_var(self, tmp_path):
+        cert_file = tmp_path / "test_cert.json"
+        with open(cert_file, "wb") as f:
+            f.write(b"x" * (2 * 1024 * 1024))
+
+        os.environ["UALBF_MAX_CERT_SIZE_MB"] = "1.0"
+        try:
+            with pytest.raises(CertificateValidationError) as exc_info:
+                load_and_validate_cert(str(cert_file))
+            assert "exceeds maximum allowed limit" in str(exc_info.value)
+        finally:
+            os.environ.pop("UALBF_MAX_CERT_SIZE_MB", None)
+
+
+class TestMetaCertificateRecursionLimit:
+    def test_meta_cert_recursion_depth_within_limit(self, tmp_path):
+        manifest = make_manifest()
+        leaf_cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, leaf_cert)
+        pub_key = leaf_cert["public_key"]
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
+
+        try:
+            current_node = leaf_cert
+            for level in range(5):
+                current_node = {
+                    "node_certificates": [current_node],
+                    "telemetry": leaf_cert["telemetry"],
+                }
+
+            from verify_cert import verify_meta_certificate
+
+            with mock.patch("verify_cert.verify_certificate", return_value=leaf_cert), mock.patch(
+                "verify_cert.verify_telemetry_paths"
+            ), mock.patch("verify_cert.check_continuity"):
+                res = verify_meta_certificate(current_node, manifest_path, current_depth=0)
+                assert res is not None
+        finally:
+            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
+
+    def test_meta_cert_recursion_depth_exceeding_limit_fails(self, tmp_path):
+        manifest = make_manifest()
+        leaf_cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, leaf_cert)
+
+        current_node = leaf_cert
+        for level in range(7):
+            current_node = {
+                "node_certificates": [current_node],
+                "telemetry": leaf_cert["telemetry"],
+            }
+
+        from verify_cert import verify_meta_certificate
+
+        with pytest.raises(CertificateValidationError) as exc_info:
+            verify_meta_certificate(current_node, manifest_path, current_depth=0)
+        assert "exceeds maximum limit of 5 levels" in str(exc_info.value)
