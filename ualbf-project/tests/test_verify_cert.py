@@ -15,6 +15,7 @@ import tempfile
 import subprocess
 from typing import Optional, List
 from unittest import mock
+import concurrent.futures
 import pytest  # type: ignore
 
 # Import cryptography for creating test keypairs
@@ -991,6 +992,175 @@ class TestAggregationE2E:
 
         assert meta["telemetry"]["target_min_log10"] == 30
         assert meta["telemetry"]["target_max_log10"] == 45
+
+        # Verify the meta-certificate directly with verify_cert.py
+        meta_file = os.path.join(tmpdir, "meta_certificate.json")
+        res_meta = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                meta_file,
+                "--manifest",
+                os.path.join(tmpdir, "proof_manifest.json"),
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert res_meta.returncode == 0
+        assert "=== Verifying Meta-Certificate" in res_meta.stdout
+        assert "Meta-certificate signature (composite) verified." in res_meta.stdout
+        leftover_tmp = [f for f in os.listdir(tmpdir) if f.startswith("tmp_cert_")]
+        assert len(leftover_tmp) == 0
+
+
+class TestMetaCertificateIsolation:
+    def _create_meta_cert_setup(self, tmpdir):
+        cert_dir = os.path.join(tmpdir, "certs")
+        os.mkdir(cert_dir)
+        manifest = make_manifest()
+        write_mock_manifest_files(tmpdir, manifest)
+
+        bounds_content = b'{"dummy": "bounds"}'
+        with open(os.path.join(tmpdir, "bounds_manifest.json"), "wb") as f:
+            f.write(bounds_content)
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
+
+        with open(os.path.join(tmpdir, "proof_manifest.json"), "w") as f:
+            json.dump(manifest, f)
+
+        private_key = Ed25519PrivateKey.generate()
+        pub_bytes = private_key.public_key().public_bytes(
+            Encoding.Raw, PublicFormat.Raw
+        )
+        shared_pub_hex = pub_bytes.hex()
+
+        def write_signed_cert(idx, t_min, t_max, path_ranges):
+            cert = build_cert(
+                manifest["bounds_manifest_hash"],
+                target_min_log10=t_min,
+                target_max_log10=t_max,
+                path_ranges=path_ranges,
+            )
+
+            manifest_content = json.dumps(manifest)
+            manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+            cert["manifest_hash"] = manifest_hash
+
+            tel = cert["telemetry"]
+            map_obj = {
+                "manifest_hash": manifest_hash,
+                "verified_logic_hash": cert["verified_logic_hash"],
+                "total_branches_searched": tel["total_branches_searched"],
+                "target_min_log10": tel["target_min_log10"],
+                "target_max_log10": tel["target_max_log10"],
+                "trace_hash": tel.get("trace_hash", ""),
+                "factorization_depth": tel.get("factorization_depth", 0),
+            }
+            if "path_ranges" in tel:
+                map_obj["path_ranges"] = tel["path_ranges"]
+            elif "inner_paths" in tel:
+                map_obj["path_ranges"] = tel["inner_paths"]
+            payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+            sig = private_key.sign(payload.encode("utf-8"))
+            cert["signature"] = sig.hex()
+            cert["public_key"] = shared_pub_hex
+
+            with open(os.path.join(cert_dir, f"cert_{idx}.json"), "w") as f:
+                json.dump(cert, f)
+
+        write_signed_cert(1, 30, 35, [{"start_bound": [], "end_bound": [2]}])
+        write_signed_cert(2, 35, 40, [{"start_bound": [2], "end_bound": []}])
+
+        script_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
+        )
+        env = os.environ.copy()
+        env["UALBF_TRUSTED_PUBLIC_KEY"] = shared_pub_hex
+
+        # Aggregate certs into meta_certificate.json
+        res_agg = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                cert_dir,
+                "--manifest",
+                os.path.join(tmpdir, "proof_manifest.json"),
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert res_agg.returncode == 0
+        return script_path, env
+
+    def test_concurrent_meta_cert_verifications(self, tmp_path):
+        tmpdir = str(tmp_path)
+        script_path, env = self._create_meta_cert_setup(tmpdir)
+        meta_file = os.path.join(tmpdir, "meta_certificate.json")
+        manifest_path = os.path.join(tmpdir, "proof_manifest.json")
+
+        def run_verifier():
+            return subprocess.run(
+                [
+                    sys.executable,
+                    script_path,
+                    "--cert",
+                    meta_file,
+                    "--manifest",
+                    manifest_path,
+                ],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(run_verifier) for _ in range(5)]
+            results = [f.result() for f in futures]
+
+        for res in results:
+            assert res.returncode == 0
+            assert "=== Verifying Meta-Certificate" in res.stdout
+
+        leftover_tmp = [f for f in os.listdir(tmpdir) if f.startswith("tmp_cert_")]
+        assert len(leftover_tmp) == 0
+
+    def test_meta_cert_cleanup_on_verification_failure(self, tmp_path):
+        tmpdir = str(tmp_path)
+        script_path, env = self._create_meta_cert_setup(tmpdir)
+        meta_file = os.path.join(tmpdir, "meta_certificate.json")
+        manifest_path = os.path.join(tmpdir, "proof_manifest.json")
+
+        # Corrupt node cert signature inside meta_certificate.json
+        with open(meta_file, "r") as f:
+            meta = json.load(f)
+        meta["node_certificates"][0]["signature"] = "0" * 64
+        with open(meta_file, "w") as f:
+            json.dump(meta, f)
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                meta_file,
+                "--manifest",
+                manifest_path,
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert res.returncode != 0
+        leftover_tmp = [f for f in os.listdir(tmpdir) if f.startswith("tmp_cert_")]
+        assert len(leftover_tmp) == 0
 
 
 class TestManifestSecurityValidation:
