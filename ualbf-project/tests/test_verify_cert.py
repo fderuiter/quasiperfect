@@ -18,6 +18,8 @@ from unittest import mock
 import concurrent.futures
 import pytest  # type: ignore
 
+pytest.importorskip("cryptography")
+
 # Import cryptography for creating test keypairs
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey  # type: ignore
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
