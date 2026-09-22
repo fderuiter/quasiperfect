@@ -13,9 +13,10 @@ import pytest
 
 def is_lean_available():
     lean_sysroot = os.environ.get("LEAN_SYSROOT")
+    if lean_sysroot == "DUMMY":
+        return False
     if (
         lean_sysroot
-        and lean_sysroot != "DUMMY"
         and os.path.isfile(os.path.join(lean_sysroot, "bin", "lean"))
     ):
         return True
