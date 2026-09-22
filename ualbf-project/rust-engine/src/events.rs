@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "event", rename_all = "snake_case")]
 pub enum SearchEvent {
     Phase {
         phase: u32,
@@ -40,10 +41,14 @@ pub enum SearchEvent {
     RaycastDeferred {
         rem_str: String,
     },
+    Overflow {
+        p: String,
+        pow: u32,
+    },
     Done {
         target_min_log10: u32,
         target_max_log10: u32,
-        elapsed_ms: u128,
+        elapsed_ms: u64,
     },
 }
 
@@ -131,6 +136,15 @@ mod tests {
     fn test_search_event_raycast_deferred_roundtrip() {
         let event = SearchEvent::RaycastDeferred {
             rem_str: "987654321".to_string(),
+        };
+        assert_roundtrip(event);
+    }
+
+    #[test]
+    fn test_search_event_overflow_roundtrip() {
+        let event = SearchEvent::Overflow {
+            p: "12345678901234567890".to_string(),
+            pow: 2,
         };
         assert_roundtrip(event);
     }

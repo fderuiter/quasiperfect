@@ -73,5 +73,25 @@
         "rust_deser_convert": "v.clone()"
       }
     ]
+  },
+  "SidecarEvent": {
+    "description": "Overflow record emitted by Legendre-Cattaneo sieve sidecar logger",
+    "fields": [
+      {
+        "name": "event",
+        "lean_type": "String",
+        "rust_type": "String"
+      },
+      {
+        "name": "p",
+        "lean_type": "String",
+        "rust_type": "String"
+      },
+      {
+        "name": "pow",
+        "lean_type": "UInt32",
+        "rust_type": "u32"
+      }
+    ]
   }
 }

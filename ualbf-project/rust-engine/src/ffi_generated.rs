@@ -1,7 +1,7 @@
 // AUTO-GENERATED from Lean metadata. DO NOT EDIT.
 
 pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str =
-    "dcf4d6074ba46690077ed7b21ec0a2f77b605f80374c4f43e90e2eab54b5ab08";
+    "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb";
 
 pub const LIMB_COUNT: usize = 8;
 

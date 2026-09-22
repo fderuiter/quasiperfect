@@ -13,6 +13,9 @@ import os
 import sys
 import tempfile
 import subprocess
+from typing import Optional, List
+from unittest import mock
+import concurrent.futures
 import pytest  # type: ignore
 
 # Import cryptography for creating test keypairs
@@ -20,7 +23,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey 
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore
 
 from verify_cert import verify_certificate, check_continuity, verify_telemetry_paths
-from cert_util import load_and_validate_cert, CertificateValidationError
+from cert_util import load_and_validate_cert, CertificateValidationError, validate_file_size
+import cert_util
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -142,7 +146,7 @@ def build_cert(
     target_max_log10: int = 37,
     target_min_log10: int = 35,
     tamper_sig: bool = False,
-    path_ranges: list | None = None,
+    path_ranges: Optional[list] = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
     payload = (
@@ -692,7 +696,12 @@ class TestTheoremChecking:
 class TestSidecarLogVerification:
     def test_sidecar_log_digest_verification_pass(self, tmp_path):
         sidecar_file = tmp_path / "overflow_sidecar.log"
-        sidecar_content = b"3,2\n5,4\n"
+        sidecar_content = (
+            json.dumps({"event": "overflow", "p": "3", "pow": 2})
+            + "\n"
+            + json.dumps({"event": "overflow", "p": "5", "pow": 4})
+            + "\n"
+        ).encode("utf-8")
         sidecar_file.write_bytes(sidecar_content)
         sidecar_digest = hashlib.sha256(sidecar_content).hexdigest()
 
@@ -711,7 +720,9 @@ class TestSidecarLogVerification:
 
     def test_sidecar_log_digest_mismatch_fails(self, tmp_path):
         sidecar_file = tmp_path / "overflow_sidecar.log"
-        sidecar_content = b"3,2\n5,4\n"
+        sidecar_content = (
+            json.dumps({"event": "overflow", "p": "3", "pow": 2}) + "\n"
+        ).encode("utf-8")
         sidecar_file.write_bytes(sidecar_content)
 
         manifest = make_manifest()
@@ -728,10 +739,34 @@ class TestSidecarLogVerification:
             verify_sidecar_file(loaded_cert, str(sidecar_file))
         assert exc_info.value.code != 0
 
-    def test_sidecar_schema_validation_field_count_mismatch(self, tmp_path):
+    def test_legacy_csv_sidecar_format_fails(self, tmp_path):
         from verify_cert import verify_sidecar_file
 
-        for bad_content in [b"3\n", b"3,2,1\n", b"3,\n", b",2\n"]:
+        sidecar_file = tmp_path / "overflow_sidecar_legacy.log"
+        legacy_content = b"3,2\n5,4\n"
+        sidecar_file.write_bytes(legacy_content)
+        digest = hashlib.sha256(legacy_content).hexdigest()
+
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["sidecar_hash"] = digest
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        with open(cert_path, "r", encoding="utf-8") as f:
+            loaded_cert = json.load(f)
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_sidecar_file(loaded_cert, str(sidecar_file))
+        assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_malformed_json(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        for bad_content in [
+            b"{bad json}\n",
+            b'{"event": "overflow", "p": "3", "pow": 2}\nnot json\n',
+            b"[\"not an object\"]\n",
+        ]:
             sidecar_file = tmp_path / "overflow_sidecar_bad.log"
             sidecar_file.write_bytes(bad_content)
             digest = hashlib.sha256(bad_content).hexdigest()
@@ -748,11 +783,49 @@ class TestSidecarLogVerification:
                 verify_sidecar_file(loaded_cert, str(sidecar_file))
             assert exc_info.value.code != 0
 
-    def test_sidecar_schema_validation_non_numeric_and_negative(self, tmp_path):
+    def test_sidecar_schema_validation_missing_or_extra_keys(self, tmp_path):
         from verify_cert import verify_sidecar_file
 
-        for bad_content in [b"abc,10\n", b"3,-1\n", b"-3,2\n", b"3.5,2\n", b"3,2.5\n"]:
-            sidecar_file = tmp_path / "overflow_sidecar_bad_val.log"
+        bad_records = [
+            {"event": "overflow", "p": "3"},  # missing pow
+            {"event": "overflow", "pow": 2},  # missing p
+            {"p": "3", "pow": 2},  # missing event
+            {"event": "overflow", "p": "3", "pow": 2, "extra": "val"},  # extra key
+        ]
+        for rec in bad_records:
+            bad_content = (json.dumps(rec) + "\n").encode("utf-8")
+            sidecar_file = tmp_path / "overflow_sidecar_bad_keys.log"
+            sidecar_file.write_bytes(bad_content)
+            digest = hashlib.sha256(bad_content).hexdigest()
+
+            manifest = make_manifest()
+            cert = build_cert("placeholder")
+            cert["telemetry"]["sidecar_hash"] = digest
+            cert_path, manifest_path = write_files(manifest, cert)
+
+            with open(cert_path, "r", encoding="utf-8") as f:
+                loaded_cert = json.load(f)
+
+            with pytest.raises(SystemExit) as exc_info:
+                verify_sidecar_file(loaded_cert, str(sidecar_file))
+            assert exc_info.value.code != 0
+
+    def test_sidecar_schema_validation_invalid_field_types(self, tmp_path):
+        from verify_cert import verify_sidecar_file
+
+        bad_records = [
+            {"event": "overflow", "p": 3, "pow": 2},  # p is int instead of str
+            {"event": "overflow", "p": "abc", "pow": 2},  # p non-numeric str
+            {"event": "overflow", "p": "3.5", "pow": 2},  # p decimal float str
+            {"event": "overflow", "p": "-3", "pow": 2},  # p negative
+            {"event": "overflow", "p": "3", "pow": "2"},  # pow is str
+            {"event": "overflow", "p": "3", "pow": -1},  # pow is negative
+            {"event": "overflow", "p": "3", "pow": True},  # pow is bool
+            {"event": "progress", "p": "3", "pow": 2},  # wrong event value
+        ]
+        for rec in bad_records:
+            bad_content = (json.dumps(rec) + "\n").encode("utf-8")
+            sidecar_file = tmp_path / "overflow_sidecar_bad_type.log"
             sidecar_file.write_bytes(bad_content)
             digest = hashlib.sha256(bad_content).hexdigest()
 
@@ -771,7 +844,9 @@ class TestSidecarLogVerification:
     def test_sidecar_schema_validation_blank_lines_and_whitespace(self, tmp_path):
         from verify_cert import verify_sidecar_file
 
-        valid_content = b"\n\n  3 , 2  \n5,4\n\n  \n"
+        rec1 = json.dumps({"event": "overflow", "p": "3", "pow": 2})
+        rec2 = json.dumps({"event": "overflow", "p": "5", "pow": 4})
+        valid_content = f"\n\n  {rec1}  \n{rec2}\n\n  \n".encode("utf-8")
         sidecar_file = tmp_path / "overflow_sidecar_valid.log"
         sidecar_file.write_bytes(valid_content)
         digest = hashlib.sha256(valid_content).hexdigest()
@@ -792,31 +867,58 @@ class TestSidecarLogVerification:
 
         # Test valid
         valid_file = tmp_path / "valid.log"
-        valid_file.write_text("3,2\n11,100\n", encoding="utf-8")
+        valid_rec1 = json.dumps({"event": "overflow", "p": "3", "pow": 2})
+        valid_rec2 = json.dumps({"event": "overflow", "p": "11", "pow": 100})
+        valid_file.write_text(f"{valid_rec1}\n{valid_rec2}\n", encoding="utf-8")
         validate_sidecar_schema(str(valid_file))
 
-        # Test invalid field count
-        bad_field_file = tmp_path / "bad_field.log"
-        bad_field_file.write_text("3,2\n5\n", encoding="utf-8")
+        # Test legacy CSV format raises CertificateValidationError
+        legacy_file = tmp_path / "legacy.log"
+        legacy_file.write_text("3,2\n11,100\n", encoding="utf-8")
         with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_field_file))
-        assert "Line 2" in str(exc_info.value)
-        assert "invalid field count" in str(exc_info.value)
-
-        # Test non-numeric
-        bad_num_file = tmp_path / "bad_num.log"
-        bad_num_file.write_text("3,2\nfoo,bar\n", encoding="utf-8")
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_num_file))
-        assert "Line 2" in str(exc_info.value)
-        assert "non-numeric" in str(exc_info.value)
-
-        # Test negative value
-        bad_neg_file = tmp_path / "bad_neg.log"
-        bad_neg_file.write_text("3,-2\n", encoding="utf-8")
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_neg_file))
+            validate_sidecar_schema(str(legacy_file))
         assert "Line 1" in str(exc_info.value)
+        assert "invalid JSON syntax" in str(exc_info.value)
+
+        # Test malformed JSON line
+        bad_json_file = tmp_path / "bad_json.log"
+        bad_json_file.write_text(f"{valid_rec1}\n{{bad json}}\n", encoding="utf-8")
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_json_file))
+        assert "Line 2" in str(exc_info.value)
+        assert "invalid JSON syntax" in str(exc_info.value)
+
+        # Test missing required key
+        missing_key_file = tmp_path / "missing_key.log"
+        missing_key_file.write_text(
+            json.dumps({"event": "overflow", "p": "3"}) + "\n", encoding="utf-8"
+        )
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(missing_key_file))
+        assert "Line 1" in str(exc_info.value)
+        assert "Missing required key" in str(exc_info.value)
+
+        # Test extra key
+        extra_key_file = tmp_path / "extra_key.log"
+        extra_key_file.write_text(
+            json.dumps({"event": "overflow", "p": "3", "pow": 2, "foo": "bar"}) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(extra_key_file))
+        assert "Line 1" in str(exc_info.value)
+        assert "Unexpected extra key" in str(exc_info.value)
+
+        # Test non-numeric p
+        bad_p_file = tmp_path / "bad_p.log"
+        bad_p_file.write_text(
+            json.dumps({"event": "overflow", "p": "abc", "pow": 2}) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(CertificateValidationError) as exc_info:
+            validate_sidecar_schema(str(bad_p_file))
+        assert "Line 1" in str(exc_info.value)
+        assert "invalid 'p' field value" in str(exc_info.value)
 
         # Test missing file
         with pytest.raises(CertificateValidationError) as exc_info:
@@ -988,6 +1090,175 @@ class TestAggregationE2E:
 
         assert meta["telemetry"]["target_min_log10"] == 30
         assert meta["telemetry"]["target_max_log10"] == 45
+
+        # Verify the meta-certificate directly with verify_cert.py
+        meta_file = os.path.join(tmpdir, "meta_certificate.json")
+        res_meta = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                meta_file,
+                "--manifest",
+                os.path.join(tmpdir, "proof_manifest.json"),
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert res_meta.returncode == 0
+        assert "=== Verifying Meta-Certificate" in res_meta.stdout
+        assert "Meta-certificate signature (composite) verified." in res_meta.stdout
+        leftover_tmp = [f for f in os.listdir(tmpdir) if f.startswith("tmp_cert_")]
+        assert len(leftover_tmp) == 0
+
+
+class TestMetaCertificateIsolation:
+    def _create_meta_cert_setup(self, tmpdir):
+        cert_dir = os.path.join(tmpdir, "certs")
+        os.mkdir(cert_dir)
+        manifest = make_manifest()
+        write_mock_manifest_files(tmpdir, manifest)
+
+        bounds_content = b'{"dummy": "bounds"}'
+        with open(os.path.join(tmpdir, "bounds_manifest.json"), "wb") as f:
+            f.write(bounds_content)
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
+
+        with open(os.path.join(tmpdir, "proof_manifest.json"), "w") as f:
+            json.dump(manifest, f)
+
+        private_key = Ed25519PrivateKey.generate()
+        pub_bytes = private_key.public_key().public_bytes(
+            Encoding.Raw, PublicFormat.Raw
+        )
+        shared_pub_hex = pub_bytes.hex()
+
+        def write_signed_cert(idx, t_min, t_max, path_ranges):
+            cert = build_cert(
+                manifest["bounds_manifest_hash"],
+                target_min_log10=t_min,
+                target_max_log10=t_max,
+                path_ranges=path_ranges,
+            )
+
+            manifest_content = json.dumps(manifest)
+            manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+            cert["manifest_hash"] = manifest_hash
+
+            tel = cert["telemetry"]
+            map_obj = {
+                "manifest_hash": manifest_hash,
+                "verified_logic_hash": cert["verified_logic_hash"],
+                "total_branches_searched": tel["total_branches_searched"],
+                "target_min_log10": tel["target_min_log10"],
+                "target_max_log10": tel["target_max_log10"],
+                "trace_hash": tel.get("trace_hash", ""),
+                "factorization_depth": tel.get("factorization_depth", 0),
+            }
+            if "path_ranges" in tel:
+                map_obj["path_ranges"] = tel["path_ranges"]
+            elif "inner_paths" in tel:
+                map_obj["path_ranges"] = tel["inner_paths"]
+            payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+            sig = private_key.sign(payload.encode("utf-8"))
+            cert["signature"] = sig.hex()
+            cert["public_key"] = shared_pub_hex
+
+            with open(os.path.join(cert_dir, f"cert_{idx}.json"), "w") as f:
+                json.dump(cert, f)
+
+        write_signed_cert(1, 30, 35, [{"start_bound": [], "end_bound": [2]}])
+        write_signed_cert(2, 35, 40, [{"start_bound": [2], "end_bound": []}])
+
+        script_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "verify_cert.py")
+        )
+        env = os.environ.copy()
+        env["UALBF_TRUSTED_PUBLIC_KEY"] = shared_pub_hex
+
+        # Aggregate certs into meta_certificate.json
+        res_agg = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                cert_dir,
+                "--manifest",
+                os.path.join(tmpdir, "proof_manifest.json"),
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert res_agg.returncode == 0
+        return script_path, env
+
+    def test_concurrent_meta_cert_verifications(self, tmp_path):
+        tmpdir = str(tmp_path)
+        script_path, env = self._create_meta_cert_setup(tmpdir)
+        meta_file = os.path.join(tmpdir, "meta_certificate.json")
+        manifest_path = os.path.join(tmpdir, "proof_manifest.json")
+
+        def run_verifier():
+            return subprocess.run(
+                [
+                    sys.executable,
+                    script_path,
+                    "--cert",
+                    meta_file,
+                    "--manifest",
+                    manifest_path,
+                ],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(run_verifier) for _ in range(5)]
+            results = [f.result() for f in futures]
+
+        for res in results:
+            assert res.returncode == 0
+            assert "=== Verifying Meta-Certificate" in res.stdout
+
+        leftover_tmp = [f for f in os.listdir(tmpdir) if f.startswith("tmp_cert_")]
+        assert len(leftover_tmp) == 0
+
+    def test_meta_cert_cleanup_on_verification_failure(self, tmp_path):
+        tmpdir = str(tmp_path)
+        script_path, env = self._create_meta_cert_setup(tmpdir)
+        meta_file = os.path.join(tmpdir, "meta_certificate.json")
+        manifest_path = os.path.join(tmpdir, "proof_manifest.json")
+
+        # Corrupt node cert signature inside meta_certificate.json
+        with open(meta_file, "r") as f:
+            meta = json.load(f)
+        meta["node_certificates"][0]["signature"] = "0" * 64
+        with open(meta_file, "w") as f:
+            json.dump(meta, f)
+
+        res = subprocess.run(
+            [
+                sys.executable,
+                script_path,
+                "--cert",
+                meta_file,
+                "--manifest",
+                manifest_path,
+            ],
+            cwd=tmpdir,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert res.returncode != 0
+        leftover_tmp = [f for f in os.listdir(tmpdir) if f.startswith("tmp_cert_")]
+        assert len(leftover_tmp) == 0
 
 
 class TestManifestSecurityValidation:
@@ -2261,3 +2532,87 @@ class TestPinnedTrustedKeyValidation:
         assert "Certificate public key does not match trusted signer key" in str(
             exc_info.value
         )
+
+
+class TestFileSizeGuardrails:
+    def test_file_size_under_limit_passes(self, tmp_path):
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        pub_key = cert["public_key"]
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
+        try:
+            cert_util.validate_file_size(cert_path)
+            with mock.patch("cert_util.load_and_validate_cert", return_value=cert):
+                verified = verify_certificate(cert_path, manifest_path)
+                assert verified is not None
+        finally:
+            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
+
+    def test_file_size_exceeding_default_10mb_fails(self, tmp_path):
+        large_file = tmp_path / "oversized_cert.json"
+        with open(large_file, "wb") as f:
+            f.write(b"x" * (11 * 1024 * 1024))
+
+        with pytest.raises(CertificateValidationError) as exc_info:
+            load_and_validate_cert(str(large_file))
+        assert "exceeds maximum allowed limit" in str(exc_info.value)
+
+    def test_custom_file_size_limit_via_env_var(self, tmp_path):
+        cert_file = tmp_path / "test_cert.json"
+        with open(cert_file, "wb") as f:
+            f.write(b"x" * (2 * 1024 * 1024))
+
+        os.environ["UALBF_MAX_CERT_SIZE_MB"] = "1.0"
+        try:
+            with pytest.raises(CertificateValidationError) as exc_info:
+                load_and_validate_cert(str(cert_file))
+            assert "exceeds maximum allowed limit" in str(exc_info.value)
+        finally:
+            os.environ.pop("UALBF_MAX_CERT_SIZE_MB", None)
+
+
+class TestMetaCertificateRecursionLimit:
+    def test_meta_cert_recursion_depth_within_limit(self, tmp_path):
+        manifest = make_manifest()
+        leaf_cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, leaf_cert)
+        pub_key = leaf_cert["public_key"]
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
+
+        try:
+            current_node = leaf_cert
+            for level in range(5):
+                current_node = {
+                    "node_certificates": [current_node],
+                    "telemetry": leaf_cert["telemetry"],
+                }
+
+            from verify_cert import verify_meta_certificate
+
+            with mock.patch("verify_cert.verify_certificate", return_value=leaf_cert), mock.patch(
+                "verify_cert.verify_telemetry_paths"
+            ), mock.patch("verify_cert.check_continuity"):
+                res = verify_meta_certificate(current_node, manifest_path, current_depth=0)
+                assert res is not None
+        finally:
+            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
+
+    def test_meta_cert_recursion_depth_exceeding_limit_fails(self, tmp_path):
+        manifest = make_manifest()
+        leaf_cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, leaf_cert)
+
+        current_node = leaf_cert
+        for level in range(7):
+            current_node = {
+                "node_certificates": [current_node],
+                "telemetry": leaf_cert["telemetry"],
+            }
+
+        from verify_cert import verify_meta_certificate
+
+        with pytest.raises(CertificateValidationError) as exc_info:
+            verify_meta_certificate(current_node, manifest_path, current_depth=0)
+        assert "exceeds maximum limit of 5 levels" in str(exc_info.value)

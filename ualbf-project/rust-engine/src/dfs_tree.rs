@@ -1399,30 +1399,84 @@ pub struct DfsContext<'a> {
     pub step_counter: std::sync::atomic::AtomicU64,
 }
 
+/// Typed reference wrapper around a validated `DfsContext`.
+/// Encapsulates non-null and alignment checks via `NonNullContext`.
+#[derive(Clone, Copy)]
+pub struct DfsContextRef<'a> {
+    ctx: &'a DfsContext<'a>,
+}
+
+impl<'a> std::fmt::Debug for DfsContextRef<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DfsContextRef")
+            .field("n_l", &self.n_l())
+            .field("s_l", &self.s_l())
+            .field("last_idx", &self.last_idx())
+            .field("factors", &self.factors())
+            .field("saved_states_len", &self.saved_states_len())
+            .finish()
+    }
+}
+
+impl<'a> DfsContextRef<'a> {
+    /// Validates `handle` non-nullness and pointer alignment via `NonNullContext`,
+    /// returning `Some(DfsContextRef)` if valid, or `None` otherwise.
+    #[inline(always)]
+    pub fn from_handle(handle: u64) -> Option<Self> {
+        let nn = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(handle)?;
+        let ctx = unsafe { nn.as_ref()? };
+        Some(Self { ctx })
+    }
+
+    /// Accesses `n_l` property from the encapsulated search context.
+    #[inline(always)]
+    pub fn n_l(&self) -> Uint {
+        self.ctx.curr.n_l
+    }
+
+    /// Accesses `s_l` property from the encapsulated search context.
+    #[inline(always)]
+    pub fn s_l(&self) -> Uint {
+        self.ctx.curr.s_l
+    }
+
+    /// Accesses `last_idx` property from the encapsulated search context.
+    #[inline(always)]
+    pub fn last_idx(&self) -> usize {
+        self.ctx.curr.last_idx
+    }
+
+    /// Accesses `factors` property slice from the encapsulated search context.
+    #[inline(always)]
+    pub fn factors(&self) -> &[u64] {
+        &self.ctx.curr.factors
+    }
+
+    /// Accesses number of saved state snapshots from the encapsulated search context.
+    #[inline(always)]
+    pub fn saved_states_len(&self) -> usize {
+        self.ctx.saved_states.len()
+    }
+
+    /// Returns a direct shared reference to the underlying `DfsContext`.
+    #[inline(always)]
+    pub fn get_ref(&self) -> &'a DfsContext<'a> {
+        self.ctx
+    }
+}
+
 pub fn __rust_dfs_get_components_len(ctx: u64) -> u32 {
-    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+    let Some(ctx_ref) = DfsContextRef::from_handle(ctx) else {
         return 0;
     };
-    let dfs_ctx = unsafe {
-        match ctx_handle.as_ref() {
-            Some(r) => r,
-            None => return 0,
-        }
-    };
-    dfs_ctx.components.len() as u32
+    ctx_ref.get_ref().components.len() as u32
 }
 
 pub fn __rust_dfs_get_curr_last_idx(ctx: u64) -> u32 {
-    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+    let Some(ctx_ref) = DfsContextRef::from_handle(ctx) else {
         return 0;
     };
-    let dfs_ctx = unsafe {
-        match ctx_handle.as_ref() {
-            Some(r) => r,
-            None => return 0,
-        }
-    };
-    dfs_ctx.curr.last_idx as u32
+    ctx_ref.last_idx() as u32
 }
 
 pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
@@ -1577,15 +1631,10 @@ pub fn __rust_dfs_pop(ctx: u64) {
 }
 
 pub fn __rust_dfs_get_prasad_sunitha_info(ctx: u64) -> u32 {
-    let Some(ctx_handle) = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(ctx) else {
+    let Some(ctx_ref) = DfsContextRef::from_handle(ctx) else {
         return 0;
     };
-    let dfs_ctx = unsafe {
-        match ctx_handle.as_ref() {
-            Some(r) => r,
-            None => return 0,
-        }
-    };
+    let dfs_ctx = ctx_ref.get_ref();
     let curr = &dfs_ctx.curr;
     let mut info = 0;
     if curr.factors.contains(&3) {
@@ -1768,21 +1817,52 @@ mod tests {
         }};
     }
 
-    /// Read a field from the DfsContext via raw pointer (for use after extern C calls).
-    unsafe fn ctx_n_l(ptr: u64) -> Uint {
-        (*(ptr as *const DfsContext)).curr.n_l
+    /// Read a field from the DfsContext via DfsContextRef (for use after extern C calls).
+    fn ctx_n_l(ptr: u64) -> Uint {
+        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").n_l()
     }
-    unsafe fn ctx_s_l(ptr: u64) -> Uint {
-        (*(ptr as *const DfsContext)).curr.s_l
+    fn ctx_s_l(ptr: u64) -> Uint {
+        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").s_l()
     }
-    unsafe fn ctx_last_idx(ptr: u64) -> usize {
-        (*(ptr as *const DfsContext)).curr.last_idx
+    fn ctx_last_idx(ptr: u64) -> usize {
+        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").last_idx()
     }
-    unsafe fn ctx_factors(ptr: u64) -> Vec<u64> {
-        (*(ptr as *const DfsContext)).curr.factors.clone()
+    fn ctx_factors(ptr: u64) -> Vec<u64> {
+        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").factors().to_vec()
     }
-    unsafe fn ctx_saved_states_len(ptr: u64) -> usize {
-        (*(ptr as *const DfsContext)).saved_states.len()
+    fn ctx_saved_states_len(ptr: u64) -> usize {
+        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").saved_states_len()
+    }
+
+    #[test]
+    fn test_dfs_context_ref_validation() {
+        // Null handle returns None
+        assert!(DfsContextRef::from_handle(0).is_none());
+
+        // Misaligned handle returns None
+        assert!(DfsContextRef::from_handle(1).is_none());
+
+        // Valid handle produces DfsContextRef with functional accessors
+        let mut curr = make_prefix(10, 20, 2);
+        curr.factors = vec![2, 5];
+        let comps = vec![];
+        let tb = Uint::from_u64(100);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| {
+                let ctx_ref = DfsContextRef::from_handle(ptr).expect("valid context ref");
+                assert_eq!(ctx_ref.n_l(), Uint::from_u64(10));
+                assert_eq!(ctx_ref.s_l(), Uint::from_u64(20));
+                assert_eq!(ctx_ref.last_idx(), 2);
+                assert_eq!(ctx_ref.factors(), &[2, 5]);
+                assert_eq!(ctx_ref.saved_states_len(), 0);
+            }
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -2141,7 +2221,9 @@ mod tests {
 
                 // Assert that the boundary_pruned counter was incremented to 1
                 assert_eq!(
-                    (*(ptr as *const DfsContext))
+                    DfsContextRef::from_handle(ptr)
+                        .unwrap()
+                        .get_ref()
                         .boundary_pruned
                         .load(Ordering::Relaxed),
                     1
@@ -2666,7 +2748,9 @@ mod tests {
                 );
 
                 assert_eq!(
-                    (*(ptr as *const DfsContext))
+                    DfsContextRef::from_handle(ptr)
+                        .unwrap()
+                        .get_ref()
                         .abundance_pruned
                         .load(Ordering::Relaxed),
                     1

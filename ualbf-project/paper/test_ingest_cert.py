@@ -655,5 +655,27 @@ class TestCheckManuscriptCompliance(unittest.TestCase):
             self.assertEqual(cm.exception.code, 1)
 
 
+class TestIngestCertFileSizeLimit(unittest.TestCase):
+    def test_oversized_bounds_manifest_raises_error(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            bounds_path = os.path.join(tmp_dir, "large_bounds.json")
+            with open(bounds_path, "wb") as f:
+                f.write(b"x" * (11 * 1024 * 1024))
+
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.load_bounds(bounds_path=bounds_path)
+            self.assertEqual(cm.exception.code, 1)
+
+    def test_oversized_proof_manifest_raises_error(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            manifest_path = os.path.join(tmp_dir, "large_manifest.json")
+            with open(manifest_path, "wb") as f:
+                f.write(b"x" * (11 * 1024 * 1024))
+
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.check_manifest(manifest_path=manifest_path)
+            self.assertEqual(cm.exception.code, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
