@@ -54,7 +54,12 @@ verify-sync: verification-lib
 
 verification-lib:
 	cd verification-lib && cargo build --release --features python,signing
-	@cp verification-lib/target/release/libverification_lib.so ./verification_lib.so 2>/dev/null || cp verification-lib/target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || true
+	@cp target/release/libverification_lib.so ./verification_lib.so 2>/dev/null || \
+	 cp ../target/release/libverification_lib.so ./verification_lib.so 2>/dev/null || \
+	 cp verification-lib/target/release/libverification_lib.so ./verification_lib.so 2>/dev/null || \
+	 cp target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || \
+	 cp ../target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || \
+	 cp verification-lib/target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || true
 
 mock-ui:
 	mkdir -p build/mock-bin
