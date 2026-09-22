@@ -2261,3 +2261,82 @@ class TestPinnedTrustedKeyValidation:
         assert "Certificate public key does not match trusted signer key" in str(
             exc_info.value
         )
+
+
+class TestFileSizeGuardrails:
+    def test_file_size_under_limit_passes(self, tmp_path):
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        pub_key = cert["public_key"]
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
+        try:
+            verified = verify_certificate(cert_path, manifest_path)
+            assert verified is not None
+        finally:
+            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
+
+    def test_file_size_exceeding_default_10mb_fails(self, tmp_path):
+        large_file = tmp_path / "oversized_cert.json"
+        with open(large_file, "wb") as f:
+            f.write(b"x" * (11 * 1024 * 1024))
+
+        with pytest.raises(CertificateValidationError) as exc_info:
+            load_and_validate_cert(str(large_file))
+        assert "exceeds maximum allowed limit" in str(exc_info.value)
+
+    def test_custom_file_size_limit_via_env_var(self, tmp_path):
+        cert_file = tmp_path / "test_cert.json"
+        with open(cert_file, "wb") as f:
+            f.write(b"x" * (2 * 1024 * 1024))
+
+        os.environ["UALBF_MAX_CERT_SIZE_MB"] = "1.0"
+        try:
+            with pytest.raises(CertificateValidationError) as exc_info:
+                load_and_validate_cert(str(cert_file))
+            assert "exceeds maximum allowed limit" in str(exc_info.value)
+        finally:
+            os.environ.pop("UALBF_MAX_CERT_SIZE_MB", None)
+
+
+class TestMetaCertificateRecursionLimit:
+    def test_meta_cert_recursion_depth_within_limit(self, tmp_path):
+        manifest = make_manifest()
+        leaf_cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, leaf_cert)
+        pub_key = leaf_cert["public_key"]
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
+
+        try:
+            current_node = leaf_cert
+            for level in range(5):
+                current_node = {
+                    "node_certificates": [current_node],
+                    "telemetry": leaf_cert["telemetry"],
+                }
+
+            from verify_cert import verify_meta_certificate
+
+            res = verify_meta_certificate(current_node, manifest_path, current_depth=0)
+            assert res is not None
+        finally:
+            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
+
+    def test_meta_cert_recursion_depth_exceeding_limit_fails(self, tmp_path):
+        manifest = make_manifest()
+        leaf_cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, leaf_cert)
+
+        current_node = leaf_cert
+        for level in range(7):
+            current_node = {
+                "node_certificates": [current_node],
+                "telemetry": leaf_cert["telemetry"],
+            }
+
+        from verify_cert import verify_meta_certificate
+
+        with pytest.raises(CertificateValidationError) as exc_info:
+            verify_meta_certificate(current_node, manifest_path, current_depth=0)
+        assert "exceeds maximum limit of 5 levels" in str(exc_info.value)

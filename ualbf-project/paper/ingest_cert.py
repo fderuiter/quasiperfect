@@ -56,6 +56,12 @@ def load_bounds(bounds_path: str | None = None) -> dict:
         print(f"Error: bounds_manifest.json not found at {bounds_path}.")
         sys.exit(1)
 
+    try:
+        cert_util.validate_file_size(bounds_path)
+    except cert_util.CertificateError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
     with open(bounds_path, "r", encoding="utf-8") as bf:
         bounds = json.load(bf)
 
@@ -79,6 +85,12 @@ def check_manifest(manifest_path: str | None = None) -> tuple[dict, str]:
         )
     if not os.path.exists(manifest_path):
         print(f"Error: Proof manifest '{manifest_path}' not found.")
+        sys.exit(1)
+
+    try:
+        cert_util.validate_file_size(manifest_path)
+    except cert_util.CertificateError as e:
+        print(f"Error: {e}")
         sys.exit(1)
 
     with open(manifest_path, "r", encoding="utf-8") as mf:
@@ -173,6 +185,7 @@ def write_telemetry_tex(
     with open(telemetry_tex_path, "w", encoding="utf-8") as f:
         if has_cert:
             try:
+                cert_util.validate_file_size(cert_path)
                 if os.environ.get("UALBF_DUMMY_PAPER_CI") == "1":
                     with open(cert_path, "r", encoding="utf-8") as cert_f:
                         cert = json.load(cert_f)
@@ -274,6 +287,12 @@ def write_telemetry_tex(
                 )
                 sys.exit(1)
 
+            try:
+                cert_util.validate_file_size(manifest_path)
+            except cert_util.CertificateError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+
             with open(manifest_path, "rb") as mf_bytes:
                 manifest_content_bytes = mf_bytes.read()
 
@@ -286,6 +305,12 @@ def write_telemetry_tex(
             expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
             if not expected_bounds_hash:
                 print("Error: Proof manifest missing bounds_manifest_hash.")
+                sys.exit(1)
+
+            try:
+                cert_util.validate_file_size(bounds_path)
+            except cert_util.CertificateError as e:
+                print(f"Error: {e}")
                 sys.exit(1)
 
             with open(bounds_path, "rb") as bf_bytes:
