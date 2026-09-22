@@ -81,6 +81,21 @@ def compute_verus_hashes(verus_content):
     return cert_util.compute_verus_hashes(verus_content)
 
 
+def walk_dir(top):
+    visited = set()
+    for root, dirs, files in os.walk(top, followlinks=True):
+        try:
+            st = os.stat(root)
+            key = (st.st_dev, st.st_ino)
+            if key in visited:
+                dirs.clear()
+                continue
+            visited.add(key)
+        except Exception:
+            pass
+        yield root, dirs, files
+
+
 @contextlib.contextmanager
 def offline_lake_manifest(cwd):
     manifest_path = os.path.join(cwd, "lake-manifest.json")
@@ -92,7 +107,7 @@ def offline_lake_manifest(cwd):
     min_mtime = None
     lake_dir = os.path.join(cwd, ".lake")
     if os.path.exists(lake_dir):
-        for root, _, files in os.walk(lake_dir):
+        for root, _, files in walk_dir(lake_dir):
             for f in files:
                 if f.endswith((".olean", ".trace", ".hash", ".o", ".a", ".so")):
                     try:
@@ -484,7 +499,7 @@ def _generate_manifest_impl():
         min_mtime = None
         lake_dir = os.path.join(cwd, ".lake")
         if os.path.exists(lake_dir):
-            for root, _, files in os.walk(lake_dir):
+            for root, _, files in walk_dir(lake_dir):
                 for f in files:
                     if f.endswith((".olean", ".trace", ".hash", ".o", ".a", ".so")):
                         try:
@@ -602,7 +617,7 @@ def _generate_manifest_impl():
 
         lake_dir = os.path.abspath(os.path.join(cwd, ".lake"))
         if os.path.exists(lake_dir):
-            for root, dirs, files in os.walk(lake_dir):
+            for root, dirs, files in walk_dir(lake_dir):
                 if os.path.basename(root) in ("lib", "lean"):
                     if root not in lean_path_dirs:
                         lean_path_dirs.append(root)
