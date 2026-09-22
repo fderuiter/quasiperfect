@@ -7,7 +7,6 @@ import os
 import hash_util
 import shutil
 import cert_util
-import time
 import re
 import contextlib
 import uuid
@@ -89,14 +88,11 @@ def offline_lake_manifest(cwd):
 
     manifest_bak = None
     lakefile_bak = None
-    manifest_stat = None
-    lakefile_stat = None
 
     past = 0.0
 
     try:
         if os.path.exists(manifest_path):
-            manifest_stat = os.stat(manifest_path)
             try:
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     manifest_content = f.read()
@@ -124,7 +120,6 @@ def offline_lake_manifest(cwd):
                 )
 
         if os.path.exists(lakefile_path):
-            lakefile_stat = os.stat(lakefile_path)
             try:
                 with open(lakefile_path, "r", encoding="utf-8") as f:
                     lakefile_content = f.read()
