@@ -745,9 +745,8 @@ def _generate_manifest_impl():
                         text=True,
                         timeout=30,
                     )
-                    if res_direct.returncode == 0:
-                        result = res_direct
-                        output = res_direct.stdout + res_direct.stderr
+                    result = res_direct
+                    output = res_direct.stdout + res_direct.stderr
                 except Exception:
                     pass
 
