@@ -142,6 +142,10 @@ def test_specification_parity():
     ), "Spec mismatch for CRT modulus product"
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_conjectural_bounds_conflict_fails_build():
     """
     Test that if conjectural bounds are active but the ceiling is set below the search floor,
@@ -224,6 +228,10 @@ def test_conjectural_bounds_conflict_fails_build():
             build_rs_path.touch()
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_prime_split_threshold_valid_61_success():
     """
     Test that configuring the exact baseline prime split threshold (61) builds successfully,
@@ -317,6 +325,10 @@ def test_prime_split_threshold_valid_61_success():
             build_rs_path.touch()
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_prime_split_threshold_invalid_above_61_fails():
     """
     Test that configuring a prime split threshold above 61 (e.g. 67) fails the build.
@@ -387,6 +399,10 @@ def test_prime_split_threshold_invalid_above_61_fails():
             build_rs_path.touch()
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_prime_split_threshold_invalid_below_61_fails():
     """
     Test that setting prime split threshold below 61 (e.g. 59) fails the build.

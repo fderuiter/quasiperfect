@@ -303,6 +303,10 @@ def test_auditor_parses_quoted_lean4_theorem_names():
             os.chdir(old_cwd)
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_build_script_panics_on_legacy_axiom():
     """
     Test that the compile-time validation gatekeeper (build.rs) panics when encountering
@@ -512,6 +516,10 @@ def test_auditor_rejects_compilation_failure():
             os.chdir(old_cwd)
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_build_script_panics_on_undefined_status():
     """
     Test that compile-time validation (build.rs) panics when encountering

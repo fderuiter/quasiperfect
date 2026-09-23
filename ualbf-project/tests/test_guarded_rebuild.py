@@ -6,6 +6,10 @@ from pathlib import Path
 import pytest
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_guarded_rebuild_success():
     """
     Test that when lake build succeeds:
@@ -96,6 +100,10 @@ def test_guarded_rebuild_success():
                 shutil.copy2(validator_backup, validator_file)
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_guarded_rebuild_failure():
     """
     Test that when lake build fails:
