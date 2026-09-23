@@ -473,6 +473,10 @@ def test_prime_split_threshold_invalid_below_61_fails():
             build_rs_path.touch()
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_prime_split_threshold_invalid_composite_fails():
     """
     Test that setting prime split threshold to a composite odd number (e.g. 69) fails the build.

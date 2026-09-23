@@ -124,6 +124,10 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     let sigma_cache_mu: Mutex<SigmaCache> = Mutex::new(HashMap::new());
     let total_factor_ns = AtomicU64::new(0);
 
+    let min_prefix_prod = Uint::from_u64(188_000_000_000);
+    let max_bound =
+        Uint::from_u32(10).pow(crate::manifest_constants::TARGET_MAX_LOG10) / min_prefix_prod;
+
     let mut valid_components: Vec<PrimePower> = primes
         .chunks(64)
         .par_bridge()
@@ -224,8 +228,6 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                         tasks.push((p as u64, two_e, Uint::MAX, sigma));
                         break;
                     } else {
-                        let min_prefix_prod = Uint::from_u64(188_000_000_000);
-                        let max_bound = Uint::from_u32(10).pow(crate::manifest_constants::TARGET_MAX_LOG10) / min_prefix_prod;
                         if val > max_bound {
                             break;
                         }
@@ -543,7 +545,7 @@ mod tests {
 fn get_cofactors_to_factor(
     p: u64,
     two_e: u32,
-    trial: &TrialSieve,
+    _trial: &TrialSieve,
     ecm_calls: &AtomicUsize,
     trial_only: &AtomicUsize,
 ) -> Option<(bool, Vec<Uint>, Vec<Uint>)> {
@@ -555,34 +557,34 @@ fn get_cofactors_to_factor(
         }
     };
 
-    let (trial_factors, remainder) = trial.trial_factor_only(full_sigma);
-    let mut factors = trial_factors.to_vec();
+    let factor_result = crate::math_utils::factor_sigma_cyclotomic(p, two_e);
+    let factors = factor_result.factors();
+
     let filter = crate::obstruction::Mod8Obstruction;
     use crate::obstruction::Obstruction;
 
-    for &q in &factors {
+    for &q in factors {
         if filter.check_prime_factor(&q) {
             return Some((true, vec![], vec![]));
         }
     }
 
     let mut needs_rho = vec![];
-    if remainder > Uint::one() {
-        if crate::math_utils::verified_is_prime(remainder) {
-            if filter.check_prime_factor(&remainder) {
-                return Some((true, vec![], vec![]));
-            }
-            factors.push(remainder);
+    match factor_result {
+        crate::math_utils::FactorizationResult::Complete(_) => {
             trial_only.fetch_add(1, Ordering::Relaxed);
-        } else {
-            needs_rho.push(remainder);
+        }
+        crate::math_utils::FactorizationResult::Partial { remaining, .. } => {
+            needs_rho.push(remaining);
             ecm_calls.fetch_add(1, Ordering::Relaxed);
         }
-    } else {
-        trial_only.fetch_add(1, Ordering::Relaxed);
+        crate::math_utils::FactorizationResult::Failure(u) => {
+            needs_rho.push(u);
+            ecm_calls.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
-    Some((false, factors, needs_rho))
+    Some((false, factors.to_vec(), needs_rho))
 }
 
 // ---------------------------------------------------------------------------
