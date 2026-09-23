@@ -370,6 +370,7 @@ cert = {
     "manifest_hash": manifest_hash,
     "verified_logic_hash": "dummy",
     "telemetry": {
+        "phase1_execution_time_ms": 0,
         "phase2_execution_time_ms": 1000,
         "total_branches_searched": 10,
         "abundance_pruned": 0,
