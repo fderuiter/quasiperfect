@@ -722,9 +722,6 @@ def _generate_manifest_impl():
                         if (
                             f.startswith("libverification_lib")
                             or f.startswith("verification_lib")
-                            or f.startswith("libUALBF")
-                            or f.startswith("UALBF")
-                            or f.startswith("libualbf")
                         ) and f.endswith((".so", ".dylib", ".dll")):
                             full_so = os.path.join(d, f)
                             if full_so not in dynlib_args:
@@ -745,8 +742,9 @@ def _generate_manifest_impl():
                         text=True,
                         timeout=30,
                     )
-                    result = res_direct
-                    output = res_direct.stdout + res_direct.stderr
+                    if res_direct.returncode == 0:
+                        result = res_direct
+                        output = res_direct.stdout + res_direct.stderr
                 except Exception:
                     pass
 
