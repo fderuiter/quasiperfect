@@ -37,7 +37,7 @@ check-python: verification-lib
 	mypy .
 	python3 scripts/validate_docs.py --check-specs
 	python3 scripts/validate_tuning_guide.py
-	LEAN_SYSROOT=DUMMY pytest tests
+	LEAN_SYSROOT=DUMMY python3 -m pytest tests
 
 verify-sync: verification-lib
 	./scripts/export_lean_specs.py
@@ -53,7 +53,13 @@ verify-sync: verification-lib
 
 
 verification-lib:
-	cd verification-lib && cargo build --release --features signing
+	cd verification-lib && cargo build --release --features python,signing
+	@cp target/release/libverification_lib.so ./verification_lib.so 2>/dev/null || \
+	 cp ../target/release/libverification_lib.so ./verification_lib.so 2>/dev/null || \
+	 cp verification-lib/target/release/libverification_lib.so ./verification_lib.so 2>/dev/null || \
+	 cp target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || \
+	 cp ../target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || \
+	 cp verification-lib/target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || true
 
 mock-ui:
 	mkdir -p build/mock-bin

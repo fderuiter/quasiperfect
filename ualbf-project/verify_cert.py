@@ -34,7 +34,7 @@ def canonicalize_trace(trace_path):
         if not line_str:
             continue
         try:
-            record = json.loads(line_str)
+            record = cert_util.BoundedJSONLoader().loads(line_str)
             work_unit_id = record.get("work_unit_id", 0)
             step_index = record.get("step_index", 0)
             records.append((work_unit_id, step_index, line_str))
@@ -61,7 +61,8 @@ def verify_trace_file(cert, trace_path):
 
     canonicalize_trace(trace_path)
 
-    computed_hash = hash_util.hash_file(trace_path)
+    trace_data = cert_util.BoundedJSONLoader().read_file_bytes(trace_path)
+    computed_hash = hash_util.hash_bytes(trace_data)
     expected_hash = cert["telemetry"].get("trace_hash")
     if expected_hash and computed_hash != expected_hash:
         print(
@@ -73,7 +74,7 @@ def verify_trace_file(cert, trace_path):
         with open(trace_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in lines:
-                record = json.loads(line)
+                record = cert_util.BoundedJSONLoader().loads(line)
                 if not record.get("reason"):
                     print(f"ERROR: Invalid trace record missing reason: {line}")
                     sys.exit(1)
@@ -266,13 +267,9 @@ def verify_sidecar_file(cert, sidecar_path):
         )
         sys.exit(1)
 
-    try:
-        cert_util.validate_file_size(sidecar_path)
-    except cert_util.CertificateError as e:
-        print(f"ERROR: {e}")
-        sys.exit(1)
-
-    computed_hash = hash_util.hash_file(sidecar_path)
+    computed_hash = hash_util.hash_bytes(
+        cert_util.BoundedJSONLoader().read_file_bytes(sidecar_path)
+    )
 
     if computed_hash != expected_hash:
         print(
@@ -308,7 +305,9 @@ def verify_theorem_checksum(thm, manifest_path=None):
         file_path = os.path.join("lean4-proofs", thm["file"])
 
     if os.path.exists(file_path):
-        computed = hash_util.hash_file(file_path)
+        computed = hash_util.hash_bytes(
+            cert_util.BoundedJSONLoader().read_file_bytes(file_path)
+        )
         return computed == thm.get("checksum", "")
     else:
         # Fallback to metadata-based hash if the physical file does not exist anywhere
@@ -575,12 +574,7 @@ def verify_lattice_witnesses(cert, manifest_path):
         sys.exit(1)
 
     try:
-        cert_util.validate_file_size(bounds_path)
-        with open(bounds_path, "r", encoding="utf-8") as f:
-            bounds_data = json.load(f)
-    except cert_util.CertificateError as e:
-        print(f"ERROR: {e}")
-        sys.exit(1)
+        bounds_data = cert_util.BoundedJSONLoader().load_file(bounds_path)
     except Exception as e:
         print(f"ERROR: Failed to parse bounds manifest: {e}")
         sys.exit(1)
@@ -718,12 +712,7 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     try:
-        cert_util.validate_file_size(manifest_path)
-        with open(manifest_path, "r", encoding="utf-8") as f:
-            manifest_to_check = json.load(f)
-    except cert_util.CertificateError as e:
-        print(f"ERROR: {e}")
-        sys.exit(1)
+        manifest_to_check = cert_util.BoundedJSONLoader().load_file(manifest_path)
     except Exception as e:
         print(f"ERROR: Failed to parse manifest JSON: {e}")
         sys.exit(1)
@@ -762,8 +751,7 @@ def verify_certificate(cert_path, manifest_path):
         )
         print("!" * 80 + "\n")
 
-    with open(manifest_path, encoding="utf-8") as f:
-        manifest_content = f.read()
+    manifest_content = cert_util.BoundedJSONLoader().read_file_text(manifest_path)
 
     # Verify manifest hash
     manifest_hash = hash_util.hash_string(manifest_content)
@@ -835,7 +823,7 @@ def verify_certificate(cert_path, manifest_path):
         except Exception as e:
             print(f"WARNING: Failed to compute logic hash: {e}")
 
-    manifest = json.loads(manifest_content)
+    manifest = cert_util.BoundedJSONLoader().loads(manifest_content)
 
     if manifest.get("status") == "unverified":
         print(
@@ -854,12 +842,9 @@ def verify_certificate(cert_path, manifest_path):
                 f"ERROR: Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest."
             )
             sys.exit(1)
-        try:
-            cert_util.validate_file_size(bounds_path)
-            computed_bounds_hash = hash_util.hash_file(bounds_path)
-        except cert_util.CertificateError as e:
-            print(f"ERROR: {e}")
-            sys.exit(1)
+        computed_bounds_hash = hash_util.hash_bytes(
+            cert_util.BoundedJSONLoader().read_file_bytes(bounds_path)
+        )
         if computed_bounds_hash != bounds_manifest_hash:
             print(
                 f"ERROR: Bounds manifest hash mismatch!\nExpected: {bounds_manifest_hash}\nGot:      {computed_bounds_hash}"
@@ -927,8 +912,7 @@ def verify_certificate(cert_path, manifest_path):
 
         for pf in proof_files:
             file_path = os.path.join(proof_dir, pf["file"])
-            with open(file_path, "rb") as f:
-                content = f.read()
+            content = cert_util.BoundedJSONLoader().read_file_bytes(file_path)
             if b"sorry" in content or b"admit" in content:
                 print(
                     f"ERROR: Unverified tactic ('sorry' or 'admit') detected in {pf['file']}"
@@ -962,7 +946,9 @@ def verify_certificate(cert_path, manifest_path):
                 file_path = os.path.join("lean4-proofs", thm["file"])
 
             if os.path.exists(file_path):
-                computed = hash_util.hash_file(file_path)
+                computed = hash_util.hash_bytes(
+                    cert_util.BoundedJSONLoader().read_file_bytes(file_path)
+                )
             else:
                 computed = hash_util.hash_theorem_metadata(
                     thm["name"], thm["file"], thm["status"]
@@ -1044,7 +1030,7 @@ def verify_telemetry_paths(certs_list: list) -> None:
         if cert_util.check_path_continuity is None:
             raise ImportError("check_path_continuity is not available in cert_util")
         result_json = cert_util.check_path_continuity(path_ranges_json)
-        result = json.loads(result_json)
+        result = cert_util.BoundedJSONLoader().loads(result_json)
     except Exception as e:
         print(f"ERROR: Failed to verify path continuity via Rust core: {e}")
         sys.exit(1)
@@ -1269,9 +1255,7 @@ if __name__ == "__main__":
     # If the user passed a single meta-certificate
     if len(certs) == 1 and not os.path.isdir(certs[0]):
         try:
-            cert_util.validate_file_size(certs[0])
-            with open(certs[0], "r", encoding="utf-8") as f:
-                content_json = json.load(f)
+            content_json = cert_util.BoundedJSONLoader().load_file(certs[0])
             if "node_certificates" in content_json:
                 verify_meta_certificate(content_json, args.manifest, current_depth=0)
                 sys.exit(0)
@@ -1368,8 +1352,6 @@ if __name__ == "__main__":
         }
 
         with open("meta_certificate.json", "w", encoding="utf-8") as f:
-            import json
-
             json.dump(master_cert, f, indent=4)
         print("=== Master Meta-Certificate Generated: meta_certificate.json ===")
         sys.exit(0)

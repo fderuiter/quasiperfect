@@ -1819,19 +1819,30 @@ mod tests {
 
     /// Read a field from the DfsContext via DfsContextRef (for use after extern C calls).
     fn ctx_n_l(ptr: u64) -> Uint {
-        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").n_l()
+        DfsContextRef::from_handle(ptr)
+            .expect("valid DfsContext handle")
+            .n_l()
     }
     fn ctx_s_l(ptr: u64) -> Uint {
-        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").s_l()
+        DfsContextRef::from_handle(ptr)
+            .expect("valid DfsContext handle")
+            .s_l()
     }
     fn ctx_last_idx(ptr: u64) -> usize {
-        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").last_idx()
+        DfsContextRef::from_handle(ptr)
+            .expect("valid DfsContext handle")
+            .last_idx()
     }
     fn ctx_factors(ptr: u64) -> Vec<u64> {
-        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").factors().to_vec()
+        DfsContextRef::from_handle(ptr)
+            .expect("valid DfsContext handle")
+            .factors()
+            .to_vec()
     }
     fn ctx_saved_states_len(ptr: u64) -> usize {
-        DfsContextRef::from_handle(ptr).expect("valid DfsContext handle").saved_states_len()
+        DfsContextRef::from_handle(ptr)
+            .expect("valid DfsContext handle")
+            .saved_states_len()
     }
 
     #[test]
