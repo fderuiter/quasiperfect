@@ -120,7 +120,7 @@ jobs:
           rm -rf ualbf-project/lean4-proofs/.lake || true
           cp -rL ualbf-project/lean-built/.lake ualbf-project/lean4-proofs/.lake
           chmod -R +w ualbf-project/lean4-proofs/.lake || true
-          python3 -c "import os; lake = 'ualbf-project/lean4-proofs/.lake'; [os.utime(os.path.join(r, f), (1577836800, 1577836800) if f.endswith('.lean') else (1767225600, 1767225600)) for r, _, fs in os.walk(lake) for f in fs if f.endswith(('.lean', '.olean', '.trace', '.hash', '.o', '.a', '.so'))]" || true
+          python3 -c "import os; proofs = 'ualbf-project/lean4-proofs'; [os.utime(os.path.join(r, f), (1577836800, 1577836800) if (f.endswith('.lean') or f == 'lake-manifest.json') else (1767225600, 1767225600)) for r, _, fs in os.walk(proofs) for f in fs if f.endswith(('.lean', '.olean', '.trace', '.hash', '.o', '.a', '.so')) or f == 'lake-manifest.json']" || true
           nix develop --command bash -c "cd ualbf-project && make verification-lib"
 
       - name: Run Unified Quality Checks
