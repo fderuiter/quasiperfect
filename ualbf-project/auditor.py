@@ -330,33 +330,12 @@ def _setup_staging_workspace(host_dir, staging_dir):
         else:
             shutil.copy2(src_item, dst_item)
 
-    # Symlink prebuilt .lake build outputs while omitting package source files to prevent Lean mtime recompilation checks
+    # Symlink prebuilt .lake directory into staging workspace to preserve prebuilt Lean objects and package dependencies
     host_lake = os.path.join(host_dir, "lean4-proofs", ".lake")
     staging_lake = os.path.join(staging_dir, "lean4-proofs", ".lake")
     if os.path.exists(host_lake) and not os.path.exists(staging_lake):
         try:
-            os.makedirs(staging_lake, exist_ok=True)
-            host_build = os.path.join(host_lake, "build")
-            staging_build = os.path.join(staging_lake, "build")
-            if os.path.exists(host_build) and not os.path.exists(staging_build):
-                os.symlink(host_build, staging_build)
-
-            host_packages = os.path.join(host_lake, "packages")
-            staging_packages = os.path.join(staging_lake, "packages")
-            if os.path.exists(host_packages) and not os.path.exists(staging_packages):
-                os.makedirs(staging_packages, exist_ok=True)
-                for pkg in os.listdir(host_packages):
-                    host_pkg = os.path.join(host_packages, pkg)
-                    if not os.path.isdir(host_pkg):
-                        continue
-                    staging_pkg = os.path.join(staging_packages, pkg)
-                    os.makedirs(staging_pkg, exist_ok=True)
-                    for sub in [".lake/build", "build"]:
-                        h_sub = os.path.join(host_pkg, sub)
-                        s_sub = os.path.join(staging_pkg, sub)
-                        if os.path.exists(h_sub) and not os.path.exists(s_sub):
-                            os.makedirs(os.path.dirname(s_sub), exist_ok=True)
-                            os.symlink(h_sub, s_sub)
+            os.symlink(host_lake, staging_lake)
         except Exception:
             pass
 

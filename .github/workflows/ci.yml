@@ -120,6 +120,8 @@ jobs:
           rm -rf ualbf-project/lean4-proofs/.lake || true
           cp -rL ualbf-project/lean-built/.lake ualbf-project/lean4-proofs/.lake
           chmod -R +w ualbf-project/lean4-proofs/.lake || true
+          find ualbf-project/lean4-proofs/.lake -type f -name "*.lean" -exec touch -d "2020-01-01 00:00:00" {} + || true
+          find ualbf-project/lean4-proofs/.lake -type f -name "*.olean" -exec touch -d "2026-01-01 00:00:00" {} + || true
           nix develop --command bash -c "cd ualbf-project && make verification-lib"
 
       - name: Run Unified Quality Checks
