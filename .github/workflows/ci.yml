@@ -120,8 +120,7 @@ jobs:
           rm -rf ualbf-project/lean4-proofs/.lake || true
           cp -rL ualbf-project/lean-built/.lake ualbf-project/lean4-proofs/.lake
           chmod -R +w ualbf-project/lean4-proofs/.lake || true
-          find ualbf-project/lean4-proofs/.lake -type f -name "*.lean" -exec touch -d "2020-01-01 00:00:00" {} + || true
-          find ualbf-project/lean4-proofs/.lake -type f -name "*.olean" -exec touch -d "2026-01-01 00:00:00" {} + || true
+          python3 -c "import os; lake = 'ualbf-project/lean4-proofs/.lake'; [os.utime(os.path.join(r, f), (1577836800, 1577836800) if f.endswith('.lean') else (1767225600, 1767225600)) for r, _, fs in os.walk(lake) for f in fs if f.endswith(('.lean', '.olean', '.trace', '.hash', '.o', '.a', '.so'))]" || true
           nix develop --command bash -c "cd ualbf-project && make verification-lib"
 
       - name: Run Unified Quality Checks
