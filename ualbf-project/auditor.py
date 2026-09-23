@@ -109,7 +109,9 @@ def offline_lake_manifest(cwd):
     if os.path.exists(lake_dir):
         for root, _, files in walk_dir(lake_dir):
             for f in files:
-                if f.endswith((".olean", ".trace", ".hash", ".o", ".a", ".so")):
+                if f.endswith(
+                    (".olean", ".trace", ".hash", ".o", ".a", ".so", ".c", ".ilean")
+                ):
                     try:
                         st = os.stat(os.path.join(root, f))
                         if min_mtime is None or st.st_mtime < min_mtime:
@@ -501,7 +503,9 @@ def _generate_manifest_impl():
         if os.path.exists(lake_dir):
             for root, _, files in walk_dir(lake_dir):
                 for f in files:
-                    if f.endswith((".olean", ".trace", ".hash", ".o", ".a", ".so")):
+                    if f.endswith(
+                        (".olean", ".trace", ".hash", ".o", ".a", ".so", ".c", ".ilean")
+                    ):
                         try:
                             st = os.stat(os.path.join(root, f))
                             if min_mtime is None or st.st_mtime < min_mtime:
