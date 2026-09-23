@@ -687,8 +687,10 @@ def _generate_manifest_impl():
                 os.path.join(pr, "target", "release"),
                 os.path.join(pr, "verification-lib", "target", "release"),
                 os.path.join(pr, "lean4-proofs", "target", "release"),
+                os.path.join(pr, "lean4-proofs", ".lake", "build", "lib"),
                 os.path.join(cwd, "target", "release"),
                 os.path.join(cwd, "verification-lib", "target", "release"),
+                os.path.join(cwd, ".lake", "build", "lib"),
             ]:
                 abs_sub = os.path.abspath(sub)
                 if abs_sub not in dynlib_scan_dirs:
@@ -720,6 +722,9 @@ def _generate_manifest_impl():
                         if (
                             f.startswith("libverification_lib")
                             or f.startswith("verification_lib")
+                            or f.startswith("libUALBF")
+                            or f.startswith("UALBF")
+                            or f.startswith("libualbf")
                         ) and f.endswith((".so", ".dylib", ".dll")):
                             full_so = os.path.join(d, f)
                             if full_so not in dynlib_args:
