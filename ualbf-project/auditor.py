@@ -734,17 +734,31 @@ def _generate_manifest_impl():
         with offline_lake_manifest(cwd):
             if os.path.exists(lean_path):
                 try:
-                    res_direct = subprocess.run(
-                        ["lean"] + dynlib_args + [lean_file],
-                        cwd=cwd,
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                    )
-                    if res_direct.returncode == 0:
-                        result = res_direct
-                        output = res_direct.stdout + res_direct.stderr
+                    if dynlib_args:
+                        res_direct = subprocess.run(
+                            ["lean"] + dynlib_args + [lean_file],
+                            cwd=cwd,
+                            env=env,
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                        )
+                        if res_direct.returncode == 0:
+                            result = res_direct
+                            output = res_direct.stdout + res_direct.stderr
+
+                    if result is None:
+                        res_direct = subprocess.run(
+                            ["lean", lean_file],
+                            cwd=cwd,
+                            env=env,
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                        )
+                        if res_direct.returncode == 0:
+                            result = res_direct
+                            output = res_direct.stdout + res_direct.stderr
                 except Exception:
                     pass
 
