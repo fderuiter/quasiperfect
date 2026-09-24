@@ -1523,8 +1523,17 @@ def check_documentation(manifest):
                         ):
                             continue
 
-                        if "." in clean_bt and "::" not in clean_bt:
-                            thm_status = manifest_thm_statuses.get(clean_bt)
+                        is_qualified = "." in clean_bt or "::" in clean_bt
+                        if is_qualified:
+                            dot_path = clean_bt.replace("::", ".")
+                            colon_path = clean_bt.replace(".", "::")
+                            dot_path_lower = dot_path.lower()
+                            colon_path_lower = colon_path.lower()
+
+                            thm_status = (
+                                manifest_thm_statuses.get(clean_bt)
+                                or manifest_thm_statuses.get(dot_path)
+                            )
                             if thm_status is not None and thm_status != "proven":
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
@@ -1533,22 +1542,29 @@ def check_documentation(manifest):
 
                             if (
                                 clean_bt not in manifest_symbols
+                                and clean_bt_lower not in manifest_symbols
+                                and dot_path not in manifest_symbols
+                                and dot_path_lower not in manifest_symbols
+                                and colon_path not in manifest_symbols
+                                and colon_path_lower not in manifest_symbols
                                 and clean_bt not in valid_symbols
+                                and clean_bt_lower not in valid_symbols
+                                and dot_path not in valid_symbols
+                                and dot_path_lower not in valid_symbols
+                                and colon_path not in valid_symbols
+                                and colon_path_lower not in valid_symbols
                             ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
                                 )
                         else:
-                            parts = re.split(r"\.|::", clean_bt)
-                            ident = parts[-1]
-                            ident_lower = ident.lower()
+                            ident = clean_bt
+                            ident_lower = clean_bt_lower
 
                             if ident in ignore_symbols or ident_lower in ignore_symbols:
                                 continue
 
-                            thm_status = manifest_thm_statuses.get(
-                                clean_bt
-                            ) or manifest_thm_statuses.get(ident)
+                            thm_status = manifest_thm_statuses.get(ident)
                             if thm_status is not None and thm_status != "proven":
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
@@ -1556,10 +1572,8 @@ def check_documentation(manifest):
                                 continue
 
                             if (
-                                clean_bt not in manifest_symbols
-                                and ident not in manifest_symbols
-                                and clean_bt not in valid_symbols
-                                and clean_bt_lower not in valid_symbols
+                                ident not in manifest_symbols
+                                and ident_lower not in manifest_symbols
                                 and ident not in valid_symbols
                                 and ident_lower not in valid_symbols
                             ):

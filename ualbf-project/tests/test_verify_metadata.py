@@ -280,6 +280,82 @@ def test_extract_fqns_nested_namespaces():
     assert "val" not in fqns
 
 
+def test_extract_fqns_scope_stack_and_extended_keywords():
+    from verify_metadata import extract_fqns_from_lean_content
+    lean_code = """
+    namespace MyNS
+    section MySection
+    def normal_def := 1
+    opaque my_opaque : Nat := 2
+    macro my_macro : term => `(1)
+    syntax my_syntax : term
+    elab my_elab : term => pure ()
+    notation my_notation => 42
+    mutual
+      def mut_a : Nat := 1
+      def mut_b : Nat := 2
+    end
+    end MySection
+    def outer_def := 3
+    end MyNS
+    def global_def := 4
+    """
+    fqns = extract_fqns_from_lean_content(lean_code)
+    assert "MyNS.normal_def" in fqns
+    assert "MyNS.my_opaque" in fqns
+    assert "MyNS.my_macro" in fqns
+    assert "MyNS.my_syntax" in fqns
+    assert "MyNS.my_elab" in fqns
+    assert "MyNS.my_notation" in fqns
+    assert "MyNS.mut_a" in fqns
+    assert "MyNS.mut_b" in fqns
+    assert "MyNS.outer_def" in fqns
+    assert "global_def" in fqns
+    # Confirm section name was not prepended to FQNs and closing section preserved outer namespace
+    assert "MyNS.MySection.normal_def" not in fqns
+
+
+def test_auditor_rejects_fake_qualified_module(tmp_path):
+    import json
+    from unittest.mock import patch, mock_open
+    from auditor import check_documentation
+
+    doc_path = tmp_path / "README.md"
+    doc_path.write_text("""
+    This is `UALBF.Engine.CyclotomicGraph.forced_inclusion` which is valid.
+    This is `forced_inclusion` which is unqualified and valid.
+    This is `FakeModule::forced_inclusion` which MUST be rejected!
+    """)
+
+    with patch("auditor.CORE_THEOREMS", []), \
+         patch("auditor.os.walk", return_value=[]), \
+         patch("auditor.check_lean_environment", return_value=True):
+
+        with patch("auditor.CORE_THEOREMS", ["UALBF.Engine.CyclotomicGraph.forced_inclusion"]):
+            docs_manifest_content = json.dumps({"README.md": "authoritative"})
+
+            original_open = open
+            def custom_open(file, *args, **kwargs):
+                if "docs_manifest.json" in str(file):
+                    return mock_open(read_data=docs_manifest_content)()
+                if "README.md" in str(file):
+                    return original_open(doc_path, *args, **kwargs)
+                return original_open(file, *args, **kwargs)
+
+            with patch("builtins.open", custom_open), \
+                 patch("auditor.os.path.exists", return_value=True):
+                with patch("sys.stderr") as mock_stderr:
+                    result = check_documentation({"verus_hashes": {}})
+
+                    assert result is False
+
+                    error_calls = [call[0][0] for call in mock_stderr.write.call_args_list if call[0]]
+                    full_error_output = "".join(error_calls)
+
+                    assert "Invalid code symbol: 'FakeModule::forced_inclusion'" in full_error_output
+                    assert "Invalid code symbol: 'forced_inclusion'" not in full_error_output
+
+
 def test_find_construct_strict_and_fallback():
     lean_code = """
     namespace MyNamespace
