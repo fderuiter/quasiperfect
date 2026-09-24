@@ -330,6 +330,12 @@ class TestSpecSyncValidation(unittest.TestCase):
         result = validate_docs.validate_spec_sync(repo_root)
         self.assertTrue(result)
 
+    def test_validate_spec_sync_from_ualbf_project_dir(self):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        # Run validate_spec_sync when ualbf-project subdirectory is passed as repo_root
+        result = validate_docs.validate_spec_sync(repo_root)
+        self.assertTrue(result)
+
     def test_validate_spec_sync_detects_mismatch(self):
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         bounds_path = os.path.join(repo_root, "ualbf-project", "bounds_manifest.json")

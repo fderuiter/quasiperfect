@@ -199,7 +199,17 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
 
 def validate_spec_sync(repo_root: str) -> bool:
     """Verify that generated specification artifacts match schema_manifest.json and bounds_manifest.json."""
-    ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    if os.path.exists(os.path.join(repo_root, "ualbf-project")):
+        ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+        monorepo_root = repo_root
+    else:
+        ualbf_project_dir = repo_root
+        monorepo_root = (
+            os.path.dirname(repo_root)
+            if os.path.basename(repo_root) == "ualbf-project"
+            else repo_root
+        )
+
     spec_export_script = os.path.join(
         ualbf_project_dir, "scripts", "export_lean_specs.py"
     )
@@ -227,7 +237,12 @@ def validate_spec_sync(repo_root: str) -> bool:
     # Read original contents
     original_contents = {}
     for rel_path in spec_files:
-        full_path = os.path.join(ualbf_project_dir, rel_path)
+        if rel_path.startswith("../"):
+            full_path = os.path.normpath(
+                os.path.join(monorepo_root, rel_path.removeprefix("../"))
+            )
+        else:
+            full_path = os.path.join(ualbf_project_dir, rel_path)
         if os.path.exists(full_path):
             with open(full_path, "r", encoding="utf-8") as f:
                 original_contents[rel_path] = f.read()
@@ -249,7 +264,12 @@ def validate_spec_sync(repo_root: str) -> bool:
     mismatched = []
 
     for rel_path in spec_files:
-        full_path = os.path.join(ualbf_project_dir, rel_path)
+        if rel_path.startswith("../"):
+            full_path = os.path.normpath(
+                os.path.join(monorepo_root, rel_path.removeprefix("../"))
+            )
+        else:
+            full_path = os.path.join(ualbf_project_dir, rel_path)
         if os.path.exists(full_path):
             with open(full_path, "r", encoding="utf-8") as f:
                 new_contents[rel_path] = f.read()
