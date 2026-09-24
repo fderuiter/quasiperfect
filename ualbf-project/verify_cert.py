@@ -957,7 +957,7 @@ def verify_certificate(cert_path, manifest_path):
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
 
-    allowed_axioms = {"UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"}
+    allowed_axioms = cert_util.ALLOWED_AXIOMS
     sorries = []
     for thm in manifest.get("theorems", []):
         status = thm.get("status")

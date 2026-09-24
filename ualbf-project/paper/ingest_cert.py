@@ -98,7 +98,7 @@ def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
         )
         sys.exit(1)
 
-    allowed_axioms = {"UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"}
+    allowed_axioms = cert_util.ALLOWED_AXIOMS
     # Enforce theorem status gate
     unproven_theorems = []
     for thm in manifest_data_macros.get("theorems", []):
