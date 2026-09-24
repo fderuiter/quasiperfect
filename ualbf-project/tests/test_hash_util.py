@@ -2,6 +2,7 @@ import hashlib
 import os
 import pytest
 
+from cert_util import CertificateValidationError
 import hash_util
 
 
@@ -81,8 +82,6 @@ def test_hash_file_bounded_exceeds_limit_raises(tmp_path):
     f = tmp_path / "large_bounded.bin"
     f.write_bytes(b"x" * 2000)
 
-    from cert_util import CertificateValidationError
-
     with pytest.raises(CertificateValidationError, match="exceeds maximum allowed limit"):
         hash_util.hash_file_bounded(f, max_bytes=1000)
 
@@ -92,8 +91,6 @@ def test_hash_file_bounded_env_override(tmp_path, monkeypatch):
     f.write_bytes(b"y" * (2 * 1024 * 1024))  # 2MB
 
     monkeypatch.setenv("UALBF_MAX_CERT_SIZE_MB", "1.0")  # 1MB limit
-
-    from cert_util import CertificateValidationError
 
     with pytest.raises(CertificateValidationError, match="exceeds maximum allowed limit"):
         hash_util.hash_file_bounded(f)

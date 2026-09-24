@@ -39,6 +39,18 @@ def _get_max_file_size_bytes() -> int:
     return int(10.0 * 1024 * 1024)
 
 
+class CertificateError(Exception):
+    """Base class for certificate-related errors."""
+
+    pass
+
+
+class CertificateValidationError(CertificateError, ValueError):
+    """Raised when file size limits or hash validation bounds are exceeded."""
+
+    pass
+
+
 def hash_file_bounded(
     filepath: Union[str, Path],
     max_bytes: Optional[int] = None,
@@ -56,18 +68,10 @@ def hash_file_bounded(
     if file_size > max_bytes:
         actual_mb = file_size / (1024 * 1024)
         max_mb = max_bytes / (1024 * 1024)
-        try:
-            from cert_util import CertificateValidationError
-
-            raise CertificateValidationError(
-                f"File size of '{filepath}' ({actual_mb:.2f} MB / {file_size} bytes) "
-                f"exceeds maximum allowed limit of {max_mb:.2f} MB ({max_bytes} bytes)."
-            )
-        except ImportError:
-            raise ValueError(
-                f"File size of '{filepath}' ({actual_mb:.2f} MB / {file_size} bytes) "
-                f"exceeds maximum allowed limit of {max_mb:.2f} MB ({max_bytes} bytes)."
-            )
+        raise CertificateValidationError(
+            f"File size of '{filepath}' ({actual_mb:.2f} MB / {file_size} bytes) "
+            f"exceeds maximum allowed limit of {max_mb:.2f} MB ({max_bytes} bytes)."
+        )
 
     return hash_file(path, chunk_size=chunk_size)
 
