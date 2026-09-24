@@ -253,18 +253,21 @@ pub fn get_some(obj: *mut lean_object) -> *mut lean_object {
 }
 
 static LEAN_INIT_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static LOGIC_HASH_CACHE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
 pub fn get_logic_hash() -> String {
-    initialize_lean_runtime();
-    unsafe {
-        let obj = ualbf_logic_hash;
-        let cstr = lean_string_cstr(obj);
-        let hash = std::ffi::CStr::from_ptr(cstr)
-            .to_string_lossy()
-            .into_owned();
-        rs_lean_dec(obj);
-        hash
-    }
+    LOGIC_HASH_CACHE
+        .get_or_init(|| {
+            initialize_lean_runtime();
+            unsafe {
+                let obj = ualbf_logic_hash;
+                let cstr = lean_string_cstr(obj);
+                std::ffi::CStr::from_ptr(cstr)
+                    .to_string_lossy()
+                    .into_owned()
+            }
+        })
+        .clone()
 }
 
 pub fn run_runtime_parity_check() {
@@ -1206,6 +1209,25 @@ mod tests {
     fn test_lean_ffi_export_null_and_panic_safety() {
         let res = rust_dummy_macro_test(std::ptr::null_mut(), std::ptr::null_mut());
         assert!(res.is_null());
+    }
+
+    #[test]
+    fn test_get_logic_hash_caching_and_concurrency() {
+        setup();
+        let hash1 = get_logic_hash();
+        assert!(!hash1.is_empty());
+
+        let hash2 = get_logic_hash();
+        assert_eq!(hash1, hash2);
+
+        let handles: Vec<_> = (0..10)
+            .map(|_| std::thread::spawn(|| get_logic_hash()))
+            .collect();
+
+        for h in handles {
+            let thread_hash = h.join().expect("Thread panicked");
+            assert_eq!(thread_hash, hash1);
+        }
     }
 }
 
