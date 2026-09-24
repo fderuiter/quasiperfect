@@ -163,6 +163,14 @@ jobs:
       - name: Run Core Logic Tests (lean_ffi)
         run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release lean_ffi"
 
+      - name: Upload Rust Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-xml
+          path: ualbf-project/coverage.xml
+          if-no-files-found: ignore
+
   verify-python:
     name: Run Python Quality Checks
     runs-on: ubuntu-latest
@@ -179,5 +187,14 @@ jobs:
 
       - name: Run Python Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-python"
+
+      - name: Upload Python Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage-xml
+          path: ualbf-project/coverage.xml
+          if-no-files-found: ignore
+
 
 
