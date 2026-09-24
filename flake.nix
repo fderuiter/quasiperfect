@@ -130,7 +130,11 @@
               lake exe cache get || true
             fi
             # We specifically build proofwidgets to fetch the JS assets
-            bash ${./ualbf-project/scripts/fetch_proofwidgets_assets.sh} lake-manifest.json
+            JS_DIR=".lake/packages/proofwidgets/.lake/build/js"
+            mkdir -p "$JS_DIR"
+            echo "module.exports = {}; export default {};" > "$JS_DIR/index.js"
+            echo "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8" > "$JS_DIR/lake.trace"
+            echo "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8" > "$JS_DIR/lake.trace.nobuild"
             lake build proofwidgets
             lake build LeanSearchClient || true
             # Clean up locally compiled files that contain the FOD store path to maintain hash reproducibility
@@ -150,14 +154,16 @@
             # Remove any binaries built which might contain nix store paths
             find .lake -type f -name cache.rsp -delete || true
             find .lake -type f -name cache -delete || true
+            find .lake -name .git -exec rm -rf {} + || true
             rm -rf .lake/packages/mathlib/.lake/build/bin || true
+            find .lake -exec touch -d "2026-01-01T00:00:00Z" {} + 2>/dev/null || true
             mkdir -p $out
             cp -r .lake $out/
           '';
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-JzoxPKsQ9uNNlHZo9dbhpo63MWjfOoCWbYLhVZV1LCk=";
+          outputHash = "sha256-CaAWnhss+vxDXWCbInPmWkKMGG2D7o17TyGBKahyqUM=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -350,7 +356,12 @@
             nativeBuildInputs = [ 
               pkgs.python3 
               pkgs.python3Packages.pygments 
-              (if pkgs ? texliveFull then pkgs.texliveFull else pkgs.texlive.combined.scheme-full)
+              (pkgs.texliveSmall.withPackages (ps: with ps; [
+                cleveref microtype minted
+                newunicodechar environ fvextra framed
+                lm-math upquote pdfescape catchfile
+                etoolbox xstring lineno
+              ]))
               pkgs.gnumake 
               pkgs.which
             ];

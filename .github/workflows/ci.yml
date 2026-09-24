@@ -33,6 +33,7 @@ jobs:
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=flake:nixpkgs
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
           extra_nix_config: |
             sandbox = true
 
@@ -84,6 +85,7 @@ jobs:
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=flake:nixpkgs
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
           extra_nix_config: |
             sandbox = true
 
@@ -109,6 +111,7 @@ jobs:
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=flake:nixpkgs
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
           extra_nix_config: |
             sandbox = true
 
@@ -179,6 +182,7 @@ jobs:
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=flake:nixpkgs
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
           extra_nix_config: |
             sandbox = true
 
@@ -219,6 +223,7 @@ jobs:
         uses: cachix/install-nix-action@v25
         with:
           nix_path: nixpkgs=flake:nixpkgs
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
           extra_nix_config: |
             sandbox = true
 
