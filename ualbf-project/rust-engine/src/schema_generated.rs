@@ -100,7 +100,7 @@ impl Prefix {
             last_idx: self.last_idx.clone(),
             factors: self.factors.as_ptr(),
             factors_len: self.factors.len(),
-            sigma_factors: std::ptr::null(), // TODO: allocate arrays for FFI if needed
+            sigma_factors: self.sigma_factors.as_ptr() as *const _,
             sigma_factors_len: self.sigma_factors.len(),
             sigma_factors_u64: self.sigma_factors_u64.as_ptr(),
             sigma_factors_u64_len: self.sigma_factors_u64.len(),

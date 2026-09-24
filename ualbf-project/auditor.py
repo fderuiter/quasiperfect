@@ -71,7 +71,7 @@ def theorem_checksum(name, rel_file, status):
     base_dir = get_repo_root()
     file_path = os.path.join(base_dir, "lean4-proofs", rel_file)
     if os.path.exists(file_path):
-        return hash_util.hash_file(file_path)
+        return hash_util.hash_file_bounded(file_path)
     else:
         # Fallback to metadata-based hash if the physical file does not exist (useful for testing/mock environments)
         return hash_util.hash_theorem_metadata(name, rel_file, status)
@@ -304,28 +304,24 @@ def ensure_verification_lib():
 
 def fetch_proofwidgets_assets(cwd=None, env=None):
     repo_root = get_repo_root()
-    script_candidates = [
-        os.path.join(repo_root, "scripts", "fetch_proofwidgets_assets.sh"),
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "scripts",
-            "fetch_proofwidgets_assets.sh",
-        ),
-        os.path.abspath("scripts/fetch_proofwidgets_assets.sh"),
-        os.path.abspath("../scripts/fetch_proofwidgets_assets.sh"),
-    ]
-    script_path = None
-    for cand in script_candidates:
-        if os.path.isfile(cand):
-            script_path = cand
-            break
+    script_path = os.path.join(repo_root, "scripts", "fetch_proofwidgets_assets.sh")
+    if not os.path.isfile(script_path):
+        script_path = os.path.join(
+            repo_root, "ualbf-project", "scripts", "fetch_proofwidgets_assets.sh"
+        )
 
-    if script_path:
+    if os.path.isfile(script_path):
         manifest_path = (
             os.path.join(cwd, "lake-manifest.json")
             if cwd
-            else os.path.join(
-                repo_root, "ualbf-project", "lean4-proofs", "lake-manifest.json"
+            else (
+                os.path.join(repo_root, "lean4-proofs", "lake-manifest.json")
+                if os.path.exists(
+                    os.path.join(repo_root, "lean4-proofs", "lake-manifest.json")
+                )
+                else os.path.join(
+                    repo_root, "ualbf-project", "lean4-proofs", "lake-manifest.json"
+                )
             )
         )
         try:
@@ -988,14 +984,7 @@ def _generate_manifest_impl():
     rust_engine_dir = os.path.join(repo_root, "rust-engine")
     rust_src_dir = os.path.join(rust_engine_dir, "src")
 
-    verus_hashes = {}
-    for verus_file in ["verus_proofs.rs", "lean_export.rs"]:
-        verus_path = os.path.join(rust_src_dir, verus_file)
-        if os.path.exists(verus_path):
-            with open(verus_path, "r", encoding="utf-8") as f:
-                verus_hashes.update(compute_verus_hashes(f.read()))
-
-    manifest["verus_hashes"] = dict(sorted(verus_hashes.items()))
+    manifest["verus_hashes"] = cert_util.get_verus_proof_hashes(rust_src_dir)
 
     # Scan and hash all 23 proof files
     proof_files = []
@@ -1011,14 +1000,14 @@ def _generate_manifest_impl():
             ):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, cwd)
-                checksum = hash_util.hash_file(full_path)
+                checksum = hash_util.hash_file_bounded(full_path)
                 proof_files.append({"file": rel_path, "checksum": checksum})
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
     # Compute bounds_manifest.json hash
     bounds_manifest_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_manifest_path):
-        bounds_hash = hash_util.hash_file(bounds_manifest_path)
+        bounds_hash = hash_util.hash_file_bounded(bounds_manifest_path)
         manifest["bounds_manifest_hash"] = bounds_hash
     else:
         print(

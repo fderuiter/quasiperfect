@@ -73,7 +73,7 @@ mock-ui:
 
 lean: verification-lib mock-ui
 	./scripts/export_lean_specs.py
-	cd lean4-proofs && PATH="$$(cd ../build/mock-bin && pwd):$$PATH" lake build UALBF validator
+	cd lean4-proofs && CPATH="../verification-lib/include:../target/include:$$CPATH" PATH="$$(cd ../build/mock-bin && pwd):$$PATH" lake build UALBF validator
 
 rust: lean
 	./scripts/export_lean_specs.py
