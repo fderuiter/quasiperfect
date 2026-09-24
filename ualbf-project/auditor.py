@@ -302,6 +302,46 @@ def ensure_verification_lib():
                                 pass
 
 
+def fetch_proofwidgets_assets(cwd=None, env=None):
+    repo_root = get_repo_root()
+    script_candidates = [
+        os.path.join(repo_root, "scripts", "fetch_proofwidgets_assets.sh"),
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "scripts",
+            "fetch_proofwidgets_assets.sh",
+        ),
+        os.path.abspath("scripts/fetch_proofwidgets_assets.sh"),
+        os.path.abspath("../scripts/fetch_proofwidgets_assets.sh"),
+    ]
+    script_path = None
+    for cand in script_candidates:
+        if os.path.isfile(cand):
+            script_path = cand
+            break
+
+    if script_path:
+        manifest_path = (
+            os.path.join(cwd, "lake-manifest.json")
+            if cwd
+            else os.path.join(
+                repo_root, "ualbf-project", "lean4-proofs", "lake-manifest.json"
+            )
+        )
+        try:
+            subprocess.run(
+                ["bash", script_path, manifest_path],
+                cwd=cwd or repo_root,
+                env=env or os.environ.copy(),
+                check=False,
+            )
+        except Exception as e:
+            print(
+                f"Warning: Failed to execute fetch_proofwidgets_assets.sh: {e}",
+                file=sys.stderr,
+            )
+
+
 def _setup_staging_workspace(host_dir, staging_dir):
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -593,12 +633,18 @@ def _generate_manifest_impl():
                 cwd=make_dir,
                 check=True,
             )
+        # Pre-fetch ProofWidgets JS assets before running Lake builds
+        fetch_proofwidgets_assets(cwd, env)
+
         # Skip redundant Mathlib cache fetching and Lean rebuilding under GHA or when .lake/build already exists
         is_gha = os.environ.get("GITHUB_ACTIONS") == "true"
         lake_build_dir = os.path.join(cwd, ".lake", "build")
         if not is_gha and not os.path.exists(lake_build_dir):
             subprocess.run(
                 ["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False
+            )
+            subprocess.run(
+                ["lake", "build", "proofwidgets"], cwd=cwd, env=env, check=False
             )
             build_res = subprocess.run(
                 ["lake", "build", "UALBF"], cwd=cwd, env=env, check=False
