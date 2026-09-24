@@ -137,8 +137,9 @@
             echo "Cleaning up compiled files to prevent store path leaks..."
             # Delete all compiled files except those in mathlib (which are from cache and safe)
             find .lake -type f \( -name '*.olean' -o -name '*.ilean' -o -name '*.c' -o -name '*.o' \) | grep -v "\.lake/packages/mathlib" | xargs rm -f || true
-            find .lake -type f -name '*.trace' -delete || true
+            find .lake -type f -name '*.trace*' -delete || true
             find .lake -type f -name '*.hash' -delete || true
+            find .lake -type f -name '*.setup.json' -delete || true
             find .lake -name 'lake-manifest.json.tmp' -delete || true
 
 
@@ -157,7 +158,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-JzoxPKsQ9uNNlHZo9dbhpo63MWjfOoCWbYLhVZV1LCk=";
+          outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
