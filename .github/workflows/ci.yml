@@ -36,6 +36,10 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
+
       - name: Dry-run Evaluate macOS Targets
         run: |
           echo "Evaluating packages on aarch64-darwin..."
@@ -87,6 +91,10 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
+
       - name: Run Verus Semantic Verification via Nix
         run: nix build .#checks.${NIX_ARCH}.verus-proofs
 
@@ -111,6 +119,10 @@ jobs:
           nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
 
       - name: Setup Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -182,6 +194,10 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
+
       - name: Cache Pip Packages
         uses: actions/cache@v4
         continue-on-error: true
@@ -221,6 +237,10 @@ jobs:
           nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
 
       - name: Run Paper Sync & Compliance Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-paper"
