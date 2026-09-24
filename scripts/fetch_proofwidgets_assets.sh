@@ -1,1 +1,0 @@
-../ualbf-project/scripts/fetch_proofwidgets_assets.sh

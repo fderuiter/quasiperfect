@@ -537,3 +537,82 @@ class TestFallbackParsingRoutines:
         native_hashes = compute_verus_hashes(verus_code)
         fallback_hashes = compute_verus_hashes_fallback(verus_code)
         assert native_hashes == fallback_hashes
+
+
+class TestVerifyManifestChainAndVerusHelpers:
+    def test_verify_manifest_chain_success(self, tmp_path):
+        bounds_content = json.dumps({"bounds": "ok"})
+        bounds_file = tmp_path / "bounds_manifest.json"
+        bounds_file.write_text(bounds_content, encoding="utf-8")
+        bounds_hash = hashlib.sha256(bounds_content.encode("utf-8")).hexdigest()
+
+        proof_manifest = {"bounds_manifest_hash": bounds_hash, "theorems": []}
+        proof_content = json.dumps(proof_manifest)
+        proof_file = tmp_path / "proof_manifest.json"
+        proof_file.write_text(proof_content, encoding="utf-8")
+        proof_hash = hashlib.sha256(proof_content.encode("utf-8")).hexdigest()
+
+        cert = {"manifest_hash": proof_hash}
+
+        # Should pass without raising
+        cert_util.verify_manifest_chain(cert, str(proof_file), str(bounds_file))
+
+    def test_verify_manifest_chain_missing_proof_manifest(self, tmp_path):
+        missing_proof = tmp_path / "missing_proof.json"
+        bounds_file = tmp_path / "bounds.json"
+        bounds_file.write_text("{}", encoding="utf-8")
+
+        with pytest.raises(CertificateValidationError, match="Proof manifest .* not found"):
+            cert_util.verify_manifest_chain({}, str(missing_proof), str(bounds_file))
+
+    def test_verify_manifest_chain_mismatched_manifest_hash(self, tmp_path):
+        bounds_file = tmp_path / "bounds.json"
+        bounds_file.write_text("{}", encoding="utf-8")
+
+        proof_file = tmp_path / "proof.json"
+        proof_file.write_text('{"bounds_manifest_hash": "abc"}', encoding="utf-8")
+
+        cert = {"manifest_hash": "wrong_hash"}
+
+        with pytest.raises(CertificateValidationError, match="Manifest hash mismatch"):
+            cert_util.verify_manifest_chain(cert, str(proof_file), str(bounds_file))
+
+    def test_verify_manifest_chain_mismatched_bounds_hash(self, tmp_path):
+        bounds_file = tmp_path / "bounds.json"
+        bounds_file.write_text('{"real": "data"}', encoding="utf-8")
+
+        proof_file = tmp_path / "proof.json"
+        proof_file.write_text('{"bounds_manifest_hash": "wrong_bounds_hash"}', encoding="utf-8")
+
+        cert_hash = hashlib.sha256(proof_file.read_bytes()).hexdigest()
+        cert = {"manifest_hash": cert_hash}
+
+        with pytest.raises(CertificateValidationError, match="Bounds manifest hash mismatch"):
+            cert_util.verify_manifest_chain(cert, str(proof_file), str(bounds_file))
+
+    def test_get_verus_proof_hashes(self, tmp_path):
+        rust_dir = tmp_path / "rust-src"
+        rust_dir.mkdir()
+
+        verus_proofs = rust_dir / "verus_proofs.rs"
+        verus_proofs.write_text("pub fn test_proof() {\n    let a = 1;\n}\n", encoding="utf-8")
+
+        lean_export = rust_dir / "lean_export.rs"
+        lean_export.write_text("pub spec fn test_export() -> bool {\n    true\n}\n", encoding="utf-8")
+
+        hashes = cert_util.get_verus_proof_hashes(str(rust_dir))
+        assert "test_proof" in hashes
+        assert "test_export" in hashes
+
+    def test_verify_theorem_checksum_metadata_fallback(self, tmp_path):
+        thm = {
+            "name": "UALBF.Test.theorem_1",
+            "file": "NonExistent.lean",
+            "status": "proven",
+        }
+        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+        expected = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        thm["checksum"] = expected
+
+        assert cert_util.verify_theorem_checksum(thm) is True
+
