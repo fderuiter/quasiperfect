@@ -403,4 +403,4 @@ def test_c_header_generation():
     lakefile_content = lakefile_path.read_text(encoding="utf-8")
     assert "input_file verification_lib.h" in lakefile_content
     assert '"-I", "include"' in lakefile_content
-    assert "#[headerJob]" in lakefile_content or "headerJob" in lakefile_content
+    assert "headerJob" in lakefile_content
