@@ -437,10 +437,10 @@ lemma cyclotomic_step_not_dvd (p m q : ℕ)
   -- Work in ℤ. Let Φm = eval p (cyclotomic m ℤ), Φmq = eval p (cyclotomic (m*q) ℤ).
   set Φm := eval (p : ℤ) (cyclotomic m ℤ) with hΦm_def
   set Φmq := eval (p : ℤ) (cyclotomic (m * q) ℤ) with hΦmq_def
-  -- Step 1: Φm * Φmq = Φm(p^q) (expansion identity, 5c)
+  -- Step 1: Φm * Φmq = Φm(p^q) (expansion identity)
   have h_expand : Φm * Φmq = eval ((p : ℤ) ^ q) (cyclotomic m ℤ) :=
     cyclotomic_expand_eval p m q hq_prime hqm
-  -- Step 2: q | (Φm(p^q) - Φm) (Fermat congruence, 5b)
+  -- Step 2: q | (Φm(p^q) - Φm) (Fermat congruence)
   have h_fermat : (q : ℤ) ∣ (eval ((p : ℤ) ^ q) (cyclotomic m ℤ) - Φm) :=
     eval_pow_prime_congr_zmod q hq_prime p (cyclotomic m ℤ)
   -- Step 3: q | (Φm * Φmq - Φm) = Φm * (Φmq - 1)
@@ -477,12 +477,12 @@ lemma cyclotomic_step_not_dvd (p m q : ℕ)
 /--
   Iterated step: q does not divide Φ_{m·q^k} for k ≥ 1.
 
-  By iterating 5e and the Fermat congruence for the `expand` case,
+  By iterating the single-step valuation lemma and the Fermat congruence for the `expand` case,
   if `q ∤ Φ_m(p)` and `q ∤ m`, then for all `k ≥ 1`:
   `q ∤ Φ_{m · q^k}(p)`.
 
   *Proof:*
-  - Base case `k = 1`: By 5e (`cyclotomic_step_not_dvd`).
+  - Base case `k = 1`: By `cyclotomic_step_not_dvd`.
   - Inductive step `k → k+1` (for `k ≥ 1`):
     `Φ_{m·q^{k+1}}(p) = Φ_{m·q^k}(p^q)` (from `cyclotomic_expand_eq_cyclotomic`
     since `q | m·q^k`), and `Φ_{m·q^k}(p^q) ≡ Φ_{m·q^k}(p) (mod q)` by Fermat.
@@ -569,7 +569,7 @@ lemma binomial_mod_sq (q h : ℤ) : ∀ (i : ℕ),
   For an odd prime `q` and integer `x` with `q | (x - 1)`:
     `q | (1 + x + x² + ⋯ + x^{q-1})` but `q² ∤ (1 + x + ⋯ + x^{q-1})`.
 
-  *Proof:* Write `x = 1 + q·h`. By 5g_1 (`binomial_mod_sq`):
+  *Proof:* Write `x = 1 + q·h`. By `binomial_mod_sq`:
     `x^i = 1 + i·q·h + q²·r_i`,
   so `Σ x^i = q + q·h·Σi + q²·Σr_i`.
   Since `Σ_{i=0}^{q-1} i = q(q-1)/2` and `q` is odd, `q | q·h·Σi` twice,
@@ -840,9 +840,9 @@ lemma cyclotomic_only_top_dvd (p m q : ℕ) (d : ℕ)
   exact hd_ne_m h_eq_md.symm
 
 /--
-  **Helper 5-base: q² ∤ Φ_{mq}(p) when q ∤ m, q | Φ_m(p), and q ≠ 2.**
+  **Helper valuation-1 base: q² ∤ Φ_{mq}(p) when q ∤ m, q | Φ_m(p), and q ≠ 2.**
 
-  Core case `a = 1`: uses 5g + 5h + 5i.
+  Core case `a = 1`: uses geometric sum valuation, product-ratio identity, and top divisor isolation.
 -/
 private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
     (hp : p.Prime) (hq_prime : q.Prime) (hq_odd : q ≠ 2)
@@ -859,7 +859,7 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
       rw [Nat.cast_sub h_pos]; push_cast; ring
     rw [← h_pm1]
     exact_mod_cast dvd_trans (by exact_mod_cast hq_dvd_phi_m) h_phi_dvd
-  -- Step 2: Apply 5g to x = p^m: q | S = Σ (p^m)^i  but  q² ∤ S
+  -- Step 2: Apply geometric sum valuation to x = p^m: q | S = Σ (p^m)^i  but  q² ∤ S
   have _hq_dvd_S_int : (q : ℤ) ∣ (∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m)) := by
     have hq_dvd_xm1 : (q : ℤ) ∣ ((p : ℤ) ^ m - 1) := hq_dvd_pm1
     have ⟨h1, _⟩ := geom_sum_prime_valuation_one q ((p : ℤ) ^ m) hq_prime hq_odd hq_dvd_xm1
@@ -873,7 +873,7 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
                ∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m) := by
       apply Finset.sum_congr rfl; intro i _; rw [← pow_mul, mul_comm]
     rwa [heq] at h2
-  -- Step 3: Product identity (5h): ∏_{d|m} Φ_{dq}(p) = Σ p^{im}
+  -- Step 3: Product identity: ∏_{d|m} Φ_{dq}(p) = Σ p^{im}
   have hp_gt : 1 < p := hp.one_lt
   have h_prod_eq : (∏ d ∈ m.divisors, (eval (p : ℤ) (cyclotomic (d * q) ℤ))) =
       ∑ i ∈ Finset.range q, (p : ℤ) ^ (i * m) :=
@@ -882,7 +882,7 @@ private lemma cyclotomic_eval_sq_not_dvd_base (p m q : ℕ)
   -- Factor out the m = divisor contribution:
   --   ∏_{d|m} Φ_{dq}(p) = Φ_{mq}(p) * ∏_{d|m, d≠m} Φ_{dq}(p)
   have hm_mem : m ∈ m.divisors := Nat.mem_divisors.mpr ⟨dvd_refl m, by omega⟩
-  -- By 5i: for d | m, d ≠ m, q ∤ Φ_{dq}(p)
+  -- By top divisor isolation: for d | m, d ≠ m, q ∤ Φ_{dq}(p)
   have h_rest_not_dvd : ∀ d ∈ m.divisors.erase m,
       ¬(q ∣ (eval (p : ℤ) (cyclotomic (d * q) ℤ)).natAbs) := by
     intro d hd_mem
@@ -1051,7 +1051,7 @@ private lemma cyclotomic_eval_sq_not_dvd_step (p m q k : ℕ)
   If `q || Φ_{m·q^k}(p)` (exact divisibility), then `q || Φ_{m·q^{k+1}}(p)`.
 
   Proof: `Φ_{m·q^{k+1}}(p) = Φ_{m·q^k}(p^q)` (expand, since `q | m·q^k`).
-  `Φ_{m·q^k}(p^q) ≡ Φ_{m·q^k}(p) (mod q)` (Fermat 5b).
+  `Φ_{m·q^k}(p^q) ≡ Φ_{m·q^k}(p) (mod q)` (Fermat congruence).
   So the q-part of `Φ_{m·q^{k+1}}` is the same as that of `Φ_{m·q^k}`: exactly 1.
 -/
 private lemma cyclotomic_val_one_step (p m q : ℕ) (k : ℕ)
@@ -1276,10 +1276,10 @@ private lemma cyclotomic_eval_two_val_not_dvd_sq (p n : ℕ)
 
   *Proof:* Write `n = q^a · m` with `q ∤ m`, `a ≥ 1`.
 
-  1. Show `q | Φ_m(p)` (contrapositive of 5f: q ∤ Φ_m ⇒ q ∤ Φ_{m·q^k}).
-  2. By 5h: `∏_{d | m} Φ_{dq}(p) = 1 + p^m + ⋯ + p^{(q-1)m}` (geometric sum).
-  3. By 5g (LTE core): `v_q(Σ p^{im}) = 1` since `q | p^m - 1`.
-  4. By 5i (isolation): only `Φ_{mq}(p)` among the product is divisible by `q`.
+  1. Show `q | Φ_m(p)` (via contrapositive of iterated non-divisibility).
+  2. By product-ratio identity: `∏_{d | m} Φ_{dq}(p) = 1 + p^m + ⋯ + p^{(q-1)m}` (geometric sum).
+  3. By LTE core: `v_q(Σ p^{im}) = 1` since `q | p^m - 1`.
+  4. By top divisor isolation: only `Φ_{mq}(p)` among the product is divisible by `q`.
   5. Therefore `v_q(Φ_{mq}(p)) = 1`, i.e., `q ∥ Φ_{mq}(p)`.
   6. For `a ≥ 2`: `v_q` stays 1 under q-power iteration (helper 5-step).
   7. Since `n = m·q^a`, we conclude `v_q(Φ_n(p)) = 1`.
@@ -1290,7 +1290,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
     (hq_dvd_phi : q ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs)
     (hq_dvd_n : q ∣ n) :
     ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic n ℤ)).natAbs) := by
-  -- Step 0: We handle q = 2 separately since the primary proof using helper 5g requires q to be odd.
+  -- Step 0: We handle q = 2 separately since the primary proof using helper geom_sum_prime_valuation_one requires q to be odd.
   by_cases hq2 : q = 2
   · -- q = 2 case: solved efficiently by checking combinations of p (odd or 2) and n index parity.
     rw [hq2] at hq_dvd_phi hq_dvd_n ⊢
@@ -1318,7 +1318,7 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
     have hstep := cyclotomic_iterated_not_dvd p m q a hq_prime hqm h_not hm_pos ha_pos
     rw [← hn_eq] at hstep
     exact hstep hq_dvd_phi
-  -- Step 3: Apply 5g + 5h + 5i to get q² ∤ Φ_{mq}(p)  [base case a=1]
+  -- Step 3: Apply valuation-1 base steps to get q² ∤ Φ_{mq}(p)  [base case a=1]
   have h_base : q ∣ (eval (p : ℤ) (cyclotomic (m * q ^ 1) ℤ)).natAbs ∧
                 ¬(q ^ 2 ∣ (eval (p : ℤ) (cyclotomic (m * q ^ 1) ℤ)).natAbs) := by
     rw [pow_one]
@@ -1327,8 +1327,8 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
       by_contra h_not
       exact h_not (by
         -- Use cyclotomic_step_not_dvd contrapositive:
-        -- q | Φ_{mq}(p): from 5h and 5g, q divides the geometric sum ∏_{d|m} Φ_{dq}(p).
-        -- By 5i (cyclotomic_only_top_dvd), q ∤ Φ_{dq}(p) for d ≠ m, so q | Φ_{mq}(p).
+        -- q | Φ_{mq}(p): from product identity and LTE core, q divides the geometric sum ∏_{d|m} Φ_{dq}(p).
+        -- By top divisor isolation (cyclotomic_only_top_dvd), q ∤ Φ_{dq}(p) for d ≠ m, so q | Φ_{mq}(p).
         -- q | p^m - 1  (since q | Φ_m(p) | p^m - 1)
         have hq_dvd_pm1_inner : (q : ℤ) ∣ ((p : ℤ) ^ m - 1) := by
           have h_phi_dvd := cyclotomic_eval_dvd_pow_sub_one p m hp hm_pos
@@ -1353,13 +1353,13 @@ lemma cyclotomic_eval_val_of_dvd_index (p n q : ℕ)
         have hq_int_prime : Prime (q : ℤ) := Nat.prime_iff_prime_int.mp hq_prime
         obtain ⟨d, hd_mem, hd_dvd⟩ := hq_int_prime.dvd_finsetProd_iff _ |>.mp h_prod_dvd
         have hd_dvd_m : d ∣ m := Nat.dvd_of_mem_divisors hd_mem
-        -- If d ≠ m, we get a contradiction with 5i
+        -- If d ≠ m, we get a contradiction with top divisor isolation
         by_cases hd_eq : d = m
         · rw [hd_eq] at hd_dvd
           exact Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr hd_dvd)
         · exact absurd (Int.natCast_dvd_natCast.mp (Int.dvd_natAbs.mpr hd_dvd))
             (cyclotomic_only_top_dvd p m q d hq_prime hqm hq_dvd_phi_m hd_dvd_m hd_eq hm_pos))
-    · -- q² ∤ Φ_{mq}(p): by helper 5-base
+    · -- q² ∤ Φ_{mq}(p): by helper valuation-1 base
       exact cyclotomic_eval_sq_not_dvd_base p m q hp hq_prime hq2 hqm hm_pos hq_dvd_phi_m
   -- Step 4: Iterate the step lemma from k=1 to k=a to get q² ∤ Φ_{m·q^a}(p) = Φ_n(p)
   have h_iter : ∀ k : ℕ, 1 ≤ k → k ≤ a →

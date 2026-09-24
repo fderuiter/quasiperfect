@@ -28,6 +28,7 @@ check-core:
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
 	./scripts/check_lean_fmt.sh
+	./scripts/check-code-quality.sh
 
 check-python: verification-lib
 	python3 scripts/check_literals.py
