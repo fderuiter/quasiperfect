@@ -291,7 +291,7 @@ This is a transitive dependency from Mathlib → ProofWidgets v0.0.92. The JS bu
 (.lake/packages/proofwidgets/.lake/build/js/ contains only `lake.trace.nobuild`), so the
 `widgetJsAll` target fails, which blocks the entire dependency graph.
 
-**Environment**: leanprover/lean4:v4.29.0-rc6, Mathlib pinned via lake-manifest.json.
+**Environment**: <!-- TOOLCHAIN_ENV_START -->leanprover/lean4:v4.30.0<!-- TOOLCHAIN_ENV_END -->, Mathlib pinned via lake-manifest.json.
 
 ### 9.1 Fix ProofWidgets Cache
 
@@ -301,7 +301,7 @@ This is a transitive dependency from Mathlib → ProofWidgets v0.0.92. The JS bu
   - If this fails, try `lake clean && lake exe cache get && lake build`
 
 - [x] **9.1.2** If `lake exe cache get` does not resolve, check toolchain alignment
-  - Verify `lean-toolchain` (`v4.29.0-rc6`) matches the Mathlib commit pinned in lake-manifest.json
+  - Verify `lean-toolchain` (<!-- TOOLCHAIN_VERSION_START -->v4.30.0<!-- TOOLCHAIN_VERSION_END -->) matches the Mathlib commit pinned in lake-manifest.json
   - Run `lake update` if the manifest is stale, then re-run `lake exe cache get`
   - If using an RC toolchain that predates the Mathlib cache, consider pinning to the stable `v4.29.0` release
 

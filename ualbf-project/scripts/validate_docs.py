@@ -199,7 +199,17 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
 
 def validate_spec_sync(repo_root: str) -> bool:
     """Verify that generated specification artifacts match schema_manifest.json and bounds_manifest.json."""
-    ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    if os.path.exists(os.path.join(repo_root, "ualbf-project")):
+        ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+        monorepo_root = repo_root
+    else:
+        ualbf_project_dir = repo_root
+        monorepo_root = (
+            os.path.dirname(repo_root)
+            if os.path.basename(repo_root) == "ualbf-project"
+            else repo_root
+        )
+
     spec_export_script = os.path.join(
         ualbf_project_dir, "scripts", "export_lean_specs.py"
     )
@@ -220,12 +230,19 @@ def validate_spec_sync(repo_root: str) -> bool:
         "rust-engine/src/manifest_constants.rs",
         "rust-engine/src/manifest_constants.h",
         "lean4-proofs/UALBF/ManifestConstants.lean",
+        "../README.md",
+        "TODO.md",
     ]
 
     # Read original contents
     original_contents = {}
     for rel_path in spec_files:
-        full_path = os.path.join(ualbf_project_dir, rel_path)
+        if rel_path.startswith("../"):
+            full_path = os.path.normpath(
+                os.path.join(monorepo_root, rel_path.removeprefix("../"))
+            )
+        else:
+            full_path = os.path.join(ualbf_project_dir, rel_path)
         if os.path.exists(full_path):
             with open(full_path, "r", encoding="utf-8") as f:
                 original_contents[rel_path] = f.read()
@@ -247,7 +264,12 @@ def validate_spec_sync(repo_root: str) -> bool:
     mismatched = []
 
     for rel_path in spec_files:
-        full_path = os.path.join(ualbf_project_dir, rel_path)
+        if rel_path.startswith("../"):
+            full_path = os.path.normpath(
+                os.path.join(monorepo_root, rel_path.removeprefix("../"))
+            )
+        else:
+            full_path = os.path.join(ualbf_project_dir, rel_path)
         if os.path.exists(full_path):
             with open(full_path, "r", encoding="utf-8") as f:
                 new_contents[rel_path] = f.read()
@@ -270,6 +292,93 @@ def validate_spec_sync(repo_root: str) -> bool:
             print(f"  - ualbf-project/{m}", file=sys.stderr)
         print(
             "\nRemedy: Run 'make verify-sync' or 'python3 scripts/export_lean_specs.py' to update generated specification artifacts.",
+            file=sys.stderr,
+        )
+        return False
+
+    return True
+
+
+def validate_toolchain_sync(repo_root: str) -> bool:
+    """Verify that marked documentation sections match the lean-toolchain manifest file."""
+    toolchain_path = os.path.join(
+        repo_root, "ualbf-project", "lean4-proofs", "lean-toolchain"
+    )
+    if not os.path.exists(toolchain_path):
+        toolchain_path = os.path.join(repo_root, "lean4-proofs", "lean-toolchain")
+        if not os.path.exists(toolchain_path):
+            return True
+
+    with open(toolchain_path, "r", encoding="utf-8") as f:
+        raw_toolchain = f.read().strip()
+
+    if ":" in raw_toolchain:
+        env_str = raw_toolchain
+        version_str = raw_toolchain.split(":")[-1]
+    else:
+        version_str = raw_toolchain
+        env_str = f"leanprover/lean4:{version_str}"
+
+    manifest_path = os.path.join(repo_root, "docs_manifest.json")
+    if not os.path.exists(manifest_path):
+        manifest_path = os.path.join(os.path.dirname(repo_root), "docs_manifest.json")
+
+    if os.path.exists(manifest_path):
+        monorepo_root = os.path.dirname(manifest_path)
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        docs_to_check = [os.path.join(monorepo_root, p) for p in manifest.keys()]
+    else:
+        docs_to_check = [
+            os.path.join(repo_root, "README.md"),
+            os.path.join(repo_root, "ualbf-project", "TODO.md"),
+        ]
+
+    version_pattern = re.compile(
+        r"<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_START\s*-->(.*?)<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_END\s*-->",
+        re.DOTALL,
+    )
+    env_pattern = re.compile(
+        r"<!--\s*(?:TOOLCHAIN_ENV|LEAN_TOOLCHAIN_ENV)_START\s*-->(.*?)<!--\s*(?:TOOLCHAIN_ENV|LEAN_TOOLCHAIN_ENV)_END\s*-->",
+        re.DOTALL,
+    )
+
+    mismatches = []
+    for doc_path in docs_to_check:
+        if not os.path.exists(doc_path):
+            continue
+        try:
+            with open(doc_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception:
+            continue
+
+        for match in version_pattern.finditer(content):
+            found_version = match.group(1)
+            if found_version != version_str:
+                rel_p = os.path.relpath(doc_path, repo_root)
+                mismatches.append(
+                    f"{rel_p}: expected version '{version_str}', found '{found_version}'"
+                )
+
+        for match in env_pattern.finditer(content):
+            found_env = match.group(1)
+            if found_env != env_str:
+                rel_p = os.path.relpath(doc_path, repo_root)
+                mismatches.append(
+                    f"{rel_p}: expected environment '{env_str}', found '{found_env}'"
+                )
+
+    if mismatches:
+        print(
+            "Error: Toolchain documentation synchronization check failed!\n"
+            "The following marked documentation sections do not match lean-toolchain:",
+            file=sys.stderr,
+        )
+        for m in mismatches:
+            print(f"  - {m}", file=sys.stderr)
+        print(
+            "\nRemedy: Run 'make verify-sync' or 'python3 ualbf-project/scripts/export_lean_specs.py' to update documentation.",
             file=sys.stderr,
         )
         return False
@@ -374,6 +483,9 @@ def main():
 
     ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
     if not validate_tuning_guide(ualbf_project_dir):
+        sys.exit(1)
+
+    if not validate_toolchain_sync(repo_root):
         sys.exit(1)
 
     # Check specification sync if requested or in default mode without PR file path

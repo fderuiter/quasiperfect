@@ -124,7 +124,7 @@ def generate_rust_types(schema, repo_root, schema_hash):
                             f.write("            },\n")
                         elif ffi_t == "Array U512":
                             f.write(
-                                f"            {field['name']}: std::ptr::null(), // TODO: allocate arrays for FFI if needed\n"
+                                f"            {field['name']}: self.{field['name']}.as_ptr() as *const _,\n"
                             )
                             f.write(
                                 f"            {field['name']}_len: self.{field['name']}.len(),\n"
@@ -518,12 +518,10 @@ end UALBF.FFI
 
 def parse_lean_exports(content):
     exports = []
-    attr_pattern = re.compile(
-        r"@\[[^\]]*\bexport\s+([a-zA-Z0-9_]+)[^\]]*\]", re.DOTALL
-    )
+    attr_pattern = re.compile(r"@\[[^\]]*\bexport\s+([a-zA-Z0-9_]+)[^\]]*\]", re.DOTALL)
     for match in attr_pattern.finditer(content):
         c_name = match.group(1)
-        rest = content[match.end():]
+        rest = content[match.end() :]
         decl_pattern = re.compile(
             r"^(?:\s|/-[\s\S]*?-/|--[^\n]*\n|@\[[^\]]*\])*?"
             r"(?:(?:private|protected|noncomputable|partial|unsafe)\s+)*"
@@ -541,12 +539,10 @@ def parse_lean_exports(content):
 
 def parse_lean_externs(content):
     externs = []
-    attr_pattern = re.compile(
-        r'@\[[^\]]*\bextern\s+"([^"]+)"[^\]]*\]', re.DOTALL
-    )
+    attr_pattern = re.compile(r'@\[[^\]]*\bextern\s+"([^"]+)"[^\]]*\]', re.DOTALL)
     for match in attr_pattern.finditer(content):
         ext_name = match.group(1)
-        rest = content[match.end():]
+        rest = content[match.end() :]
         decl_pattern = re.compile(
             r"^(?:\s|/-[\s\S]*?-/|--[^\n]*\n|@\[[^\]]*\])*?"
             r"(?:(?:private|protected|noncomputable|partial|unsafe)\s+)*"
@@ -870,10 +866,20 @@ verus! {{
     pub const MANIFEST_HASH: &'static str = "{bounds_hash}";
 }}
 """
-        with open(
-            os.path.join(repo_root, "rust-engine", "src", "manifest_constants.rs"), "w"
-        ) as f:
+        rust_constants_path = os.path.join(
+            repo_root, "rust-engine", "src", "manifest_constants.rs"
+        )
+        with open(rust_constants_path, "w") as f:
             f.write(rust_code)
+
+        try:
+            subprocess.run(
+                ["cargo", "fmt", "--", rust_constants_path],
+                check=True,
+                cwd=repo_root,
+            )
+        except Exception:
+            pass
 
         c_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 #define PRIME_SPLIT_THRESHOLD {prime_split_threshold}
@@ -962,6 +968,73 @@ end UALBF.Manifest
             f.write(lean_code)
     else:
         print(f"Warning: {bounds_path} not found.")
+
+    sync_toolchain_docs(repo_root)
+
+
+def sync_toolchain_docs(repo_root):
+    if os.path.exists(
+        os.path.join(repo_root, "ualbf-project", "lean4-proofs", "lean-toolchain")
+    ):
+        monorepo_root = repo_root
+        ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    elif os.path.exists(os.path.join(repo_root, "lean4-proofs", "lean-toolchain")):
+        ualbf_project_dir = repo_root
+        monorepo_root = os.path.dirname(repo_root)
+    else:
+        monorepo_root = repo_root
+        ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+
+    toolchain_path = os.path.join(ualbf_project_dir, "lean4-proofs", "lean-toolchain")
+    if not os.path.exists(toolchain_path):
+        print(f"Warning: {toolchain_path} not found.")
+        return
+
+    with open(toolchain_path, "r", encoding="utf-8") as f:
+        raw_toolchain = f.read().strip()
+
+    if ":" in raw_toolchain:
+        env_str = raw_toolchain
+        version_str = raw_toolchain.split(":")[-1]
+    else:
+        version_str = raw_toolchain
+        env_str = f"leanprover/lean4:{version_str}"
+
+    manifest_path = os.path.join(monorepo_root, "docs_manifest.json")
+    if os.path.exists(manifest_path):
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        target_files = [os.path.join(monorepo_root, p) for p in manifest.keys()]
+    else:
+        target_files = [
+            os.path.join(monorepo_root, "README.md"),
+            os.path.join(ualbf_project_dir, "TODO.md"),
+            os.path.join(ualbf_project_dir, "README.md"),
+        ]
+
+    version_pattern = re.compile(
+        r"(<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_START\s*-->)(.*?)(<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_END\s*-->)",
+        re.DOTALL,
+    )
+    env_pattern = re.compile(
+        r"(<!--\s*(?:TOOLCHAIN_ENV|LEAN_TOOLCHAIN_ENV)_START\s*-->)(.*?)(<!--\s*(?:TOOLCHAIN_ENV|LEAN_TOOLCHAIN_ENV)_END\s*-->)",
+        re.DOTALL,
+    )
+
+    for target_path in target_files:
+        if not os.path.exists(target_path):
+            continue
+
+        with open(target_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        new_content = version_pattern.sub(r"\g<1>" + version_str + r"\g<3>", content)
+        new_content = env_pattern.sub(r"\g<1>" + env_str + r"\g<3>", new_content)
+
+        if new_content != content:
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"Updated toolchain markers in {target_path}")
 
 
 if __name__ == "__main__":
