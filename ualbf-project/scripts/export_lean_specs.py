@@ -245,7 +245,8 @@ def generate_c_schema_header(schema, repo_root, schema_hash):
         f.write("#define SCHEMA_GENERATED_H\n\n")
         f.write("#include <stddef.h>\n")
         f.write("#include <stdint.h>\n")
-        f.write("#include <stdbool.h>\n\n")
+        f.write("#include <stdbool.h>\n")
+        f.write("#include <assert.h>\n\n")
         f.write(f'#define EXPORTED_SCHEMA_MANIFEST_HASH "{schema_hash}"\n\n')
 
         f.write("typedef struct U512Data {\n")

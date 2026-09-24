@@ -86,6 +86,11 @@ def test_ffi_automation_dynamic_generation():
         if h_backup:
             schema_generated_h.write_text(h_backup, encoding="utf-8")
         ffi_generated_lean.write_text(lean_backup, encoding="utf-8")
+        subprocess.run(
+            ["python3", "scripts/export_lean_specs.py"],
+            cwd=str(project_dir),
+            check=True,
+        )
 
 
 def test_schema_layout_assertions():
