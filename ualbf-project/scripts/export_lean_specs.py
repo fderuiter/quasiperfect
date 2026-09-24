@@ -835,10 +835,20 @@ verus! {{
     pub const MANIFEST_HASH: &'static str = "{bounds_hash}";
 }}
 """
-        with open(
-            os.path.join(repo_root, "rust-engine", "src", "manifest_constants.rs"), "w"
-        ) as f:
+        rust_constants_path = os.path.join(
+            repo_root, "rust-engine", "src", "manifest_constants.rs"
+        )
+        with open(rust_constants_path, "w") as f:
             f.write(rust_code)
+
+        try:
+            subprocess.run(
+                ["cargo", "fmt", "--", rust_constants_path],
+                check=True,
+                cwd=repo_root,
+            )
+        except Exception:
+            pass
 
         c_code = f"""// AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 #define PRIME_SPLIT_THRESHOLD {prime_split_threshold}
@@ -932,7 +942,21 @@ end UALBF.Manifest
 
 
 def sync_toolchain_docs(repo_root):
-    toolchain_path = os.path.join(repo_root, "lean4-proofs", "lean-toolchain")
+    if os.path.exists(
+        os.path.join(repo_root, "ualbf-project", "lean4-proofs", "lean-toolchain")
+    ):
+        monorepo_root = repo_root
+        ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    elif os.path.exists(os.path.join(repo_root, "lean4-proofs", "lean-toolchain")):
+        ualbf_project_dir = repo_root
+        monorepo_root = os.path.dirname(repo_root)
+    else:
+        monorepo_root = repo_root
+        ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+
+    toolchain_path = os.path.join(
+        ualbf_project_dir, "lean4-proofs", "lean-toolchain"
+    )
     if not os.path.exists(toolchain_path):
         print(f"Warning: {toolchain_path} not found.")
         return
@@ -947,12 +971,17 @@ def sync_toolchain_docs(repo_root):
         version_str = raw_toolchain
         env_str = f"leanprover/lean4:{version_str}"
 
-    workspace_root = os.path.dirname(repo_root)
-    target_files = [
-        os.path.join(workspace_root, "README.md"),
-        os.path.join(repo_root, "TODO.md"),
-        os.path.join(repo_root, "README.md"),
-    ]
+    manifest_path = os.path.join(monorepo_root, "docs_manifest.json")
+    if os.path.exists(manifest_path):
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        target_files = [os.path.join(monorepo_root, p) for p in manifest.keys()]
+    else:
+        target_files = [
+            os.path.join(monorepo_root, "README.md"),
+            os.path.join(ualbf_project_dir, "TODO.md"),
+            os.path.join(ualbf_project_dir, "README.md"),
+        ]
 
     version_pattern = re.compile(
         r"(<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_START\s*-->)(.*?)(<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_END\s*-->)",

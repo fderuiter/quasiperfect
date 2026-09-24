@@ -285,7 +285,9 @@ def validate_toolchain_sync(repo_root: str) -> bool:
         repo_root, "ualbf-project", "lean4-proofs", "lean-toolchain"
     )
     if not os.path.exists(toolchain_path):
-        return True
+        toolchain_path = os.path.join(repo_root, "lean4-proofs", "lean-toolchain")
+        if not os.path.exists(toolchain_path):
+            return True
 
     with open(toolchain_path, "r", encoding="utf-8") as f:
         raw_toolchain = f.read().strip()
@@ -298,10 +300,14 @@ def validate_toolchain_sync(repo_root: str) -> bool:
         env_str = f"leanprover/lean4:{version_str}"
 
     manifest_path = os.path.join(repo_root, "docs_manifest.json")
+    if not os.path.exists(manifest_path):
+        manifest_path = os.path.join(os.path.dirname(repo_root), "docs_manifest.json")
+
     if os.path.exists(manifest_path):
+        monorepo_root = os.path.dirname(manifest_path)
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
-        docs_to_check = [os.path.join(repo_root, p) for p in manifest.keys()]
+        docs_to_check = [os.path.join(monorepo_root, p) for p in manifest.keys()]
     else:
         docs_to_check = [
             os.path.join(repo_root, "README.md"),
