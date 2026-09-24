@@ -1530,10 +1530,9 @@ def check_documentation(manifest):
                             dot_path_lower = dot_path.lower()
                             colon_path_lower = colon_path.lower()
 
-                            thm_status = (
-                                manifest_thm_statuses.get(clean_bt)
-                                or manifest_thm_statuses.get(dot_path)
-                            )
+                            thm_status = manifest_thm_statuses.get(
+                                clean_bt
+                            ) or manifest_thm_statuses.get(dot_path)
                             if thm_status is not None and thm_status != "proven":
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
