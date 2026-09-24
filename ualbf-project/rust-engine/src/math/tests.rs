@@ -202,6 +202,28 @@ fn test_hensels_lift_k3() {
     assert_eq!(lifted, Int::from_u128(108));
 }
 
+#[test]
+fn test_quick_factor_u256_large_composite_remainder() {
+    // 10007 and 10009 are primes > 10,000.
+    // Their product 100160063 is > 10^8 (100,000,000).
+    // Trial division in quick_factor_u256 stops at d = 10000,
+    // leaving remaining = 100160063 >= 10^8.
+    // quick_factor_u256 must invoke Pollard's rho / ECM fallback to completely factor it.
+    let composite = Uint::from_u128(100160063);
+    match quick_factor_u256(composite) {
+        FactorizationResult::Complete(factors) => {
+            assert_eq!(
+                factors.to_vec(),
+                vec![Uint::from_u128(10007), Uint::from_u128(10009)]
+            );
+        }
+        res => panic!(
+            "Expected complete factorization for 100160063, got {:?}",
+            res
+        ),
+    }
+}
+
 #[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_residue_failure() {
