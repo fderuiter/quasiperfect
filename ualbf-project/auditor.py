@@ -324,7 +324,9 @@ def fetch_proofwidgets_assets(cwd=None, env=None):
         manifest_path = (
             os.path.join(cwd, "lake-manifest.json")
             if cwd
-            else os.path.join(repo_root, "lean4-proofs", "lake-manifest.json")
+            else os.path.join(
+                repo_root, "ualbf-project", "lean4-proofs", "lake-manifest.json"
+            )
         )
         try:
             subprocess.run(

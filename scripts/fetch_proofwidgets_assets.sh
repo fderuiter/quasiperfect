@@ -1,1 +1,1 @@
-/app/quasiperfect/ualbf-project/scripts/fetch_proofwidgets_assets.sh
+../ualbf-project/scripts/fetch_proofwidgets_assets.sh

@@ -32,7 +32,7 @@ REV="a84b3e2475d5c5ab979567b1ad8aea21b764bcf8"
 MANIFEST_DIR="."
 
 if [[ -n "$MANIFEST_PATH" ]] && [[ -f "$MANIFEST_PATH" ]]; then
-    MANIFEST_DIR="$(dirname "$MANIFEST_PATH")"
+    MANIFEST_DIR="$(cd "$(dirname "$MANIFEST_PATH")" && pwd)"
     
     # Parse tag (inputRev) and commit (rev) for proofwidgets from lake-manifest.json
     PARSED_INFO=$(python3 -c "
