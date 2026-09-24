@@ -9,7 +9,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-fn is_prime(n: u64) -> bool {
+pub fn is_prime(n: u64) -> bool {
     if n <= 1 {
         return false;
     }
@@ -29,435 +29,249 @@ fn is_prime(n: u64) -> bool {
     true
 }
 
-#[derive(Deserialize)]
-struct Theorem {
-    name: String,
-    file: String,
-    status: String,
-    checksum: String,
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Theorem {
+    pub name: String,
+    pub file: String,
+    pub status: String,
+    pub checksum: String,
 }
 
-#[derive(Deserialize)]
-struct GhostBinding {
-    lean_theorem: String,
-    theorem_hash: String,
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct GhostBinding {
+    pub lean_theorem: String,
+    pub theorem_hash: String,
 }
 
-#[derive(Deserialize)]
-struct ProofManifest {
-    theorems: Vec<Theorem>,
-    verified_logic_hash: String,
-    verified_extension_hash: String,
-    verus_hashes: HashMap<String, String>,
-    ghost_pruning_bindings: Option<HashMap<String, GhostBinding>>,
-    proof_files: Vec<serde_json::Value>,
-    bounds_manifest_hash: String,
+#[derive(Deserialize, Debug, Clone)]
+pub struct ProofManifest {
+    pub theorems: Vec<Theorem>,
+    pub verified_logic_hash: String,
+    pub verified_extension_hash: String,
+    pub verus_hashes: HashMap<String, String>,
+    pub ghost_pruning_bindings: Option<HashMap<String, GhostBinding>>,
+    pub proof_files: Vec<serde_json::Value>,
+    pub bounds_manifest_hash: String,
 }
 
-#[derive(Deserialize)]
-struct Citation {
-    author: String,
-    year: String,
-    title: String,
-    identifier: String,
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct Citation {
+    pub author: String,
+    pub year: String,
+    pub title: String,
+    pub identifier: String,
 }
 
-#[derive(Deserialize)]
-struct PrasadSunithaBounds {
-    proof_bound: u64,
-    engine_justified_gap: u64,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct PrasadSunithaBounds {
+    pub proof_bound: u64,
+    pub engine_justified_gap: u64,
+    pub is_axiomatic: bool,
+    pub citation: Option<Citation>,
 }
 
-#[derive(Deserialize)]
-struct BaselineBounds {
-    proof_bound: u64,
-    engine_justified_gap: u64,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct BaselineBounds {
+    pub proof_bound: u64,
+    pub engine_justified_gap: u64,
+    pub is_axiomatic: bool,
+    pub citation: Option<Citation>,
 }
 
-#[derive(Deserialize)]
-struct BoundValueU32 {
-    value: u32,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct BoundValueU32 {
+    pub value: u32,
+    pub is_axiomatic: bool,
+    pub citation: Option<Citation>,
 }
 
-#[derive(Deserialize)]
-struct BoundValueU64 {
-    value: u64,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct BoundValueU64 {
+    pub value: u64,
+    pub is_axiomatic: bool,
+    pub citation: Option<Citation>,
 }
 
-#[derive(Deserialize)]
-struct BoundValueUsize {
-    value: usize,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct BoundValueUsize {
+    pub value: usize,
+    pub is_axiomatic: bool,
+    pub citation: Option<Citation>,
 }
 
-#[derive(Deserialize)]
-struct PollardRhoBounds {
-    iteration_limit: u32,
-    batch_size: u32,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct PollardRhoBounds {
+    pub iteration_limit: u32,
+    pub batch_size: u32,
+    pub is_axiomatic: bool,
+    pub citation: Option<Citation>,
 }
 
-#[derive(Deserialize)]
-struct RaycastBounds {
-    gpu_threshold: usize,
-    chunk_size: usize,
-    is_axiomatic: bool,
+#[derive(Deserialize, Debug, Clone)]
+pub struct RaycastBounds {
+    pub gpu_threshold: usize,
+    pub chunk_size: usize,
+    pub is_axiomatic: bool,
 }
 
-#[derive(Deserialize)]
-struct SearchBounds {
-    target_min_log10: BoundValueU32,
-    target_max_log10: BoundValueU32,
-    sieve_limit: BoundValueUsize,
-    max_exponent: BoundValueU32,
-    prefix_stop_threshold: BoundValueU64,
-    pollard_rho: PollardRhoBounds,
-    raycast: RaycastBounds,
-    prime_split_threshold: Option<BoundValueU64>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct SearchBounds {
+    pub target_min_log10: BoundValueU32,
+    pub target_max_log10: BoundValueU32,
+    pub sieve_limit: BoundValueUsize,
+    pub max_exponent: BoundValueU32,
+    pub prefix_stop_threshold: BoundValueU64,
+    pub pollard_rho: PollardRhoBounds,
+    pub raycast: RaycastBounds,
+    pub prime_split_threshold: Option<BoundValueU64>,
 }
 
-#[derive(Deserialize)]
-struct OmegaBounds {
-    prasad_sunitha: PrasadSunithaBounds,
-    div_5_coprime_3: Option<PrasadSunithaBounds>,
-    hagis1982: BaselineBounds,
+#[derive(Deserialize, Debug, Clone)]
+pub struct OmegaBounds {
+    pub prasad_sunitha: PrasadSunithaBounds,
+    pub div_5_coprime_3: Option<PrasadSunithaBounds>,
+    pub hagis1982: BaselineBounds,
 }
 
-#[derive(Deserialize)]
-struct EulerCeiling {
-    num: u64,
-    den: u64,
-    is_axiomatic: bool,
-    citation: Option<Citation>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct EulerCeiling {
+    pub num: u64,
+    pub den: u64,
+    pub is_axiomatic: bool,
+    pub citation: Option<Citation>,
 }
 
-#[derive(Deserialize)]
-struct OverflowThreshold {
-    num: u64,
-    den: u64,
-    is_axiomatic: bool,
+#[derive(Deserialize, Debug, Clone)]
+pub struct OverflowThreshold {
+    pub num: u64,
+    pub den: u64,
+    pub is_axiomatic: bool,
 }
 
-#[derive(Deserialize)]
-struct ConjecturalBounds {
-    active: bool,
-    conjecture_name: String,
-    target_max_log10_ceiling: u32,
+#[derive(Deserialize, Debug, Clone)]
+pub struct ConjecturalBounds {
+    pub active: bool,
+    pub conjecture_name: String,
+    pub target_max_log10_ceiling: u32,
 }
 
-#[derive(Deserialize)]
-struct BoundsManifest {
-    omega_bounds: OmegaBounds,
-    search_bounds: SearchBounds,
-    euler_ceiling: EulerCeiling,
-    overflow_threshold: OverflowThreshold,
-    conjectural_bounds: Option<ConjecturalBounds>,
+#[derive(Deserialize, Debug, Clone)]
+pub struct BoundsManifest {
+    pub omega_bounds: OmegaBounds,
+    pub search_bounds: SearchBounds,
+    pub euler_ceiling: EulerCeiling,
+    pub overflow_threshold: OverflowThreshold,
+    pub conjectural_bounds: Option<ConjecturalBounds>,
 }
 
-/// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
-/// library when available, and emits Cargo directives to link the Lean runtime and trigger reruns.
-///
-/// When `LEAN_SYSROOT` is set, it is used as the Lean installation prefix; otherwise the script
-/// attempts to run `lean --print-prefix` in the `../lean4-proofs` workspace. If no sysroot is
-/// resolved the script compiles `src/unverified/dummy_ffi.c` as a fallback and exits early. When a sysroot is
-/// available the script expects a fixed set of generated C files under `.lake/build/ir`, asserts
-/// those files exist, compiles them into a static library (`UALBF`) using the Lean include path,
-/// and emits `cargo:rustc-link-search` / `cargo:rustc-link-lib` directives for the Lean runtime,
-/// libuv, GMP, and the system C++ standard library. Finally it prints `cargo:rerun-if-changed`
-/// directives for relevant Lean sources, generated C files, and `LEAN_SYSROOT`.
-///
-/// # Examples
-///
-/// ```no_run
-/// // Run as a build script; do not execute in doctests.
-/// // cargo will execute `main()` during the build process.
-/// build_rs::main();
-/// ```
-fn main() {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let scan_status = Command::new("python3")
-        .arg("../scripts/check_literals.py")
-        .current_dir(&manifest_dir)
-        .status()
-        .expect("Failed to run literal scanner");
-    if !scan_status.success() {
-        panic!("Mathematical literals found in pruning logic! Verify that all dynamic bounds are mapped to Lean FFI.");
-    }
-    let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
+// --- Pure Helper Functions for Manifest Parsing & Validation ---
 
-    // --- 0. Read bounds_manifest.json and generate constants ---
-    let manifest_path = PathBuf::from(&manifest_dir).join("../bounds_manifest.json");
+pub fn parse_bounds_manifest(content: &str) -> Result<BoundsManifest, String> {
+    serde_json::from_str(content)
+        .map_err(|e| format!("Failed to parse bounds_manifest.json: {}", e))
+}
 
-    // Manifest is now mandatory - fail build if missing
-    if !manifest_path.exists() {
-        panic!(
-            "FATAL: bounds_manifest.json not found at {}. \
-             The build requires a valid manifest to generate verified constants.",
-            manifest_path.display()
-        );
-    }
-
-    let manifest_content =
-        fs::read_to_string(&manifest_path).expect("Failed to read bounds_manifest.json");
-
-    let manifest: BoundsManifest =
-        serde_json::from_str(&manifest_content).expect("Failed to parse bounds_manifest.json");
-
-    // --- Validate configured prime split threshold ---
+pub fn validate_bounds_manifest(manifest: &BoundsManifest) -> Result<(), String> {
     if let Some(ref prime_split) = manifest.search_bounds.prime_split_threshold {
         let val = prime_split.value;
         if val != 61 {
-            panic!(
+            return Err(format!(
                 "FATAL: Invalid configuration! The configured prime split threshold ({}) does not equal the baseline of 61. The threshold must equal 61.",
                 val
-            );
+            ));
         }
     } else {
-        panic!("FATAL: prime_split_threshold not found in bounds_manifest.json!");
+        return Err("FATAL: prime_split_threshold not found in bounds_manifest.json!".to_string());
     }
 
-    // --- REQUIREMENT 1 & 3: Mathematical Bound Synchronization Guardrail ---
-    // Calculate the SHA256 hash of the current bounds_manifest.json
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(manifest_content.as_bytes());
-    let current_manifest_hash = hex::encode(hasher.finalize());
-
-    let lean_export_path = PathBuf::from(&manifest_dir).join("src/lean_export.rs");
-
-    // --- REQUIREMENT 1 & 3: Schema Manifest Synchronization Guardrail ---
-    let schema_manifest_path = PathBuf::from(&manifest_dir).join("../schema_manifest.json");
-    if schema_manifest_path.exists() {
-        let schema_manifest_content =
-            fs::read_to_string(&schema_manifest_path).expect("Failed to read schema_manifest.json");
-        let mut hasher = Sha256::new();
-        hasher.update(schema_manifest_content.as_bytes());
-        let current_schema_hash = hex::encode(hasher.finalize());
-
-        // Check against schema_generated.rs
-        let schema_gen_path = PathBuf::from(&manifest_dir).join("src/schema_generated.rs");
-        if schema_gen_path.exists() {
-            let schema_gen_content =
-                fs::read_to_string(&schema_gen_path).expect("Failed to read schema_generated.rs");
-            if let Some(idx) = schema_gen_content.find("pub const EXPORTED_SCHEMA_MANIFEST_HASH") {
-                let rest = &schema_gen_content[idx..];
-                let start = rest.find('"').unwrap_or(0) + 1;
-                let end = rest[start..].find('"').unwrap_or(0) + start;
-                if start < end {
-                    let recorded_hash = &rest[start..end];
-                    if current_schema_hash != recorded_hash {
-                        panic!(
-                            "FATAL: Schema Manifest Synchronization Guardrail Triggered!\n\
-                             The contents of 'schema_manifest.json' have changed, but the generated types \
-                             have not been regenerated.\n\
-                             Current hash : {}\n\
-                             Recorded hash: {}\n\
-                             Please run `scripts/export_lean_specs.py` to update before building.",
-                             current_schema_hash, recorded_hash
-                        );
-                    }
-                }
-            }
-        }
-
-        // Check against ffi_generated.rs
-        let ffi_gen_path = PathBuf::from(&manifest_dir).join("src/ffi_generated.rs");
-        if ffi_gen_path.exists() {
-            let ffi_gen_content =
-                fs::read_to_string(&ffi_gen_path).expect("Failed to read ffi_generated.rs");
-            if let Some(idx) = ffi_gen_content.find("pub const EXPORTED_SCHEMA_MANIFEST_HASH") {
-                let rest = &ffi_gen_content[idx..];
-                let start = rest.find('"').unwrap_or(0) + 1;
-                let end = rest[start..].find('"').unwrap_or(0) + start;
-                if start < end {
-                    let recorded_hash = &rest[start..end];
-                    if current_schema_hash != recorded_hash {
-                        panic!(
-                            "FATAL: FFI bindings out of sync with schema manifest!\n\
-                             Please run `scripts/export_lean_specs.py` to update before building."
-                        );
-                    }
-                }
-            }
-        }
-    }
-    if lean_export_path.exists() {
-        let export_content =
-            fs::read_to_string(&lean_export_path).expect("Failed to read lean_export.rs");
-        if let Some(idx) = export_content.find("pub const EXPORTED_BOUNDS_MANIFEST_HASH") {
-            let rest = &export_content[idx..];
-            let start = rest.find('"').unwrap_or(0) + 1;
-            let end = rest[start..].find('"').unwrap_or(0) + start;
-            if start < end {
-                let recorded_hash = &rest[start..end];
-                if current_manifest_hash != recorded_hash {
-                    panic!(
-                        "FATAL: Mathematical Bound Synchronization Guardrail Triggered!\n\
-                         The contents of 'bounds_manifest.json' have changed, but the Lean specifications \
-                         have not been regenerated. This risks a silent desynchronization between \
-                         mathematical bounds and verified specifications.\n\
-                         Current hash : {}\n\
-                         Recorded hash: {}\n\
-                         Please run `scripts/export_lean_specs.py` (or `make rust`) to update the exported \
-                         specifications before building the engine.",
-                         current_manifest_hash, recorded_hash
-                    );
-                }
-            }
-        }
-
-        // --- Verus Constant-to-Specification Equivalence Validation ---
-        let manifest_constants_path =
-            PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
-        if manifest_constants_path.exists() {
-            let manifest_constants_content = fs::read_to_string(&manifest_constants_path)
-                .expect("Failed to read manifest_constants.rs");
-            let mut constants_map = HashMap::new();
-            for line in manifest_constants_content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("pub const ") {
-                    if let Some(eq_idx) = trimmed.find('=') {
-                        if let Some(colon_idx) = trimmed.find(':') {
-                            let name = trimmed["pub const ".len()..colon_idx].trim();
-                            let mut val_str = trimmed[eq_idx + 1..].trim();
-                            if val_str.ends_with(';') {
-                                val_str = &val_str[..val_str.len() - 1].trim();
-                            }
-                            constants_map.insert(name.to_string(), val_str.to_string());
-                        }
-                    }
-                }
-            }
-
-            let mut specs_map = HashMap::new();
-            for line in export_content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with("pub open spec fn ") {
-                    if let Some(fn_idx) = trimmed.find("pub open spec fn ") {
-                        let rest = &trimmed[fn_idx + "pub open spec fn ".len()..];
-                        if let Some(p_idx) = rest.find('(') {
-                            let name = rest[..p_idx].trim();
-                            if let Some(brace_idx) = rest.find('{') {
-                                if let Some(r_brace_idx) = rest.find('}') {
-                                    let val_str = rest[brace_idx + 1..r_brace_idx].trim();
-                                    specs_map.insert(name.to_string(), val_str.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            let mut mapping = Vec::new();
-            mapping.push(("PRIME_SPLIT_THRESHOLD", "lean_prime_split_threshold"));
-            mapping.push(("PRASAD_SUNITHA_PROOF_BOUND", "lean_prasad_sunitha_bound"));
-            mapping.push((
-                "PRASAD_SUNITHA_BOUND_NO_3_5",
-                "lean_prasad_sunitha_combined",
-            ));
-            mapping.push(("DIV_5_COPRIME_3_PROOF_BOUND", "lean_div_5_coprime_3_bound"));
-            mapping.push(("DIV_5_COPRIME_3_BOUND", "lean_div_5_coprime_3_combined"));
-            mapping.push(("BASELINE_MIN_PRIME_FACTORS", "lean_hagis1982_combined"));
-            mapping.push(("EULER_CEILING_NUM", "lean_qpn_totient_bound_num"));
-            mapping.push(("EULER_CEILING_DEN", "lean_qpn_totient_bound_den"));
-            mapping.push(("TARGET_MIN_LOG10", "lean_target_min_log10"));
-            mapping.push(("TARGET_MAX_LOG10", "lean_target_max_log10"));
-            mapping.push(("SIEVE_LIMIT", "lean_sieve_limit"));
-            mapping.push(("MAX_EXPONENT", "lean_max_exponent"));
-            mapping.push(("PREFIX_STOP_THRESHOLD", "lean_prefix_stop_threshold"));
-            mapping.push((
-                "POLLARD_RHO_ITERATION_LIMIT",
-                "lean_pollard_rho_iteration_limit",
-            ));
-            mapping.push(("POLLARD_RHO_BATCH_SIZE", "lean_pollard_rho_batch_size"));
-            mapping.push(("OVERFLOW_THRESHOLD_NUM", "lean_overflow_threshold_num"));
-            mapping.push(("OVERFLOW_THRESHOLD_DEN", "lean_overflow_threshold_den"));
-            mapping.push(("RAYCAST_GPU_THRESHOLD", "lean_raycast_gpu_threshold"));
-            mapping.push(("RAYCAST_CHUNK_SIZE", "lean_raycast_chunk_size"));
-            mapping.push(("CONJECTURAL_ACTIVE", "lean_conjectural_active"));
-            mapping.push((
-                "CONJECTURAL_MAX_LOG10_CEILING",
-                "lean_conjectural_max_log10_ceiling",
-            ));
-
-            for (const_name, spec_name) in &mapping {
-                let const_val = constants_map.get(*const_name).expect(&format!(
-                    "Constant {} not found in manifest_constants.rs",
-                    const_name
-                ));
-                let spec_val = specs_map.get(*spec_name).expect(&format!(
-                    "Specification function {} not found in lean_export.rs",
-                    spec_name
-                ));
-                if *const_name == "PRIME_SPLIT_THRESHOLD" {
-                    let c_val: u64 = const_val
-                        .parse()
-                        .expect("Failed to parse PRIME_SPLIT_THRESHOLD");
-                    let s_val: u64 = spec_val
-                        .parse()
-                        .expect("Failed to parse lean_prime_split_threshold");
-                    if c_val != s_val {
-                        panic!(
-                            "FATAL: Mathematical Bound Desynchronization!\n\
-                             The runtime constant 'PRIME_SPLIT_THRESHOLD' ({}) does not equal the baseline Lean split threshold ({}) in lean_export.rs.\n\
-                             This violates the formal refinement proof safety conditions.",
-                            c_val, s_val
-                        );
-                    }
-                } else if const_val != spec_val {
-                    panic!(
-                        "FATAL: Mathematical Bound Desynchronization!\n\
-                         The runtime constant '{}' ({}) in manifest_constants.rs diverges from its spec function '{}' ({}) in lean_export.rs.\n\
-                         This violates the autogenerated Verus equivalence lemma.",
-                        const_name, const_val, spec_name, spec_val
-                    );
-                }
-            }
-        }
-    } else {
-        println!("cargo:warning=lean_export.rs not found, skipping manifest hash check. Please ensure specifications are exported.");
-    }
-
-    // --- REQUIREMENT 2 & 3: Conjectural Bounds Safety Guardrails ---
     if let Some(ref cb) = manifest.conjectural_bounds {
         if cb.active {
             let floor = manifest.search_bounds.target_min_log10.value;
             let ceiling = cb.target_max_log10_ceiling;
             if ceiling < floor {
-                panic!(
+                return Err(format!(
                     "FATAL: Conflicting bounds parameters detected! Active conjectural ceiling (target_max_log10_ceiling = {}) is set below the target search floor (target_min_log10 = {}). This configuration is invalid.",
                     ceiling, floor
-                );
+                ));
             }
         }
     }
 
-    // --- REQUIREMENT 2 & 4: Proof Manifest Check ---
-    let proof_manifest_path = PathBuf::from(&manifest_dir).join("../proof_manifest.json");
-    if !proof_manifest_path.exists() {
-        panic!("FATAL: proof_manifest.json not found!");
+    if manifest.omega_bounds.hagis1982.is_axiomatic
+        && manifest.omega_bounds.hagis1982.citation.is_none()
+    {
+        return Err(
+            "FATAL: baseline bound marked axiomatic but lacks citation metadata.".to_string(),
+        );
     }
-    let proof_manifest_content =
-        fs::read_to_string(&proof_manifest_path).expect("Failed to read proof_manifest.json");
-    let proof_manifest: ProofManifest =
-        serde_json::from_str(&proof_manifest_content).expect("Failed to parse proof_manifest.json");
+    if manifest.search_bounds.target_min_log10.is_axiomatic {
+        return Err(
+            "FATAL: search engine floor (target_min_log10) cannot rely on axiomatic assumptions."
+                .to_string(),
+        );
+    }
+    if manifest.omega_bounds.prasad_sunitha.is_axiomatic
+        && manifest.omega_bounds.prasad_sunitha.citation.is_none()
+    {
+        return Err(
+            "FATAL: prasad_sunitha marked axiomatic but lacks citation metadata.".to_string(),
+        );
+    }
+    if let Some(ref div_5) = manifest.omega_bounds.div_5_coprime_3 {
+        if div_5.is_axiomatic && div_5.citation.is_none() {
+            return Err(
+                "FATAL: div_5_coprime_3 marked axiomatic but lacks citation metadata.".to_string(),
+            );
+        }
+    }
+    if manifest.euler_ceiling.is_axiomatic && manifest.euler_ceiling.citation.is_none() {
+        return Err(
+            "FATAL: euler_ceiling marked axiomatic but lacks citation metadata.".to_string(),
+        );
+    }
 
-    if proof_manifest.bounds_manifest_hash != current_manifest_hash {
-        panic!(
+    let target_min_log10 = manifest.search_bounds.target_min_log10.value;
+    let target_max_log10 = manifest.search_bounds.target_max_log10.value;
+    if target_min_log10 > target_max_log10 {
+        return Err(format!(
+            "FATAL: target_min_log10 ({}) exceeds target_max_log10 ({}). Inverted range boundaries are not permitted.",
+            target_min_log10, target_max_log10
+        ));
+    }
+
+    let prasad_proof = manifest.omega_bounds.prasad_sunitha.proof_bound;
+    let primes = [
+        7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
+    ];
+    let mut min_val: f64 = 1.0;
+    for &p in primes.iter().take(prasad_proof as usize) {
+        min_val *= (p as f64) * (p as f64);
+    }
+    let verified_floor = min_val.log10().floor() as u32;
+    if target_max_log10 < verified_floor {
+        return Err(format!(
+            "FATAL: target_max_log10 ({}) cannot be lower than the highest available verified bound ({}).",
+            target_max_log10, verified_floor
+        ));
+    }
+
+    Ok(())
+}
+
+pub fn parse_proof_manifest(content: &str) -> Result<ProofManifest, String> {
+    serde_json::from_str(content).map_err(|e| format!("Failed to parse proof_manifest.json: {}", e))
+}
+
+pub fn validate_proof_manifest(
+    proof_manifest: &ProofManifest,
+    current_bounds_manifest_hash: &str,
+) -> Result<(), String> {
+    if proof_manifest.bounds_manifest_hash != current_bounds_manifest_hash {
+        return Err(format!(
             "FATAL: Configuration mismatch. The proof manifest bounds hash ('{}') does not match current bounds_manifest.json hash ('{}').",
             proof_manifest.bounds_manifest_hash,
-            current_manifest_hash
-        );
+            current_bounds_manifest_hash
+        ));
     }
 
     let allowed_axioms = ["UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"];
@@ -465,14 +279,13 @@ fn main() {
         let is_whitelisted = thm.status == "proven"
             || (thm.status == "axiom" && allowed_axioms.contains(&thm.name.as_str()));
         if !is_whitelisted {
-            panic!(
+            return Err(format!(
                 "FATAL: Theorem '{}' in '{}' is incomplete (status: {}). Compilation halted.",
                 thm.name, thm.file, thm.status
-            );
+            ));
         }
     }
 
-    // --- Ghost Pruning Assumption Binding Validation ---
     let required_ghost_functions = [
         "check_starvation_kill",
         "check_cdg_forced_kill",
@@ -492,36 +305,352 @@ fn main() {
         for fn_name in &required_ghost_functions {
             let binding = match bindings.get(*fn_name) {
                 Some(b) => b,
-                None => panic!(
+                None => return Err(format!(
                     "FATAL: Search pruning assumption '{}' lacks a matching Lean 4 manifest entry in ghost_pruning_bindings!",
                     fn_name
-                ),
+                )),
             };
 
             let target_thm = match thm_map.get(&binding.lean_theorem) {
                 Some(t) => t,
-                None => panic!(
+                None => {
+                    return Err(format!(
                     "FATAL: Search pruning assumption '{}' references unknown Lean theorem '{}'!",
                     fn_name, binding.lean_theorem
-                ),
+                ))
+                }
             };
 
             if target_thm.status != "proven" {
-                panic!(
+                return Err(format!(
                     "FATAL: Lean theorem '{}' bound to pruning assumption '{}' is incomplete (status: {}). Compilation halted.",
                     target_thm.name, fn_name, target_thm.status
-                );
+                ));
             }
 
             if target_thm.checksum != binding.theorem_hash {
-                panic!(
+                return Err(format!(
                     "FATAL: SHA-256 hash mismatch for Lean theorem '{}' bound to pruning assumption '{}'! Expected: '{}', Found in binding: '{}'",
                     target_thm.name, fn_name, target_thm.checksum, binding.theorem_hash
-                );
+                ));
             }
         }
     } else {
-        panic!("FATAL: proof_manifest.json is missing required 'ghost_pruning_bindings' field!");
+        return Err(
+            "FATAL: proof_manifest.json is missing required 'ghost_pruning_bindings' field!"
+                .to_string(),
+        );
+    }
+
+    Ok(())
+}
+
+pub fn validate_schema_hash_sync(
+    schema_manifest_content: &str,
+    generated_rs_content: &str,
+    error_message: &str,
+) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(schema_manifest_content.as_bytes());
+    let current_schema_hash = hex::encode(hasher.finalize());
+
+    if let Some(idx) = generated_rs_content.find("pub const EXPORTED_SCHEMA_MANIFEST_HASH") {
+        let rest = &generated_rs_content[idx..];
+        let start = rest.find('"').unwrap_or(0) + 1;
+        let end = rest[start..].find('"').unwrap_or(0) + start;
+        if start < end {
+            let recorded_hash = &rest[start..end];
+            if current_schema_hash != recorded_hash {
+                return Err(format!(
+                    "{}\n\
+                     Current hash : {}\n\
+                     Recorded hash: {}\n\
+                     Please run `scripts/export_lean_specs.py` to update before building.",
+                    error_message, current_schema_hash, recorded_hash
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_bounds_hash_sync(
+    manifest_content: &str,
+    export_content: &str,
+) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(manifest_content.as_bytes());
+    let current_manifest_hash = hex::encode(hasher.finalize());
+
+    if let Some(idx) = export_content.find("pub const EXPORTED_BOUNDS_MANIFEST_HASH") {
+        let rest = &export_content[idx..];
+        let start = rest.find('"').unwrap_or(0) + 1;
+        let end = rest[start..].find('"').unwrap_or(0) + start;
+        if start < end {
+            let recorded_hash = &rest[start..end];
+            if current_manifest_hash != recorded_hash {
+                return Err(format!(
+                    "FATAL: Mathematical Bound Synchronization Guardrail Triggered!\n\
+                     The contents of 'bounds_manifest.json' have changed, but the Lean specifications \
+                     have not been regenerated. This risks a silent desynchronization between \
+                     mathematical bounds and verified specifications.\n\
+                     Current hash : {}\n\
+                     Recorded hash: {}\n\
+                     Please run `scripts/export_lean_specs.py` (or `make rust`) to update the exported \
+                     specifications before building the engine.",
+                    current_manifest_hash, recorded_hash
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_constant_spec_equivalence(
+    manifest_constants_content: &str,
+    export_content: &str,
+) -> Result<(), String> {
+    let mut constants_map = HashMap::new();
+    for line in manifest_constants_content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("pub const ") {
+            if let Some(eq_idx) = trimmed.find('=') {
+                if let Some(colon_idx) = trimmed.find(':') {
+                    let name = trimmed["pub const ".len()..colon_idx].trim();
+                    let mut val_str = trimmed[eq_idx + 1..].trim();
+                    if val_str.ends_with(';') {
+                        val_str = &val_str[..val_str.len() - 1].trim();
+                    }
+                    constants_map.insert(name.to_string(), val_str.to_string());
+                }
+            }
+        }
+    }
+
+    let mut specs_map = HashMap::new();
+    for line in export_content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("pub open spec fn ") {
+            if let Some(fn_idx) = trimmed.find("pub open spec fn ") {
+                let rest = &trimmed[fn_idx + "pub open spec fn ".len()..];
+                if let Some(p_idx) = rest.find('(') {
+                    let name = rest[..p_idx].trim();
+                    if let Some(brace_idx) = rest.find('{') {
+                        if let Some(r_brace_idx) = rest.find('}') {
+                            let val_str = rest[brace_idx + 1..r_brace_idx].trim();
+                            specs_map.insert(name.to_string(), val_str.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mapping = [
+        ("PRIME_SPLIT_THRESHOLD", "lean_prime_split_threshold"),
+        ("PRASAD_SUNITHA_PROOF_BOUND", "lean_prasad_sunitha_bound"),
+        (
+            "PRASAD_SUNITHA_BOUND_NO_3_5",
+            "lean_prasad_sunitha_combined",
+        ),
+        ("DIV_5_COPRIME_3_PROOF_BOUND", "lean_div_5_coprime_3_bound"),
+        ("DIV_5_COPRIME_3_BOUND", "lean_div_5_coprime_3_combined"),
+        ("BASELINE_MIN_PRIME_FACTORS", "lean_hagis1982_combined"),
+        ("EULER_CEILING_NUM", "lean_qpn_totient_bound_num"),
+        ("EULER_CEILING_DEN", "lean_qpn_totient_bound_den"),
+        ("TARGET_MIN_LOG10", "lean_target_min_log10"),
+        ("TARGET_MAX_LOG10", "lean_target_max_log10"),
+        ("SIEVE_LIMIT", "lean_sieve_limit"),
+        ("MAX_EXPONENT", "lean_max_exponent"),
+        ("PREFIX_STOP_THRESHOLD", "lean_prefix_stop_threshold"),
+        (
+            "POLLARD_RHO_ITERATION_LIMIT",
+            "lean_pollard_rho_iteration_limit",
+        ),
+        ("POLLARD_RHO_BATCH_SIZE", "lean_pollard_rho_batch_size"),
+        ("OVERFLOW_THRESHOLD_NUM", "lean_overflow_threshold_num"),
+        ("OVERFLOW_THRESHOLD_DEN", "lean_overflow_threshold_den"),
+        ("RAYCAST_GPU_THRESHOLD", "lean_raycast_gpu_threshold"),
+        ("RAYCAST_CHUNK_SIZE", "lean_raycast_chunk_size"),
+        ("CONJECTURAL_ACTIVE", "lean_conjectural_active"),
+        (
+            "CONJECTURAL_MAX_LOG10_CEILING",
+            "lean_conjectural_max_log10_ceiling",
+        ),
+    ];
+
+    for (const_name, spec_name) in &mapping {
+        let const_val = match constants_map.get(*const_name) {
+            Some(v) => v,
+            None => {
+                return Err(format!(
+                    "Constant {} not found in manifest_constants.rs",
+                    const_name
+                ))
+            }
+        };
+        let spec_val = match specs_map.get(*spec_name) {
+            Some(v) => v,
+            None => {
+                return Err(format!(
+                    "Specification function {} not found in lean_export.rs",
+                    spec_name
+                ))
+            }
+        };
+        if *const_name == "PRIME_SPLIT_THRESHOLD" {
+            let c_val: u64 = const_val
+                .parse()
+                .map_err(|_| format!("Failed to parse PRIME_SPLIT_THRESHOLD ({})", const_val))?;
+            let s_val: u64 = spec_val.parse().map_err(|_| {
+                format!("Failed to parse lean_prime_split_threshold ({})", spec_val)
+            })?;
+            if c_val != s_val {
+                return Err(format!(
+                    "FATAL: Mathematical Bound Desynchronization!\n\
+                     The runtime constant 'PRIME_SPLIT_THRESHOLD' ({}) does not equal the baseline Lean split threshold ({}) in lean_export.rs.\n\
+                     This violates the formal refinement proof safety conditions.",
+                    c_val, s_val
+                ));
+            }
+        } else if const_val != spec_val {
+            return Err(format!(
+                "FATAL: Mathematical Bound Desynchronization!\n\
+                 The runtime constant '{}' ({}) in manifest_constants.rs diverges from its spec function '{}' ({}) in lean_export.rs.\n\
+                 This violates the autogenerated Verus equivalence lemma.",
+                const_name, const_val, spec_name, spec_val
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn validate_verus_hashes(
+    runtime_hashes: &HashMap<String, String>,
+    manifest_hashes: &HashMap<String, String>,
+) -> Result<(), String> {
+    if runtime_hashes != manifest_hashes {
+        Err(
+            "FATAL: Runtime Verus specification hashes do not match the proof manifest!"
+                .to_string(),
+        )
+    } else {
+        Ok(())
+    }
+}
+
+/// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
+/// library when available, and emits Cargo directives to link the Lean runtime and trigger reruns.
+fn main() {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let scan_status = Command::new("python3")
+        .arg("../scripts/check_literals.py")
+        .current_dir(&manifest_dir)
+        .status()
+        .expect("Failed to run literal scanner");
+    if !scan_status.success() {
+        panic!("Mathematical literals found in pruning logic! Verify that all dynamic bounds are mapped to Lean FFI.");
+    }
+    let lean_project = PathBuf::from(&manifest_dir).join("../lean4-proofs");
+
+    // --- 0. Read bounds_manifest.json and generate constants ---
+    let manifest_path = PathBuf::from(&manifest_dir).join("../bounds_manifest.json");
+
+    if !manifest_path.exists() {
+        panic!(
+            "FATAL: bounds_manifest.json not found at {}. \
+             The build requires a valid manifest to generate verified constants.",
+            manifest_path.display()
+        );
+    }
+
+    let manifest_content =
+        fs::read_to_string(&manifest_path).expect("Failed to read bounds_manifest.json");
+
+    let manifest = parse_bounds_manifest(&manifest_content).unwrap_or_else(|e| panic!("{}", e));
+    if let Err(e) = validate_bounds_manifest(&manifest) {
+        panic!("{}", e);
+    }
+
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(manifest_content.as_bytes());
+    let current_manifest_hash = hex::encode(hasher.finalize());
+
+    let lean_export_path = PathBuf::from(&manifest_dir).join("src/lean_export.rs");
+
+    // --- Schema Manifest Synchronization Guardrail ---
+    let schema_manifest_path = PathBuf::from(&manifest_dir).join("../schema_manifest.json");
+    if schema_manifest_path.exists() {
+        let schema_manifest_content =
+            fs::read_to_string(&schema_manifest_path).expect("Failed to read schema_manifest.json");
+
+        let schema_gen_path = PathBuf::from(&manifest_dir).join("src/schema_generated.rs");
+        if schema_gen_path.exists() {
+            let schema_gen_content =
+                fs::read_to_string(&schema_gen_path).expect("Failed to read schema_generated.rs");
+            if let Err(e) = validate_schema_hash_sync(
+                &schema_manifest_content,
+                &schema_gen_content,
+                "FATAL: Schema Manifest Synchronization Guardrail Triggered!\n\
+                 The contents of 'schema_manifest.json' have changed, but the generated types \
+                 have not been regenerated.",
+            ) {
+                panic!("{}", e);
+            }
+        }
+
+        let ffi_gen_path = PathBuf::from(&manifest_dir).join("src/ffi_generated.rs");
+        if ffi_gen_path.exists() {
+            let ffi_gen_content =
+                fs::read_to_string(&ffi_gen_path).expect("Failed to read ffi_generated.rs");
+            if let Err(e) = validate_schema_hash_sync(
+                &schema_manifest_content,
+                &ffi_gen_content,
+                "FATAL: FFI bindings out of sync with schema manifest!",
+            ) {
+                panic!("{}", e);
+            }
+        }
+    }
+
+    if lean_export_path.exists() {
+        let export_content =
+            fs::read_to_string(&lean_export_path).expect("Failed to read lean_export.rs");
+        if let Err(e) = validate_bounds_hash_sync(&manifest_content, &export_content) {
+            panic!("{}", e);
+        }
+
+        let manifest_constants_path =
+            PathBuf::from(&manifest_dir).join("src/manifest_constants.rs");
+        if manifest_constants_path.exists() {
+            let manifest_constants_content = fs::read_to_string(&manifest_constants_path)
+                .expect("Failed to read manifest_constants.rs");
+            if let Err(e) =
+                validate_constant_spec_equivalence(&manifest_constants_content, &export_content)
+            {
+                panic!("{}", e);
+            }
+        }
+    } else {
+        println!("cargo:warning=lean_export.rs not found, skipping manifest hash check. Please ensure specifications are exported.");
+    }
+
+    // --- Proof Manifest Check ---
+    let proof_manifest_path = PathBuf::from(&manifest_dir).join("../proof_manifest.json");
+    if !proof_manifest_path.exists() {
+        panic!("FATAL: proof_manifest.json not found!");
+    }
+    let proof_manifest_content =
+        fs::read_to_string(&proof_manifest_path).expect("Failed to read proof_manifest.json");
+    let proof_manifest =
+        parse_proof_manifest(&proof_manifest_content).unwrap_or_else(|e| panic!("{}", e));
+
+    if let Err(e) = validate_proof_manifest(&proof_manifest, &current_manifest_hash) {
+        panic!("{}", e);
     }
 
     // --- Runtime Verus Hash Verification ---
@@ -541,89 +670,9 @@ fn main() {
         }
     }
 
-    if runtime_verus_hashes != proof_manifest.verus_hashes {
-        panic!("FATAL: Runtime Verus specification hashes do not match the proof manifest!");
+    if let Err(e) = validate_verus_hashes(&runtime_verus_hashes, &proof_manifest.verus_hashes) {
+        panic!("{}", e);
     }
-
-    // Citation validation
-    if manifest.omega_bounds.hagis1982.is_axiomatic
-        && manifest.omega_bounds.hagis1982.citation.is_none()
-    {
-        panic!("FATAL: baseline bound marked axiomatic but lacks citation metadata.");
-    }
-    if manifest.search_bounds.target_min_log10.is_axiomatic {
-        panic!(
-            "FATAL: search engine floor (target_min_log10) cannot rely on axiomatic assumptions."
-        );
-    }
-    if manifest.omega_bounds.prasad_sunitha.is_axiomatic
-        && manifest.omega_bounds.prasad_sunitha.citation.is_none()
-    {
-        panic!("FATAL: prasad_sunitha marked axiomatic but lacks citation metadata.");
-    }
-    if let Some(ref div_5) = manifest.omega_bounds.div_5_coprime_3 {
-        if div_5.is_axiomatic && div_5.citation.is_none() {
-            panic!("FATAL: div_5_coprime_3 marked axiomatic but lacks citation metadata.");
-        }
-    }
-    if manifest.euler_ceiling.is_axiomatic && manifest.euler_ceiling.citation.is_none() {
-        panic!("FATAL: euler_ceiling marked axiomatic but lacks citation metadata.");
-    }
-
-    // Deserialize manifest constants as u64 values before generating Rust/Lean constants.
-    let prasad_proof: u64 = manifest.omega_bounds.prasad_sunitha.proof_bound;
-    let prasad_gap: u64 = manifest.omega_bounds.prasad_sunitha.engine_justified_gap;
-    let _prasad_bound: u64 = prasad_proof + prasad_gap;
-
-    let baseline_proof: u64 = manifest.omega_bounds.hagis1982.proof_bound;
-    let baseline_gap: u64 = manifest.omega_bounds.hagis1982.engine_justified_gap;
-    let _baseline_min: u64 = baseline_proof + baseline_gap;
-
-    let _euler_num: u64 = manifest.euler_ceiling.num;
-    let _euler_den: u64 = manifest.euler_ceiling.den;
-
-    let _overflow_num: u64 = manifest.overflow_threshold.num;
-    let _overflow_den: u64 = manifest.overflow_threshold.den;
-
-    let target_min_log10: u32 = manifest.search_bounds.target_min_log10.value;
-    let target_max_log10: u32 = manifest.search_bounds.target_max_log10.value;
-    if target_min_log10 > target_max_log10 {
-        panic!(
-            "FATAL: target_min_log10 ({}) exceeds target_max_log10 ({}). Inverted range boundaries are not permitted.",
-            target_min_log10, target_max_log10
-        );
-    }
-
-    let _sieve_limit: usize = manifest.search_bounds.sieve_limit.value;
-    let _max_exponent: u32 = manifest.search_bounds.max_exponent.value;
-    let _prefix_stop_threshold: u64 = manifest.search_bounds.prefix_stop_threshold.value;
-    let _pollard_rho_iteration_limit: u32 = manifest.search_bounds.pollard_rho.iteration_limit;
-    let _pollard_rho_batch_size: u32 = manifest.search_bounds.pollard_rho.batch_size;
-    let _raycast_gpu_threshold: usize = manifest.search_bounds.raycast.gpu_threshold;
-    let _raycast_chunk_size: usize = manifest.search_bounds.raycast.chunk_size;
-
-    if target_max_log10 < target_min_log10 {
-        panic!(
-            "FATAL: target_max_log10 ({}) cannot be less than target_min_log10 ({}).",
-            target_max_log10, target_min_log10
-        );
-    }
-
-    // Enforce the Prasad-Sunitha limit dynamically
-    let primes = [
-        7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83,
-    ];
-    let mut min_val: f64 = 1.0;
-    for &p in primes.iter().take(prasad_proof as usize) {
-        min_val *= (p as f64) * (p as f64);
-    }
-    let verified_floor = min_val.log10().floor() as u32;
-    if target_max_log10 < verified_floor {
-        panic!("FATAL: target_max_log10 ({}) cannot be lower than the highest available verified bound ({}).", target_max_log10, verified_floor);
-    }
-
-    // Generate Rust constants with u64 types
-    // (Constants are now generated by export_lean_specs.py BEFORE the build)
 
     println!("cargo:rerun-if-changed=../bounds_manifest.json");
 
@@ -642,10 +691,6 @@ fn main() {
             .map_or(false, |mut entries| entries.next().is_some())
         && lean_project.join(".lake/build/lib/libUALBF.a").exists();
 
-    // Proactive Intermediate C-IR Purging (Requirement 1 & Constraint)
-    // To avoid triggering complete dependency recompilations,
-    // we proactively purge only our own package's intermediate C-IR directories and files,
-    // except when reusing pre-built Lean objects under GitHub Actions.
     if !has_prebuilt {
         if ualbf_ir_dir.exists() {
             let _ = fs::remove_dir_all(&ualbf_ir_dir);
@@ -696,7 +741,6 @@ fn main() {
         builder.file("src/unverified/dummy_ffi.c");
         builder.compile("UALBF");
 
-        // Link standard C++ library
         let target = env::var("TARGET").unwrap_or_default();
         if target.contains("apple") {
             println!("cargo:rustc-link-lib=dylib=c++");
@@ -704,7 +748,6 @@ fn main() {
             println!("cargo:rustc-link-lib=dylib=stdc++");
         }
 
-        // Print rerun triggers
         println!("cargo:rerun-if-changed=src/unverified/dummy_ffi.c");
         println!("cargo:rerun-if-changed=src/c_shims.c");
         println!("cargo:rerun-if-changed=../bounds_manifest.json");
@@ -713,7 +756,6 @@ fn main() {
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
 
-    // Prepend mock-bin to PATH and ensure mock files exist to avoid sandbox network hangs during Lean build
     let mock_bin_dir = PathBuf::from(&manifest_dir).join("../build/mock-bin");
     fs::create_dir_all(&mock_bin_dir).unwrap();
     fs::write(mock_bin_dir.join("node"), "#!/usr/bin/env bash\nexit 0\n").unwrap();
@@ -742,7 +784,6 @@ fn main() {
     }
     let new_path = env::join_paths(paths).unwrap();
 
-    // Robust touch logic to resolve Nix epoch mtimes mismatch
     let now = std::time::SystemTime::now();
     let past = now - std::time::Duration::from_secs(120);
 
@@ -751,7 +792,6 @@ fn main() {
             .set_modified(time)
             .set_accessed(time);
 
-        // Ensure write permissions first
         if let Ok(metadata) = std::fs::metadata(path) {
             let mut perms = metadata.permissions();
             if perms.readonly() {
@@ -760,7 +800,6 @@ fn main() {
             }
         }
 
-        // Open the file after updating its write permissions, then set times
         if let Ok(file) = std::fs::OpenOptions::new().write(true).open(path) {
             let _ = file.set_times(times);
         } else if let Ok(file) = std::fs::File::open(path) {
@@ -781,7 +820,6 @@ fn main() {
                     }
                 }
             }
-            // Also touch directory itself to past so it's older than build outputs
             touch_path_robust(path, past);
         } else if path.is_file() {
             let parts: Vec<_> = path.components().map(|c| c.as_os_str()).collect();
@@ -823,7 +861,6 @@ fn main() {
         touch_recursively_robust(&lean_project, now, past);
     }
 
-    // Execute targeted module compilation instead of a full project build
     let lake_success = if has_prebuilt {
         println!("cargo:warning=Running under GitHub Actions. Skipping redundant lake build since Lean objects are pre-built.");
         true
@@ -831,12 +868,11 @@ fn main() {
         println!("cargo:warning=Lean objects are missing or GHA override is inactive. Building Lean UALBF library...");
         let status = Command::new("lake")
             .arg("build")
-            .arg("UALBF") // Targeted build
+            .arg("UALBF")
             .env("PATH", new_path)
             .current_dir(&lean_project)
             .status();
 
-        // Capture and Evaluate Verification Exit Code (Requirement 2 & 3)
         match status {
             Ok(exit_status) => exit_status.success(),
             Err(_) => false,
@@ -899,10 +935,6 @@ fn main() {
         for f in &c_files {
             println!("cargo:warning=Diagnostic: C-IR file: {}", f.display());
         }
-    } else {
-        // Fallback for tests if `.lake/build/ir/UALBF` doesn't exist
-        // The build might just skip or we can let it proceed with an empty list
-        // We will assert on it below if needed, but let's let visit_dirs pass.
     }
 
     let mut extern_funcs = std::collections::HashSet::new();
@@ -939,7 +971,6 @@ fn main() {
     let mut stubs = String::new();
     stubs.push_str("#include <lean/lean.h>\n#include <stdlib.h>\n\n");
 
-    // Sort to make the output deterministic
     let mut extern_funcs_sorted: Vec<_> = extern_funcs.into_iter().collect();
     extern_funcs_sorted.sort();
 
@@ -963,7 +994,6 @@ fn main() {
     let stubs_path = dynamic_stubs_path.clone();
     c_files.push(dynamic_stubs_path);
 
-    // Verify all C files exist (they are produced by `lake build`)
     for f in &c_files {
         assert!(
             f.exists(),
@@ -976,8 +1006,6 @@ fn main() {
     builder.include(&lean_include).warnings(false).opt_level(2);
 
     if has_prebuilt {
-        // When prebuilt Lean objects exist, libUALBF.a already contains all compiled UALBF C-IR symbols.
-        // Recompiling all C-IR files with cc::Build is redundant; we only compile dynamic_stubs_path.
         builder.file(&stubs_path);
     } else {
         for f in &c_files {
@@ -999,19 +1027,14 @@ fn main() {
     let lean_root_lib = PathBuf::from(&lean_sysroot).join("lib");
     println!("cargo:rustc-link-search=native={}", lean_root_lib.display());
 
-    // Lean runtime (provides lean_int_big_*, lean_nat_big_*, etc.)
     println!("cargo:rustc-link-lib=static=UALBF");
     println!("cargo:rustc-link-lib=static=Init");
     println!("cargo:rustc-link-lib=static=leanrt");
 
-    // libuv (Lean runtime async I/O)
     println!("cargo:rustc-link-lib=static=uv");
-
-    // GMP (Lean bignum arithmetic)
     println!("cargo:rustc-link-lib=static=gmp");
 
     // --- 4. System libraries ---
-    // Link C++ standard library (libc++ on macOS, libstdc++ elsewhere)
     let target = env::var("TARGET").unwrap_or_default();
     if target.contains("apple") {
         println!("cargo:rustc-link-lib=dylib=c++");
@@ -1048,7 +1071,7 @@ fn main() {
     println!("cargo:rerun-if-env-changed=LEAN_SYSROOT");
 }
 
-fn clean_source(content: &str) -> String {
+pub fn clean_source(content: &str) -> String {
     let mut cleaned = String::with_capacity(content.len());
     let chars: Vec<char> = content.chars().collect();
     let mut i = 0;
@@ -1155,7 +1178,7 @@ fn clean_source(content: &str) -> String {
     cleaned
 }
 
-fn count_non_literal_braces(line: &str) -> (i32, i32) {
+pub fn count_non_literal_braces(line: &str) -> (i32, i32) {
     let chars: Vec<char> = line.chars().collect();
     let mut open = 0;
     let mut close = 0;
@@ -1204,7 +1227,7 @@ fn count_non_literal_braces(line: &str) -> (i32, i32) {
     (open, close)
 }
 
-fn compute_verus_hashes(content: &str) -> HashMap<String, String> {
+pub fn compute_verus_hashes(content: &str) -> HashMap<String, String> {
     use sha2::{Digest, Sha256};
     let cleaned = clean_source(content);
     let mut verus_hashes = HashMap::new();

@@ -119,6 +119,7 @@ Strictly ensures all roots derived computationally are validated via intrinsic s
 To ensure 100% layout coverage and prevent documentation drift, the following complete list of active Rust source and build configuration files in this sub-module are indexed and verified:
 
 - `build.rs`
+- `build_script_tests.rs`
 - `ualbf-macros/src/lib.rs`
 - `src/main.rs`
 - `src/types.rs`

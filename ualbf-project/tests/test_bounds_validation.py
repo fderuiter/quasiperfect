@@ -13,9 +13,10 @@ import pytest
 
 def is_lean_available():
     lean_sysroot = os.environ.get("LEAN_SYSROOT")
+    if lean_sysroot == "DUMMY":
+        return False
     if (
         lean_sysroot
-        and lean_sysroot != "DUMMY"
         and os.path.isfile(os.path.join(lean_sysroot, "bin", "lean"))
     ):
         return True
@@ -146,6 +147,9 @@ def test_conjectural_bounds_conflict_fails_build():
     Test that if conjectural bounds are active but the ceiling is set below the search floor,
     cargo check fails to compile and describes the conflicting parameters.
     """
+    if not is_lean_available():
+        pytest.skip("Lean toolchain is absent; skipping mandatory Lean verification test")
+
     import subprocess
     import shutil
     from pathlib import Path
@@ -186,8 +190,6 @@ def test_conjectural_bounds_conflict_fails_build():
         # 2. Run auditor.py to update proof_manifest.json
         env = os.environ.copy()
         env.pop("MOCK_LEAN", None)
-        if not is_lean_available():
-            pytest.skip("Lean toolchain is absent; skipping mandatory Lean verification test")
         subprocess.run(["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True)
 
         # Touch build.rs to force rerun
@@ -227,6 +229,9 @@ def test_prime_split_threshold_valid_61_success():
     Test that configuring the exact baseline prime split threshold (61) builds successfully,
     verifies exact proof baseline equality in lean_export.rs, and generates matching constants.
     """
+    if not is_lean_available():
+        pytest.skip("Lean toolchain is absent; skipping mandatory Lean verification test")
+
     import subprocess
     from pathlib import Path
 
@@ -262,8 +267,6 @@ def test_prime_split_threshold_valid_61_success():
         # 2. Run auditor
         env = os.environ.copy()
         env.pop("MOCK_LEAN", None)
-        if not is_lean_available():
-            pytest.skip("Lean toolchain is absent; skipping mandatory Lean verification test")
         subprocess.run(
             ["python3", "auditor.py"], cwd=str(project_dir), env=env, check=True
         )
