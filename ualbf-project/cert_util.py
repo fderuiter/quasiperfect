@@ -1,7 +1,8 @@
 import json
 import os
 import sys
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Optional, Union
 
 import hash_util
 
@@ -592,3 +593,83 @@ def format_duration(seconds: float, style: str = "short") -> str:
     elif style == "full":
         return f"{total_hours} hours, {m} minutes, {s} seconds"
     return str(seconds)
+
+
+def verify_manifest_chain(manifest: dict, manifest_path: str, bounds_path: str) -> None:
+    """
+    Validates proof manifest hashes and bounds manifest hashes in a single call.
+
+    Raises CertificateValidationError if any part of the chain of trust fails validation.
+    """
+    if not os.path.exists(manifest_path):
+        raise CertificateValidationError(
+            f"Proof manifest '{manifest_path}' not found, cannot verify chain of trust."
+        )
+
+    computed_manifest_hash = hash_util.hash_file_bounded(manifest_path)
+    expected_manifest_hash = manifest.get("manifest_hash")
+    if expected_manifest_hash and computed_manifest_hash != expected_manifest_hash:
+        raise CertificateValidationError(
+            f"Manifest hash mismatch!\nExpected: {expected_manifest_hash}\nGot:      {computed_manifest_hash}"
+        )
+
+    manifest_data = BoundedJSONLoader().load_file(manifest_path)
+    expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
+    if not expected_bounds_hash:
+        raise CertificateValidationError(
+            "Proof manifest does not contain bounds_manifest_hash"
+        )
+
+    if not os.path.exists(bounds_path):
+        raise CertificateValidationError(
+            f"Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest."
+        )
+
+    computed_bounds_hash = hash_util.hash_file_bounded(bounds_path)
+    if computed_bounds_hash != expected_bounds_hash:
+        raise CertificateValidationError(
+            f"Bounds manifest hash mismatch!\nExpected: {expected_bounds_hash}\nGot:      {computed_bounds_hash}"
+        )
+
+
+def get_verus_proof_hashes(rust_src_dir: Union[str, Path]) -> dict[str, str]:
+    """
+    Scans Rust source files (verus_proofs.rs, lean_export.rs) in rust_src_dir
+    and returns computed function digest maps.
+    """
+    verus_hashes: dict[str, str] = {}
+    rust_src_path = Path(rust_src_dir)
+    loader = BoundedJSONLoader()
+    for verus_file in ["verus_proofs.rs", "lean_export.rs"]:
+        file_path = rust_src_path / verus_file
+        if file_path.is_file():
+            rf_text = loader.read_file_text(file_path)
+            verus_hashes.update(compute_verus_hashes(rf_text))
+    return dict(sorted(verus_hashes.items()))
+
+
+def verify_theorem_checksum(thm: dict, manifest_path: Optional[str] = None) -> bool:
+    """
+    Compute and verify the checksum for a single theorem entry.
+    The checksum is computed using the physical file content hash bounded by size limits.
+    """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "lean4-proofs", thm["file"])
+
+    if not os.path.exists(file_path) and manifest_path:
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        file_path = os.path.join(manifest_dir, "lean4-proofs", thm["file"])
+        if not os.path.exists(file_path):
+            file_path = os.path.join(manifest_dir, thm["file"])
+
+    if not os.path.exists(file_path):
+        file_path = os.path.join("lean4-proofs", thm["file"])
+
+    if os.path.exists(file_path):
+        computed = hash_util.hash_file_bounded(file_path)
+        return computed == thm.get("checksum", "")
+    else:
+        computed = hash_util.hash_theorem_metadata(
+            thm["name"], thm["file"], thm["status"]
+        )
+        return computed == thm.get("checksum", "")

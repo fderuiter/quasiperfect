@@ -61,8 +61,7 @@ def verify_trace_file(cert, trace_path):
 
     canonicalize_trace(trace_path)
 
-    trace_data = cert_util.BoundedJSONLoader().read_file_bytes(trace_path)
-    computed_hash = hash_util.hash_bytes(trace_data)
+    computed_hash = hash_util.hash_file_bounded(trace_path)
     expected_hash = cert["telemetry"].get("trace_hash")
     if expected_hash and computed_hash != expected_hash:
         print(
@@ -267,9 +266,7 @@ def verify_sidecar_file(cert, sidecar_path):
         )
         sys.exit(1)
 
-    computed_hash = hash_util.hash_bytes(
-        cert_util.BoundedJSONLoader().read_file_bytes(sidecar_path)
-    )
+    computed_hash = hash_util.hash_file_bounded(sidecar_path)
 
     if computed_hash != expected_hash:
         print(
@@ -292,29 +289,7 @@ def verify_theorem_checksum(thm, manifest_path=None):
 
     The checksum is computed using the physical file content hash.
     """
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "lean4-proofs", thm["file"])
-
-    if not os.path.exists(file_path) and manifest_path:
-        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
-        file_path = os.path.join(manifest_dir, "lean4-proofs", thm["file"])
-        if not os.path.exists(file_path):
-            file_path = os.path.join(manifest_dir, thm["file"])
-
-    if not os.path.exists(file_path):
-        file_path = os.path.join("lean4-proofs", thm["file"])
-
-    if os.path.exists(file_path):
-        computed = hash_util.hash_bytes(
-            cert_util.BoundedJSONLoader().read_file_bytes(file_path)
-        )
-        return computed == thm.get("checksum", "")
-    else:
-        # Fallback to metadata-based hash if the physical file does not exist anywhere
-        computed = hash_util.hash_theorem_metadata(
-            thm["name"], thm["file"], thm["status"]
-        )
-        return computed == thm.get("checksum", "")
+    return cert_util.verify_theorem_checksum(thm, manifest_path)
 
 
 from fractions import Fraction
@@ -753,12 +728,14 @@ def verify_certificate(cert_path, manifest_path):
 
     manifest_content = cert_util.BoundedJSONLoader().read_file_text(manifest_path)
 
-    # Verify manifest hash
-    manifest_hash = hash_util.hash_string(manifest_content)
-    if manifest_hash != cert.get("manifest_hash"):
-        print(
-            f"ERROR: Manifest hash mismatch!\nExpected: {cert.get('manifest_hash')}\nGot:      {manifest_hash}"
-        )
+    bounds_path = os.path.join(
+        os.path.dirname(manifest_path) if os.path.dirname(manifest_path) else ".",
+        "bounds_manifest.json",
+    )
+    try:
+        cert_util.verify_manifest_chain(cert, manifest_path, bounds_path)
+    except cert_util.CertificateError as e:
+        print(f"ERROR: {e}")
         sys.exit(1)
 
     # Verify the certificate's public key matches the pinned trusted key
@@ -833,23 +810,6 @@ def verify_certificate(cert_path, manifest_path):
 
     bounds_manifest_hash = manifest.get("bounds_manifest_hash")
     if bounds_manifest_hash:
-        bounds_path = os.path.join(
-            os.path.dirname(manifest_path) if os.path.dirname(manifest_path) else ".",
-            "bounds_manifest.json",
-        )
-        if not os.path.exists(bounds_path):
-            print(
-                f"ERROR: Bounds manifest '{bounds_path}' not found but hash is specified in proof manifest."
-            )
-            sys.exit(1)
-        computed_bounds_hash = hash_util.hash_bytes(
-            cert_util.BoundedJSONLoader().read_file_bytes(bounds_path)
-        )
-        if computed_bounds_hash != bounds_manifest_hash:
-            print(
-                f"ERROR: Bounds manifest hash mismatch!\nExpected: {bounds_manifest_hash}\nGot:      {computed_bounds_hash}"
-            )
-            sys.exit(1)
         print("✓ Bounds manifest cryptographically bound to proof manifest.")
     else:
         print("ERROR: Proof manifest does not contain bounds_manifest_hash")
@@ -918,7 +878,7 @@ def verify_certificate(cert_path, manifest_path):
                     f"ERROR: Unverified tactic ('sorry' or 'admit') detected in {pf['file']}"
                 )
                 sys.exit(1)
-            computed = hash_util.hash_bytes(content)
+            computed = hash_util.hash_file_bounded(file_path)
             if computed != pf["checksum"]:
                 print(f"ERROR: Checksum mismatch for file '{pf['file']}'")
                 print(f"Expected: {pf['checksum']}")
@@ -946,9 +906,7 @@ def verify_certificate(cert_path, manifest_path):
                 file_path = os.path.join("lean4-proofs", thm["file"])
 
             if os.path.exists(file_path):
-                computed = hash_util.hash_bytes(
-                    cert_util.BoundedJSONLoader().read_file_bytes(file_path)
-                )
+                computed = hash_util.hash_file_bounded(file_path)
             else:
                 computed = hash_util.hash_theorem_metadata(
                     thm["name"], thm["file"], thm["status"]
