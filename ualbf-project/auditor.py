@@ -304,28 +304,24 @@ def ensure_verification_lib():
 
 def fetch_proofwidgets_assets(cwd=None, env=None):
     repo_root = get_repo_root()
-    script_candidates = [
-        os.path.join(repo_root, "scripts", "fetch_proofwidgets_assets.sh"),
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "scripts",
-            "fetch_proofwidgets_assets.sh",
-        ),
-        os.path.abspath("scripts/fetch_proofwidgets_assets.sh"),
-        os.path.abspath("../scripts/fetch_proofwidgets_assets.sh"),
-    ]
-    script_path = None
-    for cand in script_candidates:
-        if os.path.isfile(cand):
-            script_path = cand
-            break
+    script_path = os.path.join(repo_root, "scripts", "fetch_proofwidgets_assets.sh")
+    if not os.path.isfile(script_path):
+        script_path = os.path.join(
+            repo_root, "ualbf-project", "scripts", "fetch_proofwidgets_assets.sh"
+        )
 
-    if script_path:
+    if os.path.isfile(script_path):
         manifest_path = (
             os.path.join(cwd, "lake-manifest.json")
             if cwd
-            else os.path.join(
-                repo_root, "ualbf-project", "lean4-proofs", "lake-manifest.json"
+            else (
+                os.path.join(repo_root, "lean4-proofs", "lake-manifest.json")
+                if os.path.exists(
+                    os.path.join(repo_root, "lean4-proofs", "lake-manifest.json")
+                )
+                else os.path.join(
+                    repo_root, "ualbf-project", "lean4-proofs", "lake-manifest.json"
+                )
             )
         )
         try:

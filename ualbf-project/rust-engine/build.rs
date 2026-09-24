@@ -546,8 +546,9 @@ pub fn validate_verus_hashes(
 /// library when available, and emits Cargo directives to link the Lean runtime and trigger reruns.
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let check_literals_script = PathBuf::from(&manifest_dir).join("../scripts/check_literals.py");
     let scan_status = Command::new("python3")
-        .arg("../scripts/check_literals.py")
+        .arg(&check_literals_script)
         .current_dir(&manifest_dir)
         .status()
         .expect("Failed to run literal scanner");
