@@ -11,3 +11,7 @@ lean-built
 *.log
 verification_lib.so
 verification_lib.dylib
+formal_certificate.json
+telemetry.tex
+verification_manifest.tex
+trace.jsonl

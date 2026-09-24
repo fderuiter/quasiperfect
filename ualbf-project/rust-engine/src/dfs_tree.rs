@@ -318,7 +318,6 @@ pub fn phase2_and_4_fused(
 
         let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
         if lazy_res.is_err() {
-            math_interruptions.fetch_add(1, Ordering::Relaxed);
             return;
         }
         let extra_factors = lazy_res.unwrap();

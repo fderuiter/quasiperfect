@@ -2,7 +2,7 @@ DOC = main
 
 .PHONY: all clean telemetry execute-engine
 
-all: telemetry $(DOC).pdf
+all: execute-engine telemetry $(DOC).pdf
 
 execute-engine:
 	@if [ "$(UALBF_DUMMY_PAPER_CI)" != "1" ]; then \
@@ -20,7 +20,7 @@ $(DOC).pdf: $(DOC).tex references.bib lean-setup.tex telemetry
 	python3 ../scripts/parse_latex_log.py $(DOC).log
 
 clean:
-	latexmk -c
+	rm -f *.aux *.log *.out *.bbl *.blg *.toc *.fls *.fdb_latexmk
 	rm -f *.bbl
 	rm -rf _minted-main/
 	rm -f telemetry.tex

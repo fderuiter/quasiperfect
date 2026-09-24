@@ -37,9 +37,11 @@ import ingest_cert  # noqa: E402
 def _minimal_cert(extra_telemetry=None):
     """Return a minimal valid certificate dict accepted by ingest_cert.py."""
     tel = {
+        "phase1_execution_time_ms": 100,
         "phase2_execution_time_ms": 5000,
         "total_branches_searched": 1000,
         "abundance_pruned": 200,
+        "raycast_pruned": 0,
         "target_min_log10": 35,
         "target_max_log10": 37,
     }
@@ -675,6 +677,80 @@ class TestIngestCertFileSizeLimit(unittest.TestCase):
             with self.assertRaises(SystemExit) as cm:
                 ingest_cert.check_manifest(manifest_path=manifest_path)
             self.assertEqual(cm.exception.code, 1)
+
+
+class TestCertPathFallback(unittest.TestCase):
+    def test_formal_certificate_fallback_resolution(self):
+        with tempfile.TemporaryDirectory() as root_dir:
+            paper_dir = os.path.join(root_dir, "paper")
+            os.makedirs(paper_dir, exist_ok=True)
+
+            bounds_data = {
+                "omega_bounds": {
+                    "prasad_sunitha": {"proof_bound": 15, "engine_justified_gap": 0},
+                    "hagis1982": {"proof_bound": 7, "engine_justified_gap": 0},
+                },
+                "euler_ceiling": 100,
+                "search_bounds": {
+                    "target_min_log10": {"value": 35},
+                    "target_max_log10": {"value": 37},
+                },
+            }
+            bounds_bytes = json.dumps(bounds_data).encode("utf-8")
+            bounds_hash = hashlib.sha256(bounds_bytes).hexdigest()
+
+            bounds_path = os.path.join(root_dir, "bounds_manifest.json")
+            with open(bounds_path, "wb") as f:
+                f.write(bounds_bytes)
+
+            manifest_data = {
+                "status": "verified",
+                "bounds_manifest_hash": bounds_hash,
+                "theorems": [
+                    {"name": "thm_one", "status": "proven", "checksum": "abc1"}
+                ],
+            }
+            manifest_bytes = json.dumps(manifest_data).encode("utf-8")
+            manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
+
+            manifest_path = os.path.join(root_dir, "proof_manifest.json")
+            with open(manifest_path, "wb") as f:
+                f.write(manifest_bytes)
+
+            cert = _minimal_cert(
+                {
+                    "phase1_execution_time_ms": 100,
+                    "phase2_execution_time_ms": 2000,
+                    "total_branches_searched": 1000,
+                    "abundance_pruned": 800,
+                    "raycast_pruned": 200,
+                }
+            )
+            cert["manifest_hash"] = manifest_hash
+
+            cert_path = os.path.join(paper_dir, "formal_certificate.json")
+            with open(cert_path, "w", encoding="utf-8") as f:
+                json.dump(cert, f)
+
+            orig_env = os.environ.get("UALBF_CERT_PATH")
+            try:
+                os.environ.pop("UALBF_CERT_PATH", None)
+                os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+                ingest_cert.write_telemetry_tex(
+                    cert_path=None,
+                    manifest_path=manifest_path,
+                    bounds_path=bounds_path,
+                    output_dir=paper_dir,
+                )
+                self.assertTrue(
+                    os.path.exists(os.path.join(paper_dir, "telemetry.tex"))
+                )
+            finally:
+                if orig_env is not None:
+                    os.environ["UALBF_CERT_PATH"] = orig_env
+                else:
+                    os.environ.pop("UALBF_CERT_PATH", None)
+                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
 
 
 if __name__ == "__main__":

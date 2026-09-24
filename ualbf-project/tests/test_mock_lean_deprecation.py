@@ -30,6 +30,10 @@ def test_auditor_fails_when_mock_lean_set():
     assert "MOCK_LEAN is forbidden" in res.stderr or "MOCK_LEAN is forbidden" in res.stdout
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_build_rs_succeeds_and_purges_ir_when_mock_lean_set():
     """
     Test that rust-engine/build.rs purges .lake/build/ir files and succeeds when MOCK_LEAN=1.
@@ -79,6 +83,10 @@ def test_build_rs_succeeds_and_purges_ir_when_mock_lean_set():
                 shutil.copytree(ualbf_backup, ualbf_dir)
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_build_rs_succeeds_and_purges_ir_when_lean_sysroot_dummy():
     """
     Test that rust-engine/build.rs purges .lake/build/ir files and succeeds when LEAN_SYSROOT=DUMMY.
