@@ -240,3 +240,38 @@ def test_ffi_safety_layer_null_and_panic():
     assert b"Failed to parse JSON" in buf.value
 
 
+def test_ffi_multi_line_and_modifiers():
+    """
+    Test parse_lean_exports handles multi-line attributes, docstrings,
+    varied whitespace, and declaration modifiers (noncomputable, partial, private, protected, unsafe).
+    """
+    import sys
+    project_dir = Path(__file__).parent.parent
+    scripts_dir = project_dir / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+
+    from export_lean_specs import parse_lean_exports
+
+    lean_sample = """
+    /-- Docstring before attribute -/
+    @[
+      export ualbf_test_fn
+    ]
+    /-- Docstring after attribute -/
+    noncomputable private unsafe protected partial def ualbf_test_fn_impl
+      (x : @& U512)
+      (y : @& U512) :
+      Bool := true
+    """
+
+    exports = parse_lean_exports(lean_sample)
+    assert len(exports) == 1
+    c_name, args_str, ret_type = exports[0]
+    assert c_name == "ualbf_test_fn"
+    assert "x : @& U512" in args_str
+    assert "y : @& U512" in args_str
+    assert ret_type == "Bool"
+
+
+

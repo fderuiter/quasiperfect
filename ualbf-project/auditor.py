@@ -1322,7 +1322,7 @@ def check_documentation(manifest):
         valid_symbols.add(fn.split("::")[-1])
 
     rust_regex = re.compile(
-        r"^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:unsafe\s+)?(?:fn|struct|enum|const|mod|trait|type|spec\s+fn|proof\s+fn)\s+([a-zA-Z0-9_]+)",
+        r"^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:unsafe|open|closed|exec|spec|proof|\s)*(?:fn|struct|enum|const|mod|trait|type)\s+([a-zA-Z0-9_]+)",
         re.MULTILINE,
     )
 
@@ -1359,14 +1359,37 @@ def check_documentation(manifest):
                     stripped = strip_comments(content, file)
                     fqns = extract_fqns_from_lean_content(stripped)
                     for fqn in fqns:
-                        valid_symbols.add(fqn)
-                        valid_symbols.add(fqn.split(".")[-1])
+                        parts = fqn.split(".")
+                        for i in range(len(parts)):
+                            sub_fqn = ".".join(parts[i:])
+                            valid_symbols.add(sub_fqn)
+                            valid_symbols.add(sub_fqn.replace(".", "::"))
                 except Exception:
                     pass
             elif file.endswith(".rs"):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
-                        valid_symbols.update(rust_regex.findall(f.read()))
+                        found_syms = rust_regex.findall(f.read())
+                    file_stem = os.path.splitext(file)[0]
+                    parent_dir = os.path.basename(os.path.dirname(file_path))
+                    mod_names = set()
+                    if file_stem not in ("mod", "main", "lib"):
+                        mod_names.add(file_stem)
+                    if parent_dir not in ("src", "rust-engine", "ualbf-project", "."):
+                        mod_names.add(parent_dir)
+                    if (
+                        "math" in mod_names
+                        or parent_dir == "math"
+                        or file_stem == "math_utils"
+                    ):
+                        mod_names.add("math")
+                        mod_names.add("math_utils")
+
+                    for sym in found_syms:
+                        valid_symbols.add(sym)
+                        for mname in mod_names:
+                            valid_symbols.add(f"{mname}::{sym}")
+                            valid_symbols.add(f"{mname}.{sym}")
                 except Exception:
                     pass
             elif file.endswith(".py"):
@@ -1523,8 +1546,16 @@ def check_documentation(manifest):
                         ):
                             continue
 
-                        if "." in clean_bt and "::" not in clean_bt:
-                            thm_status = manifest_thm_statuses.get(clean_bt)
+                        is_qualified = "." in clean_bt or "::" in clean_bt
+                        if is_qualified:
+                            dot_path = clean_bt.replace("::", ".")
+                            colon_path = clean_bt.replace(".", "::")
+                            dot_path_lower = dot_path.lower()
+                            colon_path_lower = colon_path.lower()
+
+                            thm_status = manifest_thm_statuses.get(
+                                clean_bt
+                            ) or manifest_thm_statuses.get(dot_path)
                             if thm_status is not None and thm_status != "proven":
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
@@ -1533,22 +1564,29 @@ def check_documentation(manifest):
 
                             if (
                                 clean_bt not in manifest_symbols
+                                and clean_bt_lower not in manifest_symbols
+                                and dot_path not in manifest_symbols
+                                and dot_path_lower not in manifest_symbols
+                                and colon_path not in manifest_symbols
+                                and colon_path_lower not in manifest_symbols
                                 and clean_bt not in valid_symbols
+                                and clean_bt_lower not in valid_symbols
+                                and dot_path not in valid_symbols
+                                and dot_path_lower not in valid_symbols
+                                and colon_path not in valid_symbols
+                                and colon_path_lower not in valid_symbols
                             ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
                                 )
                         else:
-                            parts = re.split(r"\.|::", clean_bt)
-                            ident = parts[-1]
-                            ident_lower = ident.lower()
+                            ident = clean_bt
+                            ident_lower = clean_bt_lower
 
                             if ident in ignore_symbols or ident_lower in ignore_symbols:
                                 continue
 
-                            thm_status = manifest_thm_statuses.get(
-                                clean_bt
-                            ) or manifest_thm_statuses.get(ident)
+                            thm_status = manifest_thm_statuses.get(ident)
                             if thm_status is not None and thm_status != "proven":
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
@@ -1556,10 +1594,8 @@ def check_documentation(manifest):
                                 continue
 
                             if (
-                                clean_bt not in manifest_symbols
-                                and ident not in manifest_symbols
-                                and clean_bt not in valid_symbols
-                                and clean_bt_lower not in valid_symbols
+                                ident not in manifest_symbols
+                                and ident_lower not in manifest_symbols
                                 and ident not in valid_symbols
                                 and ident_lower not in valid_symbols
                             ):

@@ -516,6 +516,51 @@ end UALBF.FFI
 """)
 
 
+def parse_lean_exports(content):
+    exports = []
+    attr_pattern = re.compile(
+        r"@\[[^\]]*\bexport\s+([a-zA-Z0-9_]+)[^\]]*\]", re.DOTALL
+    )
+    for match in attr_pattern.finditer(content):
+        c_name = match.group(1)
+        rest = content[match.end():]
+        decl_pattern = re.compile(
+            r"^(?:\s|/-[\s\S]*?-/|--[^\n]*\n|@\[[^\]]*\])*?"
+            r"(?:(?:private|protected|noncomputable|partial|unsafe)\s+)*"
+            r"(?:def|opaque|abbrev|theorem|lemma)\s+\w+\s*"
+            r"(.*?)\s*:\s*([a-zA-Z0-9_\.\s\(\)@&]+?)(?:\s*:=|\s+where|\n\s*\n|\n(?=\s*[a-zA-Z0-9_\.@]|\Z))",
+            re.DOTALL,
+        )
+        m_decl = decl_pattern.match(rest)
+        if m_decl:
+            args_str = m_decl.group(1).strip()
+            ret_type = m_decl.group(2).strip()
+            exports.append((c_name, args_str, ret_type))
+    return exports
+
+
+def parse_lean_externs(content):
+    externs = []
+    attr_pattern = re.compile(
+        r'@\[[^\]]*\bextern\s+"([^"]+)"[^\]]*\]', re.DOTALL
+    )
+    for match in attr_pattern.finditer(content):
+        ext_name = match.group(1)
+        rest = content[match.end():]
+        decl_pattern = re.compile(
+            r"^(?:\s|/-[\s\S]*?-/|--[^\n]*\n|@\[[^\]]*\])*?"
+            r"(?:(?:private|protected|noncomputable|partial|unsafe)\s+)*"
+            r"(?:opaque|def|abbrev)\s+(\S+)\s+(.*?)(?:\n|:=)",
+            re.DOTALL,
+        )
+        m_decl = decl_pattern.match(rest)
+        if m_decl:
+            lean_name = m_decl.group(1).strip()
+            details = m_decl.group(2).strip()
+            externs.append((ext_name, lean_name, details))
+    return externs
+
+
 def generate_ffi(repo_root, schema, schema_hash):
     ffi_paths = [
         os.path.join(repo_root, "lean4-proofs", "UALBF", "FFI_generated.lean"),
@@ -536,18 +581,8 @@ def generate_ffi(repo_root, schema, schema_hash):
             continue
         with open(ffi_path, "r", encoding="utf-8") as f:
             content = f.read()
-        exports.extend(
-            re.findall(
-                r"@\[export\s+(\w+)\]\n(?:private\s+|partial\s+|noncomputable\s+)?def\s+\w+\s*(.*?)\s*:\s*([a-zA-Z0-9_\. ]+?)(?:\s*:=|\n)",
-                content,
-                re.DOTALL,
-            )
-        )
-        externs.extend(
-            re.findall(
-                r'@\[extern\s+"([^"]+)"\]\n(?:opaque|def)\s+(\S+)\s+(.*?)\n', content
-            )
-        )
+        exports.extend(parse_lean_exports(content))
+        externs.extend(parse_lean_externs(content))
 
     # Enforce Canonical Name and Signature Verification at Build-Time
     crt_export = None
