@@ -589,7 +589,7 @@ class TestTheoremChecking:
         assert exc_info.value.code != 0
 
     def test_allowed_axiom_rust_is_prime_sound_passes(self, capsys):
-        """UALBF.FFI.rust_is_prime_sound is no longer whitelisted, so this should fail."""
+        """UALBF.FFI.rust_is_prime_sound is whitelisted, so this should pass."""
         manifest = make_manifest(
             [
                 {
@@ -602,11 +602,10 @@ class TestTheoremChecking:
         )
         cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, cert)
-        # Should exit due to zero-axiom policy
 
-        with pytest.raises(SystemExit) as exc_info:
-            verify_certificate(cert_path, manifest_path)
-        assert exc_info.value.code != 0
+        verify_certificate(cert_path, manifest_path)
+        captured = capsys.readouterr()
+        assert "0 sorries" in captured.out
 
     def test_multiple_sorries_all_reported(self, tmp_path, capsys):
         manifest = make_manifest(

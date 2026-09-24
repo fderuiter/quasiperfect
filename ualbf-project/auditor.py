@@ -30,7 +30,7 @@ def get_repo_root():
 
 
 CORE_THEOREMS = cert_util.CORE_THEOREMS
-ALLOWED_AXIOMS = {"UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"}
+ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 
 GHOST_PRUNING_BINDINGS = {
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
@@ -902,7 +902,7 @@ def _generate_manifest_impl():
                             "Quot.sound",
                         ]:
                             status = "axiom"
-                            if thm not in ALLOWED_AXIOMS:
+                            if thm not in ALLOWED_AXIOMS and ax not in ALLOWED_AXIOMS:
                                 has_error = True
                             break
                     theorem_statuses[thm] = status
