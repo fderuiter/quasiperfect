@@ -124,7 +124,7 @@ def generate_rust_types(schema, repo_root, schema_hash):
                             f.write("            },\n")
                         elif ffi_t == "Array U512":
                             f.write(
-                                f"            {field['name']}: std::ptr::null(), // TODO: allocate arrays for FFI if needed\n"
+                                f"            {field['name']}: self.{field['name']}.as_ptr() as *const _,\n"
                             )
                             f.write(
                                 f"            {field['name']}_len: self.{field['name']}.len(),\n"
