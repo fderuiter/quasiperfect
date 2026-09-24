@@ -9,8 +9,14 @@
 #include <assert.h>
 
 #ifndef _Static_assert
-#  if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) && !defined(__GNUC__) && !defined(__clang__)
-#    define _Static_assert(expr, msg) typedef char static_assertion_failed_[(expr) ? 1 : -1]
+#  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+     /* C11 native _Static_assert */
+#  elif defined(__GNUC__) || defined(__clang__)
+#    define _Static_assert(expr, msg) __extension__ _Static_assert(expr, msg)
+#  else
+#    define SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b) a ## b
+#    define SCHEMA_STATIC_ASSERT_CONCAT(a, b) SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b)
+#    define _Static_assert(expr, msg) typedef char SCHEMA_STATIC_ASSERT_CONCAT(static_assertion_failed_, __LINE__)[(expr) ? 1 : -1]
 #  endif
 #endif
 

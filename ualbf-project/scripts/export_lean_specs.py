@@ -256,11 +256,21 @@ def generate_c_schema_header(schema, repo_root, schema_hash):
         f.write("#include <stdbool.h>\n")
         f.write("#include <assert.h>\n\n")
         f.write("#ifndef _Static_assert\n")
+        f.write("#  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L\n")
+        f.write("     /* C11 native _Static_assert */\n")
+        f.write("#  elif defined(__GNUC__) || defined(__clang__)\n")
         f.write(
-            "#  if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) && !defined(__GNUC__) && !defined(__clang__)\n"
+            "#    define _Static_assert(expr, msg) __extension__ _Static_assert(expr, msg)\n"
+        )
+        f.write("#  else\n")
+        f.write(
+            "#    define SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b) a ## b\n"
         )
         f.write(
-            "#    define _Static_assert(expr, msg) typedef char static_assertion_failed_[(expr) ? 1 : -1]\n"
+            "#    define SCHEMA_STATIC_ASSERT_CONCAT(a, b) SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b)\n"
+        )
+        f.write(
+            "#    define _Static_assert(expr, msg) typedef char SCHEMA_STATIC_ASSERT_CONCAT(static_assertion_failed_, __LINE__)[(expr) ? 1 : -1]\n"
         )
         f.write("#  endif\n")
         f.write("#endif\n\n")
