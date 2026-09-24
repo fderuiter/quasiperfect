@@ -518,12 +518,10 @@ end UALBF.FFI
 
 def parse_lean_exports(content):
     exports = []
-    attr_pattern = re.compile(
-        r"@\[[^\]]*\bexport\s+([a-zA-Z0-9_]+)[^\]]*\]", re.DOTALL
-    )
+    attr_pattern = re.compile(r"@\[[^\]]*\bexport\s+([a-zA-Z0-9_]+)[^\]]*\]", re.DOTALL)
     for match in attr_pattern.finditer(content):
         c_name = match.group(1)
-        rest = content[match.end():]
+        rest = content[match.end() :]
         decl_pattern = re.compile(
             r"^(?:\s|/-[\s\S]*?-/|--[^\n]*\n|@\[[^\]]*\])*?"
             r"(?:(?:private|protected|noncomputable|partial|unsafe)\s+)*"
@@ -541,12 +539,10 @@ def parse_lean_exports(content):
 
 def parse_lean_externs(content):
     externs = []
-    attr_pattern = re.compile(
-        r'@\[[^\]]*\bextern\s+"([^"]+)"[^\]]*\]', re.DOTALL
-    )
+    attr_pattern = re.compile(r'@\[[^\]]*\bextern\s+"([^"]+)"[^\]]*\]', re.DOTALL)
     for match in attr_pattern.finditer(content):
         ext_name = match.group(1)
-        rest = content[match.end():]
+        rest = content[match.end() :]
         decl_pattern = re.compile(
             r"^(?:\s|/-[\s\S]*?-/|--[^\n]*\n|@\[[^\]]*\])*?"
             r"(?:(?:private|protected|noncomputable|partial|unsafe)\s+)*"
@@ -989,9 +985,7 @@ def sync_toolchain_docs(repo_root):
         monorepo_root = repo_root
         ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
 
-    toolchain_path = os.path.join(
-        ualbf_project_dir, "lean4-proofs", "lean-toolchain"
-    )
+    toolchain_path = os.path.join(ualbf_project_dir, "lean4-proofs", "lean-toolchain")
     if not os.path.exists(toolchain_path):
         print(f"Warning: {toolchain_path} not found.")
         return
