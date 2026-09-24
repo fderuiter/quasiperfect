@@ -16,7 +16,7 @@ input_file ffi.c where
 target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
   let srcJob ← ffi.c.fetch
-  let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
+  let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC", "-std=c11"]
   buildO oFile srcJob flags #[] "cc"
 
 target libleanffi pkg : FilePath := do

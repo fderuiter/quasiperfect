@@ -255,6 +255,15 @@ def generate_c_schema_header(schema, repo_root, schema_hash):
         f.write("#include <stdint.h>\n")
         f.write("#include <stdbool.h>\n")
         f.write("#include <assert.h>\n\n")
+        f.write("#ifndef _Static_assert\n")
+        f.write(
+            "#  if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) && !defined(__GNUC__) && !defined(__clang__)\n"
+        )
+        f.write(
+            "#    define _Static_assert(expr, msg) typedef char static_assertion_failed_[(expr) ? 1 : -1]\n"
+        )
+        f.write("#  endif\n")
+        f.write("#endif\n\n")
         f.write(f'#define EXPORTED_SCHEMA_MANIFEST_HASH "{schema_hash}"\n\n')
 
         f.write("typedef struct U512Data {\n")

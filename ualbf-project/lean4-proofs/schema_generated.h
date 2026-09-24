@@ -8,6 +8,12 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#ifndef _Static_assert
+#  if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) && !defined(__GNUC__) && !defined(__clang__)
+#    define _Static_assert(expr, msg) typedef char static_assertion_failed_[(expr) ? 1 : -1]
+#  endif
+#endif
+
 #define EXPORTED_SCHEMA_MANIFEST_HASH "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb"
 
 typedef struct U512Data {
