@@ -18,12 +18,18 @@ def test_ffi_automation_dynamic_generation():
     schema_path = project_dir / "schema_manifest.json"
     ffi_generated_rs = project_dir / "rust-engine/src/ffi_generated.rs"
     schema_generated_rs = project_dir / "rust-engine/src/schema_generated.rs"
+    schema_generated_h = project_dir / "lean4-proofs/schema_generated.h"
     ffi_generated_lean = project_dir / "lean4-proofs/UALBF/FFI_generated.lean"
 
     # Backup original schema manifest and generated files
     schema_backup = schema_path.read_text(encoding="utf-8")
     rs_backup = ffi_generated_rs.read_text(encoding="utf-8")
     schema_gen_backup = schema_generated_rs.read_text(encoding="utf-8")
+    h_backup = (
+        schema_generated_h.read_text(encoding="utf-8")
+        if schema_generated_h.exists()
+        else ""
+    )
     lean_backup = ffi_generated_lean.read_text(encoding="utf-8")
 
     try:
@@ -61,12 +67,53 @@ def test_ffi_automation_dynamic_generation():
         assert "rust_u512_get_w3" in lean_content
         assert "rust_u512_get_w4" not in lean_content
 
+        # Verify C header and Rust assertions for 256-bit (4 limbs)
+        h_content = schema_generated_h.read_text(encoding="utf-8")
+        assert "uint64_t limbs[4];" in h_content
+        assert '_Static_assert(offsetof(PrefixTransport, n_l) == 0' in h_content
+        assert '_Static_assert(offsetof(PrefixTransport, s_l) == 32' in h_content
+        assert '_Static_assert(sizeof(PrefixTransport) == 144' in h_content
+
+        schema_gen_rs = schema_generated_rs.read_text(encoding="utf-8")
+        assert 'assert!(core::mem::offset_of!(PrefixTransport, s_l) == 32);' in schema_gen_rs
+        assert 'assert!(core::mem::size_of::<PrefixTransport>() == 144);' in schema_gen_rs
+
     finally:
         # Restore backups
         schema_path.write_text(schema_backup, encoding="utf-8")
         ffi_generated_rs.write_text(rs_backup, encoding="utf-8")
         schema_generated_rs.write_text(schema_gen_backup, encoding="utf-8")
+        if h_backup:
+            schema_generated_h.write_text(h_backup, encoding="utf-8")
         ffi_generated_lean.write_text(lean_backup, encoding="utf-8")
+
+
+def test_schema_layout_assertions():
+    """
+    Test that schema_generated.h and schema_generated.rs contain valid C11 _Static_assert
+    and Rust core::mem::offset_of! assertions matching transport layout expectations.
+    """
+    project_dir = Path(__file__).parent.parent
+    schema_generated_h = project_dir / "lean4-proofs/schema_generated.h"
+    schema_generated_rs = project_dir / "rust-engine/src/schema_generated.rs"
+
+    assert schema_generated_h.exists(), "schema_generated.h missing"
+    assert schema_generated_rs.exists(), "schema_generated.rs missing"
+
+    h_content = schema_generated_h.read_text(encoding="utf-8")
+    assert "#ifndef SCHEMA_GENERATED_H" in h_content
+    assert "typedef struct PrefixTransport" in h_content
+    assert "typedef PrefixTransport SearchStateTransport;" in h_content
+    assert '_Static_assert(offsetof(PrefixTransport, n_l) == 0' in h_content
+    assert '_Static_assert(offsetof(PrefixTransport, s_l) == 64' in h_content
+    assert '_Static_assert(offsetof(PrefixTransport, last_idx) == 128' in h_content
+    assert '_Static_assert(sizeof(PrefixTransport) == 208' in h_content
+
+    rs_content = schema_generated_rs.read_text(encoding="utf-8")
+    assert "core::mem::offset_of!(PrefixTransport, n_l) == 0" in rs_content
+    assert "core::mem::offset_of!(PrefixTransport, s_l) == 64" in rs_content
+    assert "core::mem::offset_of!(PrefixTransport, last_idx) == 128" in rs_content
+    assert "core::mem::size_of::<PrefixTransport>() == 208" in rs_content
 
 
 @pytest.mark.skipif(

@@ -1,6 +1,7 @@
 #include <lean/lean.h>
 #include <stdbool.h>
 #include "verification_ffi.h"
+#include "schema_generated.h"
 
 static lean_external_class* g_cert_class = NULL;
 

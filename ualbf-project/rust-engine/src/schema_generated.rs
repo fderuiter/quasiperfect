@@ -111,6 +111,22 @@ impl Prefix {
     }
 }
 
+const _: () = {
+    assert!(core::mem::offset_of!(PrefixTransport, n_l) == 0);
+    assert!(core::mem::offset_of!(PrefixTransport, s_l) == 64);
+    assert!(core::mem::offset_of!(PrefixTransport, last_idx) == 128);
+    assert!(core::mem::offset_of!(PrefixTransport, factors) == 136);
+    assert!(core::mem::offset_of!(PrefixTransport, factors_len) == 144);
+    assert!(core::mem::offset_of!(PrefixTransport, sigma_factors) == 152);
+    assert!(core::mem::offset_of!(PrefixTransport, sigma_factors_len) == 160);
+    assert!(core::mem::offset_of!(PrefixTransport, sigma_factors_u64) == 168);
+    assert!(core::mem::offset_of!(PrefixTransport, sigma_factors_u64_len) == 176);
+    assert!(core::mem::offset_of!(PrefixTransport, active_mask) == 184);
+    assert!(core::mem::offset_of!(PrefixTransport, active_mask_len) == 192);
+    assert!(core::mem::offset_of!(PrefixTransport, sigma_mod24) == 200);
+    assert!(core::mem::size_of::<PrefixTransport>() == 208);
+};
+
 #[derive(Clone, Debug)]
 pub struct SidecarEvent {
     pub event: String,
