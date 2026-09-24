@@ -123,6 +123,11 @@ jobs:
           python3 -c "import os; proofs = 'ualbf-project/lean4-proofs'; [os.utime(os.path.join(r, f), (1767225600, 1767225600) if (('build' in r.split(os.sep) or f.endswith(('.olean', '.ilean', '.trace', '.hash', '.o', '.ot', '.a', '.so', '.dylib', '.dll', '.rsp', '.c'))) and not f.endswith('.lean')) else (1577836800, 1577836800)) for r, _, fs in os.walk(proofs) for f in fs]" || true
           nix develop --command bash -c "cd ualbf-project && make verification-lib"
 
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          work-directory: ualbf-project
+
       - name: Run Unified Quality Checks
         run: |
           nix develop --command bash -c "cd ualbf-project && make check-core" > make_check.log 2>&1 || {
@@ -167,6 +172,22 @@ jobs:
           nix_path: nixpkgs=flake:nixpkgs
           extra_nix_config: |
             sandbox = true
+
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v8
+
+      - name: Cache Pip Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          work-directory: ualbf-project
 
       - name: Run Python Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-python"
