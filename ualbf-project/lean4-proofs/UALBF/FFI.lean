@@ -476,22 +476,22 @@ def ualbf_static_suffix_bound_w1_impl (k : UInt32) : UInt64 :=
   let bound := UALBF.Fixed64.getStaticSuffixBound k
   ((bound >>> 64) &&& 0xFFFFFFFFFFFFFFFF).toUInt64
 
-@[extern "rust_dfs_get_components_len"]
+@[extern "_rust_dfs_get_components_len"]
 opaque rust_dfs_get_components_len (ctx : UInt64) : IO UInt32
 
-@[extern "rust_dfs_get_curr_last_idx"]
+@[extern "_rust_dfs_get_curr_last_idx"]
 opaque rust_dfs_get_curr_last_idx (ctx : UInt64) : IO UInt32
 
-@[extern "rust_dfs_try_push"]
+@[extern "_rust_dfs_try_push"]
 opaque rust_dfs_try_push (ctx : UInt64) (i : UInt32) : IO Bool
 
-@[extern "rust_dfs_pop"]
+@[extern "_rust_dfs_pop"]
 opaque rust_dfs_pop (ctx : UInt64) : IO Unit
 
-@[extern "rust_dfs_get_prasad_sunitha_info"]
+@[extern "_rust_dfs_get_prasad_sunitha_info"]
 opaque rust_dfs_get_prasad_sunitha_info (ctx : UInt64) : IO UInt32
 
-@[extern "rust_dfs_check_evaluate"]
+@[extern "_rust_dfs_check_evaluate"]
 opaque rust_dfs_check_evaluate (ctx : UInt64) (baseline_min : UInt32) : IO Bool
 
 def evaluate_baseline_min (ctx : UInt64) : IO UInt32 := do
