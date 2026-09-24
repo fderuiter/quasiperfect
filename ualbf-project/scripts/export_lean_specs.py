@@ -855,6 +855,102 @@ pub extern "C" fn rust_u512_mk({mk_args}) -> *mut crate::lean_ffi::lean_object {
     print(f"FFI bindings generated to {out_path}")
 
 
+def generate_c_headers(repo_root):
+    lib_rs_path = os.path.join(repo_root, "verification-lib", "src", "lib.rs")
+    header_dir = os.path.join(repo_root, "lean4-proofs", "include")
+    header_path = os.path.join(header_dir, "verification_lib.h")
+
+    if not os.path.exists(lib_rs_path):
+        print(f"Warning: {lib_rs_path} not found.")
+        return
+
+    with open(lib_rs_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    pattern = re.compile(
+        r'pub\s+extern\s+"C"\s+fn\s+([a-zA-Z0-9_]+)\s*\((.*?)\)(?:\s*->\s*([^{]+))?\s*\{',
+        re.DOTALL,
+    )
+    matches = pattern.findall(content)
+
+    def rust_type_to_c(rust_type):
+        if not rust_type:
+            return "void"
+        rust_type = rust_type.strip()
+        if rust_type in ("()", "void"):
+            return "void"
+        if rust_type.startswith("*const "):
+            inner = rust_type[7:].strip()
+            c_inner = rust_type_to_c(inner)
+            return f"const {c_inner}*"
+        if rust_type.startswith("*mut "):
+            inner = rust_type[5:].strip()
+            c_inner = rust_type_to_c(inner)
+            return f"{c_inner}*"
+
+        type_map = {
+            "std::ffi::c_char": "char",
+            "c_char": "char",
+            "std::ffi::c_void": "void",
+            "c_void": "void",
+            "std::ffi::c_int": "int",
+            "c_int": "int",
+            "bool": "bool",
+            "usize": "size_t",
+            "isize": "intptr_t",
+            "u8": "uint8_t",
+            "u16": "uint16_t",
+            "u32": "uint32_t",
+            "u64": "uint64_t",
+            "i8": "int8_t",
+            "i16": "int16_t",
+            "i32": "int32_t",
+            "i64": "int64_t",
+            "f32": "float",
+            "f64": "double",
+        }
+        return type_map.get(rust_type, rust_type)
+
+    decls = []
+    for name, args_str, ret_str in matches:
+        ret_c = rust_type_to_c(ret_str)
+        params = []
+        if args_str.strip():
+            for p in args_str.strip().split(","):
+                p = p.strip()
+                if not p:
+                    continue
+                if ":" in p:
+                    p_name, p_type = p.split(":", 1)
+                    p_name = p_name.strip()
+                    p_type_c = rust_type_to_c(p_type)
+                    params.append(f"{p_type_c} {p_name}")
+        params_str = ", ".join(params) if params else "void"
+        decls.append(f"{ret_c} {name}({params_str});")
+
+    os.makedirs(header_dir, exist_ok=True)
+    header_content = (
+        "/* AUTO-GENERATED from verification-lib/src/lib.rs. DO NOT EDIT. */\n\n"
+        "#ifndef VERIFICATION_LIB_H\n"
+        "#define VERIFICATION_LIB_H\n\n"
+        "#include <stdbool.h>\n"
+        "#include <stddef.h>\n"
+        "#include <stdint.h>\n\n"
+        "#ifdef __cplusplus\n"
+        'extern "C" {\n'
+        "#endif\n\n" + "\n".join(decls) + "\n\n"
+        "#ifdef __cplusplus\n"
+        "}\n"
+        "#endif\n\n"
+        "#endif /* VERIFICATION_LIB_H */\n"
+    )
+
+    with open(header_path, "w", encoding="utf-8") as f:
+        f.write(header_content)
+
+    print(f"C header generated to {header_path}")
+
+
 def main():
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -1145,6 +1241,7 @@ end UALBF.Manifest
         print(f"Warning: {bounds_path} not found.")
 
     sync_toolchain_docs(repo_root)
+    generate_c_headers(repo_root)
 
 
 def sync_toolchain_docs(repo_root):

@@ -306,6 +306,7 @@ def test_ffi_multi_line_and_modifiers():
     varied whitespace, and declaration modifiers (noncomputable, partial, private, protected, unsafe).
     """
     import sys
+
     project_dir = Path(__file__).parent.parent
     scripts_dir = project_dir / "scripts"
     if str(scripts_dir) not in sys.path:
@@ -354,3 +355,52 @@ def test_array_u512_pointer_transport():
     content = schema_generated_rs.read_text(encoding="utf-8")
     assert "sigma_factors: self.sigma_factors.as_ptr() as *const _," in content
     assert "sigma_factors: std::ptr::null()" not in content
+
+
+def test_c_header_generation():
+    """
+    Test that export_lean_specs.py generates verification_lib.h with C99 types,
+    include guards, extern "C", and signatures for exported verification-lib functions.
+    Also verify ffi.c includes verification_lib.h without manual externs, and lakefile.lean references it.
+    """
+    project_dir = Path(__file__).parent.parent
+    header_path = project_dir / "lean4-proofs/include/verification_lib.h"
+    ffi_c_path = project_dir / "lean4-proofs/ffi.c"
+    lakefile_path = project_dir / "lean4-proofs/lakefile.lean"
+
+    res = subprocess.run(
+        ["python3", "scripts/export_lean_specs.py"],
+        cwd=str(project_dir),
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0, f"export_lean_specs.py failed: {res.stderr}"
+
+    assert header_path.exists(), f"Header file {header_path} was not generated."
+    header_content = header_path.read_text(encoding="utf-8")
+
+    # Check header structure
+    assert "#ifndef VERIFICATION_LIB_H" in header_content
+    assert "#define VERIFICATION_LIB_H" in header_content
+    assert "#include <stdbool.h>" in header_content
+    assert "#include <stddef.h>" in header_content
+    assert "#include <stdint.h>" in header_content
+    assert 'extern "C"' in header_content
+
+    # Check function prototypes
+    assert "verify_certificate(" in header_content
+    assert "free_certificate(" in header_content
+    assert "rust_sha256_file(" in header_content
+    assert "rust_free_string(" in header_content
+
+    # Check ffi.c
+    ffi_c_content = ffi_c_path.read_text(encoding="utf-8")
+    assert '#include "verification_lib.h"' in ffi_c_content
+    assert "extern void* verify_certificate" not in ffi_c_content
+    assert "extern char* rust_sha256_file" not in ffi_c_content
+
+    # Check lakefile.lean
+    lakefile_content = lakefile_path.read_text(encoding="utf-8")
+    assert "input_file verification_lib.h" in lakefile_content
+    assert '"-I", "include"' in lakefile_content
+    assert "#[headerJob]" in lakefile_content or "headerJob" in lakefile_content

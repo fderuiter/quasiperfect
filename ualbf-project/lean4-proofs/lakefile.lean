@@ -13,11 +13,16 @@ input_file ffi.c where
   path := "ffi.c"
   text := true
 
+input_file verification_lib.h where
+  path := "include/verification_lib.h"
+  text := true
+
 target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
   let srcJob ← ffi.c.fetch
-  let flags := #["-I", (← getLeanIncludeDir).toString, "-fPIC"]
-  buildO oFile srcJob flags #[] "cc"
+  let headerJob ← verification_lib.h.fetch
+  let flags := #["-I", (← getLeanIncludeDir).toString, "-I", "include", "-fPIC"]
+  buildO oFile srcJob flags #[headerJob] "cc"
 
 target libleanffi pkg : FilePath := do
   let name := nameToStaticLib "leanffi"
