@@ -169,9 +169,11 @@
 
           preBuild = ''
             chmod +w ..
-            mkdir -p ../verification-lib/target/release ../target/release ../target/debug
+            mkdir -p ../verification-lib/include ../target/include ../verification-lib/target/release ../target/release ../target/debug
             ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
             ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
+            cp -f ${verificationLib}/include/verification_ffi.h ../verification-lib/include/ || true
+            cp -f ${verificationLib}/include/verification_ffi.h ../target/include/ || true
           '';
 
           buildPhase = ''
@@ -244,9 +246,11 @@
           '';
 
           installPhase = ''
-            mkdir -p $out/lib
+            mkdir -p $out/lib $out/include
             find target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
             find ../target -name "libverification_lib.*" -exec cp {} $out/lib/ \; || true
+            find . -name "verification_ffi.h" -exec cp {} $out/include/ \; || true
+            find ../target -name "verification_ffi.h" -exec cp {} $out/include/ \; || true
           '';
         };
 
@@ -453,9 +457,11 @@ with open("dummy_cert.json", "w") as f:
 
             preBuild = ''
               chmod +w ..
-              mkdir -p ../verification-lib/target/release ../target/release ../target/debug
+              mkdir -p ../verification-lib/include ../target/include ../verification-lib/target/release ../target/release ../target/debug
               ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
               ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
+              cp -f ${verificationLib}/include/verification_ffi.h ../verification-lib/include/ || true
+              cp -f ${verificationLib}/include/verification_ffi.h ../target/include/ || true
             '';
 
             buildPhase = ''
