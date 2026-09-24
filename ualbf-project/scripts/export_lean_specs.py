@@ -12,6 +12,14 @@ if repo_root not in sys.path:
 import hash_util
 
 
+def normalize_mtime_if_lean_spec(filepath):
+    if "lean4-proofs" in filepath.split(os.sep):
+        try:
+            os.utime(filepath, (1577836800, 1577836800))
+        except Exception:
+            pass
+
+
 def map_rust_type_to_c_info(rust_type):
     t = rust_type.strip()
     if t == "u8" or t == "UInt8":
@@ -285,6 +293,7 @@ def generate_c_schema_header(schema, repo_root, schema_hash):
 
         f.write("#endif // SCHEMA_GENERATED_H\n")
 
+    normalize_mtime_if_lean_spec(c_header_path)
     print(f"C schema header generated to {c_header_path}")
 
 
@@ -342,6 +351,8 @@ def generate_lean_types(schema, repo_root):
                 f.write("}\n\n")
 
         f.write("end UALBF.Engine\n")
+
+    normalize_mtime_if_lean_spec(lean_path)
 
 
 def generate_verus_specs(bounds, repo_root, bounds_hash):
@@ -653,6 +664,8 @@ def SCHEMA_MANIFEST_HASH : String := "{schema_hash}"
 
 end UALBF.FFI
 """)
+
+    normalize_mtime_if_lean_spec(lean_generated_path)
 
 
 def parse_lean_exports(content):
@@ -1106,6 +1119,9 @@ end UALBF.Manifest
             "w",
         ) as f:
             f.write(lean_code)
+        normalize_mtime_if_lean_spec(
+            os.path.join(repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean")
+        )
     else:
         print(f"Warning: {bounds_path} not found.")
 

@@ -580,6 +580,7 @@ def _generate_manifest_impl():
 
         if os.path.exists(cwd):
             for root, dirs, files in os.walk(cwd):
+                dirs[:] = [d for d in dirs if d != ".lake" and d != "build"]
                 for d in dirs:
                     try:
                         d_path = os.path.join(root, d)
