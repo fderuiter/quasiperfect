@@ -356,5 +356,84 @@ class TestSpecSyncValidation(unittest.TestCase):
             Path(bounds_path).write_text(original_bounds, encoding="utf-8")
 
 
+class TestToolchainSyncValidation(unittest.TestCase):
+    def test_validate_toolchain_sync_pass(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            ualbf_dir = tmp_path / "ualbf-project"
+            proofs_dir = ualbf_dir / "lean4-proofs"
+            proofs_dir.mkdir(parents=True, exist_ok=True)
+
+            (proofs_dir / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.30.0\n", encoding="utf-8"
+            )
+            (tmp_path / "README.md").write_text(
+                "Version: <!-- TOOLCHAIN_VERSION_START -->v4.30.0<!-- TOOLCHAIN_VERSION_END -->\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "docs_manifest.json").write_text(
+                json.dumps({"README.md": "authoritative"}), encoding="utf-8"
+            )
+
+            result = validate_docs.validate_toolchain_sync(tmpdir)
+            self.assertTrue(result)
+
+    def test_validate_toolchain_sync_detects_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            ualbf_dir = tmp_path / "ualbf-project"
+            proofs_dir = ualbf_dir / "lean4-proofs"
+            proofs_dir.mkdir(parents=True, exist_ok=True)
+
+            (proofs_dir / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.30.0\n", encoding="utf-8"
+            )
+            (tmp_path / "README.md").write_text(
+                "Version: <!-- TOOLCHAIN_VERSION_START -->v4.29.0-rc6<!-- TOOLCHAIN_VERSION_END -->\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "docs_manifest.json").write_text(
+                json.dumps({"README.md": "authoritative"}), encoding="utf-8"
+            )
+
+            captured_err = io.StringIO()
+            with mock.patch("sys.stderr", captured_err):
+                result = validate_docs.validate_toolchain_sync(tmpdir)
+            self.assertFalse(result)
+            self.assertIn("expected version 'v4.30.0'", captured_err.getvalue())
+
+    def test_sync_toolchain_docs_rewrites_markers(self):
+        import export_lean_specs
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            ualbf_dir = tmp_path / "ualbf-project"
+            proofs_dir = ualbf_dir / "lean4-proofs"
+            proofs_dir.mkdir(parents=True, exist_ok=True)
+
+            (proofs_dir / "lean-toolchain").write_text(
+                "leanprover/lean4:v4.30.0\n", encoding="utf-8"
+            )
+
+            readme = tmp_path / "README.md"
+            readme.write_text(
+                "Version: <!-- TOOLCHAIN_VERSION_START -->v4.29.0-rc6<!-- TOOLCHAIN_VERSION_END -->\n",
+                encoding="utf-8",
+            )
+
+            todo = ualbf_dir / "TODO.md"
+            todo.write_text(
+                "Env: <!-- TOOLCHAIN_ENV_START -->leanprover/lean4:v4.29.0-rc6<!-- TOOLCHAIN_ENV_END -->\n"
+                "Version: <!-- TOOLCHAIN_VERSION_START -->v4.29.0-rc6<!-- TOOLCHAIN_VERSION_END -->\n",
+                encoding="utf-8",
+            )
+
+            export_lean_specs.sync_toolchain_docs(str(ualbf_dir))
+
+            self.assertIn("v4.30.0", readme.read_text(encoding="utf-8"))
+            self.assertIn("leanprover/lean4:v4.30.0", todo.read_text(encoding="utf-8"))
+            self.assertIn("v4.30.0", todo.read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()

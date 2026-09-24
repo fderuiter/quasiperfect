@@ -81,7 +81,7 @@ quasipolynomials/
     ├── lean4-proofs/           # Lean 4 formal proof library
     │   ├── UALBF.lean          # Root import file
     │   ├── lakefile.lean       # Lake build configuration
-    │   ├── lean-toolchain      # Pinned Lean version (v4.29.0-rc6)
+    │   ├── lean-toolchain      # Pinned Lean version (<!-- TOOLCHAIN_VERSION_START -->v4.30.0<!-- TOOLCHAIN_VERSION_END -->)
     │   └── UALBF/
     │       ├── Basic.lean      # Layer 0: core definitions
     │       ├── FFI.lean        # C-linkage exports for Rust bridge
@@ -289,7 +289,7 @@ make
 
 | Tool | Version | Purpose |
 |---|---|---|
-| [Lean 4](https://leanprover.github.io/lean4/doc/setup.html) | v4.29.0-rc6 (see `lean-toolchain`) | Proof compilation |
+| [Lean 4](https://leanprover.github.io/lean4/doc/setup.html) | <!-- TOOLCHAIN_VERSION_START -->v4.30.0<!-- TOOLCHAIN_VERSION_END --> (see `lean-toolchain`) | Proof compilation |
 | [Lake](https://github.com/leanprover/lake) | Bundled with Lean | Lean build system |
 | [Mathlib4](https://leanprover-community.github.io/install/project.html) | Latest (fetched via `lakefile.lean`) | Mathematical library |
 | [Rust](https://www.rust-lang.org/tools/install) | 1.70+ (2021 edition) | Engine compilation |

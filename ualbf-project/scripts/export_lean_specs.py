@@ -928,6 +928,56 @@ end UALBF.Manifest
     else:
         print(f"Warning: {bounds_path} not found.")
 
+    sync_toolchain_docs(repo_root)
+
+
+def sync_toolchain_docs(repo_root):
+    toolchain_path = os.path.join(repo_root, "lean4-proofs", "lean-toolchain")
+    if not os.path.exists(toolchain_path):
+        print(f"Warning: {toolchain_path} not found.")
+        return
+
+    with open(toolchain_path, "r", encoding="utf-8") as f:
+        raw_toolchain = f.read().strip()
+
+    if ":" in raw_toolchain:
+        env_str = raw_toolchain
+        version_str = raw_toolchain.split(":")[-1]
+    else:
+        version_str = raw_toolchain
+        env_str = f"leanprover/lean4:{version_str}"
+
+    workspace_root = os.path.dirname(repo_root)
+    target_files = [
+        os.path.join(workspace_root, "README.md"),
+        os.path.join(repo_root, "TODO.md"),
+        os.path.join(repo_root, "README.md"),
+    ]
+
+    version_pattern = re.compile(
+        r"(<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_START\s*-->)(.*?)(<!--\s*(?:TOOLCHAIN_VERSION|LEAN_TOOLCHAIN)_END\s*-->)",
+        re.DOTALL,
+    )
+    env_pattern = re.compile(
+        r"(<!--\s*(?:TOOLCHAIN_ENV|LEAN_TOOLCHAIN_ENV)_START\s*-->)(.*?)(<!--\s*(?:TOOLCHAIN_ENV|LEAN_TOOLCHAIN_ENV)_END\s*-->)",
+        re.DOTALL,
+    )
+
+    for target_path in target_files:
+        if not os.path.exists(target_path):
+            continue
+
+        with open(target_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        new_content = version_pattern.sub(r"\g<1>" + version_str + r"\g<3>", content)
+        new_content = env_pattern.sub(r"\g<1>" + env_str + r"\g<3>", new_content)
+
+        if new_content != content:
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"Updated toolchain markers in {target_path}")
+
 
 if __name__ == "__main__":
     main()
