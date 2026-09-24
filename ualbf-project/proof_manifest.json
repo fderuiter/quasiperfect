@@ -454,7 +454,7 @@
     },
     {
       "file": "UALBF/Pure/RationalBounds.lean",
-      "checksum": "80ceaf84e5a2b63546cd908e74dd17b5b6fb628aa616a9d9e6118f0cee9b0946"
+      "checksum": "a4a8ffe9254b7e96549eab105fdbb1082388be4c3ef5089f8032aa7c564712f5"
     },
     {
       "file": "UALBF/Pure/Zsigmondy.lean",
@@ -604,6 +604,6 @@
       "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     }
   },
-  "verified_logic_hash": "ffc4fe20d8da6d9dba0206c926fa729275092ba12d52b79e1536170f891dfacc",
+  "verified_logic_hash": "2cf926a1178b8ca2acf73a65064e3314fe99897e0faa055032affe7efd81bb66",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

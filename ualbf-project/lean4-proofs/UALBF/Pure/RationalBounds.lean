@@ -610,7 +610,7 @@ instance (T : ℕ) [Fact (T ≥ (60 + 1))] : PrimeSplit T where
 class VerifyHeadProduct (T : ℕ) : Prop where
   verified : (∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T), ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ)
 
-instance (T : ℕ) [Decidable ((∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T), ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ))] [h2 : Fact ((∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T), ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ))] : VerifyHeadProduct T where
+instance (T : ℕ) [h2 : Fact ((∏ p ∈ Finset.filter (fun p => Nat.Prime p) (Finset.Icc 7 T), ((p : ℚ) ^ 3 / ((p : ℚ) ^ 3 - 1))) < 10048 / (UALBF.Manifest.EULER_CEILING_DEN : ℚ))] : VerifyHeadProduct T where
   verified := h2.out
 
 lemma tail_correction_bound (S : Finset ℕ)
