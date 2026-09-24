@@ -330,32 +330,10 @@ def write_telemetry_tex(
 
         if has_cert:
             # Enforce recursive chain of trust
-            if not os.path.exists(manifest_path):
-                print(
-                    f"Error: Proof manifest '{manifest_path}' not found, cannot verify chain of trust."
-                )
-                sys.exit(1)
-
-            manifest_content_bytes = cert_util.BoundedJSONLoader().read_file_bytes(
-                manifest_path
-            )
-
-            computed_manifest_hash = hash_util.hash_bytes(manifest_content_bytes)
-            if computed_manifest_hash != cert.get("manifest_hash"):
-                print("Error: Proof manifest hash mismatch in chain of trust.")
-                sys.exit(1)
-
-            manifest_data = cert_util.BoundedJSONLoader().loads(manifest_content_bytes)
-            expected_bounds_hash = manifest_data.get("bounds_manifest_hash")
-            if not expected_bounds_hash:
-                print("Error: Proof manifest missing bounds_manifest_hash.")
-                sys.exit(1)
-
-            computed_bounds_hash = hash_util.hash_bytes(
-                cert_util.BoundedJSONLoader().read_file_bytes(bounds_path)
-            )
-            if computed_bounds_hash != expected_bounds_hash:
-                print("Error: Bounds manifest hash mismatch in chain of trust.")
+            try:
+                cert_util.verify_manifest_chain(cert, manifest_path, bounds_path)
+            except cert_util.CertificateError as e:
+                print(f"Error: {e}")
                 sys.exit(1)
 
         ps_bound = (
@@ -379,17 +357,12 @@ def write_telemetry_tex(
             )
 
             # Requirement 4: Verify current hashes against codebase
-            local_verus = {}
-            for verus_file in ["verus_proofs.rs", "lean_export.rs"]:
-                rust_file = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "rust-engine",
-                    "src",
-                    verus_file,
-                )
-                if os.path.exists(rust_file):
-                    rf_text = cert_util.BoundedJSONLoader().read_file_text(rust_file)
-                    local_verus.update(auditor.compute_verus_hashes(rf_text))
+            rust_src_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "rust-engine",
+                "src",
+            )
+            local_verus = cert_util.get_verus_proof_hashes(rust_src_dir)
 
             expected_verus = manifest_data_macros.get("verus_hashes", {})
             for fn, expected_hash in expected_verus.items():
