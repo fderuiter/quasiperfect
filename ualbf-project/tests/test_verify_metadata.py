@@ -7,6 +7,7 @@ from verify_metadata import (
     is_backtick_valid,
     extract_backticks_with_lines,
     SUPERSCRIPTS,
+    main as verify_metadata_main,
 )
 
 
@@ -474,6 +475,11 @@ def test_validate_axiomatic_bounds_manifest_detection(tmp_path):
     }
     errors_true = validate_axiomatic_bounds_manifest(str(project_dir), bounds_true)
     assert errors_true == 0
+
+
+def test_verify_metadata_main():
+    verify_metadata_main()
+
 
 
 

@@ -27,6 +27,7 @@ check: check-core check-python
 check-core:
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
+	cargo llvm-cov --workspace --fail-under-functions 80 --summary-only --cobertura --output-path coverage.xml --ignore-filename-regex "(generated|metal_reflection|verification_cli|distributed|main\.rs)"
 	./scripts/check_lean_fmt.sh
 	./scripts/check-code-quality.sh
 

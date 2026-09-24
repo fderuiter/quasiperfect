@@ -159,3 +159,14 @@ def test_check_documentation_verus_and_module_qualification():
     # Run check_documentation on real repository files
     assert auditor.check_documentation(manifest) is True
 
+
+def test_check_imports():
+    project_dir = Path(__file__).parent.parent.resolve()
+    assert auditor.check_imports(str(project_dir)) is True
+
+
+def test_check_lean_environment():
+    with mock.patch.dict(os.environ, {"LEAN_SYSROOT": "DUMMY"}, clear=False):
+        auditor.check_lean_environment()
+
+

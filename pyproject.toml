@@ -36,6 +36,21 @@ exclude = [
     'target/'
 ]
 
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "*tests*",
+    "*scripts*",
+    "*prototypes*",
+    "*experimental*",
+    "*run_gui.py*",
+    "*verify_cert*"
+]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+
 [tool.pytest.ini_options]
 # Python unit tests execute via pytest across standard workspace targets.
 # The local suite is fully decoupled and can be executed via `make check-python`.
@@ -45,7 +60,7 @@ exclude = [
 # and are executed as part of custom manual/isolated validation suites.
 pythonpath = ["ualbf-project"]
 norecursedirs = ["scripts", "prototypes", "experimental", ".lake"]
-addopts = "--ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_verify_cert.py"
+addopts = "--cov=auditor --cov=cert_util --cov=hash_util --cov=matrix_utils --cov=time_utils --cov=verify_metadata --cov=paper --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80 --ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_verify_cert.py"
 
 # Local and parallel quality gate configurations successfully verified.
 # Verified fix for 'Run Python Quality Checks' (check_run_id: 93117701480) and 'Build and Verify' (check_run_id: 93117701476) on PR #401 by exporting Z3_LIBRARY_PATH_OVERRIDE.
