@@ -157,7 +157,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-JzoxPKsQ9uNNlHZo9dbhpo63MWjfOoCWbYLhVZV1LCk=";
+          outputHash = "sha256-fvi4xo9zNh3/fwkHrfquxUuWNoKH9asxr7uFFAS4gGU=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -551,7 +551,7 @@ with open("dummy_cert.json", "w") as f:
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
             export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
-            export CPATH="${./ualbf-project/verification-lib/include}:${./ualbf-project/target/include}:$CPATH"
+            export CPATH="$PWD/ualbf-project/verification-lib/include:$PWD/ualbf-project/target/include:$CPATH"
           '';
         };
       }
