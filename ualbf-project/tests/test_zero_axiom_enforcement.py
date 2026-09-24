@@ -29,7 +29,7 @@ def test_auditor_rejects_legacy_axiom():
         # If running lake env lean find_axioms.lean, return the legacy axiom
         if isinstance(args, list) and "find_axioms.lean" in args[-1]:
             # Simulate a theorem depending on UALBF.FFI.rust_is_prime_sound
-            stdout = "depends on axioms: [UALBF.FFI.unapproved_legacy_axiom, propext, Classical.choice, Quot.sound]"
+            stdout = "depends on axioms: [UALBF.FFI.rust_is_prime_sound, propext, Classical.choice, Quot.sound]"
             return mock.Mock(returncode=0, stdout=stdout, stderr="")
 
         # Intercept other commands to return success
@@ -310,7 +310,7 @@ def test_auditor_parses_quoted_lean4_theorem_names():
 def test_build_script_panics_on_legacy_axiom():
     """
     Test that the compile-time validation gatekeeper (build.rs) panics when encountering
-    an unapproved axiom in the proof manifest.
+    the legacy FFI axiom in the proof manifest.
     """
     manifest_path = project_dir / "proof_manifest.json"
     backup_path = project_dir / "proof_manifest.json.bak"
@@ -323,14 +323,14 @@ def test_build_script_panics_on_legacy_axiom():
 
         manifest["theorems"] = [
             {
-                "name": "UALBF.FFI.unapproved_legacy_axiom",
+                "name": "UALBF.FFI.rust_is_prime_sound",
                 "file": "UALBF/FFI.lean",
                 "status": "axiom",
                 "checksum": "",
             }
         ]
 
-        payload = "UALBF.FFI.unapproved_legacy_axiom|UALBF/FFI.lean|axiom"
+        payload = "UALBF.FFI.rust_is_prime_sound|UALBF/FFI.lean|axiom"
         manifest["theorems"][0]["checksum"] = hashlib.sha256(
             payload.encode("utf-8")
         ).hexdigest()
@@ -367,7 +367,7 @@ def test_build_script_panics_on_legacy_axiom():
 def test_runtime_panics_on_legacy_axiom():
     """
     Test that the engine runtime panics and aborts execution during manifest validation
-    if an unapproved axiom is present in the proof manifest.
+    if the legacy FFI axiom is present in the proof manifest.
     """
     # Locate the engine binary first, while the manifest is clean/unmodified.
     engine_bin = project_dir / "target/debug/ualbf_engine"
@@ -394,14 +394,14 @@ def test_runtime_panics_on_legacy_axiom():
 
         manifest["theorems"] = [
             {
-                "name": "UALBF.FFI.unapproved_legacy_axiom",
+                "name": "UALBF.FFI.rust_is_prime_sound",
                 "file": "UALBF/FFI.lean",
                 "status": "axiom",
                 "checksum": "",
             }
         ]
 
-        payload = "UALBF.FFI.unapproved_legacy_axiom|UALBF/FFI.lean|axiom"
+        payload = "UALBF.FFI.rust_is_prime_sound|UALBF/FFI.lean|axiom"
         manifest["theorems"][0]["checksum"] = hashlib.sha256(
             payload.encode("utf-8")
         ).hexdigest()

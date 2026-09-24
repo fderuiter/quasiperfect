@@ -589,10 +589,7 @@ fn main() {
     }
 
     println!("Epistemological Linkage Verified.");
-    let allowed_axioms = [
-        "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
-        "UALBF.FFI.rust_is_prime_sound",
-    ];
+    let allowed_axioms = ["UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"];
     let mut proof_incomplete = false;
     for thm in &manifest.theorems {
         let mut matched = false;

@@ -274,10 +274,7 @@ pub fn validate_proof_manifest(
         ));
     }
 
-    let allowed_axioms = [
-        "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
-        "UALBF.FFI.rust_is_prime_sound",
-    ];
+    let allowed_axioms = ["UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"];
     for thm in &proof_manifest.theorems {
         let is_whitelisted = thm.status == "proven"
             || (thm.status == "axiom" && allowed_axioms.contains(&thm.name.as_str()));

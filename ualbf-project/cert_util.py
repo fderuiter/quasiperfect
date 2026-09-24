@@ -565,7 +565,6 @@ CORE_THEOREMS = [
 
 ALLOWED_AXIOMS = {
     "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
-    "UALBF.FFI.rust_is_prime_sound",
 }
 
 
