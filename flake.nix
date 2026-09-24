@@ -174,6 +174,7 @@
             ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
             cp -f ${verificationLib}/include/verification_ffi.h ../verification-lib/include/ || true
             cp -f ${verificationLib}/include/verification_ffi.h ../target/include/ || true
+            export CPATH="../verification-lib/include:../target/include:$CPATH"
           '';
 
           buildPhase = ''
@@ -462,6 +463,7 @@ with open("dummy_cert.json", "w") as f:
               ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
               cp -f ${verificationLib}/include/verification_ffi.h ../verification-lib/include/ || true
               cp -f ${verificationLib}/include/verification_ffi.h ../target/include/ || true
+              export CPATH="../verification-lib/include:../target/include:$CPATH"
             '';
 
             buildPhase = ''
@@ -549,6 +551,7 @@ with open("dummy_cert.json", "w") as f:
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
             export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
+            export CPATH="${./ualbf-project/verification-lib/include}:${./ualbf-project/target/include}:$CPATH"
           '';
         };
       }
