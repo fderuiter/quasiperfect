@@ -220,7 +220,7 @@ private def modInverse (a m : Int) : Option Int :=
   Correctness of `modInverse`: when it returns `Some v`, we have
   `(a * v) % m = 1 % m`, i.e., `v` is a true modular inverse of `a` mod `m`.
 -/
-private theorem modInverse_spec (a m : Int) (v : Int)
+theorem modInverse_spec (a m : Int) (v : Int)
     (hm_pos : m > 0)
     (hv : modInverse a m = some v) :
     (a * v) % m = 1 % m := by
