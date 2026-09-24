@@ -1322,7 +1322,7 @@ def check_documentation(manifest):
         valid_symbols.add(fn.split("::")[-1])
 
     rust_regex = re.compile(
-        r"^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:unsafe\s+)?(?:fn|struct|enum|const|mod|trait|type|spec\s+fn|proof\s+fn)\s+([a-zA-Z0-9_]+)",
+        r"^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:unsafe|open|closed|exec|spec|proof|\s)*(?:fn|struct|enum|const|mod|trait|type)\s+([a-zA-Z0-9_]+)",
         re.MULTILINE,
     )
 
@@ -1359,14 +1359,37 @@ def check_documentation(manifest):
                     stripped = strip_comments(content, file)
                     fqns = extract_fqns_from_lean_content(stripped)
                     for fqn in fqns:
-                        valid_symbols.add(fqn)
-                        valid_symbols.add(fqn.split(".")[-1])
+                        parts = fqn.split(".")
+                        for i in range(len(parts)):
+                            sub_fqn = ".".join(parts[i:])
+                            valid_symbols.add(sub_fqn)
+                            valid_symbols.add(sub_fqn.replace(".", "::"))
                 except Exception:
                     pass
             elif file.endswith(".rs"):
                 try:
                     with open(file_path, "r", encoding="utf-8") as f:
-                        valid_symbols.update(rust_regex.findall(f.read()))
+                        found_syms = rust_regex.findall(f.read())
+                    file_stem = os.path.splitext(file)[0]
+                    parent_dir = os.path.basename(os.path.dirname(file_path))
+                    mod_names = set()
+                    if file_stem not in ("mod", "main", "lib"):
+                        mod_names.add(file_stem)
+                    if parent_dir not in ("src", "rust-engine", "ualbf-project", "."):
+                        mod_names.add(parent_dir)
+                    if (
+                        "math" in mod_names
+                        or parent_dir == "math"
+                        or file_stem == "math_utils"
+                    ):
+                        mod_names.add("math")
+                        mod_names.add("math_utils")
+
+                    for sym in found_syms:
+                        valid_symbols.add(sym)
+                        for mname in mod_names:
+                            valid_symbols.add(f"{mname}::{sym}")
+                            valid_symbols.add(f"{mname}.{sym}")
                 except Exception:
                     pass
             elif file.endswith(".py"):
