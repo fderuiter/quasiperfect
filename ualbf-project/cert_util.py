@@ -239,10 +239,7 @@ except Exception:
     compute_verus_hashes = compute_verus_hashes_fallback
 
 
-class CertificateError(Exception):
-    """Base class for certificate-related errors."""
-
-    pass
+CertificateError = hash_util.CertificateError
 
 
 class CertificateJSONError(CertificateError):
@@ -251,10 +248,7 @@ class CertificateJSONError(CertificateError):
     pass
 
 
-class CertificateValidationError(CertificateError):
-    """Raised when a certificate is missing mandatory fields or fails structural validation."""
-
-    pass
+CertificateValidationError = hash_util.CertificateValidationError
 
 
 class BoundedJSONLoader:
