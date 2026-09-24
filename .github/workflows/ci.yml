@@ -36,10 +36,6 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-        continue-on-error: true
-
       - name: Dry-run Evaluate macOS Targets
         run: |
           echo "Evaluating packages on aarch64-darwin..."
@@ -91,10 +87,6 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-        continue-on-error: true
-
       - name: Run Verus Semantic Verification via Nix
         run: nix build .#checks.${NIX_ARCH}.verus-proofs
 
@@ -120,12 +112,9 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-        continue-on-error: true
-
       - name: Setup Rust Cache
         uses: Swatinem/rust-cache@v2
+        continue-on-error: true
         with:
           work-directories: ualbf-project
 
@@ -193,11 +182,9 @@ jobs:
           extra_nix_config: |
             sandbox = true
 
-      - name: Setup Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@v8
-
       - name: Cache Pip Packages
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
@@ -206,6 +193,7 @@ jobs:
 
       - name: Setup Rust Cache
         uses: Swatinem/rust-cache@v2
+        continue-on-error: true
         with:
           work-directories: ualbf-project
 
