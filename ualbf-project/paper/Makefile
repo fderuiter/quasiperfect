@@ -12,12 +12,14 @@ execute-engine:
 telemetry: execute-engine
 	UALBF_CERT_PATH="$${UALBF_CERT_PATH:-../rust-engine/formal_certificate.json}" PYTHONPATH="..:$$PYTHONPATH" python3 ingest_cert.py
 
+PARSE_LATEX_LOG ?= $(CURDIR)/../scripts/parse_latex_log.py
+
 $(DOC).pdf: $(DOC).tex references.bib lean-setup.tex telemetry
 	pdflatex -shell-escape -interaction=nonstopmode -halt-on-error $(DOC).tex || true
 	bibtex $(DOC) || true
 	pdflatex -shell-escape -interaction=nonstopmode -halt-on-error $(DOC).tex || true
 	pdflatex -shell-escape -interaction=nonstopmode -halt-on-error $(DOC).tex
-	python3 ../scripts/parse_latex_log.py $(DOC).log
+	python3 $(PARSE_LATEX_LOG) $(DOC).log
 
 clean:
 	rm -f *.aux *.log *.out *.bbl *.blg *.toc *.fls *.fdb_latexmk

@@ -123,46 +123,53 @@ def test_ffi_naming_validation():
     """
     project_dir = Path(__file__).parent.parent
     ffi_lean_path = project_dir / "lean4-proofs/UALBF/FFI.lean"
-    
+
     # Backup original FFI.lean
     ffi_backup = ffi_lean_path.read_text(encoding="utf-8")
-    
+
     try:
         # Case 1: Corrupted/Missing Export Name
         corrupted_content_1 = ffi_backup.replace(
             "@[export ualbf_check_crt_1155]",
-            "@[export ualbf_check_crt_1155_mismatched]"
+            "@[export ualbf_check_crt_1155_mismatched]",
         )
         ffi_lean_path.write_text(corrupted_content_1, encoding="utf-8")
-        
+
         res1 = subprocess.run(
             ["python3", "scripts/export_lean_specs.py"],
             cwd=str(project_dir),
             capture_output=True,
             text=True,
         )
-        
+
         assert res1.returncode != 0
-        assert "FFI Naming Standardization / Build-Time Verification Failed" in res1.stderr
-        assert "Expected canonical export function 'ualbf_check_crt_1155' was not found." in res1.stderr
+        assert (
+            "FFI Naming Standardization / Build-Time Verification Failed" in res1.stderr
+        )
+        assert (
+            "Expected canonical export function 'ualbf_check_crt_1155' was not found."
+            in res1.stderr
+        )
         assert "lean4-proofs/UALBF/FFI.lean" in res1.stderr
 
         # Case 2: Invalid/Wrong Signature Type (e.g. returning UInt8 instead of Bool)
         corrupted_content_2 = ffi_backup.replace(
             "def ualbf_check_crt_1155_impl (z_val : @& U512) (x_l_val : @& U512) : Bool :=",
-            "def ualbf_check_crt_1155_impl (z_val : @& U512) (x_l_val : @& U512) : UInt8 :="
+            "def ualbf_check_crt_1155_impl (z_val : @& U512) (x_l_val : @& U512) : UInt8 :=",
         )
         ffi_lean_path.write_text(corrupted_content_2, encoding="utf-8")
-        
+
         res2 = subprocess.run(
             ["python3", "scripts/export_lean_specs.py"],
             cwd=str(project_dir),
             capture_output=True,
             text=True,
         )
-        
+
         assert res2.returncode != 0
-        assert "FFI Naming Standardization / Build-Time Verification Failed" in res2.stderr
+        assert (
+            "FFI Naming Standardization / Build-Time Verification Failed" in res2.stderr
+        )
         assert "The signature of 'ualbf_check_crt_1155' is invalid." in res2.stderr
         assert "Expected argument types: '@& U512' for both arguments" in res2.stderr
         assert "Expected return type: 'Bool'" in res2.stderr
@@ -179,6 +186,7 @@ def test_ffi_safety_layer_null_and_panic():
     using ctypes to invoke exported C ABI functions.
     """
     import ctypes
+
     project_dir = Path(__file__).parent.parent
 
     # Build verification-lib shared library
@@ -274,4 +282,23 @@ def test_ffi_multi_line_and_modifiers():
     assert ret_type == "Bool"
 
 
+def test_array_u512_pointer_transport():
+    """
+    Test that export_lean_specs.py generates valid vector pointer references (.as_ptr())
+    for Array U512 transport fields instead of std::ptr::null().
+    """
+    project_dir = Path(__file__).parent.parent
+    schema_generated_rs = project_dir / "rust-engine/src/schema_generated.rs"
 
+    # Run generator
+    res = subprocess.run(
+        ["python3", "scripts/export_lean_specs.py"],
+        cwd=str(project_dir),
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0, f"Generator failed: {res.stderr}"
+
+    content = schema_generated_rs.read_text(encoding="utf-8")
+    assert "sigma_factors: self.sigma_factors.as_ptr() as *const _," in content
+    assert "sigma_factors: std::ptr::null()" not in content
