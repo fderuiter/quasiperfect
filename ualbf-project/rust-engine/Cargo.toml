@@ -13,7 +13,6 @@ rayon = "1.8"
 primal = "0.3"
 smallvec = { version = "1.13", features = ["serde"] }
 prime_factorization = "1.0.5"
-z3 = { version = "0.19", default-features = false }
 crossbeam-channel = "0.5"
 ethnum = "1.5.3"
 ed25519-dalek = { version = "2.2.0", default-features = false, features = ["rand_core", "alloc", "zeroize"], optional = true }

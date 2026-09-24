@@ -703,11 +703,27 @@ pub fn quick_factor_u256(n: Uint) -> FactorizationResult {
         if remaining < Uint::from_u128((100_000_000u32) as u128) || verified_is_prime(remaining) {
             factors.push(remaining);
         } else {
-            factors.sort_unstable();
-            return FactorizationResult::Partial {
-                known_factors: factors,
-                remaining,
-            };
+            match rho_factor_u256(remaining) {
+                FactorizationResult::Complete(v) => factors.extend(v),
+                FactorizationResult::Partial {
+                    known_factors,
+                    remaining: rem,
+                } => {
+                    factors.extend(known_factors);
+                    factors.sort_unstable();
+                    return FactorizationResult::Partial {
+                        known_factors: factors,
+                        remaining: rem,
+                    };
+                }
+                FactorizationResult::Failure(u) => {
+                    factors.sort_unstable();
+                    return FactorizationResult::Partial {
+                        known_factors: factors,
+                        remaining: u,
+                    };
+                }
+            }
         }
     }
     factors.sort_unstable();

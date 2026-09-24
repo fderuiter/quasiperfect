@@ -286,12 +286,20 @@ fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &S
                         s_r = required_s_r;
                         prime_verified = true;
                     } else {
+                        eprintln!(
+                            "WARNING: verify_candidate_cpu_only factorization bounds exceeded or unverified prime cofactor for z_tiered = {}, cofactor = {}",
+                            z_tiered, cofactor
+                        );
                         return false;
                     }
                 }
             }
 
             if !prime_verified {
+                eprintln!(
+                    "WARNING: verify_candidate_cpu_only factorization bounds exceeded or incomplete factorization for z_tiered = {}, cofactor = {}",
+                    z_tiered, cofactor
+                );
                 return false;
             }
         }
@@ -737,6 +745,40 @@ mod additional_tests {
         // sigma(3^4) * sigma(5^2) = 121 * 31 = 3751.
         let res = verify_candidate_cpu_only(Uint::from_u32(45), Uint::from_u32(3751), &sigma_cache);
         assert!(res);
+    }
+
+    #[test]
+    fn test_verify_candidate_cpu_only_composite_remainder_above_10_8() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let sigma_cache = std::collections::HashMap::new();
+        // z_tiered = 10007 * 10009 = 100160063 (> 10^8).
+        // Trial division in quick_factor_u256 stops at 10000, leaving remaining = 100160063.
+        // Pollard's rho / ECM fallback factors 100160063 into [10007, 10009].
+        // sigma(10007^2) = 1 + 10007 + 10007^2 = 100150057.
+        // sigma(10009^2) = 1 + 10009 + 10009^2 = 100190091.
+        // required_s_r = 100150057 * 100190091 = 10034045330366187.
+        let z_tiered = Uint::from_u128(100160063);
+        let required_s_r = Uint::from_u128(10034043324485187);
+        let res = verify_candidate_cpu_only(z_tiered, required_s_r, &sigma_cache);
+        assert!(
+            res,
+            "verify_candidate_cpu_only must succeed when composite remainder >= 10^8 is factored"
+        );
+    }
+
+    #[test]
+    fn test_verify_candidate_cpu_only_mismatched_required_sigma_warning() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let sigma_cache = std::collections::HashMap::new();
+        // z_tiered = 100160063 (> 10^8).
+        let z_tiered = Uint::from_u128(100160063);
+        // Incorrect required_s_r
+        let incorrect_s_r = Uint::from_u128(99999999);
+        let res = verify_candidate_cpu_only(z_tiered, incorrect_s_r, &sigma_cache);
+        assert!(
+            !res,
+            "verify_candidate_cpu_only must return false on mismatched sigma requirement"
+        );
     }
 
     #[test]
