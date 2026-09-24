@@ -512,6 +512,7 @@ with open("dummy_cert.json", "w") as f:
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = [
             pkgs.m4
+            pkgs.cargo-llvm-cov
             rustToolchain
           ];
           buildInputs = [
@@ -521,6 +522,7 @@ with open("dummy_cert.json", "w") as f:
               flake8
               mypy
               pytest
+              pytest-cov
               pytest-mock
               cryptography
             ]))
