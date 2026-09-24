@@ -34,6 +34,7 @@ jobs:
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
 
       - name: Dry-run Evaluate macOS Targets
         run: |
@@ -88,6 +89,7 @@ jobs:
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
 
       - name: Run Verus Semantic Verification via Nix
         run: nix build .#checks.${NIX_ARCH}.verus-proofs
@@ -112,6 +114,7 @@ jobs:
 
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
 
       - name: Populate Pre-built Lean Objects
         run: |
