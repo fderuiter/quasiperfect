@@ -98,4 +98,35 @@ mod tests {
         assert_eq!(prefix.active_mask, vec![0b101, 0b010]);
         assert_eq!(prefix.sigma_mod24, 1);
     }
+
+    #[test]
+    fn test_prefix_to_transport_non_null_ptrs() {
+        let prefix_empty = Prefix {
+            n_l: Uint::from_u64(100),
+            s_l: Uint::from_u64(200),
+            last_idx: 0,
+            factors: vec![],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: vec![],
+            sigma_mod24: 0,
+        };
+        let transport_empty = prefix_empty.to_transport();
+        assert!(!transport_empty.sigma_factors.is_null());
+        assert_eq!(transport_empty.sigma_factors_len, 0);
+
+        let prefix_nonempty = Prefix {
+            n_l: Uint::from_u64(100),
+            s_l: Uint::from_u64(200),
+            last_idx: 1,
+            factors: vec![3],
+            sigma_factors: vec![Uint::from_u64(13)],
+            sigma_factors_u64: vec![13],
+            active_mask: vec![1],
+            sigma_mod24: 1,
+        };
+        let transport_nonempty = prefix_nonempty.to_transport();
+        assert!(!transport_nonempty.sigma_factors.is_null());
+        assert_eq!(transport_nonempty.sigma_factors_len, 1);
+    }
 }

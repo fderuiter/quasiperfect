@@ -1,8 +1,6 @@
 #include <lean/lean.h>
 #include <stdbool.h>
-
-extern void* verify_certificate(const char* cert_json, const char* pub_key, bool* is_valid, char* out_manifest_hash_buf, size_t out_manifest_hash_len);
-extern void free_certificate(void* cert);
+#include "verification_ffi.h"
 
 static lean_external_class* g_cert_class = NULL;
 
@@ -17,9 +15,6 @@ lean_obj_res lean_init_cert_class(lean_obj_arg w) {
     }
     return lean_io_result_mk_ok(lean_box(0));
 }
-
-extern char* rust_sha256_file(const char* path);
-extern void rust_free_string(char* ptr);
 
 lean_obj_res lean_sha256_file(b_lean_obj_arg path_obj) {
     const char* path = lean_string_cstr(path_obj);

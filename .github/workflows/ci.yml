@@ -1,5 +1,9 @@
 name: Unified Publication & Verification Build
 
+permissions:
+  contents: read
+  actions: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -97,6 +101,10 @@ jobs:
     name: Build and Verify
     runs-on: ubuntu-latest
     needs: [core-gating, verify-verus]
+    permissions:
+      contents: read
+      actions: write
+      pull-requests: write
     env:
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
       GIT_SSL_CAINFO: "/etc/ssl/certs/ca-certificates.crt"
@@ -137,6 +145,7 @@ jobs:
 
       - name: Post Failure Log to PR
         if: failure()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -147,7 +156,7 @@ jobs:
             echo '```' >> comment_body.txt
             cat make_check.log >> comment_body.txt
             echo '```' >> comment_body.txt
-            gh pr comment ${{ github.event.pull_request.number }} --body-file comment_body.txt
+            gh pr comment ${{ github.event.pull_request.number }} --body-file comment_body.txt || echo "Failed to post PR failure log comment"
           fi
 
       - name: Verify Workspace Cleanliness
