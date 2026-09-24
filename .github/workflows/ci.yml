@@ -113,6 +113,11 @@ jobs:
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@v8
 
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          work-directories: ualbf-project
+
       - name: Populate Pre-built Lean Objects
         run: |
           nix build .#packages.${NIX_ARCH}.lean -o ualbf-project/lean-built
@@ -122,11 +127,6 @@ jobs:
           chmod -R +w ualbf-project/lean4-proofs/.lake || true
           python3 -c "import os; proofs = 'ualbf-project/lean4-proofs'; [os.utime(os.path.join(r, f), (1767225600, 1767225600) if (('build' in r.split(os.sep) or f.endswith(('.olean', '.ilean', '.trace', '.hash', '.o', '.ot', '.a', '.so', '.dylib', '.dll', '.rsp', '.c'))) and not f.endswith('.lean')) else (1577836800, 1577836800)) for r, _, fs in os.walk(proofs) for f in fs]" || true
           nix develop --command bash -c "cd ualbf-project && make verification-lib"
-
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          work-directory: ualbf-project
 
       - name: Run Unified Quality Checks
         run: |
@@ -187,7 +187,7 @@ jobs:
       - name: Setup Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          work-directory: ualbf-project
+          work-directories: ualbf-project
 
       - name: Run Python Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-python"
