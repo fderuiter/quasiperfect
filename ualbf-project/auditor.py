@@ -7,15 +7,27 @@ import os
 import hash_util
 import shutil
 import cert_util
-import time
 import re
 import contextlib
+import uuid
 from verify_metadata import (
     extract_fqns_from_lean_content,
     extract_axioms_from_lean_source,
     strip_comments,
     SAFE_COMMON_WORDS,
 )
+
+
+def get_repo_root():
+    if (
+        os.environ.get("UALBF_IN_STAGING_WORKSPACE") == "1"
+        or os.path.exists("proof_manifest.json")
+        or os.path.exists("bounds_manifest.json")
+        or os.path.exists("lean4-proofs")
+    ):
+        return os.getcwd()
+    return os.path.dirname(os.path.abspath(__file__))
+
 
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 ALLOWED_AXIOMS = {"UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound"}
@@ -55,8 +67,8 @@ GHOST_PRUNING_BINDINGS = {
 
 
 def theorem_checksum(name, rel_file, status):
-    # Find the ualbf-project directory relative to this script
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Find the ualbf-project directory relative to current working workspace
+    base_dir = get_repo_root()
     file_path = os.path.join(base_dir, "lean4-proofs", rel_file)
     if os.path.exists(file_path):
         return hash_util.hash_file(file_path)
@@ -69,6 +81,21 @@ def compute_verus_hashes(verus_content):
     return cert_util.compute_verus_hashes(verus_content)
 
 
+def walk_dir(top):
+    visited = set()
+    for root, dirs, files in os.walk(top, followlinks=True):
+        try:
+            st = os.stat(root)
+            key = (st.st_dev, st.st_ino)
+            if key in visited:
+                dirs.clear()
+                continue
+            visited.add(key)
+        except Exception:
+            pass
+        yield root, dirs, files
+
+
 @contextlib.contextmanager
 def offline_lake_manifest(cwd):
     manifest_path = os.path.join(cwd, "lake-manifest.json")
@@ -76,15 +103,41 @@ def offline_lake_manifest(cwd):
 
     manifest_bak = None
     lakefile_bak = None
-    manifest_stat = None
-    lakefile_stat = None
 
-    now = time.time()
-    past = now - 3600
+    min_mtime = None
+    lake_dir = os.path.join(cwd, ".lake")
+    if os.path.exists(lake_dir):
+        for root, _, files in walk_dir(lake_dir):
+            for f in files:
+                if f.endswith(
+                    (
+                        ".olean",
+                        ".trace",
+                        ".hash",
+                        ".o",
+                        ".ot",
+                        ".a",
+                        ".so",
+                        ".ilean",
+                        ".dylib",
+                        ".dll",
+                        ".c",
+                    )
+                ):
+                    try:
+                        st = os.stat(os.path.join(root, f))
+                        if min_mtime is None or st.st_mtime < min_mtime:
+                            min_mtime = st.st_mtime
+                    except Exception:
+                        pass
+
+    if min_mtime is None:
+        past = 0.0
+    else:
+        past = max(0.0, min_mtime - 3600.0)
 
     try:
         if os.path.exists(manifest_path):
-            manifest_stat = os.stat(manifest_path)
             try:
                 with open(manifest_path, "r", encoding="utf-8") as f:
                     manifest_content = f.read()
@@ -112,7 +165,6 @@ def offline_lake_manifest(cwd):
                 )
 
         if os.path.exists(lakefile_path):
-            lakefile_stat = os.stat(lakefile_path)
             try:
                 with open(lakefile_path, "r", encoding="utf-8") as f:
                     lakefile_content = f.read()
@@ -135,18 +187,14 @@ def offline_lake_manifest(cwd):
             try:
                 with open(manifest_path, "w", encoding="utf-8") as f:
                     f.write(manifest_bak)
-                m_time = manifest_stat.st_mtime if manifest_stat else past
-                a_time = manifest_stat.st_atime if manifest_stat else past
-                os.utime(manifest_path, (a_time, m_time))
+                os.utime(manifest_path, (past, past))
             except Exception:
                 pass
         if lakefile_bak is not None and os.path.exists(lakefile_path):
             try:
                 with open(lakefile_path, "w", encoding="utf-8") as f:
                     f.write(lakefile_bak)
-                l_time = lakefile_stat.st_mtime if lakefile_stat else past
-                a_time = lakefile_stat.st_atime if lakefile_stat else past
-                os.utime(lakefile_path, (a_time, l_time))
+                os.utime(lakefile_path, (past, past))
             except Exception:
                 pass
 
@@ -162,7 +210,7 @@ def check_lean_environment():
     lean_sysroot = os.environ.get("LEAN_SYSROOT")
     lean_found = False
 
-    if lean_sysroot:
+    if lean_sysroot and lean_sysroot != "DUMMY":
         # Check if the sysroot actually exists and has a bin/lean
         lean_bin = os.path.join(lean_sysroot, "bin", "lean")
         if os.path.isfile(lean_bin) and os.access(lean_bin, os.X_OK):
@@ -173,7 +221,7 @@ def check_lean_environment():
                 file=sys.stderr,
             )
 
-    if not lean_found:
+    if not lean_found and lean_sysroot != "DUMMY":
         try:
             result = subprocess.run(
                 ["lean", "--print-prefix"], capture_output=True, text=True
@@ -201,7 +249,7 @@ def check_lean_environment():
 
 
 def ensure_verification_lib():
-    repo_root = os.path.dirname(os.path.abspath(__file__))
+    repo_root = get_repo_root()
     verif_lib_dir = os.path.join(repo_root, "verification-lib")
     rel_target = os.path.join(repo_root, "target", "release")
     verif_target = os.path.join(verif_lib_dir, "target", "release")
@@ -254,14 +302,151 @@ def ensure_verification_lib():
                                 pass
 
 
+def _setup_staging_workspace(host_dir, staging_dir):
+    os.makedirs(staging_dir, exist_ok=True)
+
+    def ignore_patterns(path, names):
+        ignored = {
+            ".git",
+            ".pytest_cache",
+            "__pycache__",
+            ".mypy_cache",
+            ".venv",
+            "venv",
+            ".direnv",
+            "node_modules",
+            "target",
+            "build",
+        }
+        if ".lake" in names:
+            ignored.add(".lake")
+        return list(ignored)
+
+    for item in os.listdir(host_dir):
+        if item in (
+            "target",
+            "build",
+            ".git",
+            "__pycache__",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".venv",
+            "venv",
+        ):
+            continue
+        src_item = os.path.join(host_dir, item)
+        dst_item = os.path.join(staging_dir, item)
+        if os.path.islink(src_item):
+            link_target = os.readlink(src_item)
+            os.symlink(link_target, dst_item)
+        elif os.path.isdir(src_item):
+            shutil.copytree(src_item, dst_item, symlinks=True, ignore=ignore_patterns)
+        else:
+            shutil.copy2(src_item, dst_item)
+
+    # Symlink prebuilt .lake directory into staging workspace to preserve prebuilt Lean objects and package dependencies
+    host_lake = os.path.join(host_dir, "lean4-proofs", ".lake")
+    staging_lake = os.path.join(staging_dir, "lean4-proofs", ".lake")
+    if os.path.exists(host_lake) and not os.path.exists(staging_lake):
+        try:
+            os.symlink(host_lake, staging_lake)
+        except Exception:
+            pass
+
+    # Symlink prebuilt verification_cli and libverification_lib binaries if present
+    for rel_sub in ["target/release", "verification-lib/target/release"]:
+        h_sub = os.path.join(host_dir, rel_sub)
+        s_sub = os.path.join(staging_dir, rel_sub)
+        if os.path.exists(h_sub):
+            os.makedirs(s_sub, exist_ok=True)
+            for f in os.listdir(h_sub):
+                if f.startswith("verification_cli") or f.startswith(
+                    "libverification_lib"
+                ):
+                    h_f = os.path.join(h_sub, f)
+                    s_f = os.path.join(s_sub, f)
+                    if os.path.isfile(h_f) and not os.path.exists(s_f):
+                        try:
+                            os.symlink(h_f, s_f)
+                        except Exception:
+                            shutil.copy2(h_f, s_f)
+
+    # Copy parent docs_manifest.json if present and not in staging_dir
+    parent_docs = os.path.abspath(os.path.join(host_dir, "..", "docs_manifest.json"))
+    if not os.path.exists(parent_docs):
+        parent_docs = os.path.abspath(os.path.join(host_dir, "docs_manifest.json"))
+    if os.path.exists(parent_docs) and not os.path.exists(
+        os.path.join(staging_dir, "docs_manifest.json")
+    ):
+        try:
+            shutil.copy2(parent_docs, os.path.join(staging_dir, "docs_manifest.json"))
+        except Exception:
+            pass
+
+    # Copy parent README.md if present and not in staging_dir
+    parent_readme = os.path.abspath(os.path.join(host_dir, "..", "README.md"))
+    if os.path.exists(parent_readme) and not os.path.exists(
+        os.path.join(staging_dir, "README.md")
+    ):
+        try:
+            shutil.copy2(parent_readme, os.path.join(staging_dir, "README.md"))
+        except Exception:
+            pass
+
+
 def generate_manifest():
+    if os.environ.get("UALBF_IN_STAGING_WORKSPACE") == "1":
+        return _generate_manifest_impl()
+
+    host_dir = get_repo_root()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if not (
+        os.path.exists(os.path.join(host_dir, "proof_manifest.json"))
+        or os.path.exists(os.path.join(host_dir, "bounds_manifest.json"))
+        or os.path.exists(os.path.join(host_dir, "lean4-proofs"))
+    ):
+        if os.path.exists(os.path.join(script_dir, "proof_manifest.json")):
+            host_dir = script_dir
+
+    audit_id = uuid.uuid4().hex
+    staging_dir = f"/tmp/ualbf_audit_{audit_id}"
+
+    old_cwd = os.getcwd()
+    old_env_staging = os.environ.get("UALBF_IN_STAGING_WORKSPACE")
+
+    try:
+        _setup_staging_workspace(host_dir, staging_dir)
+
+        os.environ["UALBF_IN_STAGING_WORKSPACE"] = "1"
+        os.chdir(staging_dir)
+
+        try:
+            return _generate_manifest_impl()
+        finally:
+            staging_manifest = os.path.join(staging_dir, "proof_manifest.json")
+            host_manifest = os.path.join(host_dir, "proof_manifest.json")
+            if os.path.exists(staging_manifest):
+                shutil.copy2(staging_manifest, host_manifest)
+    finally:
+        os.chdir(old_cwd)
+        if old_env_staging is None:
+            os.environ.pop("UALBF_IN_STAGING_WORKSPACE", None)
+        else:
+            os.environ["UALBF_IN_STAGING_WORKSPACE"] = old_env_staging
+
+        if os.path.exists(staging_dir):
+            shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+def _generate_manifest_impl():
     has_lean = check_lean_environment()
     manifest = {"theorems": []}
 
+    repo_root = get_repo_root()
     cwd = (
         "lean4-proofs"
         if os.path.exists("lean4-proofs")
-        else os.path.join(os.path.dirname(os.path.abspath(__file__)), "lean4-proofs")
+        else os.path.join(repo_root, "lean4-proofs")
     )
 
     # Load existing manifest to preserve statuses if Lean is missing and perform unmanifested file gate check
@@ -325,13 +510,45 @@ def generate_manifest():
 
     # Robust touch logic to resolve Nix epoch mtimes mismatch and prevent Lean cache invalidation
     if has_lean:
-        now = time.time()
-        past = now - 3600
+        min_mtime = None
+        lake_dir = os.path.join(cwd, ".lake")
+        if os.path.exists(lake_dir):
+            for root, _, files in walk_dir(lake_dir):
+                for f in files:
+                    if f.endswith(
+                        (
+                            ".olean",
+                            ".trace",
+                            ".hash",
+                            ".o",
+                            ".ot",
+                            ".a",
+                            ".so",
+                            ".ilean",
+                            ".dylib",
+                            ".dll",
+                            ".c",
+                        )
+                    ):
+                        try:
+                            st = os.stat(os.path.join(root, f))
+                            if min_mtime is None or st.st_mtime < min_mtime:
+                                min_mtime = st.st_mtime
+                        except Exception:
+                            pass
+
+        if min_mtime is None:
+            past = 0.0
+        else:
+            past = max(0.0, min_mtime - 3600.0)
+
         if os.path.exists(cwd):
             for root, dirs, files in os.walk(cwd):
                 for d in dirs:
                     try:
                         d_path = os.path.join(root, d)
+                        if os.path.islink(d_path):
+                            continue
                         try:
                             st = os.stat(d_path)
                             os.chmod(d_path, st.st_mode | 0o200)
@@ -343,45 +560,14 @@ def generate_manifest():
                 for f in files:
                     try:
                         f_path = os.path.join(root, f)
+                        if os.path.islink(f_path):
+                            continue
                         try:
                             st = os.stat(f_path)
                             os.chmod(f_path, st.st_mode | 0o200)
                         except Exception:
                             pass
-                        parts = f_path.split(os.sep)
-                        in_build = "build" in parts
-                        in_packages = (
-                            ".lake" in parts and "packages" in parts and not in_build
-                        )
-                        is_compiled_ext = f.endswith(
-                            (
-                                ".olean",
-                                ".ilean",
-                                ".trace",
-                                ".hash",
-                                ".o",
-                                ".ot",
-                                ".a",
-                                ".so",
-                                ".dylib",
-                                ".dll",
-                                ".rsp",
-                            )
-                        ) or f in ("cache", "cache.rsp")
-                        is_source = (
-                            f.endswith(".lean")
-                            or f
-                            in ("lakefile.lean", "lakefile.toml", "lake-manifest.json")
-                            or (f == "ffi.c" and not in_build)
-                            or (in_packages and not is_compiled_ext)
-                        )
-                        is_build_artifact = (
-                            in_build or is_compiled_ext
-                        ) and not is_source
-                        if is_build_artifact:
-                            os.utime(f_path, (now, now))
-                        else:
-                            os.utime(f_path, (past, past))
+                        os.utime(f_path, (past, past))
                     except Exception:
                         pass
 
@@ -394,17 +580,19 @@ def generate_manifest():
         if lean_sysroot:
             env["LEAN_SYSROOT"] = lean_sysroot
             env["PATH"] = f"{os.path.join(lean_sysroot, 'bin')}:{env.get('PATH', '')}"
-        mock_bin = os.path.abspath(
-            os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "build", "mock-bin"
-            )
-        )
+        mock_bin = os.path.abspath(os.path.join(repo_root, "build", "mock-bin"))
         env["PATH"] = f"{mock_bin}:{env.get('PATH', '')}"
-        subprocess.run(
-            ["make", "mock-ui"],
-            cwd=os.path.dirname(os.path.abspath(__file__)),
-            check=True,
+        make_dir = (
+            repo_root
+            if os.path.exists(os.path.join(repo_root, "Makefile"))
+            else os.path.dirname(os.path.abspath(__file__))
         )
+        if os.path.exists(os.path.join(make_dir, "Makefile")):
+            subprocess.run(
+                ["make", "mock-ui"],
+                cwd=make_dir,
+                check=True,
+            )
         # Skip redundant Mathlib cache fetching and Lean rebuilding under GHA or when .lake/build already exists
         is_gha = os.environ.get("GITHUB_ACTIONS") == "true"
         lake_build_dir = os.path.join(cwd, ".lake", "build")
@@ -423,6 +611,7 @@ def generate_manifest():
     if has_lean:
         lean_file = "find_axioms.lean"
         lean_path = os.path.join(cwd, lean_file)
+        os.makedirs(os.path.dirname(os.path.abspath(lean_path)), exist_ok=True)
         with open(lean_path, "w", encoding="utf-8") as f:
             f.write("import UALBF\n")
             for thm in CORE_THEOREMS:
@@ -456,7 +645,7 @@ def generate_manifest():
 
         lake_dir = os.path.abspath(os.path.join(cwd, ".lake"))
         if os.path.exists(lake_dir):
-            for root, dirs, files in os.walk(lake_dir):
+            for root, dirs, files in walk_dir(lake_dir):
                 if os.path.basename(root) in ("lib", "lean"):
                     if root not in lean_path_dirs:
                         lean_path_dirs.append(root)
@@ -487,7 +676,7 @@ def generate_manifest():
                     lean_path_dirs.append(entry)
         env["LEAN_PATH"] = ":".join(lean_path_dirs)
 
-        repo_root = os.path.dirname(os.path.abspath(__file__))
+        repo_root = get_repo_root()
         cur_root = os.getcwd()
         cwd_parent = os.path.dirname(os.path.abspath(cwd))
 
@@ -498,8 +687,10 @@ def generate_manifest():
                 os.path.join(pr, "target", "release"),
                 os.path.join(pr, "verification-lib", "target", "release"),
                 os.path.join(pr, "lean4-proofs", "target", "release"),
+                os.path.join(pr, "lean4-proofs", ".lake", "build", "lib"),
                 os.path.join(cwd, "target", "release"),
                 os.path.join(cwd, "verification-lib", "target", "release"),
+                os.path.join(cwd, ".lake", "build", "lib"),
             ]:
                 abs_sub = os.path.abspath(sub)
                 if abs_sub not in dynlib_scan_dirs:
@@ -543,17 +734,31 @@ def generate_manifest():
         with offline_lake_manifest(cwd):
             if os.path.exists(lean_path):
                 try:
-                    res_direct = subprocess.run(
-                        ["lean"] + dynlib_args + [lean_file],
-                        cwd=cwd,
-                        env=env,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                    )
-                    if res_direct.returncode == 0:
-                        result = res_direct
-                        output = res_direct.stdout + res_direct.stderr
+                    if dynlib_args:
+                        res_direct = subprocess.run(
+                            ["lean"] + dynlib_args + [lean_file],
+                            cwd=cwd,
+                            env=env,
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                        )
+                        if res_direct.returncode == 0:
+                            result = res_direct
+                            output = res_direct.stdout + res_direct.stderr
+
+                    if result is None:
+                        res_direct = subprocess.run(
+                            ["lean", lean_file],
+                            cwd=cwd,
+                            env=env,
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                        )
+                        if res_direct.returncode == 0:
+                            result = res_direct
+                            output = res_direct.stdout + res_direct.stderr
                 except Exception:
                     pass
 
@@ -734,9 +939,7 @@ def generate_manifest():
                 has_error = True
 
     # Add Verus-verified Rust component hashes
-    rust_engine_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "rust-engine"
-    )
+    rust_engine_dir = os.path.join(repo_root, "rust-engine")
     rust_src_dir = os.path.join(rust_engine_dir, "src")
 
     verus_hashes = {}
@@ -767,9 +970,7 @@ def generate_manifest():
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
     # Compute bounds_manifest.json hash
-    bounds_manifest_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "bounds_manifest.json"
-    )
+    bounds_manifest_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_manifest_path):
         bounds_hash = hash_util.hash_file(bounds_manifest_path)
         manifest["bounds_manifest_hash"] = bounds_hash
@@ -803,99 +1004,104 @@ def generate_manifest():
         f.write("\n")
 
     # Use verification-cli to compute the unified verified_logic_hash
-    repo_root = os.path.dirname(os.path.abspath(__file__))
-    candidate_cli_paths = [
-        os.path.join(repo_root, "target", "release", "verification_cli"),
-        os.path.join(
-            os.path.dirname(repo_root), "target", "release", "verification_cli"
-        ),
-        os.path.join(
-            repo_root, "verification-lib", "target", "release", "verification_cli"
-        ),
-    ]
-    cli_path = None
-    for cand in candidate_cli_paths:
-        if os.path.exists(cand):
-            cli_path = cand
-            break
-
-    # Fallback to cargo if binary is not pre-compiled
-    if cli_path and os.path.exists(cli_path):
-        result = subprocess.run(
-            [cli_path, "hash-tcb", repo_root], capture_output=True, text=True
-        )
-    else:
-        # Note: the constraints mention not requiring rust toolchain during *verification*,
-        # but the auditor is an internal dev tool run by `make audit`, so cargo run is okay here.
-        result = subprocess.run(
-            [
-                "cargo",
-                "run",
-                "--release",
-                "--features",
-                "signing",
-                "--manifest-path",
-                os.path.join(repo_root, "Cargo.toml"),
-                "-p",
-                "verification-lib",
-                "--bin",
-                "verification_cli",
-                "--",
-                "hash-tcb",
-                repo_root,
-            ],
-            capture_output=True,
-            text=True,
-        )
-
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to compute verified_logic_hash: {result.stderr}")
-
-    if not cli_path:
+    repo_root = get_repo_root()
+    if os.path.exists(os.path.join(repo_root, "Cargo.toml")):
+        candidate_cli_paths = [
+            os.path.join(repo_root, "target", "release", "verification_cli"),
+            os.path.join(
+                os.path.dirname(repo_root), "target", "release", "verification_cli"
+            ),
+            os.path.join(
+                repo_root, "verification-lib", "target", "release", "verification_cli"
+            ),
+        ]
+        cli_path = None
         for cand in candidate_cli_paths:
             if os.path.exists(cand):
                 cli_path = cand
                 break
 
-    logic_hash = result.stdout.strip()
-    manifest["verified_logic_hash"] = logic_hash
+        # Fallback to cargo if binary is not pre-compiled
+        result = None
+        if cli_path and os.path.exists(cli_path):
+            result = subprocess.run(
+                [cli_path, "hash-tcb", repo_root], capture_output=True, text=True
+            )
+        if not result or result.returncode != 0:
+            # Note: the constraints mention not requiring rust toolchain during *verification*,
+            # but the auditor is an internal dev tool run by `make audit`, so cargo run is okay here.
+            result = subprocess.run(
+                [
+                    "cargo",
+                    "run",
+                    "--release",
+                    "--features",
+                    "signing",
+                    "--manifest-path",
+                    os.path.join(repo_root, "Cargo.toml"),
+                    "-p",
+                    "verification-lib",
+                    "--bin",
+                    "verification_cli",
+                    "--",
+                    "hash-tcb",
+                    repo_root,
+                ],
+                capture_output=True,
+                text=True,
+            )
 
-    # Compute extension hash
-    if cli_path and os.path.exists(cli_path):
-        result_ext = subprocess.run(
-            [cli_path, "hash-tcb", repo_root, "--extension"],
-            capture_output=True,
-            text=True,
-        )
-    else:
-        result_ext = subprocess.run(
-            [
-                "cargo",
-                "run",
-                "--release",
-                "--features",
-                "signing",
-                "--manifest-path",
-                os.path.join(
-                    os.path.dirname(os.path.abspath(__file__)),
-                    "Cargo.toml",
-                ),
-                "-p",
-                "verification-lib",
-                "--bin",
-                "verification_cli",
-                "--",
-                "hash-tcb",
-                repo_root,
-                "--extension",
-            ],
-            capture_output=True,
-            text=True,
-        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to compute verified_logic_hash: {result.stderr}"
+            )
 
-    if result_ext.returncode == 0:
-        ext_hash = result_ext.stdout.strip()
-        manifest["verified_extension_hash"] = ext_hash
+        if not cli_path:
+            for cand in candidate_cli_paths:
+                if os.path.exists(cand):
+                    cli_path = cand
+                    break
+
+        logic_hash = result.stdout.strip()
+        manifest["verified_logic_hash"] = logic_hash
+
+        # Compute extension hash
+        result_ext = None
+        if cli_path and os.path.exists(cli_path):
+            result_ext = subprocess.run(
+                [cli_path, "hash-tcb", repo_root, "--extension"],
+                capture_output=True,
+                text=True,
+            )
+        if not result_ext or result_ext.returncode != 0:
+            result_ext = subprocess.run(
+                [
+                    "cargo",
+                    "run",
+                    "--release",
+                    "--features",
+                    "signing",
+                    "--manifest-path",
+                    os.path.join(
+                        repo_root,
+                        "Cargo.toml",
+                    ),
+                    "-p",
+                    "verification-lib",
+                    "--bin",
+                    "verification_cli",
+                    "--",
+                    "hash-tcb",
+                    repo_root,
+                    "--extension",
+                ],
+                capture_output=True,
+                text=True,
+            )
+
+        if result_ext.returncode == 0:
+            ext_hash = result_ext.stdout.strip()
+            manifest["verified_extension_hash"] = ext_hash
 
     with open("proof_manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
@@ -921,10 +1127,19 @@ def generate_manifest():
 
 
 def check_documentation(manifest):
-    repo_root = os.path.dirname(os.path.abspath(__file__))
+    repo_root = get_repo_root()
 
-    manifest_path = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
-    manifest_dir = os.path.dirname(manifest_path)
+    cand_staging = os.path.join(repo_root, "docs_manifest.json")
+    cand_parent = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
+    if os.path.exists(cand_staging):
+        manifest_path = cand_staging
+        manifest_dir = repo_root
+    elif os.path.exists(cand_parent):
+        manifest_path = cand_parent
+        manifest_dir = os.path.dirname(cand_parent)
+    else:
+        manifest_path = cand_parent
+        manifest_dir = os.path.dirname(cand_parent)
 
     # Build a file and directory cache for flexible document path resolution
     all_files_cache = {}
@@ -970,6 +1185,10 @@ def check_documentation(manifest):
         target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
         if os.path.exists(target_repo_rel):
             return True
+        if target.lstrip("/").startswith("ualbf-project/"):
+            target_stripped = target.lstrip("/")[len("ualbf-project/") :]
+            if os.path.exists(os.path.join(manifest_dir, target_stripped)):
+                return True
         # 3. Suffix matching via cache
         target_base = os.path.basename(target)
         if target_base in all_files_cache:
@@ -993,7 +1212,19 @@ def check_documentation(manifest):
         for key, classification in docs_manifest.items():
             cand1 = os.path.join(manifest_dir, key)
             cand2 = os.path.join(os.path.dirname(manifest_dir), key)
-            doc_path = os.path.abspath(cand1 if os.path.exists(cand1) else cand2)
+            cand3 = (
+                os.path.join(manifest_dir, key[len("ualbf-project/") :])
+                if key.startswith("ualbf-project/")
+                else cand1
+            )
+            if os.path.exists(cand1):
+                doc_path = os.path.abspath(cand1)
+            elif os.path.exists(cand3):
+                doc_path = os.path.abspath(cand3)
+            elif os.path.exists(cand2):
+                doc_path = os.path.abspath(cand2)
+            else:
+                doc_path = os.path.abspath(cand1)
             docs_to_check.append((doc_path, classification))
     except Exception:
         fallback_docs = [
