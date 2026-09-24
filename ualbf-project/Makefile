@@ -7,22 +7,23 @@ export PYTHONUNBUFFERED=1
 #   make lean     — Build only Lean (requires mathlib)
 #   make rust     — Build only Rust (requires prior `make lean`)
 #   make clean    — Clean both Lean and Rust build artifacts
-#   make check    — Runs both check-core and check-python targets
+#   make check    — Runs check-core, check-python, and check-paper targets
 #   make check-core — Runs Rust formatting and Clippy, and Lean formatting
 #   make check-python — Runs Python style checks, type-checking, doc validation, and unit tests
+#   make check-paper — Verifies paper unit tests and LaTeX macro synchronization
 #   make verify-sync — Verify generated specifications alignment and workspace cleanliness
 #
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit mock-ui verification-lib check verify-sync check-core check-python
+.PHONY: all lean rust clean audit mock-ui verification-lib check verify-sync check-core check-python check-paper
 
 all: verification-lib mock-ui lean rust
 
 audit:
 	python3 auditor.py
 
-check: check-core check-python
+check: check-core check-python check-paper
 
 check-core:
 	cargo fmt --check
@@ -40,6 +41,9 @@ check-python: verification-lib
 	python3 scripts/validate_docs.py --check-specs
 	python3 scripts/validate_tuning_guide.py
 	LEAN_SYSROOT=DUMMY python3 -m pytest tests paper
+
+check-paper: verification-lib
+	python3 scripts/verify_paper_sync.py
 
 verify-sync: verification-lib
 	./scripts/export_lean_specs.py
