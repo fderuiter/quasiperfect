@@ -192,14 +192,14 @@ def extract_fqns_from_lean_content(stripped: str) -> list[str]:
     stripped_no_strings = re.sub(r'"([^"\\]|\\.)*"', '""', stripped)
 
     fqns = []
-    namespace_stack = []
+    scope_stack = []
 
-    # Matches:
-    # 1. namespace <name>
-    # 2. end <optional_name>
-    # 3. def/theorem/lemma/structure/inductive/class/instance/abbrev/axiom <name>
+    keywords = (
+        "namespace|section|end|def|theorem|lemma|structure|inductive|class|"
+        "instance|abbrev|axiom|opaque|macro|syntax|elab|notation|mutual"
+    )
     pattern = re.compile(
-        r"\b(namespace|end|def|theorem|lemma|structure|inductive|class|instance|abbrev|axiom)\b(?:\s+([a-zA-Z0-9_'\.]+))?"
+        rf"\b({keywords})\b(?:\s+(?!(?:{keywords})\b)([a-zA-Z0-9_'\.]+))?"
     )
 
     for m in re.finditer(pattern, stripped_no_strings):
@@ -208,24 +208,35 @@ def extract_fqns_from_lean_content(stripped: str) -> list[str]:
 
         if keyword == "namespace":
             if name:
-                namespace_stack.append(name)
+                scope_stack.append(("namespace", name))
+        elif keyword == "section":
+            scope_stack.append(("section", name if name else None))
+        elif keyword == "mutual":
+            scope_stack.append(("mutual", name if name else None))
         elif keyword == "end":
             if name:
-                # Pop until the matching namespace is found, or just pop the top of stack
-                if name in namespace_stack:
-                    while namespace_stack:
-                        popped = namespace_stack.pop()
-                        if popped == name:
-                            break
-                elif namespace_stack:
-                    namespace_stack.pop()
+                # Search scope_stack from top to bottom for a frame matching the name
+                match_idx = None
+                for idx in range(len(scope_stack) - 1, -1, -1):
+                    if scope_stack[idx][1] == name:
+                        match_idx = idx
+                        break
+                if match_idx is not None:
+                    scope_stack = scope_stack[:match_idx]
+                elif scope_stack:
+                    scope_stack.pop()
             else:
-                if namespace_stack:
-                    namespace_stack.pop()
+                if scope_stack:
+                    scope_stack.pop()
         else:
             if name:
-                # Prepend the active namespace prefix
-                full_prefix = ".".join(namespace_stack)
+                # Prepend active namespace prefix (filtering for 'namespace' frames)
+                active_namespaces = [
+                    frame[1]
+                    for frame in scope_stack
+                    if frame[0] == "namespace" and frame[1]
+                ]
+                full_prefix = ".".join(active_namespaces)
                 if full_prefix:
                     fqn = f"{full_prefix}.{name}"
                 else:
@@ -238,14 +249,17 @@ def extract_fqns_from_lean_content(stripped: str) -> list[str]:
 def extract_axioms_from_lean_source(cwd: str) -> list[dict[str, str]]:
     """
     Scans all .lean source files under cwd for raw axiom declarations,
-    stripping comments first and keeping track of namespaces.
+    stripping comments first and keeping track of namespaces and sections.
     Returns a list of dicts: [{"name": fqn, "file": rel_path}]
     """
     discovered_axioms: list[dict[str, str]] = []
     if not os.path.exists(cwd):
         return discovered_axioms
 
-    pattern = re.compile(r"\b(namespace|end|axiom)\b(?:\s+([a-zA-Z0-9_'\.]+))?")
+    keywords = "namespace|section|end|axiom"
+    pattern = re.compile(
+        rf"\b({keywords})\b(?:\s+(?!(?:{keywords})\b)([a-zA-Z0-9_'\.]+))?"
+    )
 
     for root, _, files in os.walk(cwd):
         if ".lake" in root:
@@ -268,33 +282,42 @@ def extract_axioms_from_lean_source(cwd: str) -> list[dict[str, str]]:
                 stripped = strip_comments(content, file)
                 stripped_no_strings = re.sub(r'"([^"\\]|\\.)*"', '""', stripped)
 
-                namespace_stack = []
+                scope_stack = []
                 for m in re.finditer(pattern, stripped_no_strings):
                     keyword = m.group(1)
                     name = m.group(2)
 
                     if keyword == "namespace":
                         if name:
-                            namespace_stack.append(name)
+                            scope_stack.append(("namespace", name))
+                    elif keyword == "section":
+                        scope_stack.append(("section", name if name else None))
                     elif keyword == "end":
                         if name:
-                            if name in namespace_stack:
-                                while namespace_stack:
-                                    popped = namespace_stack.pop()
-                                    if popped == name:
-                                        break
-                            elif namespace_stack:
-                                namespace_stack.pop()
+                            match_idx = None
+                            for idx in range(len(scope_stack) - 1, -1, -1):
+                                if scope_stack[idx][1] == name:
+                                    match_idx = idx
+                                    break
+                            if match_idx is not None:
+                                scope_stack = scope_stack[:match_idx]
+                            elif scope_stack:
+                                scope_stack.pop()
                         else:
-                            if namespace_stack:
-                                namespace_stack.pop()
+                            if scope_stack:
+                                scope_stack.pop()
                     elif keyword == "axiom":
                         if name and name not in (
                             "propext",
                             "Classical.choice",
                             "Quot.sound",
                         ):
-                            full_prefix = ".".join(namespace_stack)
+                            active_namespaces = [
+                                frame[1]
+                                for frame in scope_stack
+                                if frame[0] == "namespace" and frame[1]
+                            ]
+                            full_prefix = ".".join(active_namespaces)
                             fqn = f"{full_prefix}.{name}" if full_prefix else name
                             discovered_axioms.append({"name": fqn, "file": rel_path})
 

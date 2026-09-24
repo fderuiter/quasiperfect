@@ -141,3 +141,21 @@ def test_concurrent_audit_staging_isolation():
                 os.chdir(old_cwd)
 
     assert len(staging_dirs) == 2
+
+
+def test_check_documentation_verus_and_module_qualification():
+    """
+    Verify that auditor.check_documentation correctly recognizes Verus spec/proof
+    functions (with open/closed modifiers) and qualified module symbols like
+    math_utils::tests as valid code symbols in documentation checks.
+    """
+    manifest = {
+        "theorems": [],
+        "verus_hashes": {
+            "scale_bound_spec": "dummy_hash",
+            "lean_miller_rabin_20_base_sufficiency": "dummy_hash",
+        },
+    }
+    # Run check_documentation on real repository files
+    assert auditor.check_documentation(manifest) is True
+
