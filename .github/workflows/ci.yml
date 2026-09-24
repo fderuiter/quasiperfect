@@ -171,4 +171,21 @@ jobs:
       - name: Run Python Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-python"
 
+  verify-paper-sync:
+    name: Verify Paper Macros & Compliance
+    runs-on: ubuntu-latest
+    needs: core-gating
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Nix (Linux)
+        uses: cachix/install-nix-action@v25
+        with:
+          nix_path: nixpkgs=flake:nixpkgs
+          extra_nix_config: |
+            sandbox = true
+
+      - name: Run Paper Sync & Compliance Checks
+        run: nix develop --command bash -c "cd ualbf-project && make check-paper"
+
 
