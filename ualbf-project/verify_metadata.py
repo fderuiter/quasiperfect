@@ -620,6 +620,7 @@ SAFE_COMMON_WORDS = {
     "manifest_constants.rs",
     "residue.rs",
     "schema_generated.rs",
+    "schema_generated.h",
     "sieve.rs",
     "main.rs",
     "types.rs",

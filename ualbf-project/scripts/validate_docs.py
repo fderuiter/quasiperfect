@@ -223,6 +223,7 @@ def validate_spec_sync(repo_root: str) -> bool:
 
     spec_files = [
         "rust-engine/src/schema_generated.rs",
+        "lean4-proofs/schema_generated.h",
         "lean4-proofs/UALBF/Engine/SearchState.lean",
         "rust-engine/src/lean_export.rs",
         "lean4-proofs/UALBF/FFI_generated.lean",

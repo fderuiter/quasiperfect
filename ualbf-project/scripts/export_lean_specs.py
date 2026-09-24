@@ -12,6 +12,87 @@ if repo_root not in sys.path:
 import hash_util
 
 
+def normalize_mtime_if_lean_spec(filepath):
+    if "lean4-proofs" in filepath.split(os.sep):
+        try:
+            os.utime(filepath, (1577836800, 1577836800))
+        except Exception:
+            pass
+
+
+def map_rust_type_to_c_info(rust_type):
+    t = rust_type.strip()
+    if t == "u8" or t == "UInt8":
+        return ("uint8_t", 1, 1)
+    elif t == "u16" or t == "UInt16":
+        return ("uint16_t", 2, 2)
+    elif t == "u32" or t == "UInt32":
+        return ("uint32_t", 4, 4)
+    elif t == "u64" or t == "UInt64":
+        return ("uint64_t", 8, 8)
+    elif t == "usize":
+        return ("size_t", 8, 8)
+    elif t == "bool" or t == "Bool":
+        return ("uint8_t", 1, 1)
+    elif t == "i8":
+        return ("int8_t", 1, 1)
+    elif t == "i16":
+        return ("int16_t", 2, 2)
+    elif t == "i32":
+        return ("int32_t", 4, 4)
+    elif t == "i64":
+        return ("int64_t", 8, 8)
+    elif t == "isize":
+        return ("intptr_t", 8, 8)
+    else:
+        return ("uint64_t", 8, 8)
+
+
+def compute_transport_layout(fields, schema):
+    u512_def = schema.get("U512", {"bit_width": 512, "limb_width": 64})
+    limb_count = u512_def.get("bit_width", 512) // u512_def.get("limb_width", 64)
+    u512_size = limb_count * 8
+    u512_align = 8
+
+    transport_fields = []
+    for field in fields:
+        fname = field["name"]
+        if "ffi_transport_type" in field:
+            ffi_t = field["ffi_transport_type"]
+            if ffi_t == "U512":
+                transport_fields.append((fname, "U512Data", u512_size, u512_align))
+            elif ffi_t == "Array U512":
+                transport_fields.append((fname, "const U512Data*", 8, 8))
+                transport_fields.append((f"{fname}_len", "size_t", 8, 8))
+            else:
+                c_type, size, align = map_rust_type_to_c_info(ffi_t)
+                transport_fields.append((fname, c_type, size, align))
+        else:
+            rust_t = field["rust_type"]
+            if "Vec<" in rust_t:
+                inner = rust_t.replace("Vec<", "").replace(">", "")
+                c_inner, _, _ = map_rust_type_to_c_info(inner)
+                transport_fields.append((fname, f"const {c_inner}*", 8, 8))
+                transport_fields.append((f"{fname}_len", "size_t", 8, 8))
+            else:
+                c_type, size, align = map_rust_type_to_c_info(rust_t)
+                transport_fields.append((fname, c_type, size, align))
+
+    layout = []
+    current_offset = 0
+    max_align = 1
+    for fname, c_type, size, align in transport_fields:
+        padding = (align - (current_offset % align)) % align
+        offset = current_offset + padding
+        layout.append((fname, c_type, offset))
+        current_offset = offset + size
+        max_align = max(max_align, align)
+
+    tail_padding = (max_align - (current_offset % max_align)) % max_align
+    total_size = current_offset + tail_padding
+    return layout, total_size
+
+
 def generate_rust_types(schema, repo_root, schema_hash):
     # We will generate a file src/schema_generated.rs in rust-engine
     rust_path = os.path.join(repo_root, "rust-engine", "src", "schema_generated.rs")
@@ -146,7 +227,93 @@ def generate_rust_types(schema, repo_root, schema_hash):
                 f.write("    }\n")
                 f.write("}\n\n")
 
+                # Compile-time offset_of! and size_of! assertions
+                layout, total_size = compute_transport_layout(fields, schema)
+                f.write("const _: () = {\n")
+                for fname, _, offset in layout:
+                    f.write(
+                        f"    assert!(core::mem::offset_of!({transport_name}, {fname}) == {offset});\n"
+                    )
+                f.write(
+                    f"    assert!(core::mem::size_of::<{transport_name}>() == {total_size});\n"
+                )
+                f.write("};\n\n")
+
     subprocess.run(["cargo", "fmt", "--", rust_path], check=True, cwd=repo_root)
+
+
+def generate_c_schema_header(schema, repo_root, schema_hash):
+    c_header_path = os.path.join(repo_root, "lean4-proofs", "schema_generated.h")
+    u512_def = schema.get("U512", {"bit_width": 512, "limb_width": 64})
+    limb_count = u512_def.get("bit_width", 512) // u512_def.get("limb_width", 64)
+
+    with open(c_header_path, "w", encoding="utf-8") as f:
+        f.write("// AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
+        f.write("#ifndef SCHEMA_GENERATED_H\n")
+        f.write("#define SCHEMA_GENERATED_H\n\n")
+        f.write("#include <stddef.h>\n")
+        f.write("#include <stdint.h>\n")
+        f.write("#include <stdbool.h>\n")
+        f.write("#include <assert.h>\n\n")
+        f.write("#ifndef _Static_assert\n")
+        f.write("#  if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L\n")
+        f.write("     /* C11 native _Static_assert */\n")
+        f.write("#  elif defined(__GNUC__) || defined(__clang__)\n")
+        f.write(
+            "#    define _Static_assert(expr, msg) __extension__ _Static_assert(expr, msg)\n"
+        )
+        f.write("#  else\n")
+        f.write(
+            "#    define SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b) a ## b\n"
+        )
+        f.write(
+            "#    define SCHEMA_STATIC_ASSERT_CONCAT(a, b) SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b)\n"
+        )
+        f.write(
+            "#    define _Static_assert(expr, msg) typedef char SCHEMA_STATIC_ASSERT_CONCAT(static_assertion_failed_, __LINE__)[(expr) ? 1 : -1]\n"
+        )
+        f.write("#  endif\n")
+        f.write("#endif\n\n")
+        f.write(f'#define EXPORTED_SCHEMA_MANIFEST_HASH "{schema_hash}"\n\n')
+
+        f.write("typedef struct U512Data {\n")
+        f.write(f"    uint64_t limbs[{limb_count}];\n")
+        f.write("} U512Data;\n\n")
+
+        for struct_name, struct_def in schema.items():
+            if "fields" not in struct_def:
+                continue
+            fields = struct_def["fields"]
+            has_transport = any("ffi_transport_type" in field for field in fields)
+            if not has_transport:
+                continue
+
+            rust_name = "Prefix" if struct_name == "SearchState" else struct_name
+            transport_name = f"{rust_name}Transport"
+
+            layout, total_size = compute_transport_layout(fields, schema)
+
+            f.write(f"typedef struct {transport_name} {{\n")
+            for fname, c_type, _ in layout:
+                f.write(f"    {c_type} {fname};\n")
+            f.write(f"}} {transport_name};\n\n")
+
+            if struct_name != rust_name:
+                alt_name = f"{struct_name}Transport"
+                f.write(f"typedef {transport_name} {alt_name};\n\n")
+
+            for fname, _, offset in layout:
+                f.write(
+                    f'_Static_assert(offsetof({transport_name}, {fname}) == {offset}, "{transport_name}.{fname} offset mismatch");\n'
+                )
+            f.write(
+                f'_Static_assert(sizeof({transport_name}) == {total_size}, "{transport_name} size mismatch");\n\n'
+            )
+
+        f.write("#endif // SCHEMA_GENERATED_H\n")
+
+    normalize_mtime_if_lean_spec(c_header_path)
+    print(f"C schema header generated to {c_header_path}")
 
 
 def generate_lean_types(schema, repo_root):
@@ -203,6 +370,8 @@ def generate_lean_types(schema, repo_root):
                 f.write("}\n\n")
 
         f.write("end UALBF.Engine\n")
+
+    normalize_mtime_if_lean_spec(lean_path)
 
 
 def generate_verus_specs(bounds, repo_root, bounds_hash):
@@ -515,6 +684,8 @@ def SCHEMA_MANIFEST_HASH : String := "{schema_hash}"
 end UALBF.FFI
 """)
 
+    normalize_mtime_if_lean_spec(lean_generated_path)
+
 
 def parse_lean_exports(content):
     exports = []
@@ -695,6 +866,7 @@ def main():
             schema = json.loads(schema_content)
             schema_hash = hash_util.hash_file(schema_path)
         generate_rust_types(schema, repo_root, schema_hash)
+        generate_c_schema_header(schema, repo_root, schema_hash)
         generate_lean_types(schema, repo_root)
         generate_ffi_lean_spec(schema, repo_root, schema_hash)
         print(f"Schema generated from {schema_path}")
@@ -966,6 +1138,9 @@ end UALBF.Manifest
             "w",
         ) as f:
             f.write(lean_code)
+        normalize_mtime_if_lean_spec(
+            os.path.join(repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean")
+        )
     else:
         print(f"Warning: {bounds_path} not found.")
 
