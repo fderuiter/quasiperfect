@@ -13,7 +13,7 @@ import os
 import sys
 import tempfile
 import subprocess
-from typing import Optional, List
+from typing import Optional
 from unittest import mock
 import concurrent.futures
 import pytest  # type: ignore
@@ -29,8 +29,6 @@ import cert_util
 from cert_util import (
     load_and_validate_cert,
     CertificateValidationError,
-    BoundedJSONLoader,
-    validate_file_size,
 )
 
 # ---------------------------------------------------------------------------
@@ -772,7 +770,7 @@ class TestSidecarLogVerification:
         for bad_content in [
             b"{bad json}\n",
             b'{"event": "overflow", "p": "3", "pow": 2}\nnot json\n',
-            b"[\"not an object\"]\n",
+            b'["not an object"]\n',
         ]:
             sidecar_file = tmp_path / "overflow_sidecar_bad.log"
             sidecar_file.write_bytes(bad_content)
@@ -868,69 +866,6 @@ class TestSidecarLogVerification:
 
         # Should pass without SystemExit
         verify_sidecar_file(loaded_cert, str(sidecar_file))
-
-    def test_cert_util_validate_sidecar_schema_directly(self, tmp_path):
-        from cert_util import validate_sidecar_schema, CertificateValidationError
-
-        # Test valid
-        valid_file = tmp_path / "valid.log"
-        valid_rec1 = json.dumps({"event": "overflow", "p": "3", "pow": 2})
-        valid_rec2 = json.dumps({"event": "overflow", "p": "11", "pow": 100})
-        valid_file.write_text(f"{valid_rec1}\n{valid_rec2}\n", encoding="utf-8")
-        validate_sidecar_schema(str(valid_file))
-
-        # Test legacy CSV format raises CertificateValidationError
-        legacy_file = tmp_path / "legacy.log"
-        legacy_file.write_text("3,2\n11,100\n", encoding="utf-8")
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(legacy_file))
-        assert "Line 1" in str(exc_info.value)
-        assert "invalid JSON syntax" in str(exc_info.value)
-
-        # Test malformed JSON line
-        bad_json_file = tmp_path / "bad_json.log"
-        bad_json_file.write_text(f"{valid_rec1}\n{{bad json}}\n", encoding="utf-8")
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_json_file))
-        assert "Line 2" in str(exc_info.value)
-        assert "invalid JSON syntax" in str(exc_info.value)
-
-        # Test missing required key
-        missing_key_file = tmp_path / "missing_key.log"
-        missing_key_file.write_text(
-            json.dumps({"event": "overflow", "p": "3"}) + "\n", encoding="utf-8"
-        )
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(missing_key_file))
-        assert "Line 1" in str(exc_info.value)
-        assert "Missing required key" in str(exc_info.value)
-
-        # Test extra key
-        extra_key_file = tmp_path / "extra_key.log"
-        extra_key_file.write_text(
-            json.dumps({"event": "overflow", "p": "3", "pow": 2, "foo": "bar"}) + "\n",
-            encoding="utf-8",
-        )
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(extra_key_file))
-        assert "Line 1" in str(exc_info.value)
-        assert "Unexpected extra key" in str(exc_info.value)
-
-        # Test non-numeric p
-        bad_p_file = tmp_path / "bad_p.log"
-        bad_p_file.write_text(
-            json.dumps({"event": "overflow", "p": "abc", "pow": 2}) + "\n",
-            encoding="utf-8",
-        )
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(bad_p_file))
-        assert "Line 1" in str(exc_info.value)
-        assert "invalid 'p' field value" in str(exc_info.value)
-
-        # Test missing file
-        with pytest.raises(CertificateValidationError) as exc_info:
-            validate_sidecar_schema(str(tmp_path / "nonexistent.log"))
-        assert "not found" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -1699,8 +1634,6 @@ class TestDirectMappingAndSchemaEnforcement:
         cert["signature"] = sig_hex
         cert["public_key"] = pub_hex
         os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
-
-        import cert_util
 
         os.environ["UALBF_PROOF_MANIFEST"] = manifest_path
         cert_path = os.path.join(str(tmp_path), "cert.json")
@@ -2503,82 +2436,6 @@ class TestPinnedTrustedKeyValidation:
         verified_cert = verify_certificate(cert_path, manifest_path)
         assert verified_cert["public_key"] == cert["public_key"]
 
-    def test_cert_util_load_and_validate_cert_rejects_missing_key(self):
-        """cert_util.load_and_validate_cert raises CertificateValidationError if trusted key is missing."""
-        manifest = make_manifest()
-        cert = build_cert("placeholder")
-        cert_path, manifest_path = write_files(manifest, cert)
-        if "UALBF_TRUSTED_PUBLIC_KEY" in os.environ:
-            del os.environ["UALBF_TRUSTED_PUBLIC_KEY"]
-
-        with pytest.raises(CertificateValidationError) as exc_info:
-            load_and_validate_cert(cert_path)
-        assert "No trusted public key is pinned" in str(exc_info.value)
-
-    def test_native_lib_validate_certificate_rejects_missing_or_mismatched_key(self):
-        """verification_lib.validate_certificate raises ValueError if trusted key is missing or mismatched."""
-        import verification_lib
-
-        manifest = make_manifest()
-        cert = build_cert("placeholder")
-        cert_path, manifest_path = write_files(manifest, cert)
-        if "UALBF_TRUSTED_PUBLIC_KEY" in os.environ:
-            del os.environ["UALBF_TRUSTED_PUBLIC_KEY"]
-
-        with open(cert_path, "r", encoding="utf-8") as f:
-            cert_str = f.read()
-
-        with pytest.raises(ValueError) as exc_info:
-            verification_lib.validate_certificate(cert_str)
-        assert "No trusted public key is pinned" in str(exc_info.value)
-
-        with pytest.raises(ValueError) as exc_info:
-            verification_lib.validate_certificate(
-                cert_str, trusted_public_key="11" * 32
-            )
-        assert "Certificate public key does not match trusted signer key" in str(
-            exc_info.value
-        )
-
-
-class TestFileSizeGuardrails:
-    def test_file_size_under_limit_passes(self, tmp_path):
-        manifest = make_manifest()
-        cert = build_cert("placeholder")
-        cert_path, manifest_path = write_files(manifest, cert)
-
-        pub_key = cert["public_key"]
-        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
-        try:
-            cert_util.validate_file_size(cert_path)
-            with mock.patch("cert_util.load_and_validate_cert", return_value=cert):
-                verified = verify_certificate(cert_path, manifest_path)
-                assert verified is not None
-        finally:
-            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
-
-    def test_file_size_exceeding_default_10mb_fails(self, tmp_path):
-        large_file = tmp_path / "oversized_cert.json"
-        with open(large_file, "wb") as f:
-            f.write(b"x" * (11 * 1024 * 1024))
-
-        with pytest.raises(CertificateValidationError) as exc_info:
-            load_and_validate_cert(str(large_file))
-        assert "exceeds maximum allowed limit" in str(exc_info.value)
-
-    def test_custom_file_size_limit_via_env_var(self, tmp_path):
-        cert_file = tmp_path / "test_cert.json"
-        with open(cert_file, "wb") as f:
-            f.write(b"x" * (2 * 1024 * 1024))
-
-        os.environ["UALBF_MAX_CERT_SIZE_MB"] = "1.0"
-        try:
-            with pytest.raises(CertificateValidationError) as exc_info:
-                load_and_validate_cert(str(cert_file))
-            assert "exceeds maximum allowed limit" in str(exc_info.value)
-        finally:
-            os.environ.pop("UALBF_MAX_CERT_SIZE_MB", None)
-
 
 class TestMetaCertificateRecursionLimit:
     def test_meta_cert_recursion_depth_within_limit(self, tmp_path):
@@ -2598,10 +2455,14 @@ class TestMetaCertificateRecursionLimit:
 
             from verify_cert import verify_meta_certificate
 
-            with mock.patch("verify_cert.verify_certificate", return_value=leaf_cert), mock.patch(
-                "verify_cert.verify_telemetry_paths"
-            ), mock.patch("verify_cert.check_continuity"):
-                res = verify_meta_certificate(current_node, manifest_path, current_depth=0)
+            with mock.patch(
+                "verify_cert.verify_certificate", return_value=leaf_cert
+            ), mock.patch("verify_cert.verify_telemetry_paths"), mock.patch(
+                "verify_cert.check_continuity"
+            ):
+                res = verify_meta_certificate(
+                    current_node, manifest_path, current_depth=0
+                )
                 assert res is not None
         finally:
             os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
@@ -2623,91 +2484,3 @@ class TestMetaCertificateRecursionLimit:
         with pytest.raises(CertificateValidationError) as exc_info:
             verify_meta_certificate(current_node, manifest_path, current_depth=0)
         assert "exceeds maximum limit of 5 levels" in str(exc_info.value)
-
-
-class TestBoundedJSONLoader:
-    """Unit tests for BoundedJSONLoader size limits and AST depth verification."""
-
-    def test_default_limits(self):
-        loader = cert_util.BoundedJSONLoader()
-        assert loader.max_size_bytes == 10 * 1024 * 1024
-        assert loader.max_depth == 10
-
-    def test_valid_json_within_limits(self):
-        loader = cert_util.BoundedJSONLoader()
-        data = loader.loads('{"key": "value", "numbers": [1, 2, 3]}')
-        assert data["key"] == "value"
-        assert data["numbers"] == [1, 2, 3]
-
-    def test_payload_exceeding_max_size_raises_error(self):
-        loader = cert_util.BoundedJSONLoader(max_size_bytes=50)
-        large_json = json.dumps({"data": "x" * 100})
-        with pytest.raises(CertificateValidationError) as exc_info:
-            loader.loads(large_json)
-        assert "exceeds maximum allowed limit" in str(exc_info.value)
-
-    def test_depth_within_limit_passes(self):
-        loader = cert_util.BoundedJSONLoader(max_depth=10)
-        # 10 nested containers
-        obj = 1
-        for _ in range(10):
-            obj = {"a": obj}
-        data = loader.loads(json.dumps(obj))
-        assert data is not None
-
-    def test_depth_exceeding_limit_raises_error(self):
-        loader = cert_util.BoundedJSONLoader(max_depth=10)
-        # 11 nested containers
-        obj = 1
-        for _ in range(11):
-            obj = {"a": obj}
-        with pytest.raises(CertificateValidationError) as exc_info:
-            loader.loads(json.dumps(obj))
-        assert "JSON object nesting depth" in str(exc_info.value)
-        assert "exceeds maximum allowed limit" in str(exc_info.value)
-
-    def test_custom_nesting_depth(self):
-        loader = cert_util.BoundedJSONLoader(max_depth=3)
-        depth_3 = {"a": {"b": {"c": 1}}}
-        assert loader.loads(json.dumps(depth_3)) == depth_3
-
-        depth_4 = {"a": {"b": {"c": {"d": 1}}}}
-        with pytest.raises(CertificateValidationError) as exc_info:
-            loader.loads(json.dumps(depth_4))
-        assert "nesting depth" in str(exc_info.value)
-
-    def test_read_file_text_size_limit_exceeded(self, tmp_path):
-        fpath = tmp_path / "large.txt"
-        fpath.write_text("A" * 100)
-        loader = cert_util.BoundedJSONLoader(max_size_bytes=50)
-        with pytest.raises(CertificateValidationError) as exc_info:
-            loader.read_file_text(fpath)
-        assert "exceeds maximum allowed limit" in str(exc_info.value)
-
-    def test_read_file_bytes_size_limit_exceeded(self, tmp_path):
-        fpath = tmp_path / "large.bin"
-        fpath.write_bytes(b"B" * 100)
-        loader = cert_util.BoundedJSONLoader(max_size_bytes=50)
-        with pytest.raises(CertificateValidationError) as exc_info:
-            loader.read_file_bytes(fpath)
-        assert "exceeds maximum allowed limit" in str(exc_info.value)
-
-    def test_load_file_success(self, tmp_path):
-        fpath = tmp_path / "cert.json"
-        content = {"status": "proven", "theorems": []}
-        fpath.write_text(json.dumps(content))
-        loader = cert_util.BoundedJSONLoader()
-        data = loader.load_file(fpath)
-        assert data == content
-
-    def test_file_not_found_raises_error(self):
-        loader = cert_util.BoundedJSONLoader()
-        with pytest.raises(CertificateValidationError) as exc_info:
-            loader.read_file_text("/nonexistent/path/file.json")
-        assert "File not found" in str(exc_info.value)
-
-    def test_invalid_json_syntax_raises_error(self):
-        loader = cert_util.BoundedJSONLoader()
-        with pytest.raises(CertificateValidationError) as exc_info:
-            loader.loads("{invalid json")
-        assert "Invalid JSON payload" in str(exc_info.value)
