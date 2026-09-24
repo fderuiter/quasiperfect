@@ -438,7 +438,7 @@
     },
     {
       "file": "UALBF/Pure/Cyclotomic.lean",
-      "checksum": "b69cf6cb7ca5172d0d4ea87fd64fb709e6c503316cf4e66ae448286b6016eb1e"
+      "checksum": "f3a35031dac063aba5135641e005746e73cb8bcaf0c3f60c852691f179e1b064"
     },
     {
       "file": "UALBF/Pure/CyclotomicAlgebra.lean",
@@ -454,7 +454,7 @@
     },
     {
       "file": "UALBF/Pure/RationalBounds.lean",
-      "checksum": "812002c3049b5a4fda645318684873f50f5ccdd263be781094bb14e88028f413"
+      "checksum": "80ceaf84e5a2b63546cd908e74dd17b5b6fb628aa616a9d9e6118f0cee9b0946"
     },
     {
       "file": "UALBF/Pure/Zsigmondy.lean",
@@ -604,6 +604,6 @@
       "theorem_hash": "00b8257e8dc30cf7e81b5a615fa6d352d01975cae836fca805d21b508c243fae"
     }
   },
-  "verified_logic_hash": "e3b6b0ea35c182bdbf60235f7a82f97f347a301912e3657fdc91de25220e6ae6",
+  "verified_logic_hash": "ffc4fe20d8da6d9dba0206c926fa729275092ba12d52b79e1536170f891dfacc",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
