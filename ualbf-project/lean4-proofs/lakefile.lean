@@ -21,7 +21,7 @@ target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
   let srcJob ← ffi.c.fetch
   let headerJob ← verification_lib.h.fetch
-  let srcJob := (srcJob.mix headerJob).map fun (src, _) => src
+  let srcJob := (srcJob.mix headerJob).map fun _ => pkg.dir / "ffi.c"
   let flags := #["-I", (← getLeanIncludeDir).toString, "-I", "include", "-I", (pkg.dir / "include").toString, "-fPIC"]
   buildO oFile srcJob flags #[] "cc"
 
