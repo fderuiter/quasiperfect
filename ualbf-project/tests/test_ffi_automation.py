@@ -1,7 +1,5 @@
 import os
-import shutil
 import json
-import hashlib
 import subprocess
 from pathlib import Path
 import pytest
@@ -70,13 +68,18 @@ def test_ffi_automation_dynamic_generation():
         # Verify C header and Rust assertions for 256-bit (4 limbs)
         h_content = schema_generated_h.read_text(encoding="utf-8")
         assert "uint64_t limbs[4];" in h_content
-        assert '_Static_assert(offsetof(PrefixTransport, n_l) == 0' in h_content
-        assert '_Static_assert(offsetof(PrefixTransport, s_l) == 32' in h_content
-        assert '_Static_assert(sizeof(PrefixTransport) == 144' in h_content
+        assert "_Static_assert(offsetof(PrefixTransport, n_l) == 0" in h_content
+        assert "_Static_assert(offsetof(PrefixTransport, s_l) == 32" in h_content
+        assert "_Static_assert(sizeof(PrefixTransport) == 144" in h_content
 
         schema_gen_rs = schema_generated_rs.read_text(encoding="utf-8")
-        assert 'assert!(core::mem::offset_of!(PrefixTransport, s_l) == 32);' in schema_gen_rs
-        assert 'assert!(core::mem::size_of::<PrefixTransport>() == 144);' in schema_gen_rs
+        assert (
+            "assert!(core::mem::offset_of!(PrefixTransport, s_l) == 32);"
+            in schema_gen_rs
+        )
+        assert (
+            "assert!(core::mem::size_of::<PrefixTransport>() == 144);" in schema_gen_rs
+        )
 
     finally:
         # Restore backups
@@ -109,10 +112,10 @@ def test_schema_layout_assertions():
     assert "#ifndef SCHEMA_GENERATED_H" in h_content
     assert "typedef struct PrefixTransport" in h_content
     assert "typedef PrefixTransport SearchStateTransport;" in h_content
-    assert '_Static_assert(offsetof(PrefixTransport, n_l) == 0' in h_content
-    assert '_Static_assert(offsetof(PrefixTransport, s_l) == 64' in h_content
-    assert '_Static_assert(offsetof(PrefixTransport, last_idx) == 128' in h_content
-    assert '_Static_assert(sizeof(PrefixTransport) == 208' in h_content
+    assert "_Static_assert(offsetof(PrefixTransport, n_l) == 0" in h_content
+    assert "_Static_assert(offsetof(PrefixTransport, s_l) == 64" in h_content
+    assert "_Static_assert(offsetof(PrefixTransport, last_idx) == 128" in h_content
+    assert "_Static_assert(sizeof(PrefixTransport) == 208" in h_content
 
     rs_content = schema_generated_rs.read_text(encoding="utf-8")
     assert "core::mem::offset_of!(PrefixTransport, n_l) == 0" in rs_content
@@ -137,9 +140,10 @@ def test_ffi_automation_out_of_sync_fails_cargo():
     schema_backup = schema_path.read_text(encoding="utf-8")
 
     try:
-        # 1. Modify schema_manifest to create mismatch
+        # 1. Modify schema_manifest to create mismatch by doubling bit_width
         schema_data = json.loads(schema_backup)
-        schema_data["U512"]["bit_width"] = 1024
+        current_bw = schema_data.get("U512", {}).get("bit_width", 512)
+        schema_data["U512"]["bit_width"] = current_bw * 2
         schema_path.write_text(json.dumps(schema_data, indent=2), encoding="utf-8")
 
         # Touch build.rs to force cargo to rerun it
