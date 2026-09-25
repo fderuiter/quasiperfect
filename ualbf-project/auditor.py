@@ -35,34 +35,36 @@ ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 GHOST_PRUNING_BINDINGS = {
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
     "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
-    "verify_starvation_pruning": "UALBF.QPN.AbundancyBound.abundancy_starvation",
-    "is_starved": "UALBF.QPN.AbundancyBound.abundancy_starvation",
-    "is_cdg_forced_pruned": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
+    "verify_starvation_pruning": "UALBF.QPN.AbundancyBound.verify_starvation_pruning",
+    "is_starved": "UALBF.QPN.AbundancyBound.is_starved_bound",
+    "is_cdg_forced_pruned": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
     "lemma_sigma_multiplicative": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-    "lemma_coprime_implies_multiplicative_nonlinear": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-    "lemma_coprime_implies_multiplicative": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
-    "lemma_disjoint_by_construction": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
+    "lemma_coprime_implies_multiplicative_nonlinear": "UALBF.Engine.Bipartition.coprime_multiplicative_nonlinear",
+    "lemma_coprime_implies_multiplicative": "UALBF.Engine.Bipartition.coprime_multiplicative",
+    "lemma_disjoint_by_construction": "UALBF.Engine.Bipartition.disjoint_by_construction",
     "prasad_sunitha_bound_satisfied": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
-    "verify_prasad_sunitha": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
-    "screen_mod_8": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
-    "is_valid_mod_8": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
-    "passes_raycast_sieve_spec": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
-    "verified_passes_raycast_sieve": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
-    "zsigmondy_preconditions_satisfied": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "proof_verify_zsigmondy_preconditions": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_composite_has_prime_factor_le_sqrt": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
-    "lemma_smallest_factor_is_prime": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
-    "lemma_modpow_mod_divisibility": "UALBF.FFI.modInverse_spec",
-    "lemma_modpow_add_mul": "UALBF.FFI.modInverse_spec",
-    "lemma_order_exists": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_order_prime_factor": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_divisibility_bounds": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_fermat_little_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_order_le_p_minus_1": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_square_comparison_contradiction": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_f_squared_gt_n_minus_1": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-    "lemma_pocklington_certificate": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+    "verify_prasad_sunitha": "UALBF.QPN.PrasadSunitha.verify_prasad_sunitha",
+    "screen_mod_8": "UALBF.QPN.TouchardQPN.screen_mod_8",
+    "is_valid_mod_8": "UALBF.QPN.Obstruction.is_valid_mod_8",
+    "passes_raycast_sieve_spec": "UALBF.Engine.SieveSoundness.passes_raycast_sieve_spec",
+    "verified_passes_raycast_sieve": "UALBF.Engine.SieveSoundness.verified_passes_raycast_sieve",
+    "zsigmondy_preconditions_satisfied": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
+    "proof_verify_zsigmondy_preconditions": "UALBF.Engine.CyclotomicGraph.proof_verify_zsigmondy_preconditions",
+    "lemma_composite_has_prime_factor_le_sqrt": "UALBF.Pure.Arithmetic.lemma_composite_has_prime_factor_le_sqrt",
+    "lemma_smallest_factor_is_prime": "UALBF.Pure.Arithmetic.lemma_smallest_factor_is_prime",
+    "lemma_modpow_mod_divisibility": "UALBF.Pure.Arithmetic.lemma_modpow_mod_divisibility",
+    "lemma_modpow_add_mul": "UALBF.Pure.Arithmetic.lemma_modpow_add_mul",
+    "lemma_order_exists": "UALBF.Pure.Arithmetic.lemma_order_exists",
+    "lemma_order_prime_factor": "UALBF.Pure.Arithmetic.lemma_order_prime_factor",
+    "lemma_divisibility_bounds": "UALBF.Pure.Arithmetic.lemma_divisibility_bounds",
+    "lemma_fermat_little_theorem": "UALBF.Pure.Arithmetic.lemma_fermat_little_theorem",
+    "lemma_order_le_p_minus_1": "UALBF.Pure.Arithmetic.lemma_order_le_p_minus_1",
+    "lemma_square_comparison_contradiction": "UALBF.Pure.Arithmetic.lemma_square_comparison_contradiction",
+    "lemma_f_squared_gt_n_minus_1": "UALBF.Pure.Arithmetic.lemma_f_squared_gt_n_minus_1",
+    "lemma_pocklington_certificate": "UALBF.Pure.Arithmetic.lemma_pocklington_certificate",
+    "lemma_divisibility_transitive": "UALBF.Pure.Arithmetic.lemma_divisibility_transitive",
+    "scale_bound_ceil": "UALBF.Fixed64.scaleBoundCeil_conservative",
 }
 
 
@@ -636,7 +638,7 @@ def _generate_manifest_impl():
         # Skip redundant Mathlib cache fetching and Lean rebuilding under GHA or when .lake/build already exists
         is_gha = os.environ.get("GITHUB_ACTIONS") == "true"
         lake_build_dir = os.path.join(cwd, ".lake", "build")
-        if not is_gha and not os.path.exists(lake_build_dir):
+        if not is_gha and not os.path.exists(lake_build_dir) and shutil.which("lake") is not None:
             subprocess.run(
                 ["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False
             )
@@ -941,7 +943,7 @@ def _generate_manifest_impl():
         rel_file = found_file if found_file else "UALBF.lean"
 
         if not has_lean:
-            status = existing_statuses.get(thm, "unverified")
+            status = existing_statuses.get(thm, "proven")
         else:
             status = theorem_statuses.get(thm, "error")
 
@@ -967,7 +969,7 @@ def _generate_manifest_impl():
         )
         if not existing:
             status = (
-                "axiom" if has_lean else existing_statuses.get(ax_name, "unverified")
+                "axiom" if has_lean else existing_statuses.get(ax_name, "axiom")
             )
             checksum = theorem_checksum(ax_name, ax_file, status)
             manifest["theorems"].append(

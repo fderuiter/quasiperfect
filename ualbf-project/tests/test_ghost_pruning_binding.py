@@ -62,6 +62,7 @@ def test_ghost_pruning_bindings_present_in_manifest():
 
             assert "ghost_pruning_bindings" in manifest
             gb = manifest["ghost_pruning_bindings"]
+            assert len(gb) == 32
             assert "check_starvation_kill" in gb
             assert "lean_abundancy_starvation_theorem" in gb
             assert "check_cdg_forced_kill" in gb
@@ -71,6 +72,11 @@ def test_ghost_pruning_bindings_present_in_manifest():
             starv_binding = gb["check_starvation_kill"]
             assert starv_binding["lean_theorem"] == "UALBF.QPN.AbundancyBound.abundancy_starvation"
             assert len(starv_binding["theorem_hash"]) == 64
+
+            # Ensure no non-CDG ghost function uses forced_inclusion as a fallback
+            for fn_name, binding in gb.items():
+                if fn_name != "check_cdg_forced_kill":
+                    assert binding["lean_theorem"] != "UALBF.Engine.CyclotomicGraph.forced_inclusion"
 
         finally:
             os.chdir(old_cwd)

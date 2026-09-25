@@ -38,78 +38,69 @@ fn sample_valid_bounds_manifest_json() -> &'static str {
 }
 
 fn sample_valid_proof_manifest_json(bounds_hash: &str) -> String {
+    let fns = [
+        "check_starvation_kill",
+        "check_cdg_forced_kill",
+        "lean_abundancy_starvation_theorem",
+        "verify_starvation_pruning",
+        "is_starved",
+        "is_cdg_forced_pruned",
+        "lemma_sigma_multiplicative",
+        "lemma_coprime_implies_multiplicative_nonlinear",
+        "lemma_coprime_implies_multiplicative",
+        "lemma_disjoint_by_construction",
+        "prasad_sunitha_bound_satisfied",
+        "verify_prasad_sunitha",
+        "screen_mod_8",
+        "is_valid_mod_8",
+        "passes_raycast_sieve_spec",
+        "verified_passes_raycast_sieve",
+        "zsigmondy_preconditions_satisfied",
+        "proof_verify_zsigmondy_preconditions",
+        "lemma_composite_has_prime_factor_le_sqrt",
+        "lemma_smallest_factor_is_prime",
+        "lemma_modpow_mod_divisibility",
+        "lemma_modpow_add_mul",
+        "lemma_order_exists",
+        "lemma_order_prime_factor",
+        "lemma_divisibility_bounds",
+        "lemma_fermat_little_theorem",
+        "lemma_order_le_p_minus_1",
+        "lemma_square_comparison_contradiction",
+        "lemma_f_squared_gt_n_minus_1",
+        "lemma_pocklington_certificate",
+        "lemma_divisibility_transitive",
+        "scale_bound_ceil",
+    ];
+
+    let mut thms_json = Vec::new();
+    let mut bindings_json = Vec::new();
+
+    for fn_name in fns {
+        let thm_name = format!("{}_thm", fn_name);
+        let hash = format!("hash_{}", fn_name);
+        thms_json.push(format!(
+            r#"{{ "name": "{}", "file": "UALBF/Engine/Bipartition.lean", "status": "proven", "checksum": "{}" }}"#,
+            thm_name, hash
+        ));
+        bindings_json.push(format!(
+            r#""{}": {{ "lean_theorem": "{}", "theorem_hash": "{}" }}"#,
+            fn_name, thm_name, hash
+        ));
+    }
+
     format!(
         r#"{{
-            "theorems": [
-                {{
-                    "name": "check_starvation_kill_thm",
-                    "file": "UALBF/Engine/Bipartition.lean",
-                    "status": "proven",
-                    "checksum": "hash_starvation"
-                }},
-                {{
-                    "name": "check_cdg_forced_kill_thm",
-                    "file": "UALBF/Engine/Bipartition.lean",
-                    "status": "proven",
-                    "checksum": "hash_cdg"
-                }},
-                {{
-                    "name": "lean_abundancy_starvation_thm",
-                    "file": "UALBF/Engine/Bipartition.lean",
-                    "status": "proven",
-                    "checksum": "hash_abundancy"
-                }},
-                {{
-                    "name": "verify_starvation_pruning_thm",
-                    "file": "UALBF/Engine/Bipartition.lean",
-                    "status": "proven",
-                    "checksum": "hash_pruning"
-                }},
-                {{
-                    "name": "lemma_sigma_multiplicative_thm",
-                    "file": "UALBF/Pure/Arithmetic.lean",
-                    "status": "proven",
-                    "checksum": "hash_sigma"
-                }},
-                {{
-                    "name": "lemma_disjoint_by_construction_thm",
-                    "file": "UALBF/Engine/Bipartition.lean",
-                    "status": "proven",
-                    "checksum": "hash_disjoint"
-                }}
-            ],
+            "theorems": [ {} ],
             "verified_logic_hash": "0000000000000000000000000000000000000000000000000000000000000000",
             "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
             "verus_hashes": {{}},
-            "ghost_pruning_bindings": {{
-                "check_starvation_kill": {{
-                    "lean_theorem": "check_starvation_kill_thm",
-                    "theorem_hash": "hash_starvation"
-                }},
-                "check_cdg_forced_kill": {{
-                    "lean_theorem": "check_cdg_forced_kill_thm",
-                    "theorem_hash": "hash_cdg"
-                }},
-                "lean_abundancy_starvation_theorem": {{
-                    "lean_theorem": "lean_abundancy_starvation_thm",
-                    "theorem_hash": "hash_abundancy"
-                }},
-                "verify_starvation_pruning": {{
-                    "lean_theorem": "verify_starvation_pruning_thm",
-                    "theorem_hash": "hash_pruning"
-                }},
-                "lemma_sigma_multiplicative": {{
-                    "lean_theorem": "lemma_sigma_multiplicative_thm",
-                    "theorem_hash": "hash_sigma"
-                }},
-                "lemma_disjoint_by_construction": {{
-                    "lean_theorem": "lemma_disjoint_by_construction_thm",
-                    "theorem_hash": "hash_disjoint"
-                }}
-            }},
+            "ghost_pruning_bindings": {{ {} }},
             "proof_files": [],
             "bounds_manifest_hash": "{}"
         }}"#,
+        thms_json.join(", "),
+        bindings_json.join(", "),
         bounds_hash
     )
 }

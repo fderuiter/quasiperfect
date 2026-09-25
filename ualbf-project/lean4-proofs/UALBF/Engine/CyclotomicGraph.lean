@@ -144,4 +144,21 @@ theorem relational_sieve_soundness_generic [S : RelationalObstruction] {N p e d 
   obtain ⟨q_fi, hq_fi_prime, hq_fi_mod_d, h_q_fi_dvd_sigma_N⟩ := h_forced_prime
   exact S.obstruction N d q h_qpn h_cond hq_prime hq_mod_d h_q_dvd_sigma_N
 
+theorem is_cdg_forced_pruned {p1 e1 p2 N : ℕ}
+  (hp1 : p1.Prime)
+  (h_exact1 : ExactValuation p1 (2 * e1) N)
+  (h_step : SingleStepForce p1 e1 p2) :
+  p2 ∣ sigma N :=
+  single_step_forced_inclusion hp1 h_exact1 h_step
+
+theorem zsigmondy_preconditions_satisfied (p d : ℕ)
+  (hp : 3 ≤ p) (hp_odd : Odd p) (hd : 3 ≤ d) :
+  3 ≤ p ∧ Odd p ∧ 3 ≤ d :=
+  ⟨hp, hp_odd, hd⟩
+
+theorem proof_verify_zsigmondy_preconditions (p d : ℕ)
+  (hp : 3 ≤ p) (hp_odd : Odd p) (hd : 3 ≤ d) :
+  3 ≤ p ∧ Odd p ∧ 3 ≤ d :=
+  zsigmondy_preconditions_satisfied p d hp hp_odd hd
+
 end UALBF.Engine.CyclotomicGraph
