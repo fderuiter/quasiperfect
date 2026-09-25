@@ -397,4 +397,8 @@ theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeF
 axiom qpn_div_5_coprime_3_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 3 = 1) (h_div_5 : 5 ∈ N.primeFactors) : UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND ≤ N.primeFactors.card
 
+theorem verify_prasad_sunitha {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (h_coprime : N.gcd 15 = 1) : UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ N.primeFactors.card :=
+  qpn_coprime_15_omega_bound h_qpn h_coprime
+
 end UALBF.QPN.PrasadSunitha
