@@ -267,5 +267,14 @@ mod tests {
         let late_null = b"abc\0";
         let ffi_ptr4 = FfiPtr::new(late_null.as_ptr() as *const std::ffi::c_char).unwrap();
         assert!(ffi_ptr4.to_cstr_bounded(3).is_err());
+
+        // max_len == 0 fails
+        assert!(ffi_ptr.to_cstr_bounded(0).is_err());
+
+        // Empty null-terminated string succeeds
+        let empty_buf = b"\0";
+        let ffi_ptr_empty = FfiPtr::new(empty_buf.as_ptr() as *const std::ffi::c_char).unwrap();
+        let cstr_empty = ffi_ptr_empty.to_cstr_bounded(1).unwrap();
+        assert_eq!(cstr_empty.to_str().unwrap(), "");
     }
 }
