@@ -118,4 +118,36 @@ theorem root_partition_complete_coverage (subtrees : List (Nat → Prop))
     ∃ s ∈ subtrees, s b.N_L := by
   exact h_cover b.N_L
 
+theorem coprime_multiplicative_nonlinear (prefix suffix prefix_num prefix_den suffix_num suffix_den cand_num cand_den : ℕ)
+    (h1 : prefix_den = prefix)
+    (h2 : suffix_den = suffix)
+    (h3 : cand_den = prefix * suffix)
+    (h4 : cand_num = prefix_num * suffix_num) :
+    cand_num * prefix_den * suffix_den = prefix_num * suffix_num * cand_den := by
+  subst h1 h2 h3 h4
+  ring
+
+theorem coprime_multiplicative (prefix suffix prefix_num prefix_den suffix_num suffix_den cand_num cand_den : ℕ)
+    (h1 : prefix_den = prefix)
+    (h2 : suffix_den = suffix)
+    (h3 : cand_den = prefix * suffix)
+    (h4 : prefix_num = sigma prefix)
+    (h5 : suffix_num = sigma suffix)
+    (h6 : cand_num = sigma cand_den)
+    (h_cop : prefix.Coprime suffix) :
+    cand_num * prefix_den * suffix_den = prefix_num * suffix_num * cand_den := by
+  subst h1 h2 h3 h4 h5 h6
+  unfold sigma
+  rw [Nat.Coprime.sum_divisors_mul h_cop]
+  ring
+
+theorem disjoint_by_construction (prefix suffix new_factor : ℕ)
+    (h1 : prefix.Coprime suffix)
+    (h2 : prefix.Coprime new_factor)
+    (h3 : suffix.Coprime new_factor) :
+    prefix.Coprime (suffix * new_factor) ∧ (prefix * new_factor).Coprime suffix := by
+  constructor
+  · exact Nat.Coprime.mul_right h1 h2
+  · exact Nat.Coprime.mul_left h1 (by rwa [Nat.coprime_comm] at h3)
+
 end UALBF.Engine.Bipartition

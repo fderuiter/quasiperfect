@@ -368,4 +368,25 @@ theorem abundancy_starvation (b : UALBF.Bipartition) (k : ℕ)
     positivity
   nlinarith
 
+theorem lean_abundancy_starvation_theorem (b : UALBF.Bipartition) (k : ℕ)
+    (h_bound : abundancy_index b.N_L * static_suffix_bound k ≤ 2)
+    (h_target : abundancy_index b.N > 2)
+    (h_suffix_bound : abundancy_index b.N_R ≤ static_suffix_bound k) : False :=
+  abundancy_starvation b k h_bound h_target h_suffix_bound
+
+theorem verify_starvation_pruning (b : UALBF.Bipartition) (k : ℕ)
+    (h_bound : abundancy_index b.N_L * static_suffix_bound k ≤ 2)
+    (h_target : abundancy_index b.N > 2)
+    (h_suffix_bound : abundancy_index b.N_R ≤ static_suffix_bound k) : False :=
+  abundancy_starvation b k h_bound h_target h_suffix_bound
+
+theorem is_starved_bound (sl nl best_num best_den : ℕ) (hnl : 0 < nl) (hbd : 0 < best_den)
+    (h_starved : sl * best_num < 2 * nl * best_den) :
+    (sl : ℚ) / (nl : ℚ) * ((best_num : ℚ) / (best_den : ℚ)) < 2 := by
+  have h1 : (sl : ℚ) * (best_num : ℚ) < 2 * (nl : ℚ) * (best_den : ℚ) := by exact_mod_cast h_starved
+  have h2 : (sl : ℚ) / (nl : ℚ) * ((best_num : ℚ) / (best_den : ℚ)) = ((sl : ℚ) * (best_num : ℚ)) / ((nl : ℚ) * (best_den : ℚ)) := by ring
+  rw [h2]
+  rw [div_lt_iff₀ (by positivity)]
+  linarith
+
 end UALBF.QPN.AbundancyBound

@@ -196,4 +196,9 @@ theorem qpn_mod_5_neq {N : ℕ} (h_qpn : IsQuasiperfect N) : sigma N % 5 ≠ 0 �
     have h_zmod_2 : (sigma N : ZMod 5) = 2 := by rw [←ZMod.natCast_mod (sigma N) 5, h_eq]; rfl
     exact h_sigma_zmod.2 h_zmod_2
   exact ⟨h_neq_0, h_neq_2⟩
+
+theorem is_valid_mod_8 (q : ℕ) (hq : q.Prime) (hq_odd : q ≠ 2) (h_mod : q % 8 = 1 ∨ q % 8 = 3) :
+    q % 8 ≠ 5 ∧ q % 8 ≠ 7 := by
+  rcases h_mod with h1 | h3 <;> omega
+
 end UALBF.QPN.Obstruction

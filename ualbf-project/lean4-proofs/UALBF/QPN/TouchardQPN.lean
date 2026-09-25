@@ -103,4 +103,7 @@ theorem qpn_sigma_mod_24 {N : ℕ} (h_qpn : IsQuasiperfect N) :
   rw [ZMod.val_natCast] at h_val
   exact h_val
 
+theorem screen_mod_8 {N : ℕ} (h_qpn : IsQuasiperfect N) : sigma N % 24 = 3 ∨ sigma N % 24 = 19 :=
+  qpn_sigma_mod_24 h_qpn
+
 end UALBF.QPN.TouchardQPN
