@@ -1418,7 +1418,7 @@ mod tests {
     #[cfg(feature = "signing")]
     #[test]
     fn test_verify_certificate_non_null_terminated() {
-        let no_null_json = vec![b'{'; 100];
+        let no_null_json = [b'{'; 100];
         let valid_key = b"pubkey\0";
         let mut is_valid = true;
         let mut err_buf = [0i8; 256];
@@ -1434,7 +1434,7 @@ mod tests {
         assert!(!is_valid);
 
         let valid_json = b"{}\0";
-        let no_null_key = vec![b'k'; 100];
+        let no_null_key = [b'k'; 100];
         let res2 = verify_certificate(
             valid_json.as_ptr() as *const std::ffi::c_char,
             no_null_key.as_ptr() as *const std::ffi::c_char,

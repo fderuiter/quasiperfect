@@ -30,9 +30,21 @@ impl<'a, T> FfiPtr<'a, T> {
     /// Scans up to `max_len` bytes for a null terminator using `CStr::from_bytes_until_nul`.
     /// Returns `Err(FromBytesUntilNulError)` if no null byte is found within `max_len` bytes.
     pub fn to_cstr_bounded(&self, max_len: usize) -> Result<&'a CStr, FromBytesUntilNulError> {
-        let slice =
-            unsafe { std::slice::from_raw_parts(self.ptr as *const T as *const u8, max_len) };
-        CStr::from_bytes_until_nul(slice)
+        let raw_ptr = self.ptr as *const T as *const u8;
+        let mut nul_pos = None;
+        for i in 0..max_len {
+            if unsafe { *raw_ptr.add(i) } == 0 {
+                nul_pos = Some(i);
+                break;
+            }
+        }
+        match nul_pos {
+            Some(i) => {
+                let slice = unsafe { std::slice::from_raw_parts(raw_ptr, i + 1) };
+                CStr::from_bytes_until_nul(slice)
+            }
+            None => CStr::from_bytes_until_nul(&[]),
+        }
     }
 }
 
