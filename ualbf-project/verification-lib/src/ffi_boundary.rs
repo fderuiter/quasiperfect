@@ -27,20 +27,29 @@ impl<'a, T> FfiPtr<'a, T> {
 
     /// Converts a bounded C string buffer starting at this pointer into a `&CStr`.
     ///
-    /// Scans up to `max_len` bytes for a null terminator using `CStr::from_bytes_until_nul`.
+    /// Scans up to `max_len` bytes for a null terminator using C `memchr`.
     /// Returns `Err(FromBytesUntilNulError)` if no null byte is found within `max_len` bytes.
     pub fn to_cstr_bounded(&self, max_len: usize) -> Result<&'a CStr, FromBytesUntilNulError> {
-        let raw_ptr = self.ptr as *const T as *const u8;
-        let mut len = 0;
-        while len < max_len {
-            let b = unsafe { *raw_ptr.add(len) };
-            if b == 0 {
-                let slice = unsafe { std::slice::from_raw_parts(raw_ptr, len + 1) };
-                return CStr::from_bytes_until_nul(slice);
-            }
-            len += 1;
+        if max_len == 0 {
+            return CStr::from_bytes_until_nul(&[]);
         }
-        CStr::from_bytes_until_nul(&[])
+        let raw_ptr = self.ptr as *const T as *const u8;
+        let nul_ptr = unsafe {
+            extern "C" {
+                fn memchr(
+                    s: *const std::ffi::c_void,
+                    c: std::ffi::c_int,
+                    n: usize,
+                ) -> *mut std::ffi::c_void;
+            }
+            memchr(raw_ptr as *const std::ffi::c_void, 0, max_len)
+        };
+        if nul_ptr.is_null() {
+            return CStr::from_bytes_until_nul(&[]);
+        }
+        let len = (nul_ptr as usize) - (raw_ptr as usize);
+        let slice = unsafe { std::slice::from_raw_parts(raw_ptr, len + 1) };
+        CStr::from_bytes_until_nul(slice)
     }
 }
 
