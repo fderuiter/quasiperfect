@@ -1075,6 +1075,7 @@ version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
  "hex",
+ "libc",
  "pyo3",
  "rand 0.8.7",
  "serde",
