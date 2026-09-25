@@ -34,20 +34,13 @@ impl<'a, T> FfiPtr<'a, T> {
             return CStr::from_bytes_until_nul(&[]);
         }
         let raw_ptr = self.ptr as *const T as *const u8;
-        let mut nul_offset = None;
-        for i in 0..max_len {
-            if unsafe { *raw_ptr.add(i) } == 0 {
-                nul_offset = Some(i);
-                break;
-            }
+        let nul_ptr = unsafe { libc::memchr(raw_ptr as *const std::ffi::c_void, 0, max_len) };
+        if nul_ptr.is_null() {
+            return CStr::from_bytes_until_nul(&[]);
         }
-        match nul_offset {
-            Some(i) => {
-                let slice = unsafe { std::slice::from_raw_parts(raw_ptr, i + 1) };
-                CStr::from_bytes_until_nul(slice)
-            }
-            None => CStr::from_bytes_until_nul(&[]),
-        }
+        let len = (nul_ptr as usize) - (raw_ptr as usize);
+        let slice = unsafe { std::slice::from_raw_parts(raw_ptr, len + 1) };
+        CStr::from_bytes_until_nul(slice)
     }
 }
 

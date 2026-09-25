@@ -9,6 +9,7 @@ name = "verification_lib"
 crate-type = ["rlib", "cdylib"]
 
 [dependencies]
+libc = "0.2"
 ed25519-dalek = { version = "2.2.0", default-features = false, features = ["rand_core", "alloc", "zeroize"], optional = true }
 hex = { version = "0.4.3" }
 rand = { version = "0.8", optional = true }
