@@ -920,6 +920,10 @@ fn verification_lib(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
+pub const MAX_PATH_LEN: usize = 4096;
+pub const MAX_CERT_JSON_LEN: usize = 10 * 1024 * 1024;
+pub const MAX_PUB_KEY_LEN: usize = 64 * 1024;
+
 #[cfg(feature = "signing")]
 #[no_mangle]
 pub extern "C" fn verify_certificate(
@@ -930,7 +934,6 @@ pub extern "C" fn verify_certificate(
     out_manifest_hash_len: usize,
 ) -> *mut std::ffi::c_void {
     use ffi_boundary::{FfiMutPtr, FfiPtr};
-    use std::ffi::CStr;
 
     safe_ffi_boundary!(std::ptr::null_mut(), {
         if let Some(mut valid_out) = FfiMutPtr::new(is_valid_out) {
@@ -964,12 +967,17 @@ pub extern "C" fn verify_certificate(
             None => return std::ptr::null_mut(),
         };
 
-        let cert_json_str =
-            unsafe { CStr::from_ptr(cert_json_ffi.as_ref() as *const std::ffi::c_char) }
-                .to_string_lossy();
-        let expected_pub_key =
-            unsafe { CStr::from_ptr(pub_key_ffi.as_ref() as *const std::ffi::c_char) }
-                .to_string_lossy();
+        let cert_json_c = match cert_json_ffi.to_cstr_bounded(MAX_CERT_JSON_LEN) {
+            Ok(c) => c,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let pub_key_c = match pub_key_ffi.to_cstr_bounded(MAX_PUB_KEY_LEN) {
+            Ok(c) => c,
+            Err(_) => return std::ptr::null_mut(),
+        };
+
+        let cert_json_str = cert_json_c.to_string_lossy();
+        let expected_pub_key = pub_key_c.to_string_lossy();
 
         let cert: serde_json::Value = match serde_json::from_str(&cert_json_str) {
             Ok(c) => c,
@@ -1192,8 +1200,10 @@ pub extern "C" fn rust_sha256_file(path_ptr: *const std::ffi::c_char) -> *mut st
             Some(p) => p,
             None => return std::ptr::null_mut(),
         };
-        let c_str =
-            unsafe { std::ffi::CStr::from_ptr(path_ffi.as_ref() as *const std::ffi::c_char) };
+        let c_str = match path_ffi.to_cstr_bounded(MAX_PATH_LEN) {
+            Ok(c) => c,
+            Err(_) => return std::ptr::null_mut(),
+        };
         let path_str = match c_str.to_str() {
             Ok(s) => s,
             Err(_) => return std::ptr::null_mut(),
@@ -1395,6 +1405,45 @@ mod tests {
         rust_free_string(std::ptr::null_mut());
 
         let _ = std::fs::remove_file(&temp_path);
+    }
+
+    #[cfg(feature = "signing")]
+    #[test]
+    fn test_rust_sha256_file_non_null_terminated() {
+        let no_null_path = vec![b'a'; MAX_PATH_LEN];
+        let ptr = rust_sha256_file(no_null_path.as_ptr() as *const std::ffi::c_char);
+        assert!(ptr.is_null());
+    }
+
+    #[cfg(feature = "signing")]
+    #[test]
+    fn test_verify_certificate_non_null_terminated() {
+        let no_null_json = vec![b'{'; 100];
+        let valid_key = b"pubkey\0";
+        let mut is_valid = true;
+        let mut err_buf = [0i8; 256];
+
+        let res = verify_certificate(
+            no_null_json.as_ptr() as *const std::ffi::c_char,
+            valid_key.as_ptr() as *const std::ffi::c_char,
+            &mut is_valid,
+            err_buf.as_mut_ptr(),
+            256,
+        );
+        assert!(res.is_null());
+        assert!(!is_valid);
+
+        let valid_json = b"{}\0";
+        let no_null_key = vec![b'k'; 100];
+        let res2 = verify_certificate(
+            valid_json.as_ptr() as *const std::ffi::c_char,
+            no_null_key.as_ptr() as *const std::ffi::c_char,
+            &mut is_valid,
+            err_buf.as_mut_ptr(),
+            256,
+        );
+        assert!(res2.is_null());
+        assert!(!is_valid);
     }
 
     #[test]

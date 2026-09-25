@@ -1,3 +1,4 @@
+use std::ffi::{CStr, FromBytesUntilNulError};
 use std::ops::{Deref, DerefMut};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr::NonNull;
@@ -22,6 +23,16 @@ impl<'a, T> FfiPtr<'a, T> {
     #[inline(always)]
     pub fn get_ref(&self) -> &'a T {
         self.ptr
+    }
+
+    /// Converts a bounded C string buffer starting at this pointer into a `&CStr`.
+    ///
+    /// Scans up to `max_len` bytes for a null terminator using `CStr::from_bytes_until_nul`.
+    /// Returns `Err(FromBytesUntilNulError)` if no null byte is found within `max_len` bytes.
+    pub fn to_cstr_bounded(&self, max_len: usize) -> Result<&'a CStr, FromBytesUntilNulError> {
+        let slice =
+            unsafe { std::slice::from_raw_parts(self.ptr as *const T as *const u8, max_len) };
+        CStr::from_bytes_until_nul(slice)
     }
 }
 
@@ -214,5 +225,30 @@ mod tests {
 
         let res_ok = catch_ffi_panic(10, || 42);
         assert_eq!(res_ok, 42);
+    }
+
+    #[test]
+    fn test_to_cstr_bounded() {
+        // Null-terminated string within limit succeeds
+        let buf = b"hello\0world";
+        let ffi_ptr = FfiPtr::new(buf.as_ptr() as *const std::ffi::c_char).unwrap();
+        let cstr = ffi_ptr.to_cstr_bounded(10).unwrap();
+        assert_eq!(cstr.to_str().unwrap(), "hello");
+
+        // String without null byte within max_len fails
+        let no_null = b"1234567890";
+        let ffi_ptr2 = FfiPtr::new(no_null.as_ptr() as *const std::ffi::c_char).unwrap();
+        assert!(ffi_ptr2.to_cstr_bounded(10).is_err());
+
+        // Null byte at exactly max_len - 1 succeeds
+        let exact = b"abc\0";
+        let ffi_ptr3 = FfiPtr::new(exact.as_ptr() as *const std::ffi::c_char).unwrap();
+        let cstr3 = ffi_ptr3.to_cstr_bounded(4).unwrap();
+        assert_eq!(cstr3.to_str().unwrap(), "abc");
+
+        // Null byte past max_len fails
+        let late_null = b"abc\0";
+        let ffi_ptr4 = FfiPtr::new(late_null.as_ptr() as *const std::ffi::c_char).unwrap();
+        assert!(ffi_ptr4.to_cstr_bounded(3).is_err());
     }
 }
