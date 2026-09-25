@@ -97,12 +97,15 @@ if [[ $IS_OFFLINE -eq 1 ]]; then
 fi
 
 if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-    echo "[ProofWidgets] Neither curl nor wget is available. Falling back to mock bundle."
-    generate_mock_bundle
-    exit 0
+    echo "[ProofWidgets] Error: Neither curl nor wget is available for online asset download." >&2
+    exit 1
 fi
 
 EXPECTED_SHA256="${PROOFWIDGETS_SHA256:-${KNOWN_SHA256[$TAG]:-}}"
+if [[ -z "$EXPECTED_SHA256" ]]; then
+    echo "[ProofWidgets] Error: Missing expected SHA256 checksum for release tag '$TAG'. Set PROOFWIDGETS_SHA256 or configure KNOWN_SHA256 for tag '$TAG'." >&2
+    exit 1
+fi
 
 # Attempt online download
 TMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'pw_assets')
@@ -123,12 +126,11 @@ for url in "${URLS[@]}"; do
     if command -v curl >/dev/null 2>&1; then
         if curl -f -sSL --connect-timeout 5 --max-time 15 -o "$ARCHIVE" "$url" 2>/dev/null; then
             if [[ -s "$ARCHIVE" ]]; then
-                # Check SHA256 if expected hash is set
                 ACTUAL_SHA256=$(compute_sha256 "$ARCHIVE")
-                if [[ -n "$EXPECTED_SHA256" ]] && [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
-                    echo "[ProofWidgets] SHA256 checksum mismatch for $url! Expected: $EXPECTED_SHA256, Actual: $ACTUAL_SHA256"
+                if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
+                    echo "[ProofWidgets] Error: SHA256 checksum mismatch for $url! Expected: $EXPECTED_SHA256, Actual: $ACTUAL_SHA256" >&2
                     rm -f "$ARCHIVE"
-                    continue
+                    exit 1
                 fi
                 
                 # Unpack archive
