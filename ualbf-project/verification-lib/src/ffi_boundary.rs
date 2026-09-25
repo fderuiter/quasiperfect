@@ -31,20 +31,15 @@ impl<'a, T> FfiPtr<'a, T> {
     /// Returns `Err(FromBytesUntilNulError)` if no null byte is found within `max_len` bytes.
     pub fn to_cstr_bounded(&self, max_len: usize) -> Result<&'a CStr, FromBytesUntilNulError> {
         let raw_ptr = self.ptr as *const T as *const u8;
-        let chunk_size = 1024;
-        let mut offset = 0;
-
-        while offset < max_len {
-            let chunk_len = std::cmp::min(chunk_size, max_len - offset);
-            let chunk_slice = unsafe { std::slice::from_raw_parts(raw_ptr.add(offset), chunk_len) };
-            if let Ok(cstr) = CStr::from_bytes_until_nul(chunk_slice) {
-                let full_len = offset + cstr.to_bytes_with_nul().len();
-                let full_slice = unsafe { std::slice::from_raw_parts(raw_ptr, full_len) };
-                return CStr::from_bytes_until_nul(full_slice);
+        let mut len = 0;
+        while len < max_len {
+            let b = unsafe { *raw_ptr.add(len) };
+            if b == 0 {
+                let slice = unsafe { std::slice::from_raw_parts(raw_ptr, len + 1) };
+                return CStr::from_bytes_until_nul(slice);
             }
-            offset += chunk_len;
+            len += 1;
         }
-
         CStr::from_bytes_until_nul(&[])
     }
 }
