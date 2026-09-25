@@ -948,6 +948,7 @@ def generate_c_headers(repo_root):
     with open(header_path, "w", encoding="utf-8") as f:
         f.write(header_content)
 
+    normalize_mtime_if_lean_spec(header_path)
     print(f"C header generated to {header_path}")
 
 
