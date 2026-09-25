@@ -35,21 +35,21 @@ if [[ -n "$MANIFEST_PATH" ]] && [[ -f "$MANIFEST_PATH" ]]; then
     MANIFEST_DIR="$(cd "$(dirname "$MANIFEST_PATH")" && pwd)"
     
     # Parse tag (inputRev) and commit (rev) for proofwidgets from lake-manifest.json
-    PARSED_INFO=$(python3 -c "
+    PARSED_INFO=$(python3 -c '
 import json, sys
 try:
-    with open('$MANIFEST_PATH', 'r') as f:
+    with open(sys.argv[1], "r") as f:
         data = json.load(f)
-    for pkg in data.get('packages', []):
-        if pkg.get('name', '').lower() == 'proofwidgets':
-            tag = pkg.get('inputRev', 'v0.0.99')
-            rev = pkg.get('rev', 'a84b3e2475d5c5ab979567b1ad8aea21b764bcf8')
-            print(f'{tag}|{rev}')
+    for pkg in data.get("packages", []):
+        if pkg.get("name", "").lower() == "proofwidgets":
+            tag = pkg.get("inputRev", "v0.0.99")
+            rev = pkg.get("rev", "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8")
+            print(f"{tag}|{rev}")
             sys.exit(0)
 except Exception:
     pass
-print('v0.0.99|a84b3e2475d5c5ab979567b1ad8aea21b764bcf8')
-" 2>/dev/null || echo "v0.0.99|a84b3e2475d5c5ab979567b1ad8aea21b764bcf8")
+print("v0.0.99|a84b3e2475d5c5ab979567b1ad8aea21b764bcf8")
+' "$MANIFEST_PATH" 2>/dev/null || echo "v0.0.99|a84b3e2475d5c5ab979567b1ad8aea21b764bcf8")
 
     IFS="|" read -r TAG REV <<< "$PARSED_INFO"
 fi
@@ -65,7 +65,7 @@ compute_sha256() {
     elif command -v shasum >/dev/null 2>&1; then
         shasum -a 256 "$file_path" | awk '{print $1}'
     else
-        python3 -c "import hashlib; print(hashlib.sha256(open('$file_path', 'rb').read()).hexdigest())"
+        python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$file_path"
     fi
 }
 
