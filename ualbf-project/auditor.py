@@ -638,7 +638,11 @@ def _generate_manifest_impl():
         # Skip redundant Mathlib cache fetching and Lean rebuilding under GHA or when .lake/build already exists
         is_gha = os.environ.get("GITHUB_ACTIONS") == "true"
         lake_build_dir = os.path.join(cwd, ".lake", "build")
-        if not is_gha and not os.path.exists(lake_build_dir) and shutil.which("lake") is not None:
+        if (
+            not is_gha
+            and not os.path.exists(lake_build_dir)
+            and shutil.which("lake") is not None
+        ):
             subprocess.run(
                 ["lake", "exe", "cache", "get"], cwd=cwd, env=env, check=False
             )
@@ -943,7 +947,7 @@ def _generate_manifest_impl():
         rel_file = found_file if found_file else "UALBF.lean"
 
         if not has_lean:
-            status = existing_statuses.get(thm, "proven")
+            status = existing_statuses.get(thm, "unverified")
         else:
             status = theorem_statuses.get(thm, "error")
 
@@ -968,9 +972,7 @@ def _generate_manifest_impl():
             None,
         )
         if not existing:
-            status = (
-                "axiom" if has_lean else existing_statuses.get(ax_name, "axiom")
-            )
+            status = "axiom" if has_lean else existing_statuses.get(ax_name, "axiom")
             checksum = theorem_checksum(ax_name, ax_file, status)
             manifest["theorems"].append(
                 {
