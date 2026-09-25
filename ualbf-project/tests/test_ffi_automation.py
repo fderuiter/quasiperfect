@@ -1,7 +1,5 @@
 import os
-import shutil
 import json
-import hashlib
 import subprocess
 from pathlib import Path
 import pytest
@@ -70,13 +68,18 @@ def test_ffi_automation_dynamic_generation():
         # Verify C header and Rust assertions for 256-bit (4 limbs)
         h_content = schema_generated_h.read_text(encoding="utf-8")
         assert "uint64_t limbs[4];" in h_content
-        assert '_Static_assert(offsetof(PrefixTransport, n_l) == 0' in h_content
-        assert '_Static_assert(offsetof(PrefixTransport, s_l) == 32' in h_content
-        assert '_Static_assert(sizeof(PrefixTransport) == 144' in h_content
+        assert "_Static_assert(offsetof(PrefixTransport, n_l) == 0" in h_content
+        assert "_Static_assert(offsetof(PrefixTransport, s_l) == 32" in h_content
+        assert "_Static_assert(sizeof(PrefixTransport) == 144" in h_content
 
         schema_gen_rs = schema_generated_rs.read_text(encoding="utf-8")
-        assert 'assert!(core::mem::offset_of!(PrefixTransport, s_l) == 32);' in schema_gen_rs
-        assert 'assert!(core::mem::size_of::<PrefixTransport>() == 144);' in schema_gen_rs
+        assert (
+            "assert!(core::mem::offset_of!(PrefixTransport, s_l) == 32);"
+            in schema_gen_rs
+        )
+        assert (
+            "assert!(core::mem::size_of::<PrefixTransport>() == 144);" in schema_gen_rs
+        )
 
     finally:
         # Restore backups
@@ -109,10 +112,10 @@ def test_schema_layout_assertions():
     assert "#ifndef SCHEMA_GENERATED_H" in h_content
     assert "typedef struct PrefixTransport" in h_content
     assert "typedef PrefixTransport SearchStateTransport;" in h_content
-    assert '_Static_assert(offsetof(PrefixTransport, n_l) == 0' in h_content
-    assert '_Static_assert(offsetof(PrefixTransport, s_l) == 64' in h_content
-    assert '_Static_assert(offsetof(PrefixTransport, last_idx) == 128' in h_content
-    assert '_Static_assert(sizeof(PrefixTransport) == 208' in h_content
+    assert "_Static_assert(offsetof(PrefixTransport, n_l) == 0" in h_content
+    assert "_Static_assert(offsetof(PrefixTransport, s_l) == 64" in h_content
+    assert "_Static_assert(offsetof(PrefixTransport, last_idx) == 128" in h_content
+    assert "_Static_assert(sizeof(PrefixTransport) == 208" in h_content
 
     rs_content = schema_generated_rs.read_text(encoding="utf-8")
     assert "core::mem::offset_of!(PrefixTransport, n_l) == 0" in rs_content
@@ -137,9 +140,10 @@ def test_ffi_automation_out_of_sync_fails_cargo():
     schema_backup = schema_path.read_text(encoding="utf-8")
 
     try:
-        # 1. Modify schema_manifest to create mismatch
+        # 1. Modify schema_manifest to create mismatch by doubling bit_width
         schema_data = json.loads(schema_backup)
-        schema_data["U512"]["bit_width"] = 1024
+        current_bw = schema_data.get("U512", {}).get("bit_width", 512)
+        schema_data["U512"]["bit_width"] = current_bw * 2
         schema_path.write_text(json.dumps(schema_data, indent=2), encoding="utf-8")
 
         # Touch build.rs to force cargo to rerun it
@@ -306,6 +310,7 @@ def test_ffi_multi_line_and_modifiers():
     varied whitespace, and declaration modifiers (noncomputable, partial, private, protected, unsafe).
     """
     import sys
+
     project_dir = Path(__file__).parent.parent
     scripts_dir = project_dir / "scripts"
     if str(scripts_dir) not in sys.path:
@@ -354,3 +359,52 @@ def test_array_u512_pointer_transport():
     content = schema_generated_rs.read_text(encoding="utf-8")
     assert "sigma_factors: self.sigma_factors.as_ptr() as *const _," in content
     assert "sigma_factors: std::ptr::null()" not in content
+
+
+def test_c_header_generation():
+    """
+    Test that export_lean_specs.py generates verification_lib.h with C99 types,
+    include guards, extern "C", and signatures for exported verification-lib functions.
+    Also verify ffi.c includes verification_lib.h without manual externs, and lakefile.lean references it.
+    """
+    project_dir = Path(__file__).parent.parent
+    header_path = project_dir / "lean4-proofs/include/verification_lib.h"
+    ffi_c_path = project_dir / "lean4-proofs/ffi.c"
+    lakefile_path = project_dir / "lean4-proofs/lakefile.lean"
+
+    res = subprocess.run(
+        ["python3", "scripts/export_lean_specs.py"],
+        cwd=str(project_dir),
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0, f"export_lean_specs.py failed: {res.stderr}"
+
+    assert header_path.exists(), f"Header file {header_path} was not generated."
+    header_content = header_path.read_text(encoding="utf-8")
+
+    # Check header structure
+    assert "#ifndef VERIFICATION_LIB_H" in header_content
+    assert "#define VERIFICATION_LIB_H" in header_content
+    assert "#include <stdbool.h>" in header_content
+    assert "#include <stddef.h>" in header_content
+    assert "#include <stdint.h>" in header_content
+    assert 'extern "C"' in header_content
+
+    # Check function prototypes
+    assert "verify_certificate(" in header_content
+    assert "free_certificate(" in header_content
+    assert "rust_sha256_file(" in header_content
+    assert "rust_free_string(" in header_content
+
+    # Check ffi.c
+    ffi_c_content = ffi_c_path.read_text(encoding="utf-8")
+    assert '#include "verification_lib.h"' in ffi_c_content
+    assert "extern void* verify_certificate" not in ffi_c_content
+    assert "extern char* rust_sha256_file" not in ffi_c_content
+
+    # Check lakefile.lean
+    lakefile_content = lakefile_path.read_text(encoding="utf-8")
+    assert "input_file verification_lib.h" in lakefile_content
+    assert '"-I", "include"' in lakefile_content
+    assert "headerJob" in lakefile_content

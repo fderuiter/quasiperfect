@@ -467,6 +467,10 @@ class TestFallbackParsingRoutines:
             ("// comment\nlet x = 1;", "\nlet x = 1;"),
             ("/* block comment */ let y = 2;", " let y = 2;"),
             ('let s = "// not a comment";', 'let s = "// not a comment";'),
+            ('let s = "hello \\" world";', 'let s = "hello \\" world";'),
+            ("let c = '\\''; // comment", "let c = '\\''; "),
+            ("let c = '\\\\'; // comment", "let c = '\\\\'; "),
+            ("/* line1 \n line2 */ let z = 3;", "\n let z = 3;"),
             ("/* nested /* block */ comment */ fn foo() {}", " fn foo() {}"),
             ("let c = 'a'; // comment", "let c = 'a'; "),
         ],
@@ -480,6 +484,9 @@ class TestFallbackParsingRoutines:
         [
             ("fn foo() { bar(); }", 1, 1),
             ('let s = "{ not a brace }";', 0, 0),
+            ('let s = "a{\\"b";', 0, 0),
+            ("let c = '\\''; { }", 1, 1),
+            ("let c = '\\\\'; { }", 1, 1),
             ("let c = '{'; }", 0, 1),
             ("{ { { } }", 3, 2),
             (

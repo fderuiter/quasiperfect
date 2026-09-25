@@ -117,7 +117,7 @@
           version = "0.1.0";
           src = pkgs.lib.cleanSourceWith {
             src = ./ualbf-project/lean4-proofs;
-            filter = path: type: builtins.match ".*(lake-manifest.json|lakefile.lean|lean-toolchain|lakefile.toml)$" path != null || type == "directory";
+            filter = path: type: builtins.match ".*(lake-manifest.json|lakefile.lean|lean-toolchain|lakefile.toml|.*\\.h)$" path != null || type == "directory";
           };
           nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq pkgs.curl ];
           buildPhase = ''
@@ -137,8 +137,9 @@
             echo "Cleaning up compiled files to prevent store path leaks..."
             # Delete all compiled files except those in mathlib (which are from cache and safe)
             find .lake -type f \( -name '*.olean' -o -name '*.ilean' -o -name '*.c' -o -name '*.o' \) | grep -v "\.lake/packages/mathlib" | xargs rm -f || true
-            find .lake -type f -name '*.trace' -delete || true
+            find .lake -type f -name '*.trace*' -delete || true
             find .lake -type f -name '*.hash' -delete || true
+            find .lake -type f -name '*.setup.json' -delete || true
             find .lake -name 'lake-manifest.json.tmp' -delete || true
 
 
@@ -157,7 +158,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-JzoxPKsQ9uNNlHZo9dbhpo63MWjfOoCWbYLhVZV1LCk=";
+          outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -553,7 +554,7 @@ with open("dummy_cert.json", "w") as f:
             export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
             export Z3_SYS_Z3_HEADER="${pkgs.z3.dev}/include/z3.h"
             export Z3_LIBRARY_PATH_OVERRIDE="${pkgs.z3}/lib"
-            export CPATH="${./ualbf-project/verification-lib/include}:${./ualbf-project/target/include}:$CPATH"
+            export CPATH="$PWD/ualbf-project/verification-lib/include:$PWD/ualbf-project/target/include:$CPATH"
           '';
         };
       }
