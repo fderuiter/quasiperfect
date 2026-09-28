@@ -244,6 +244,9 @@ pub fn get_u512(obj: *mut lean_object) -> Option<&'static crate::lean_ffi::U512D
 
 #[inline(always)]
 pub fn is_none(obj: *mut lean_object) -> bool {
+    if obj.is_null() {
+        return true;
+    }
     unsafe { rs_lean_is_scalar(obj) }
 }
 
