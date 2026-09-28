@@ -165,7 +165,6 @@ fn test_solve_mod_2_k_custom_5() {
     assert_eq!(roots.len(), 4);
 }
 
-#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_solve_crt_128bit() {
     crate::lean_ffi::initialize_lean_runtime();
@@ -176,6 +175,67 @@ fn test_solve_crt_128bit() {
     let res = solve_crt(&[r1, r2], &[m1, m2]).expect("CRT should find a solution");
     assert_eq!(res % m1, r1);
     assert_eq!(res % m2, r2);
+}
+
+#[test]
+fn test_mul_mod_u512_overflow() {
+    // Construct 512-bit numbers that overflow when multiplied directly.
+    // a = 2^300, b = 2^300, m = 2^500 + 1.
+    let a = Uint::one() << 300;
+    let b = Uint::one() << 300;
+    let m = (Uint::one() << 500) + Uint::one();
+
+    // a * b = 2^600, which overflows Uint (U512).
+    // (2^600) % (2^500 + 1):
+    // 2^500 = -1 (mod 2^500 + 1)
+    // 2^600 = 2^100 * (2^500) = -2^100 = m - 2^100 (mod m).
+    let expected = m - (Uint::one() << 100);
+    let res = mul_mod_u512(a, b, m);
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn test_solve_crt_512bit_overflow() {
+    // Product of moduli exceeds 512 bits.
+    let m1 = Int::from_u128(1) << 250;
+    let m2 = Int::from_u128(1) << 250;
+    let m3 = Int::from_u128(1) << 250;
+    let r1 = Int::from_u32(1);
+    let r2 = Int::from_u32(2);
+    let r3 = Int::from_u32(3);
+
+    // total_mod = 2^750 > 2^512, which overflows 512-bit integer capacity.
+    assert_eq!(solve_crt(&[r1, r2, r3], &[m1, m2, m3]), None);
+}
+
+#[test]
+fn test_solve_crt_wide_intermediate() {
+    // Test 200-bit moduli where total_mod is ~400 bits.
+    // Intermediate term1 * m_i can be ~600 bits, which overflows 512-bit arithmetic.
+    // Intermediate 1024-bit arithmetic must prevent truncation.
+    let m1 = (Int::one() << 200) - Int::from_u32(1);
+    let m2 = (Int::one() << 200) - Int::from_u32(3);
+    let r1 = Int::from_u128(987654321);
+    let r2 = Int::from_u128(123456789);
+
+    let res = solve_crt(&[r1, r2], &[m1, m2]).expect("CRT solution should exist");
+    assert!(res >= Int::zero());
+    assert_eq!(res % m1, r1 % m1);
+    assert_eq!(res % m2, r2 % m2);
+}
+
+#[test]
+fn test_solve_crt_negative_residues_and_normalization() {
+    let m1 = Int::from_u32(7);
+    let m2 = Int::from_u32(11);
+    let r1 = Int::from_u32(3) - m1; // -4 (equiv to 3 mod 7)
+    let r2 = Int::from_u32(5) - m2; // -6 (equiv to 5 mod 11)
+
+    let res = solve_crt(&[r1, r2], &[m1, m2]).expect("CRT solution should exist");
+    assert!(res >= Int::zero());
+    assert!(res < m1 * m2);
+    assert_eq!((res % m1 + m1) % m1, Int::from_u32(3));
+    assert_eq!((res % m2 + m2) % m2, Int::from_u32(5));
 }
 
 #[cfg_attr(unverified_build, ignore)]

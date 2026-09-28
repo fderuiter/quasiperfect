@@ -25,10 +25,8 @@ pub fn pow_mod_u128(mut base: u128, mut exp: u128, m: u128) -> u128 {
     res
 }
 
-pub fn mul_mod_u256(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
-    if m <= Uint::from_u128((0xFFFFFFFFFFFFFFFFu64) as u128) {
-        return (a % m * (b % m)) % m;
-    }
+pub fn mul_mod_u512(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
+    assert!(m > Uint::zero(), "m must be greater than 0");
     a %= m;
     b %= m;
     if let Some(prod) = a.checked_mul(b) {
@@ -40,6 +38,10 @@ pub fn mul_mod_u256(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
     let m_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(m);
     let res_1024 = (a_1024 * b_1024) % m_1024;
     <Uint as bnum::cast::CastFrom<bnum::types::U1024>>::cast_from(res_1024)
+}
+
+pub fn mul_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
+    mul_mod_u512(a, b, m)
 }
 
 pub fn add_mod_u256(a: Uint, b: Uint, m: Uint) -> Uint {
@@ -115,10 +117,19 @@ pub fn mod_negate_big(val: Int, m: Int) -> Int {
 }
 
 pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
+    if residues.len() != moduli.len() || moduli.is_empty() {
+        return None;
+    }
+
     let mut total_mod = Uint::one();
     for &m in moduli {
-        total_mod *= m.as_uint();
+        if m <= Int::zero() {
+            return None;
+        }
+        total_mod = total_mod.checked_mul(m.as_uint())?;
     }
+
+    let total_mod_int = Int::try_from(total_mod).ok()?;
 
     let mut x = Uint::zero();
     for (&r, &m) in residues.iter().zip(moduli.iter()) {
@@ -135,12 +146,18 @@ pub fn solve_crt(residues: &[Int], moduli: &[Int]) -> Option<Int> {
 
         let y_i = mod_inverse_u512(m_i_mod_m, m_u)?;
 
-        let term1 = (r_u * y_i) % total_mod;
-        let term2 = (term1 * m_i) % total_mod;
-        x = (x + term2) % total_mod;
+        let term1 = mul_mod_u512(r_u, y_i, total_mod);
+        let term2 = mul_mod_u512(term1, m_i, total_mod);
+        x = add_mod_u256(x, term2, total_mod);
     }
 
-    Some(x.as_int())
+    let res_int = x.as_int();
+    let mut normalized = res_int % total_mod_int;
+    if normalized < Int::zero() {
+        normalized += total_mod_int;
+    }
+
+    Some(normalized)
 }
 
 pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
