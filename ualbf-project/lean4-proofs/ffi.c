@@ -9,7 +9,10 @@ static lean_external_class* g_cert_class = NULL;
 static void cert_finalize(void* ptr) {
     free_certificate(ptr);
 }
-static void cert_foreach(void* ptr, b_lean_obj_arg b) {}
+static void cert_foreach(void* ptr, b_lean_obj_arg b) {
+    (void)ptr;
+    (void)b;
+}
 
 static lean_external_class* get_cert_class(void) {
     if (g_cert_class == NULL) {
@@ -19,6 +22,7 @@ static lean_external_class* get_cert_class(void) {
 }
 
 lean_obj_res lean_init_cert_class(lean_obj_arg w) {
+    (void)w;
     get_cert_class();
     return lean_io_result_mk_ok(lean_box(0));
 }
