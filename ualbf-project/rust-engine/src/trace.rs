@@ -309,12 +309,41 @@ pub fn canonicalize_trace_file(file_path: &str) -> std::io::Result<()> {
             .then_with(|| a.line.cmp(&b.line))
     });
 
-    let mut file = File::create(file_path)?;
-    for r in records {
-        file.write_all(r.line.as_bytes())?;
-        file.write_all(b"\n")?;
+    let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
+    let filename = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("trace.jsonl");
+    let temp_path = parent.join(format!(".{}.tmp.{}", filename, std::process::id()));
+
+    struct TempFileGuard<'a> {
+        path: &'a std::path::Path,
+        committed: bool,
     }
-    file.sync_all()?;
+    impl<'a> Drop for TempFileGuard<'a> {
+        fn drop(&mut self) {
+            if !self.committed {
+                let _ = std::fs::remove_file(self.path);
+            }
+        }
+    }
+
+    let mut guard = TempFileGuard {
+        path: &temp_path,
+        committed: false,
+    };
+
+    {
+        let mut file = File::create(&temp_path)?;
+        for r in records {
+            file.write_all(r.line.as_bytes())?;
+            file.write_all(b"\n")?;
+        }
+        file.sync_all()?;
+    }
+
+    std::fs::rename(&temp_path, path)?;
+    guard.committed = true;
     Ok(())
 }
 
