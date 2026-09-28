@@ -22,9 +22,10 @@ TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
 def canonicalize_trace(trace_path):
     """
     Sorts parallel trace log lines deterministically by (work_unit_id, step_index).
+    Returns sorted canonical content in memory without writing to disk.
     """
     if not os.path.exists(trace_path):
-        return
+        return ""
     with open(trace_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
@@ -42,9 +43,7 @@ def canonicalize_trace(trace_path):
             records.append((0, 0, line_str))
 
     records.sort(key=lambda x: (x[0], x[1], x[2]))
-    canonical_content = "".join(r[2] + "\n" for r in records)
-    with open(trace_path, "w", encoding="utf-8") as f:
-        f.write(canonical_content)
+    return "".join(r[2] + "\n" for r in records)
 
 
 def verify_trace_file(cert, trace_path):
@@ -59,9 +58,9 @@ def verify_trace_file(cert, trace_path):
         print(f"ERROR: {e}")
         sys.exit(1)
 
-    canonicalize_trace(trace_path)
+    canonical_content = canonicalize_trace(trace_path)
 
-    computed_hash = hash_util.hash_file_bounded(trace_path)
+    computed_hash = hash_util.hash_string(canonical_content)
     expected_hash = cert["telemetry"].get("trace_hash")
     if expected_hash and computed_hash != expected_hash:
         print(
@@ -70,173 +69,155 @@ def verify_trace_file(cert, trace_path):
         sys.exit(1)
 
     try:
-        with open(trace_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-            for line in lines:
-                record = cert_util.BoundedJSONLoader().loads(line)
-                if not record.get("reason"):
-                    print(f"ERROR: Invalid trace record missing reason: {line}")
+        lines = [line for line in canonical_content.splitlines() if line.strip()]
+        for line in lines:
+            record = cert_util.BoundedJSONLoader().loads(line)
+            if not record.get("reason"):
+                print(f"ERROR: Invalid trace record missing reason: {line}")
+                sys.exit(1)
+
+            if record["reason"] == "unconditional_starvation":
+                if (
+                    "max_allowed" not in record
+                    or "static_best_remaining" not in record
+                    or "lhs" not in record
+                    or "rhs" not in record
+                ):
+                    print(f"ERROR: Trace record missing hypothesis variables: {line}")
                     sys.exit(1)
 
-                if record["reason"] == "unconditional_starvation":
-                    if (
-                        "max_allowed" not in record
-                        or "static_best_remaining" not in record
-                        or "lhs" not in record
-                        or "rhs" not in record
-                    ):
+            if record["reason"] == "cdg_forced_cascade":
+                topology_manifest = record.get("topology_manifest")
+                reachable_paths = record.get("reachable_paths")
+                if topology_manifest is None or reachable_paths is None:
+                    print(
+                        f"ERROR: cdg_forced_cascade trace record missing topology_manifest or reachable_paths: {line}"
+                    )
+                    sys.exit(1)
+
+                if not isinstance(topology_manifest, dict):
+                    print(
+                        f"ERROR: topology_manifest in trace record must be a dict: {line}"
+                    )
+                    sys.exit(1)
+
+                adjacency = topology_manifest.get("adjacency")
+                scc_map = topology_manifest.get("scc_map")
+                scc_components = topology_manifest.get("scc_components")
+                forced_candidates = topology_manifest.get("forced_candidates")
+
+                if (
+                    adjacency is None
+                    or not isinstance(adjacency, list)
+                    or scc_map is None
+                    or not isinstance(scc_map, list)
+                    or scc_components is None
+                    or not isinstance(scc_components, list)
+                    or forced_candidates is None
+                    or not isinstance(forced_candidates, list)
+                ):
+                    print(
+                        f"ERROR: topology_manifest missing required fields or invalid types: {line}"
+                    )
+                    sys.exit(1)
+
+                num_nodes = len(adjacency)
+                if num_nodes == 0:
+                    print(f"ERROR: topology_manifest adjacency matrix is empty: {line}")
+                    sys.exit(1)
+
+                for u, neighbors in enumerate(adjacency):
+                    if not isinstance(neighbors, list):
                         print(
-                            f"ERROR: Trace record missing hypothesis variables: {line}"
+                            f"ERROR: Adjacency list for node {u} is not a list in topology manifest."
                         )
                         sys.exit(1)
-
-                if record["reason"] == "cdg_forced_cascade":
-                    topology_manifest = record.get("topology_manifest")
-                    reachable_paths = record.get("reachable_paths")
-                    if topology_manifest is None or reachable_paths is None:
-                        print(
-                            f"ERROR: cdg_forced_cascade trace record missing topology_manifest or reachable_paths: {line}"
-                        )
-                        sys.exit(1)
-
-                    if not isinstance(topology_manifest, dict):
-                        print(
-                            f"ERROR: topology_manifest in trace record must be a dict: {line}"
-                        )
-                        sys.exit(1)
-
-                    adjacency = topology_manifest.get("adjacency")
-                    scc_map = topology_manifest.get("scc_map")
-                    scc_components = topology_manifest.get("scc_components")
-                    forced_candidates = topology_manifest.get("forced_candidates")
-
-                    if (
-                        adjacency is None
-                        or not isinstance(adjacency, list)
-                        or scc_map is None
-                        or not isinstance(scc_map, list)
-                        or scc_components is None
-                        or not isinstance(scc_components, list)
-                        or forced_candidates is None
-                        or not isinstance(forced_candidates, list)
-                    ):
-                        print(
-                            f"ERROR: topology_manifest missing required fields or invalid types: {line}"
-                        )
-                        sys.exit(1)
-
-                    num_nodes = len(adjacency)
-                    if num_nodes == 0:
-                        print(
-                            f"ERROR: topology_manifest adjacency matrix is empty: {line}"
-                        )
-                        sys.exit(1)
-
-                    for u, neighbors in enumerate(adjacency):
-                        if not isinstance(neighbors, list):
+                    for v in neighbors:
+                        if not isinstance(v, int) or v < 0 or v >= num_nodes:
                             print(
-                                f"ERROR: Adjacency list for node {u} is not a list in topology manifest."
-                            )
-                            sys.exit(1)
-                        for v in neighbors:
-                            if not isinstance(v, int) or v < 0 or v >= num_nodes:
-                                print(
-                                    f"ERROR: Adjacency list contains invalid neighbor {v} for node {u} (out of bounds)."
-                                )
-                                sys.exit(1)
-
-                    if len(scc_map) != num_nodes:
-                        print(
-                            f"ERROR: scc_map length ({len(scc_map)}) does not match node count ({num_nodes})."
-                        )
-                        sys.exit(1)
-
-                    num_sccs = len(scc_components)
-                    for u, scc_id in enumerate(scc_map):
-                        if (
-                            not isinstance(scc_id, int)
-                            or scc_id < 0
-                            or scc_id >= num_sccs
-                        ):
-                            print(
-                                f"ERROR: Node {u} mapped to invalid scc_id {scc_id} (out of bounds)."
-                            )
-                            sys.exit(1)
-                        if u not in scc_components[scc_id]:
-                            print(
-                                f"ERROR: Node {u} mapped to SCC {scc_id} in scc_map, but missing from scc_components[{scc_id}]."
+                                f"ERROR: Adjacency list contains invalid neighbor {v} for node {u} (out of bounds)."
                             )
                             sys.exit(1)
 
-                    for scc_id, members in enumerate(scc_components):
-                        if not isinstance(members, list):
-                            print(f"ERROR: scc_components[{scc_id}] must be a list.")
-                            sys.exit(1)
-                        for u in members:
-                            if not isinstance(u, int) or u < 0 or u >= num_nodes:
-                                print(
-                                    f"ERROR: Invalid node index {u} in scc_components[{scc_id}]."
-                                )
-                                sys.exit(1)
-                            if scc_map[u] != scc_id:
-                                print(
-                                    f"ERROR: Node {u} in scc_components[{scc_id}] has scc_map[{u}] = {scc_map[u]} != {scc_id}."
-                                )
-                                sys.exit(1)
+                if len(scc_map) != num_nodes:
+                    print(
+                        f"ERROR: scc_map length ({len(scc_map)}) does not match node count ({num_nodes})."
+                    )
+                    sys.exit(1)
 
-                    reach = [[False] * num_nodes for _ in range(num_nodes)]
-                    for u in range(num_nodes):
-                        reach[u][u] = True
-                        for v in adjacency[u]:
-                            reach[u][v] = True
-
-                    for k in range(num_nodes):
-                        for i in range(num_nodes):
-                            for j in range(num_nodes):
-                                reach[i][j] = reach[i][j] or (
-                                    reach[i][k] and reach[k][j]
-                                )
-
-                    if not isinstance(reachable_paths, list):
+                num_sccs = len(scc_components)
+                for u, scc_id in enumerate(scc_map):
+                    if not isinstance(scc_id, int) or scc_id < 0 or scc_id >= num_sccs:
                         print(
-                            f"ERROR: reachable_paths must be a list in trace record: {line}"
+                            f"ERROR: Node {u} mapped to invalid scc_id {scc_id} (out of bounds)."
+                        )
+                        sys.exit(1)
+                    if u not in scc_components[scc_id]:
+                        print(
+                            f"ERROR: Node {u} mapped to SCC {scc_id} in scc_map, but missing from scc_components[{scc_id}]."
                         )
                         sys.exit(1)
 
-                    for path in reachable_paths:
-                        if not isinstance(path, list):
+                for scc_id, members in enumerate(scc_components):
+                    if not isinstance(members, list):
+                        print(f"ERROR: scc_components[{scc_id}] must be a list.")
+                        sys.exit(1)
+                    for u in members:
+                        if not isinstance(u, int) or u < 0 or u >= num_nodes:
                             print(
-                                f"ERROR: Each path in reachable_paths must be a list: {path}"
+                                f"ERROR: Invalid node index {u} in scc_components[{scc_id}]."
                             )
                             sys.exit(1)
-                        for idx in range(len(path)):
-                            node = path[idx]
-                            if (
-                                not isinstance(node, int)
-                                or node < 0
-                                or node >= num_nodes
-                            ):
-                                print(
-                                    f"ERROR: Node {node} in reachable path is out of bounds [0, {num_nodes-1}]."
-                                )
-                                sys.exit(1)
-                            if idx > 0:
-                                prev_node = path[idx - 1]
-                                if not reach[prev_node][node]:
-                                    print(
-                                        f"ERROR: Unreachable step in component path: {prev_node} -> {node} is NOT transitively reachable."
-                                    )
-                                    sys.exit(1)
+                        if scc_map[u] != scc_id:
+                            print(
+                                f"ERROR: Node {u} in scc_components[{scc_id}] has scc_map[{u}] = {scc_map[u]} != {scc_id}."
+                            )
+                            sys.exit(1)
 
-                    v_status = record.get("verification_status", "")
-                    if (
-                        "formally verified" not in v_status
-                        and "audited" not in v_status
-                    ):
+                reach = [[False] * num_nodes for _ in range(num_nodes)]
+                for u in range(num_nodes):
+                    reach[u][u] = True
+                    for v in adjacency[u]:
+                        reach[u][v] = True
+
+                for k in range(num_nodes):
+                    for i in range(num_nodes):
+                        for j in range(num_nodes):
+                            reach[i][j] = reach[i][j] or (reach[i][k] and reach[k][j])
+
+                if not isinstance(reachable_paths, list):
+                    print(
+                        f"ERROR: reachable_paths must be a list in trace record: {line}"
+                    )
+                    sys.exit(1)
+
+                for path in reachable_paths:
+                    if not isinstance(path, list):
                         print(
-                            f"ERROR: cdg_forced_cascade trace record has invalid verification_status: '{v_status}'"
+                            f"ERROR: Each path in reachable_paths must be a list: {path}"
                         )
                         sys.exit(1)
+                    for idx in range(len(path)):
+                        node = path[idx]
+                        if not isinstance(node, int) or node < 0 or node >= num_nodes:
+                            print(
+                                f"ERROR: Node {node} in reachable path is out of bounds [0, {num_nodes-1}]."
+                            )
+                            sys.exit(1)
+                        if idx > 0:
+                            prev_node = path[idx - 1]
+                            if not reach[prev_node][node]:
+                                print(
+                                    f"ERROR: Unreachable step in component path: {prev_node} -> {node} is NOT transitively reachable."
+                                )
+                                sys.exit(1)
+
+                v_status = record.get("verification_status", "")
+                if "formally verified" not in v_status and "audited" not in v_status:
+                    print(
+                        f"ERROR: cdg_forced_cascade trace record has invalid verification_status: '{v_status}'"
+                    )
+                    sys.exit(1)
     except Exception as e:
         print(f"ERROR: Trace format invalid: {e}")
         sys.exit(1)
