@@ -838,6 +838,9 @@ def _generate_manifest_impl():
             f"'{thm}' depends on axioms:" in output
             or f"{thm}' depends on axioms:" in output
             or f"{thm} depends on axioms:" in output
+            or f"'{thm.split('.')[-1]}' depends on axioms:" in output
+            or f"{thm.split('.')[-1]}' depends on axioms:" in output
+            or f"{thm.split('.')[-1]} depends on axioms:" in output
             for thm in CORE_THEOREMS
         )
 
@@ -846,10 +849,14 @@ def _generate_manifest_impl():
             os.remove(lean_path)
 
         for thm in CORE_THEOREMS:
+            short_thm = thm.split(".")[-1]
             has_thm_in_output = (
                 f"'{thm}' depends on axioms:" in output
                 or f"{thm}' depends on axioms:" in output
                 or f"{thm} depends on axioms:" in output
+                or f"'{short_thm}' depends on axioms:" in output
+                or f"{short_thm}' depends on axioms:" in output
+                or f"{short_thm} depends on axioms:" in output
             )
             if result.returncode != 0 and not has_thm_in_output:
                 # If there was a hard failure and the theorem isn't even in output
@@ -863,6 +870,12 @@ def _generate_manifest_impl():
                 idx = output.find(f"{thm}' depends on axioms:")
             if idx == -1:
                 idx = output.find(f"{thm} depends on axioms:")
+            if idx == -1:
+                idx = output.find(f"'{short_thm}' depends on axioms:")
+            if idx == -1:
+                idx = output.find(f"{short_thm}' depends on axioms:")
+            if idx == -1:
+                idx = output.find(f"{short_thm} depends on axioms:")
             if idx == -1 and not has_any_thm_matched:
                 # Fallback for mock environments / unit tests where stdout is a single generic depends on axioms list without theorem names
                 if "depends on axioms:" in output:
