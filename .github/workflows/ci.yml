@@ -119,7 +119,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         continue-on-error: true
         with:
-          work-directories: ualbf-project
+          workspaces: ualbf-project
 
       - name: Populate Pre-built Lean Objects
         run: |
@@ -196,7 +196,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         continue-on-error: true
         with:
-          work-directories: ualbf-project
+          workspaces: ualbf-project
 
       - name: Run Python Quality Checks
         run: nix develop --command bash -c "cd ualbf-project && make check-python"
