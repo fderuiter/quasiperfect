@@ -96,15 +96,12 @@ def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
         )
         sys.exit(1)
 
-    allowed_axioms = cert_util.ALLOWED_AXIOMS
     # Enforce theorem status gate
     unproven_theorems = []
     for thm in manifest_data_macros.get("theorems", []):
         thm_name = thm.get("name", "unknown")
         status = str(thm.get("status", "")).strip().lower()
-        if status not in ("proven", "verified") and not (
-            status == "axiom" and thm_name in allowed_axioms
-        ):
+        if status not in ("proven", "verified"):
             unproven_theorems.append((thm_name, thm.get("status", "missing")))
 
     if unproven_theorems:

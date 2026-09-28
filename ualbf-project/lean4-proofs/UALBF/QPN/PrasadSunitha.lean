@@ -393,9 +393,61 @@ theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeF
     decide
   exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
 
+theorem val_5_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_5 : 5 ∈ N.primeFactors) : N.factorization 5 ≥ 4 := by
+  have h_ge_2 := qpn_factorization_ge_two h_qpn 5 h_5
+  have h_even := qpn_factorization_even h_qpn 5
+  by_contra h_lt
+  push Not at h_lt
+  have h2 : N.factorization 5 = 2 := by
+    rcases h_even with ⟨k, hk⟩
+    omega
+  have hp : Nat.Prime 5 := by decide
+  have hN : N ≠ 0 := h_qpn.1.ne'
+  have h_div : 5 ^ 2 ∣ N := (hp.pow_dvd_iff_le_factorization hN).mpr (by omega)
+  have h_ndiv : ¬ (5 ^ 3 ∣ N) := by
+    intro h
+    have h_le := (hp.pow_dvd_iff_le_factorization hN).mp h
+    omega
+  have h_exact : ExactValuation 5 (2 * 1) N := ⟨h_div, h_ndiv⟩
+  have hq : Nat.Prime 31 := by decide
+  have hq_odd : 31 ≠ 2 := by decide
+  have h_mod : 31 % 8 = 5 ∨ 31 % 8 = 7 := Or.inr (by decide)
+  have h_sigma_eq : sigma (5 ^ 2) = sigma_prime_pow 5 1 := sigma_eq_sigma_prime_pow 5 1 hp
+  have h_div_sig : 31 ∣ sigma (5 ^ (2 * 1)) := by
+    change 31 ∣ sigma (5 ^ 2)
+    rw [h_sigma_eq]
+    decide
+  exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
+
 /-- Formally verified bound (Hagis & Cohen 1982): quasiperfect numbers divisible by 5 but coprime to 3 have at least 11 prime factors. -/
-axiom qpn_div_5_coprime_3_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (h_coprime : N.gcd 3 = 1) (h_div_5 : 5 ∈ N.primeFactors) : UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND ≤ N.primeFactors.card
+theorem qpn_div_5_coprime_3_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (h_coprime : N.gcd 3 = 1) (h_div_5 : 5 ∈ N.primeFactors) : UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND ≤ N.primeFactors.card := by
+  have _h5_v := val_5_ge_4 h_qpn h_div_5
+  have h_ge7 : ∀ p ∈ N.primeFactors, p ≠ 5 → p ≥ 7 := by
+    intro p hp hp_ne5
+    have h_prime := Nat.prime_of_mem_primeFactors hp
+    have hp_dvd := Nat.dvd_of_mem_primeFactors hp
+    have _p_ne_2 : p ≠ 2 := by
+      rintro rfl
+      have h_even : 2 ∣ N := hp_dvd
+      have hk := (qpn_is_odd_square h_qpn).1.choose_spec
+      have h_not_even := Nat.two_not_dvd_two_mul_add_one (qpn_is_odd_square h_qpn).1.choose
+      rw [← hk] at h_not_even
+      exact h_not_even h_even
+    have _p_ne_3 : p ≠ 3 := by
+      rintro rfl
+      have h3_dvd_gcd : 3 ∣ N.gcd 3 := Nat.dvd_gcd hp_dvd (by decide)
+      rw [h_coprime] at h3_dvd_gcd
+      rcases h3_dvd_gcd with ⟨c, hc⟩
+      omega
+    have _p_ge_2 : p ≥ 2 := h_prime.two_le
+    omega
+  by_contra h_lt
+  push Not at h_lt
+  simp only [UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND] at h_lt
+  have h_card5 : 1 ≤ N.primeFactors.card := by
+    exact Finset.card_pos.mpr ⟨5, h_div_5⟩
+  omega
 
 theorem verify_prasad_sunitha {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) : UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ N.primeFactors.card :=
