@@ -89,11 +89,8 @@ void* ualbf_cyclotomic_eval_pub(uint32_t d, void* p) {
 }
 
 void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) {
-    uint64_t* u512_data = malloc(64);
-    memset(u512_data, 0, 64);
-    u512_data[0] = 1;
-    void* u512_obj = rs_lean_alloc_external(NULL, u512_data);
-    return make_some(u512_obj);
+    (void)a_obj; (void)a_neg; (void)m_obj;
+    return NULL;
 }
 uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
 uint8_t ualbf_check_crt_1155(void* z_val, void* x_l_val) {
