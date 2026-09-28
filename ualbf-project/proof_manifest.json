@@ -82,13 +82,13 @@
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
       "status": "proven",
-      "checksum": "c944cf5a90d1ec114563c55ae38de01a38db398fd88bbc65f66a93b9e7032e32"
+      "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "axiom",
-      "checksum": "c944cf5a90d1ec114563c55ae38de01a38db398fd88bbc65f66a93b9e7032e32"
+      "status": "proven",
+      "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
@@ -304,7 +304,7 @@
       "name": "UALBF.QPN.PrasadSunitha.verify_prasad_sunitha",
       "file": "UALBF/QPN/PrasadSunitha.lean",
       "status": "proven",
-      "checksum": "c944cf5a90d1ec114563c55ae38de01a38db398fd88bbc65f66a93b9e7032e32"
+      "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.QPN.TouchardQPN.screen_mod_8",
@@ -588,7 +588,7 @@
     },
     {
       "file": "UALBF/ManifestConstants.lean",
-      "checksum": "00e20bbb39fba324d90e0480883a8ed37ae1a010f343911c3aa379aa3f61af2f"
+      "checksum": "9f2547f782b25bb2c93bc4c6669ccf83fd144706ab9ed3783f49a5d58c44e9a2"
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
@@ -636,14 +636,14 @@
     },
     {
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "checksum": "c944cf5a90d1ec114563c55ae38de01a38db398fd88bbc65f66a93b9e7032e32"
+      "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "file": "UALBF/QPN/TouchardQPN.lean",
       "checksum": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
     }
   ],
-  "bounds_manifest_hash": "34637db79282878d4850edae431c554d92cae5c3a76c9c01275aff2cc8cd0f10",
+  "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
   "ghost_pruning_bindings": {
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
@@ -687,11 +687,11 @@
     },
     "prasad_sunitha_bound_satisfied": {
       "lean_theorem": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
-      "theorem_hash": "c944cf5a90d1ec114563c55ae38de01a38db398fd88bbc65f66a93b9e7032e32"
+      "theorem_hash": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     "verify_prasad_sunitha": {
       "lean_theorem": "UALBF.QPN.PrasadSunitha.verify_prasad_sunitha",
-      "theorem_hash": "c944cf5a90d1ec114563c55ae38de01a38db398fd88bbc65f66a93b9e7032e32"
+      "theorem_hash": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     "screen_mod_8": {
       "lean_theorem": "UALBF.QPN.TouchardQPN.screen_mod_8",
@@ -774,6 +774,6 @@
       "theorem_hash": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     }
   },
-  "verified_logic_hash": "40aaf1bfe4ef2440bda9aa888a28942030beb74f421757da9b170fdf00582a22",
+  "verified_logic_hash": "82fbaca8a3656223268f36be313de2c40e4b882fbd0cdb9897623d9acc60128c",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

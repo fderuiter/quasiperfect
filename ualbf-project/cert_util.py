@@ -588,9 +588,7 @@ CORE_THEOREMS = [
     "UALBF.Pure.Arithmetic.lemma_divisibility_transitive",
 ]
 
-ALLOWED_AXIOMS = {
-    "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
-}
+ALLOWED_AXIOMS = set()
 
 
 import time_utils
