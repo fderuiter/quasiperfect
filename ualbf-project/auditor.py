@@ -869,22 +869,23 @@ def _generate_manifest_impl():
                     idx = output.find("depends on axioms:")
 
             if idx == -1:
-                # If Lean compiled successfully but the theorem has no axioms at all
-                # or if there was an error printed in stdout/stderr for this theorem
+                # Theorem header missing from output: fail closed by marking as error
+                theorem_statuses[thm] = "error"
+                has_error = True
                 if (
                     f"unknown identifier '{thm}'" in output
                     or "error: " in output
                     or result.returncode != 0
                 ):
-                    theorem_statuses[thm] = "error"
-                    has_error = True
                     print(
                         f"Error resolving {thm}: unknown identifier or error",
                         file=sys.stderr,
                     )
                 else:
-                    # Proven with absolutely 0 axioms (very rare but possible/valid)
-                    theorem_statuses[thm] = "proven"
+                    print(
+                        f"Error resolving {thm}: missing theorem header in Lean output",
+                        file=sys.stderr,
+                    )
             else:
                 start_bracket = output.find("[", idx)
                 end_bracket = output.find("]", start_bracket)

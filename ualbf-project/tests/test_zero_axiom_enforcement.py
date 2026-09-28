@@ -450,7 +450,9 @@ def test_auditor_rejects_compilation_failure():
         "auditor.check_lean_environment", return_value=True
     ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
         "auditor.check_imports", return_value=True
-    ), mock.patch.dict("os.environ", {"GITHUB_ACTIONS": ""}), tempfile.TemporaryDirectory() as tmpdir:
+    ), mock.patch.dict(
+        "os.environ", {"GITHUB_ACTIONS": ""}
+    ), tempfile.TemporaryDirectory() as tmpdir:
 
         old_cwd = os.getcwd()
         os.chdir(tmpdir)
@@ -1235,7 +1237,12 @@ def test_auditor_scans_and_detects_qpn_div_5_coprime_3_omega_bound():
                 manifest = json.load(f)
 
             thm_entry = next(
-                (t for t in manifest["theorems"] if "custom_unmanifested_axiom" in t["name"]), None
+                (
+                    t
+                    for t in manifest["theorems"]
+                    if "custom_unmanifested_axiom" in t["name"]
+                ),
+                None,
             )
             assert thm_entry is not None
             assert thm_entry["status"] == "axiom"
@@ -1243,3 +1250,99 @@ def test_auditor_scans_and_detects_qpn_div_5_coprime_3_omega_bound():
         finally:
             os.chdir(old_cwd)
 
+
+def test_auditor_rejects_missing_theorem_header():
+    """
+    Test that auditor.py fails closed when Lean output is missing theorem axiom headers,
+    marking theorems as error and exiting with status code 1.
+    """
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and "find_axioms.lean" in args[-1]:
+            # Return stdout without any theorem headers or axiom information
+            return mock.Mock(
+                returncode=0,
+                stdout="Some unrelated Lean output without headers\n",
+                stderr="",
+            )
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            bounds_path = Path("bounds_manifest.json")
+            with open(bounds_path, "w") as f:
+                json.dump({}, f)
+
+            Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
+            Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
+            with open("rust-engine/src/verus_proofs.rs", "w") as f:
+                f.write("verus! {}")
+
+            with pytest.raises(SystemExit) as exc_info:
+                auditor.generate_manifest()
+
+            assert exc_info.value.code == 1
+
+            with open("proof_manifest.json", "r") as f:
+                manifest = json.load(f)
+
+            for thm in manifest["theorems"]:
+                assert thm["status"] == "error"
+
+        finally:
+            os.chdir(old_cwd)
+
+
+def test_auditor_accepts_explicit_empty_axiom_brackets():
+    """
+    Test that auditor.py resolves theorems as proven when Lean explicitly outputs empty axiom brackets `[]`.
+    """
+    original_run = subprocess.run
+
+    def mock_subprocess_run(args, *extra_args, **kwargs):
+        if isinstance(args, list) and "find_axioms.lean" in args[-1]:
+            lines = [f"'{thm}' depends on axioms: []" for thm in auditor.CORE_THEOREMS]
+            stdout = "\n".join(lines)
+            return mock.Mock(returncode=0, stdout=stdout, stderr="")
+        if isinstance(args, list) and (args[0] in ["lake", "cargo", "make"]):
+            return mock.Mock(returncode=0, stdout="dummy_output", stderr="")
+        return original_run(args, *extra_args, **kwargs)
+
+    with mock.patch("subprocess.run", side_effect=mock_subprocess_run), mock.patch(
+        "auditor.check_lean_environment", return_value=True
+    ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+        "auditor.check_imports", return_value=True
+    ), tempfile.TemporaryDirectory() as tmpdir:
+
+        old_cwd = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            bounds_path = Path("bounds_manifest.json")
+            with open(bounds_path, "w") as f:
+                json.dump({}, f)
+
+            Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
+            Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
+            with open("rust-engine/src/verus_proofs.rs", "w") as f:
+                f.write("verus! {}")
+
+            auditor.generate_manifest()
+
+            with open("proof_manifest.json", "r") as f:
+                manifest = json.load(f)
+
+            for thm in manifest["theorems"]:
+                assert thm["status"] == "proven"
+
+        finally:
+            os.chdir(old_cwd)
