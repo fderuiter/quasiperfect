@@ -2330,9 +2330,9 @@ def test_trace_canonicalization_verification(tmp_path):
             "factors": [],
         },
     ]
+    uncanonical_text = "".join(json.dumps(rec) + "\n" for rec in lines_out_of_order)
     with open(trace_path, "w", encoding="utf-8") as f:
-        for rec in lines_out_of_order:
-            f.write(json.dumps(rec) + "\n")
+        f.write(uncanonical_text)
 
     lines_sorted = [
         {
@@ -2367,9 +2367,10 @@ def test_trace_canonicalization_verification(tmp_path):
 
     verify_trace_file(cert, trace_path)
 
+    # Verify trace file on disk is strictly unmodified (read-only audit operation)
     with open(trace_path, "r", encoding="utf-8") as f:
         content = f.read()
-    assert content == canonical_text
+    assert content == uncanonical_text
 
 
 class TestPinnedTrustedKeyValidation:
@@ -2484,3 +2485,67 @@ class TestMetaCertificateRecursionLimit:
         with pytest.raises(CertificateValidationError) as exc_info:
             verify_meta_certificate(current_node, manifest_path, current_depth=0)
         assert "exceeds maximum limit of 5 levels" in str(exc_info.value)
+
+
+import stat
+
+
+class TestReadOnlyTraceVerification:
+    def test_canonicalize_trace_readonly_in_memory(self, tmp_path):
+        from verify_cert import canonicalize_trace
+        trace_path = os.path.join(tmp_path, "readonly_trace.jsonl")
+
+        raw_lines = [
+            json.dumps({"work_unit_id": 2, "step_index": 1, "reason": "raycast", "n_l": "1", "s_l": "1", "factors": []}),
+            json.dumps({"work_unit_id": 1, "step_index": 0, "reason": "touchard", "n_l": "1", "s_l": "1", "factors": []}),
+        ]
+        raw_content = "\n".join(raw_lines) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(raw_content)
+
+        os.chmod(trace_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+
+        try:
+            canonical = canonicalize_trace(trace_path)
+            parsed = [json.loads(line) for line in canonical.splitlines() if line.strip()]
+            assert len(parsed) == 2
+            assert parsed[0]["work_unit_id"] == 1
+            assert parsed[1]["work_unit_id"] == 2
+
+            with open(trace_path, "r", encoding="utf-8") as f:
+                disk_content = f.read()
+            assert disk_content == raw_content
+        finally:
+            os.chmod(trace_path, stat.S_IRUSR | stat.S_IWUSR)
+
+    def test_verify_trace_file_on_write_protected_file(self, tmp_path):
+        from verify_cert import canonicalize_trace, verify_trace_file
+        trace_path = os.path.join(tmp_path, "readonly_trace.jsonl")
+
+        raw_lines = [
+            json.dumps({"work_unit_id": 2, "step_index": 0, "reason": "raycast", "n_l": "1", "s_l": "1", "factors": []}),
+            json.dumps({"work_unit_id": 1, "step_index": 0, "reason": "touchard", "n_l": "1", "s_l": "1", "factors": []}),
+        ]
+        raw_content = "\n".join(raw_lines) + "\n"
+        with open(trace_path, "w", encoding="utf-8") as f:
+            f.write(raw_content)
+
+        canonical_str = canonicalize_trace(trace_path)
+        expected_hash = hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
+
+        cert = {"telemetry": {"trace_hash": expected_hash}}
+
+        os.chmod(trace_path, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+
+        try:
+            mtime_before = os.path.getmtime(trace_path)
+            verify_trace_file(cert, trace_path)
+            mtime_after = os.path.getmtime(trace_path)
+
+            assert mtime_before == mtime_after
+
+            with open(trace_path, "r", encoding="utf-8") as f:
+                assert f.read() == raw_content
+        finally:
+            os.chmod(trace_path, stat.S_IRUSR | stat.S_IWUSR)
+
