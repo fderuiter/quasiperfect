@@ -838,6 +838,9 @@ def _generate_manifest_impl():
             f"'{thm}' depends on axioms:" in output
             or f"{thm}' depends on axioms:" in output
             or f"{thm} depends on axioms:" in output
+            or f"'{thm.split('.')[-1]}' depends on axioms:" in output
+            or f"{thm.split('.')[-1]}' depends on axioms:" in output
+            or f"{thm.split('.')[-1]} depends on axioms:" in output
             for thm in CORE_THEOREMS
         )
 
@@ -846,10 +849,14 @@ def _generate_manifest_impl():
             os.remove(lean_path)
 
         for thm in CORE_THEOREMS:
+            short_thm = thm.split(".")[-1]
             has_thm_in_output = (
                 f"'{thm}' depends on axioms:" in output
                 or f"{thm}' depends on axioms:" in output
                 or f"{thm} depends on axioms:" in output
+                or f"'{short_thm}' depends on axioms:" in output
+                or f"{short_thm}' depends on axioms:" in output
+                or f"{short_thm} depends on axioms:" in output
             )
             if result.returncode != 0 and not has_thm_in_output:
                 # If there was a hard failure and the theorem isn't even in output
@@ -863,28 +870,35 @@ def _generate_manifest_impl():
                 idx = output.find(f"{thm}' depends on axioms:")
             if idx == -1:
                 idx = output.find(f"{thm} depends on axioms:")
+            if idx == -1:
+                idx = output.find(f"'{short_thm}' depends on axioms:")
+            if idx == -1:
+                idx = output.find(f"{short_thm}' depends on axioms:")
+            if idx == -1:
+                idx = output.find(f"{short_thm} depends on axioms:")
             if idx == -1 and not has_any_thm_matched:
                 # Fallback for mock environments / unit tests where stdout is a single generic depends on axioms list without theorem names
                 if "depends on axioms:" in output:
                     idx = output.find("depends on axioms:")
 
             if idx == -1:
-                # If Lean compiled successfully but the theorem has no axioms at all
-                # or if there was an error printed in stdout/stderr for this theorem
+                # Theorem header missing from output: fail closed by marking as error
+                theorem_statuses[thm] = "error"
+                has_error = True
                 if (
                     f"unknown identifier '{thm}'" in output
                     or "error: " in output
                     or result.returncode != 0
                 ):
-                    theorem_statuses[thm] = "error"
-                    has_error = True
                     print(
                         f"Error resolving {thm}: unknown identifier or error",
                         file=sys.stderr,
                     )
                 else:
-                    # Proven with absolutely 0 axioms (very rare but possible/valid)
-                    theorem_statuses[thm] = "proven"
+                    print(
+                        f"Error resolving {thm}: missing theorem header in Lean output",
+                        file=sys.stderr,
+                    )
             else:
                 start_bracket = output.find("[", idx)
                 end_bracket = output.find("]", start_bracket)

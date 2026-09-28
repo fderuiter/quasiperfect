@@ -27,23 +27,49 @@ def test_ghost_pruning_bindings_present_in_manifest():
             # Create dummy bounds_manifest.json
             bounds_path = Path("bounds_manifest.json")
             with open(bounds_path, "w") as f:
-                json.dump({
-                    "omega_bounds": {
-                        "prasad_sunitha": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False},
-                        "hagis1982": {"proof_bound": 10, "engine_justified_gap": 0, "is_axiomatic": False}
+                json.dump(
+                    {
+                        "omega_bounds": {
+                            "prasad_sunitha": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                            "hagis1982": {
+                                "proof_bound": 10,
+                                "engine_justified_gap": 0,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "search_bounds": {
+                            "target_min_log10": {"value": 35, "is_axiomatic": False},
+                            "target_max_log10": {"value": 37, "is_axiomatic": False},
+                            "sieve_limit": {"value": 1000, "is_axiomatic": False},
+                            "max_exponent": {"value": 4, "is_axiomatic": False},
+                            "prefix_stop_threshold": {
+                                "value": 100,
+                                "is_axiomatic": False,
+                            },
+                            "pollard_rho": {
+                                "iteration_limit": 100,
+                                "batch_size": 10,
+                                "is_axiomatic": False,
+                            },
+                            "raycast": {
+                                "gpu_threshold": 100,
+                                "chunk_size": 10,
+                                "is_axiomatic": False,
+                            },
+                        },
+                        "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
+                        "overflow_threshold": {
+                            "num": 2,
+                            "den": 1,
+                            "is_axiomatic": False,
+                        },
                     },
-                    "search_bounds": {
-                        "target_min_log10": {"value": 35, "is_axiomatic": False},
-                        "target_max_log10": {"value": 37, "is_axiomatic": False},
-                        "sieve_limit": {"value": 1000, "is_axiomatic": False},
-                        "max_exponent": {"value": 4, "is_axiomatic": False},
-                        "prefix_stop_threshold": {"value": 100, "is_axiomatic": False},
-                        "pollard_rho": {"iteration_limit": 100, "batch_size": 10, "is_axiomatic": False},
-                        "raycast": {"gpu_threshold": 100, "chunk_size": 10, "is_axiomatic": False}
-                    },
-                    "euler_ceiling": {"num": 2, "den": 1, "is_axiomatic": False},
-                    "overflow_threshold": {"num": 2, "den": 1, "is_axiomatic": False}
-                }, f)
+                    f,
+                )
 
             Path("lean4-proofs").mkdir(parents=True, exist_ok=True)
             Path("rust-engine/src").mkdir(parents=True, exist_ok=True)
@@ -51,10 +77,18 @@ def test_ghost_pruning_bindings_present_in_manifest():
                 f.write("verus! {}")
 
             # Mock check functions so auditor succeeds
-            with mock.patch("auditor.check_lean_environment", return_value=True), \
-                 mock.patch("auditor.check_documentation", return_value=True), \
-                 mock.patch("auditor.check_imports", return_value=True), \
-                 mock.patch("subprocess.run", return_value=mock.Mock(returncode=0, stdout="", stderr="")):
+            with mock.patch(
+                "auditor.check_lean_environment", return_value=True
+            ), mock.patch("auditor.check_documentation", return_value=True), mock.patch(
+                "auditor.check_imports", return_value=True
+            ), mock.patch(
+                "subprocess.run",
+                return_value=mock.Mock(
+                    returncode=0,
+                    stdout="depends on axioms: [propext, Classical.choice, Quot.sound]",
+                    stderr="",
+                ),
+            ):
                 auditor.generate_manifest()
 
             with open("proof_manifest.json", "r") as f:
@@ -70,13 +104,19 @@ def test_ghost_pruning_bindings_present_in_manifest():
 
             # Verify that each binding points to a Lean theorem and SHA-256 hash
             starv_binding = gb["check_starvation_kill"]
-            assert starv_binding["lean_theorem"] == "UALBF.QPN.AbundancyBound.abundancy_starvation"
+            assert (
+                starv_binding["lean_theorem"]
+                == "UALBF.QPN.AbundancyBound.abundancy_starvation"
+            )
             assert len(starv_binding["theorem_hash"]) == 64
 
             # Ensure no non-CDG ghost function uses forced_inclusion as a fallback
             for fn_name, binding in gb.items():
                 if fn_name != "check_cdg_forced_kill":
-                    assert binding["lean_theorem"] != "UALBF.Engine.CyclotomicGraph.forced_inclusion"
+                    assert (
+                        binding["lean_theorem"]
+                        != "UALBF.Engine.CyclotomicGraph.forced_inclusion"
+                    )
 
         finally:
             os.chdir(old_cwd)
@@ -115,11 +155,14 @@ def test_missing_ghost_binding_fails_cargo_build():
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         assert res.returncode != 0
-        assert "Search pruning assumption 'check_starvation_kill' lacks a matching Lean 4 manifest entry" in res.stderr
+        assert (
+            "Search pruning assumption 'check_starvation_kill' lacks a matching Lean 4 manifest entry"
+            in res.stderr
+        )
 
     finally:
         shutil.move(backup_path, manifest_path)
@@ -145,8 +188,13 @@ def test_mismatched_ghost_theorem_hash_fails_cargo_build():
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
 
-        if "ghost_pruning_bindings" in manifest and "check_starvation_kill" in manifest["ghost_pruning_bindings"]:
-            manifest["ghost_pruning_bindings"]["check_starvation_kill"]["theorem_hash"] = "0" * 64
+        if (
+            "ghost_pruning_bindings" in manifest
+            and "check_starvation_kill" in manifest["ghost_pruning_bindings"]
+        ):
+            manifest["ghost_pruning_bindings"]["check_starvation_kill"][
+                "theorem_hash"
+            ] = ("0" * 64)
 
         with open(manifest_path, "w") as f:
             json.dump(manifest, f)
@@ -161,11 +209,14 @@ def test_mismatched_ghost_theorem_hash_fails_cargo_build():
             cwd=str(project_dir / "rust-engine"),
             env=env,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         assert res.returncode != 0
-        assert "SHA-256 hash mismatch for Lean theorem 'UALBF.QPN.AbundancyBound.abundancy_starvation'" in res.stderr
+        assert (
+            "SHA-256 hash mismatch for Lean theorem 'UALBF.QPN.AbundancyBound.abundancy_starvation'"
+            in res.stderr
+        )
 
     finally:
         shutil.move(backup_path, manifest_path)
