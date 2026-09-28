@@ -588,7 +588,7 @@ CORE_THEOREMS = [
     "UALBF.Pure.Arithmetic.lemma_divisibility_transitive",
 ]
 
-ALLOWED_AXIOMS = set()
+ALLOWED_AXIOMS: set[str] = set()
 
 
 import time_utils
