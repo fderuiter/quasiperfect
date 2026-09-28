@@ -157,11 +157,8 @@ jobs:
       - name: Verify Workspace Cleanliness
         run: nix develop --command bash -c "cd ualbf-project && make verify-sync"
 
-      - name: Run Core Logic Tests (dfs_tree)
-        run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release dfs_tree"
-
-      - name: Run Core Logic Tests (lean_ffi)
-        run: nix develop --command bash -c "cd ualbf-project/rust-engine && cargo test --release lean_ffi"
+      - name: Run Cargo Test Workspace
+        run: nix develop --command bash -c "cd ualbf-project && cargo test --workspace --release"
 
       - name: Upload Rust Coverage Report
         if: always()
