@@ -905,8 +905,7 @@ def _generate_manifest_impl():
                             "Quot.sound",
                         ]:
                             status = "axiom"
-                            if thm not in ALLOWED_AXIOMS and ax not in ALLOWED_AXIOMS:
-                                has_error = True
+                            has_error = True
                             break
                     theorem_statuses[thm] = status
                 else:
@@ -982,7 +981,7 @@ def _generate_manifest_impl():
                     "checksum": checksum,
                 }
             )
-            if has_lean and ax_name not in ALLOWED_AXIOMS:
+            if has_lean:
                 has_error = True
 
     # Add Verus-verified Rust component hashes

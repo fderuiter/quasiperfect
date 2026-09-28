@@ -915,14 +915,10 @@ def verify_certificate(cert_path, manifest_path):
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
 
-    allowed_axioms = cert_util.ALLOWED_AXIOMS
     sorries = []
     for thm in manifest.get("theorems", []):
         status = thm.get("status")
-        is_whitelisted = status == "proven" or (
-            status == "axiom" and thm.get("name") in allowed_axioms
-        )
-        if not is_whitelisted:
+        if status != "proven":
             sorries.append(thm)
 
     print("\n--- Manifest Summary ---")
