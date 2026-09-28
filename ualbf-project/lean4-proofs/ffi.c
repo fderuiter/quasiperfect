@@ -11,10 +11,15 @@ static void cert_finalize(void* ptr) {
 }
 static void cert_foreach(void* ptr, b_lean_obj_arg b) {}
 
-lean_obj_res lean_init_cert_class(lean_obj_arg w) {
+static lean_external_class* get_cert_class(void) {
     if (g_cert_class == NULL) {
         g_cert_class = lean_register_external_class(cert_finalize, cert_foreach);
     }
+    return g_cert_class;
+}
+
+lean_obj_res lean_init_cert_class(lean_obj_arg w) {
+    get_cert_class();
     return lean_io_result_mk_ok(lean_box(0));
 }
 
@@ -51,7 +56,7 @@ lean_obj_res verify_certificate_ffi(b_lean_obj_arg cert_json, b_lean_obj_arg pub
     }
     
     lean_object* hash_str = lean_mk_string(manifest_hash_buf);
-    lean_object* cert_obj = lean_alloc_external(g_cert_class, cert_ptr);
+    lean_object* cert_obj = lean_alloc_external(get_cert_class(), cert_ptr);
     
     lean_object* tuple = lean_alloc_ctor(0, 2, 0); // Prod.mk
     lean_ctor_set(tuple, 0, hash_str);
