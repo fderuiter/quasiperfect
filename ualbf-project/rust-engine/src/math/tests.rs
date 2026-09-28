@@ -165,7 +165,6 @@ fn test_solve_mod_2_k_custom_5() {
     assert_eq!(roots.len(), 4);
 }
 
-#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_solve_crt_128bit() {
     crate::lean_ffi::initialize_lean_runtime();
@@ -176,6 +175,67 @@ fn test_solve_crt_128bit() {
     let res = solve_crt(&[r1, r2], &[m1, m2]).expect("CRT should find a solution");
     assert_eq!(res % m1, r1);
     assert_eq!(res % m2, r2);
+}
+
+#[test]
+fn test_mul_mod_u512_overflow() {
+    // Construct 512-bit numbers that overflow when multiplied directly.
+    // a = 2^300, b = 2^300, m = 2^500 + 1.
+    let a = Uint::one() << 300;
+    let b = Uint::one() << 300;
+    let m = (Uint::one() << 500) + Uint::one();
+
+    // a * b = 2^600, which overflows Uint (U512).
+    // (2^600) % (2^500 + 1):
+    // 2^500 = -1 (mod 2^500 + 1)
+    // 2^600 = 2^100 * (2^500) = -2^100 = m - 2^100 (mod m).
+    let expected = m - (Uint::one() << 100);
+    let res = mul_mod_u512(a, b, m);
+    assert_eq!(res, expected);
+}
+
+#[test]
+fn test_solve_crt_512bit_overflow() {
+    // Product of moduli exceeds 512 bits.
+    let m1 = Int::from_u128(1) << 250;
+    let m2 = Int::from_u128(1) << 250;
+    let m3 = Int::from_u128(1) << 250;
+    let r1 = Int::from_u32(1);
+    let r2 = Int::from_u32(2);
+    let r3 = Int::from_u32(3);
+
+    // total_mod = 2^750 > 2^512, which overflows 512-bit integer capacity.
+    assert_eq!(solve_crt(&[r1, r2, r3], &[m1, m2, m3]), None);
+}
+
+#[test]
+fn test_solve_crt_wide_intermediate() {
+    // Test 200-bit moduli where total_mod is ~400 bits.
+    // Intermediate term1 * m_i can be ~600 bits, which overflows 512-bit arithmetic.
+    // Intermediate 1024-bit arithmetic must prevent truncation.
+    let m1 = (Int::one() << 200) - Int::from_u32(1);
+    let m2 = (Int::one() << 200) - Int::from_u32(3);
+    let r1 = Int::from_u128(987654321);
+    let r2 = Int::from_u128(123456789);
+
+    let res = solve_crt(&[r1, r2], &[m1, m2]).expect("CRT solution should exist");
+    assert!(res >= Int::zero());
+    assert_eq!(res % m1, r1 % m1);
+    assert_eq!(res % m2, r2 % m2);
+}
+
+#[test]
+fn test_solve_crt_negative_residues_and_normalization() {
+    let m1 = Int::from_u32(7);
+    let m2 = Int::from_u32(11);
+    let r1 = Int::from_u32(3) - m1; // -4 (equiv to 3 mod 7)
+    let r2 = Int::from_u32(5) - m2; // -6 (equiv to 5 mod 11)
+
+    let res = solve_crt(&[r1, r2], &[m1, m2]).expect("CRT solution should exist");
+    assert!(res >= Int::zero());
+    assert!(res < m1 * m2);
+    assert_eq!((res % m1 + m1) % m1, Int::from_u32(3));
+    assert_eq!((res % m2 + m2) % m2, Int::from_u32(5));
 }
 
 #[cfg_attr(unverified_build, ignore)]
@@ -233,4 +293,31 @@ fn test_hensels_lift_residue_failure() {
     let p = Int::from_u128(2);
     let k = 3;
     assert_eq!(hensels_lift(root, n, p, k), None);
+}
+
+#[test]
+fn test_tonelli_shanks_large_two_adicity() {
+    // p = 3 * 2^36 + 1 = 206,158,430,209 (two-adicity s = 36)
+    let p1 = Int::from_u128(206158430209);
+    let n1 = p1 - Int::one(); // -1 mod p, triggers m - i - 1 = 34
+    let root1 = tonelli_shanks(n1, p1).expect("Square root of -1 mod p1 should exist");
+    let sq1 = mul_mod_u256(root1.as_uint(), root1.as_uint(), p1.as_uint()).as_int();
+    assert_eq!(sq1, n1);
+
+    // p = 3 * 2^41 + 1 = 6,597,069,766,657 (two-adicity s = 41)
+    let p2 = Int::from_u128(6597069766657);
+    let n2 = p2 - Int::one(); // triggers m - i - 1 = 39
+    let root2 = tonelli_shanks(n2, p2).expect("Square root of -1 mod p2 should exist");
+    let sq2 = mul_mod_u256(root2.as_uint(), root2.as_uint(), p2.as_uint()).as_int();
+    assert_eq!(sq2, n2);
+
+    // Test a basic square n = 25
+    let n3 = Int::from_u32(25);
+    let root3 = tonelli_shanks(n3, p1).expect("Square root of 25 mod p1 should exist");
+    let sq3 = mul_mod_u256(root3.as_uint(), root3.as_uint(), p1.as_uint()).as_int();
+    assert_eq!(sq3, n3);
+
+    // Test a non-quadratic residue (e.g. n = 11 mod p1)
+    let n4 = Int::from_u32(11);
+    assert_eq!(tonelli_shanks(n4, p1), None);
 }
