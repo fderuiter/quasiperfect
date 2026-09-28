@@ -218,8 +218,10 @@ pub fn tonelli_shanks(n: Int, p: Int) -> Option<Int> {
             return None;
         }
 
-        let exp = 1u32 << (m - i - 1);
-        let b = modpow_u256(c.as_uint(), Uint::from_u128((exp) as u128), p.as_uint()).as_int();
+        let mut b = c;
+        for _ in 0..(m - i - 1) {
+            b = mul_mod_u256(b.as_uint(), b.as_uint(), p.as_uint()).as_int();
+        }
 
         m = i;
         c = mul_mod_u256(b.as_uint(), b.as_uint(), p.as_uint()).as_int();

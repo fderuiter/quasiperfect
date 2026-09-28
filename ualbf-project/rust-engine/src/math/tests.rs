@@ -234,3 +234,30 @@ fn test_hensels_lift_residue_failure() {
     let k = 3;
     assert_eq!(hensels_lift(root, n, p, k), None);
 }
+
+#[test]
+fn test_tonelli_shanks_large_two_adicity() {
+    // p = 3 * 2^36 + 1 = 206,158,430,209 (two-adicity s = 36)
+    let p1 = Int::from_u128(206158430209);
+    let n1 = p1 - Int::one(); // -1 mod p, triggers m - i - 1 = 34
+    let root1 = tonelli_shanks(n1, p1).expect("Square root of -1 mod p1 should exist");
+    let sq1 = mul_mod_u256(root1.as_uint(), root1.as_uint(), p1.as_uint()).as_int();
+    assert_eq!(sq1, n1);
+
+    // p = 3 * 2^41 + 1 = 6,597,069,766,657 (two-adicity s = 41)
+    let p2 = Int::from_u128(6597069766657);
+    let n2 = p2 - Int::one(); // triggers m - i - 1 = 39
+    let root2 = tonelli_shanks(n2, p2).expect("Square root of -1 mod p2 should exist");
+    let sq2 = mul_mod_u256(root2.as_uint(), root2.as_uint(), p2.as_uint()).as_int();
+    assert_eq!(sq2, n2);
+
+    // Test a basic square n = 25
+    let n3 = Int::from_u32(25);
+    let root3 = tonelli_shanks(n3, p1).expect("Square root of 25 mod p1 should exist");
+    let sq3 = mul_mod_u256(root3.as_uint(), root3.as_uint(), p1.as_uint()).as_int();
+    assert_eq!(sq3, n3);
+
+    // Test a non-quadratic residue (e.g. n = 11 mod p1)
+    let n4 = Int::from_u32(11);
+    assert_eq!(tonelli_shanks(n4, p1), None);
+}
