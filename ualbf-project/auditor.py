@@ -405,40 +405,32 @@ def _setup_staging_workspace(host_dir, staging_dir):
                         except Exception:
                             shutil.copy2(h_f, s_f)
 
-    # Copy parent docs_manifest.json if present and not in staging_dir
-    parent_docs = os.path.abspath(os.path.join(host_dir, "..", "docs_manifest.json"))
-    if not os.path.exists(parent_docs):
-        parent_docs = os.path.abspath(os.path.join(host_dir, "docs_manifest.json"))
-    if os.path.exists(parent_docs) and not os.path.exists(
-        os.path.join(staging_dir, "docs_manifest.json")
+    # Copy parent root files and skill guide directories (docs_manifest.json, README.md, env_manifest.json, env_manifest.schema.json, .jules, .agents) if present and not in staging_dir
+    for parent_item in (
+        "docs_manifest.json",
+        "README.md",
+        "env_manifest.json",
+        "env_manifest.schema.json",
+        ".jules",
+        ".agents",
     ):
-        try:
-            shutil.copy2(parent_docs, os.path.join(staging_dir, "docs_manifest.json"))
-        except Exception:
-            pass
-
-    # Copy parent env_manifest.json and env_manifest.schema.json if present
-    for env_file in ["env_manifest.json", "env_manifest.schema.json"]:
-        parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
-        if not os.path.exists(parent_env):
-            parent_env = os.path.abspath(os.path.join(host_dir, env_file))
-        if os.path.exists(parent_env) and not os.path.exists(
-            os.path.join(staging_dir, env_file)
-        ):
+        parent_path = os.path.abspath(os.path.join(host_dir, "..", parent_item))
+        if not os.path.exists(parent_path):
+            parent_path = os.path.abspath(os.path.join(host_dir, parent_item))
+        staging_target = os.path.join(staging_dir, parent_item)
+        if os.path.exists(parent_path) and not os.path.exists(staging_target):
             try:
-                shutil.copy2(parent_env, os.path.join(staging_dir, env_file))
+                if os.path.isdir(parent_path):
+                    shutil.copytree(
+                        parent_path,
+                        staging_target,
+                        symlinks=True,
+                        ignore=ignore_patterns,
+                    )
+                else:
+                    shutil.copy2(parent_path, staging_target)
             except Exception:
                 pass
-
-    # Copy parent README.md if present and not in staging_dir
-    parent_readme = os.path.abspath(os.path.join(host_dir, "..", "README.md"))
-    if os.path.exists(parent_readme) and not os.path.exists(
-        os.path.join(staging_dir, "README.md")
-    ):
-        try:
-            shutil.copy2(parent_readme, os.path.join(staging_dir, "README.md"))
-        except Exception:
-            pass
 
     # Copy parent semantic_verification_report.md if present and not in staging_dir
     parent_report = os.path.abspath(
