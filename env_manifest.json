@@ -146,15 +146,5 @@
     "allowed_values": null,
     "status": "active",
     "description": "Hex-encoded Ed25519 public key pinned for formal certificate signature verification."
-  },
-  "UALBF_ALLOW_MISSING_SOURCES": {
-    "type": "boolean",
-    "default": null,
-    "allowed_values": [
-      "0",
-      "1"
-    ],
-    "status": "active",
-    "description": "Bypasses missing source artifact checks during certificate verification when set to 1."
   }
 }
