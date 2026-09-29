@@ -822,8 +822,7 @@ class TestVerifyMetaCertificateEnvelope:
         meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
         del meta_cert[missing_key]
         with pytest.raises(
-            CertificateValidationError,
-            match=f"missing required top-level key '{missing_key}'",
+            CertificateValidationError, match=f"missing required top-level key '{missing_key}'"
         ):
             cert_util.verify_meta_certificate_envelope(
                 meta_cert, manifest_path, verified_leaves
@@ -876,7 +875,9 @@ class TestVerifyMetaCertificateEnvelope:
         with pytest.raises(
             CertificateValidationError, match="empty leaf certificate array"
         ):
-            cert_util.verify_meta_certificate_envelope(meta_cert, manifest_path, [])
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, []
+            )
 
     def test_total_nodes_mismatch_raises(self, tmp_path):
         meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
@@ -964,3 +965,4 @@ class TestVerifyMetaCertificateEnvelope:
                 meta_cert, manifest_path, verified_leaves
             )
         assert exc_info.value.code == 1
+
