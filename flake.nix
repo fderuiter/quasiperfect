@@ -138,8 +138,11 @@
             echo "Cleaning up compiled files to prevent store path leaks..."
             # Delete all compiled files except those in mathlib (which are from cache and safe)
             find .lake -type f \( -name '*.olean' -o -name '*.ilean' -o -name '*.c' -o -name '*.o' \) | grep -v "\.lake/packages/mathlib" | xargs rm -f || true
-            find .lake -type f -name '*.trace*' -delete || true
-            find .lake -type f -name '*.hash' -delete || true
+            # Keep ProofWidgets' widget build traces: without them lake re-runs
+            # `npm install` downstream (no npm in the sandbox) and ProofWidgets'
+            # errorOnBuild guard rejects rebuilding the vendored JS bundle.
+            find .lake -type f -name '*.trace*' -not -path '*/proofwidgets/widget/*' -delete || true
+            find .lake -type f -name '*.hash' -not -path '*/proofwidgets/widget/*' -delete || true
             find .lake -type f -name '*.setup.json' -delete || true
             find .lake -name 'lake-manifest.json.tmp' -delete || true
 
@@ -159,7 +162,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
+          outputHash = "sha256-fPol3uoBBgJ0Z+DA7oQwxQOjvbQ2yjSYBayp08xYDXQ=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
