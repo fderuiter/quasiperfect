@@ -123,6 +123,33 @@ struct SerializableTraceEvent<'a> {
     reachable_paths: Option<&'a [Vec<usize>]>,
 }
 
+pub const DEFAULT_TRACE_CAPACITY: usize = 10_000;
+
+impl PruneReason {
+    pub fn is_critical(&self) -> bool {
+        matches!(self, PruneReason::OverflowKill { .. })
+    }
+}
+
+impl TraceEvent {
+    pub fn is_critical(&self) -> bool {
+        self.verification_status != "formally verified" || self.reason.is_critical()
+    }
+}
+
+pub fn send_trace_event(
+    tx: &Sender<TraceEvent>,
+    event: TraceEvent,
+) -> Result<(), crossbeam_channel::SendError<TraceEvent>> {
+    if event.is_critical() {
+        // Critical error events block until delivered to prevent event loss
+        tx.send(event)
+    } else {
+        // Regular trace events pause under bounded channel backpressure
+        tx.send(event)
+    }
+}
+
 pub struct TraceWriter {
     pub sender: Sender<TraceEvent>,
     pub handle: JoinHandle<()>,
@@ -130,7 +157,11 @@ pub struct TraceWriter {
 
 impl TraceWriter {
     pub fn new(file_path: &str) -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded::<TraceEvent>();
+        Self::with_capacity(file_path, DEFAULT_TRACE_CAPACITY)
+    }
+
+    pub fn with_capacity(file_path: &str, capacity: usize) -> Self {
+        let (sender, receiver) = crossbeam_channel::bounded::<TraceEvent>(capacity);
         let path = file_path.to_string();
 
         let handle = std::thread::spawn(move || {
@@ -267,6 +298,11 @@ impl TraceWriter {
 
         TraceWriter { sender, handle }
     }
+
+    pub fn finish(self) -> std::thread::Result<()> {
+        drop(self.sender);
+        self.handle.join()
+    }
 }
 
 pub fn canonicalize_trace_file(file_path: &str) -> std::io::Result<()> {
@@ -350,6 +386,7 @@ pub fn canonicalize_trace_file(file_path: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::UintExt;
 
     #[test]
     fn test_trace_canonicalization_determinism() {
@@ -377,6 +414,81 @@ mod tests {
         canonicalize_trace_file(path_str).unwrap();
         let re_canonical_content = std::fs::read_to_string(path_str).unwrap();
         assert_eq!(re_canonical_content, expected);
+
+        let _ = std::fs::remove_file(path_str);
+    }
+
+    #[test]
+    fn test_trace_writer_default_and_custom_capacity() {
+        let temp_dir = std::env::temp_dir();
+        let path_default = temp_dir.join("test_trace_default.jsonl");
+        let path_custom = temp_dir.join("test_trace_custom.jsonl");
+
+        let tw_default = TraceWriter::new(path_default.to_str().unwrap());
+        assert_eq!(tw_default.sender.capacity(), Some(10_000));
+        let _ = tw_default.finish();
+        let _ = std::fs::remove_file(path_default);
+
+        let tw_custom = TraceWriter::with_capacity(path_custom.to_str().unwrap(), 500);
+        assert_eq!(tw_custom.sender.capacity(), Some(500));
+        let _ = tw_custom.finish();
+        let _ = std::fs::remove_file(path_custom);
+    }
+
+    #[test]
+    fn test_bounded_channel_backpressure_and_critical_events() {
+        let temp_dir = std::env::temp_dir();
+        let path = temp_dir.join("test_trace_backpressure.jsonl");
+        let path_str = path.to_str().unwrap();
+
+        // Small capacity channel to test backpressure
+        let writer = TraceWriter::with_capacity(path_str, 5);
+        let sender = writer.sender.clone();
+
+        let num_events = 50;
+        let sender_handle = std::thread::spawn(move || {
+            for i in 0..num_events {
+                let reason = if i == 25 {
+                    PruneReason::OverflowKill {
+                        s_l_mul: Uint::from_u64(10),
+                        n_l_mul: Uint::from_u64(20),
+                    }
+                } else {
+                    PruneReason::TargetBound
+                };
+
+                let event = TraceEvent {
+                    work_unit_id: 0,
+                    step_index: i as u64,
+                    factors: SmallVec::new(),
+                    n_l: Uint::from_u64(100),
+                    s_l: Uint::from_u64(200),
+                    reason,
+                    verification_status: if i == 25 {
+                        "unverified_critical"
+                    } else {
+                        "formally verified"
+                    },
+                };
+
+                if i == 25 {
+                    assert!(event.is_critical());
+                }
+
+                send_trace_event(&sender, event).unwrap();
+            }
+        });
+
+        sender_handle.join().unwrap();
+        let _ = writer.finish();
+
+        // Verify output written correctly
+        let content = std::fs::read_to_string(path_str).unwrap();
+        let lines: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
+        assert_eq!(lines.len(), num_events);
+
+        // Verify critical event (step 25) was written
+        assert!(content.contains("overflow_kill"));
 
         let _ = std::fs::remove_file(path_str);
     }
