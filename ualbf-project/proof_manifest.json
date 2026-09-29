@@ -4,19 +4,19 @@
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "checksum": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "checksum": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "checksum": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
@@ -280,7 +280,7 @@
       "name": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "checksum": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     {
       "name": "UALBF.Engine.Bipartition.coprime_multiplicative_nonlinear",
@@ -334,13 +334,13 @@
       "name": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "checksum": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.proof_verify_zsigmondy_preconditions",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "checksum": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_composite_has_prime_factor_le_sqrt",
@@ -548,7 +548,7 @@
     },
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "checksum": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "checksum": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     {
       "file": "UALBF/Engine/Mod1155Bridge.lean",
@@ -651,7 +651,7 @@
     },
     "check_cdg_forced_kill": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "theorem_hash": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     "lean_abundancy_starvation_theorem": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
@@ -667,7 +667,7 @@
     },
     "is_cdg_forced_pruned": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
-      "theorem_hash": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "theorem_hash": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     "lemma_sigma_multiplicative": {
       "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
@@ -711,11 +711,11 @@
     },
     "zsigmondy_preconditions_satisfied": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
-      "theorem_hash": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "theorem_hash": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     "proof_verify_zsigmondy_preconditions": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.proof_verify_zsigmondy_preconditions",
-      "theorem_hash": "965a3c71a0a8859a065d3c182d522247bc2aed09f5b41676e2c4337d950e95a8"
+      "theorem_hash": "60d0483e3004019f8ea7a27ce55ca09c5468eb323116aa9f77711900332340e9"
     },
     "lemma_composite_has_prime_factor_le_sqrt": {
       "lean_theorem": "UALBF.Pure.Arithmetic.lemma_composite_has_prime_factor_le_sqrt",

@@ -112,24 +112,12 @@ lemma transitive_reach_target_exact {p1 e1 p2 e2 N : ℕ}
   | trans _ _ _ _ _ _ _ _ ih2 => exact ih2
 
 /--
-  Helper lemma: Any component (p1, e1) starting a reachability path in N is prime and exact-valued in N.
--/
-lemma transitive_reach_start_exact {p1 e1 p2 e2 N : ℕ}
-  (h_reach : TransitiveReach N p1 e1 p2 e2) :
-  p1.Prime ∧ ExactValuation p1 (2 * e1) N := by
-  induction h_reach with
-  | step _ _ _ _ hp1 h_exact1 _ _ _ => exact ⟨hp1, h_exact1⟩
-  | trans _ _ _ _ _ _ _ ih1 _ => exact ih1
-
-/--
   Transitive reachability soundness theorem:
   Multi-step transitive reachability paths in the component graph preserve forced inclusions.
   If component (p1, e1) reaches (p2, e2) transitively in N and (p2, e2) forces prime q,
   then q divides sigma N.
 -/
 theorem transitive_reachability_soundness {p1 e1 p2 e2 q N : ℕ}
-  (_hp1 : p1.Prime)
-  (_h_exact1 : ExactValuation p1 (2 * e1) N)
   (h_reach : TransitiveReach N p1 e1 p2 e2)
   (h_force : SingleStepForce p2 e2 q) :
   q ∣ sigma N := by
@@ -155,10 +143,6 @@ theorem relational_sieve_soundness_generic [S : RelationalObstruction] {N p e d 
   (h_qpn : IsQuasiperfect N)
   (h_cond : S.cond N)
   (hp_prime : p.Prime)
-  (_hp_ge_3 : 3 ≤ p)
-  (_he1 : 1 ≤ e)
-  (_hd : d ∣ 2 * e + 1)
-  (_hd1 : 1 < d)
   (h_forced : S.ForcedComponent p e d) :
   ¬ ExactValuation p (2 * e) N := by
   intro h_exact
