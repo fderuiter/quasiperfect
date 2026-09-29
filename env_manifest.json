@@ -48,6 +48,18 @@
     "status": "active",
     "description": "Allows certificate verification without requiring local Lean 4 proof source files."
   },
+  "UALBF_ALLOW_UNVERIFIED_GPU": {
+    "type": "boolean",
+    "default": false,
+    "allowed_values": [
+      "0",
+      "1",
+      "true",
+      "false"
+    ],
+    "status": "active",
+    "description": "Allows execution of unverified GPU sieve algorithms and inclusion of GPU witness data."
+  },
   "UALBF_CERT_PATH": {
     "type": "path",
     "default": null,

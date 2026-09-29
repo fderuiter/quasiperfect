@@ -426,6 +426,8 @@ SUPERSCRIPTS = {
 }
 
 SAFE_COMMON_WORDS = {
+    "ualbf_allow_missing_sources",
+    "ualbf_allow_unverified_gpu",
     # Languages and Tech
     "rust",
     "lean",
