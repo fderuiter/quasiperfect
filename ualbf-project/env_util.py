@@ -25,7 +25,11 @@ def find_repo_root(start_dir: Optional[Path] = None) -> Path:
         current = current.parent
 
     for p in [current] + list(current.parents):
-        if (p / "env_manifest.json").exists() or (p / "docs_manifest.json").exists():
+        if (
+            (p / "env_manifest.json").exists()
+            or (p / "docs_manifest.json").exists()
+            or (p / "bounds_manifest.json").exists()
+        ):
             return p
     return current
 
@@ -44,6 +48,7 @@ def load_manifest_and_schema(
     if not manifest_path:
         possible_manifests = [
             repo_root / "env_manifest.json",
+            repo_root / "ualbf-project" / "env_manifest.json",
             repo_root.parent / "env_manifest.json",
         ]
         m_path = next((p for p in possible_manifests if p.exists()), None)
@@ -55,6 +60,7 @@ def load_manifest_and_schema(
     if not schema_path:
         possible_schemas = [
             repo_root / "env_manifest.schema.json",
+            repo_root / "ualbf-project" / "env_manifest.schema.json",
             repo_root.parent / "env_manifest.schema.json",
         ]
         s_path = next((p for p in possible_schemas if p.exists()), None)
