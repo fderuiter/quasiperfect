@@ -237,6 +237,8 @@ def validate_spec_sync(repo_root: str) -> bool:
         "rust-engine/src/manifest_constants.rs",
         "rust-engine/src/manifest_constants.h",
         "lean4-proofs/UALBF/ManifestConstants.lean",
+        "proof_manifest.json",
+        "schema_manifest.json",
         "../README.md",
         "TODO.md",
     ]
