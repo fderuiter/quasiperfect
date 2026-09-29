@@ -83,6 +83,12 @@ extern "C" {
     pub fn rs_lean_box_unit() -> *mut lean_object;
     #[cfg(unverified_build)]
     pub fn make_some(val: *mut lean_object) -> *mut lean_object;
+    pub fn ualbf_mod_inverse_raw(
+        a_limbs: *const u64,
+        a_neg: u8,
+        m_limbs: *const u64,
+        out_limbs: *mut u64,
+    ) -> bool;
 }
 
 include!("ffi_generated.rs");
@@ -542,9 +548,28 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 
 pub fn check_crt_1155(z_val: &Uint, x_l_val: &Uint) -> bool {
     initialize_lean_runtime();
-    let z_obj = z_val.to_lean();
-    let x_l_obj = x_l_val.to_lean();
-    unsafe { ualbf_check_crt_1155(z_obj.as_ptr(), x_l_obj.as_ptr()) != 0 }
+    let z_words = bytes_to_words::<64, 8>(&z_val.to_le_bytes());
+    let xl_words = bytes_to_words::<64, 8>(&x_l_val.to_le_bytes());
+    unsafe {
+        ualbf_check_crt_1155_limbs(
+            z_words[0],
+            z_words[1],
+            z_words[2],
+            z_words[3],
+            z_words[4],
+            z_words[5],
+            z_words[6],
+            z_words[7],
+            xl_words[0],
+            xl_words[1],
+            xl_words[2],
+            xl_words[3],
+            xl_words[4],
+            xl_words[5],
+            xl_words[6],
+            xl_words[7],
+        ) != 0
+    }
 }
 
 pub fn get_baseline_min_prime_factors() -> usize {
@@ -673,17 +698,18 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
 
 pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> {
     initialize_lean_runtime();
+    let a_words = bytes_to_words::<64, 8>(&a_abs.to_le_bytes());
+    let m_words = bytes_to_words::<64, 8>(&m.to_le_bytes());
+    let mut out_words = [0u64; 8];
+
     unsafe {
-        let a_obj = a_abs.to_lean();
-        let m_obj = m.to_lean();
-
-        let opt_obj = ualbf_mod_inverse(a_obj.as_ptr(), if a_neg { 1 } else { 0 }, m_obj.as_ptr());
-
-        if !is_none(opt_obj) {
-            let obj = get_some(opt_obj);
-            let w = get_u512(obj).copied().unwrap_or(ZERO_U512);
-            rs_lean_dec(opt_obj);
-            let b = words_to_bytes::<8, 64>(&w);
+        if ualbf_mod_inverse_raw(
+            a_words.as_ptr(),
+            if a_neg { 1 } else { 0 },
+            m_words.as_ptr(),
+            out_words.as_mut_ptr(),
+        ) {
+            let b = words_to_bytes::<8, 64>(&out_words);
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             if m <= &Uint::one() {
