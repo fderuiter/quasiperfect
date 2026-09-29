@@ -178,6 +178,42 @@ fn test_solve_crt_128bit() {
 }
 
 #[test]
+fn test_mul_mod_u128_overflow() {
+    // Edge case: m = 1
+    assert_eq!(mul_mod_u128(10, 20, 1), 0);
+
+    // Edge case: zero operands
+    assert_eq!(mul_mod_u128(0, 100, 17), 0);
+    assert_eq!(mul_mod_u128(100, 0, 17), 0);
+
+    // Fast-path checked multiplication (no overflow)
+    assert_eq!(mul_mod_u128(10, 20, 7), (10 * 20) % 7);
+
+    // 128-bit product overflow test:
+    // a = 2^70, b = 2^70, m = 2^120 + 1.
+    // a * b = 2^140, which exceeds u128::MAX (2^128 - 1).
+    // (2^140) % (2^120 + 1):
+    // 2^120 = -1 (mod 2^120 + 1)
+    // 2^140 = 2^20 * (2^120) = -2^20 = m - 2^20 (mod m).
+    let a = 1u128 << 70;
+    let b = 1u128 << 70;
+    let m = (1u128 << 120) + 1;
+    let expected = m - (1u128 << 20);
+    let res = mul_mod_u128(a, b, m);
+    assert_eq!(res, expected);
+
+    // Operands near u128::MAX
+    let max_a = u128::MAX - 1;
+    let max_b = u128::MAX - 2;
+    let max_m = u128::MAX - 5;
+    let res_max = mul_mod_u128(max_a, max_b, max_m);
+    // (u128::MAX - 1) % (u128::MAX - 5) = 4
+    // (u128::MAX - 2) % (u128::MAX - 5) = 3
+    // (4 * 3) % (u128::MAX - 5) = 12
+    assert_eq!(res_max, 12);
+}
+
+#[test]
 fn test_mul_mod_u512_overflow() {
     // Construct 512-bit numbers that overflow when multiplied directly.
     // a = 2^300, b = 2^300, m = 2^500 + 1.

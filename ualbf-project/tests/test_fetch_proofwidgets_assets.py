@@ -325,4 +325,105 @@ def test_compute_sha256_python_fallback_with_special_chars(tmp_path):
     assert res.stdout.strip() == expected_hash
 
 
+def test_nix_build_top_forces_offline_when_net_not_allowed(tmp_path):
+    manifest_file = tmp_path / "lake-manifest.json"
+    manifest_data = {
+        "packages": [
+            {
+                "name": "proofwidgets",
+                "inputRev": "v0.0.99",
+                "rev": "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8",
+            }
+        ]
+    }
+    manifest_file.write_text(json.dumps(manifest_data))
+
+    env = os.environ.copy()
+    env["NIX_BUILD_TOP"] = "/build"
+    env.pop("PROOFWIDGETS_ALLOW_NET", None)
+    env["OFFLINE"] = "0"
+    env["LAKE_OFFLINE"] = "0"
+    env["FORCE_OFFLINE"] = "0"
+
+    res = subprocess.run(
+        ["bash", str(SCRIPT_PATH), str(manifest_file)],
+        cwd=str(tmp_path),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode == 0
+    assert "Offline mode active" in res.stdout
+    js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
+    assert (js_dir / "index.js").exists()
+
+
+def test_nix_build_top_allows_net_when_proofwidgets_allow_net_is_1(tmp_path):
+    manifest_file = tmp_path / "lake-manifest.json"
+    manifest_data = {
+        "packages": [
+            {
+                "name": "proofwidgets",
+                "inputRev": "v0.0.99",
+                "rev": "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8",
+            }
+        ]
+    }
+    manifest_file.write_text(json.dumps(manifest_data))
+
+    env = os.environ.copy()
+    env["NIX_BUILD_TOP"] = "/build"
+    env["PROOFWIDGETS_ALLOW_NET"] = "1"
+    env["OFFLINE"] = "0"
+    env["LAKE_OFFLINE"] = "0"
+    env["FORCE_OFFLINE"] = "0"
+
+    res = subprocess.run(
+        ["bash", str(SCRIPT_PATH), str(manifest_file)],
+        cwd=str(tmp_path),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode == 0
+    assert "Offline mode active" not in res.stdout
+    js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
+    assert (js_dir / "index.js").exists()
+
+
+def test_direct_offline_override_takes_precedence_over_allow_net(tmp_path):
+    manifest_file = tmp_path / "lake-manifest.json"
+    manifest_data = {
+        "packages": [
+            {
+                "name": "proofwidgets",
+                "inputRev": "v0.0.99",
+                "rev": "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8",
+            }
+        ]
+    }
+    manifest_file.write_text(json.dumps(manifest_data))
+
+    env = os.environ.copy()
+    env["NIX_BUILD_TOP"] = "/build"
+    env["PROOFWIDGETS_ALLOW_NET"] = "1"
+    env["OFFLINE"] = "1"
+
+    res = subprocess.run(
+        ["bash", str(SCRIPT_PATH), str(manifest_file)],
+        cwd=str(tmp_path),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode == 0
+    assert "Offline mode active" in res.stdout
+    js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
+    assert (js_dir / "index.js").exists()
+
+
+
 

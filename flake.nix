@@ -130,6 +130,7 @@
               lake exe cache get || true
             fi
             # We specifically build proofwidgets to fetch the JS assets
+            export PROOFWIDGETS_ALLOW_NET=1
             bash ${./ualbf-project/scripts/fetch_proofwidgets_assets.sh} lake-manifest.json
             lake build proofwidgets
             lake build LeanSearchClient || true
