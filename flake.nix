@@ -389,34 +389,17 @@
               sed -i 's/parser = self._parser_class(\*\*kwargs)/kwargs.pop("color", None); parser = self._parser_class(\*\*kwargs)/g' paper/argparse.py
               export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
 
-              echo "Generating dummy certificate..."
+              echo "Generating test certificate..."
               python3 -c '
-import json, hashlib
-with open("proof_manifest.json", "rb") as f:
-    manifest_hash = hashlib.sha256(f.read()).hexdigest()
-with open("bounds_manifest.json", "r") as f:
-    bounds = json.load(f)
-cert = {
-    "manifest_hash": manifest_hash,
-    "verified_logic_hash": "dummy",
-    "telemetry": {
-        "phase1_execution_time_ms": 0,
-        "phase2_execution_time_ms": 1000,
-        "total_branches_searched": 10,
-        "abundance_pruned": 0,
-        "raycast_pruned": 0,
-        "target_min_log10": bounds["search_bounds"]["target_min_log10"]["value"],
-        "target_max_log10": bounds["search_bounds"]["target_max_log10"]["value"],
-        "phase1_pruned": 0
-    },
-    "engine_version": "dummy",
-    "commit_hash": "dummy"
-}
-with open("dummy_cert.json", "w") as f:
+import json, cert_util
+cert, pub_hex = cert_util.create_signed_test_cert("proof_manifest.json", "bounds_manifest.json")
+with open("test_cert.json", "w") as f:
     json.dump(cert, f)
+with open("pubkey.txt", "w") as f:
+    f.write(pub_hex)
 '
-              export UALBF_CERT_PATH=$PWD/dummy_cert.json
-              export UALBF_DUMMY_PAPER_CI=1
+              export UALBF_CERT_PATH=$PWD/test_cert.json
+              export UALBF_TRUSTED_PUBLIC_KEY=$(cat pubkey.txt)
               export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
               
               echo "Compiling LaTeX paper..."
