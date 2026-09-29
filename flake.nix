@@ -204,13 +204,14 @@
           pname = "verification-lib";
           version = "0.1.0";
           src = pkgs.lib.cleanSourceWith {
-            src = ./ualbf-project;
+            src = ./.;
             filter = path: type:
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest\\.json|env_manifest\\.schema\\.json)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest.*|docs_manifest.*)$" p != null || type == "directory";
           };
+          sourceRoot = "source/ualbf-project";
           buildAndTestSubdir = "verification-lib";
 
           cargoBuildFlags = [ "-p" "verification-lib" ];
@@ -264,15 +265,15 @@
           pname = "ualbf-engine";
           version = "0.1.0";
           src = pkgs.lib.cleanSourceWith {
-            src = ./ualbf-project;
+            src = ./.;
             filter = path: type:
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest\\.json|env_manifest\\.schema\\.json|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest.*|docs_manifest.*|lean4-proofs.*)$" p != null || type == "directory";
           };
 
-          sourceRoot = "source/rust-engine";
+          sourceRoot = "source/ualbf-project/rust-engine";
 
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
@@ -332,7 +333,15 @@
           rust-literals = pkgs.stdenv.mkDerivation {
             pname = "rust-literals-check";
             version = "0.1.0";
-            src = ./ualbf-project;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let 
+                  p = toString path;
+                in
+                  builtins.match ".*(scripts.*|rust-engine.*|env_manifest.*|docs_manifest.*)$" p != null || type == "directory";
+            };
+            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ pkgs.python3 ];
 
@@ -350,7 +359,15 @@
           latex-paper = pkgs.stdenv.mkDerivation {
             pname = "latex-paper-check";
             version = "0.1.0";
-            src = ./.;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let 
+                  p = toString path;
+                in
+                  builtins.match ".*(paper.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest.*|docs_manifest.*|.*\\.py|.*\\.json)$" p != null || type == "directory";
+            };
+            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ 
               pkgs.python3 
