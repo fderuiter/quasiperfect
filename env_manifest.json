@@ -20,6 +20,34 @@
     "status": "active",
     "description": "Bypasses external Lean binary invocation during tests by enabling mock verification."
   },
+  "UALBF_ALLOW_LOGIC_MISMATCH": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": [
+      "0",
+      "1",
+      "true",
+      "false",
+      "yes",
+      "no"
+    ],
+    "status": "active",
+    "description": "Allows execution to proceed despite logic or manifest hash mismatch during certificate verification."
+  },
+  "UALBF_ALLOW_MISSING_SOURCES": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": [
+      "0",
+      "1",
+      "true",
+      "false",
+      "yes",
+      "no"
+    ],
+    "status": "active",
+    "description": "Allows certificate verification without requiring local Lean 4 proof source files."
+  },
   "UALBF_CERT_PATH": {
     "type": "path",
     "default": null,
