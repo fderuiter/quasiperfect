@@ -41,24 +41,9 @@ def run_paper_unit_tests() -> bool:
 
 
 def create_dummy_cert(manifest_path: str, bounds_path: str) -> dict:
-    """Create minimal certificate dictionary aligned with manifest hash."""
-    mbytes = cert_util.BoundedJSONLoader().read_file_bytes(manifest_path)
-    mhash = hash_util.hash_bytes(mbytes)
-    return {
-        "manifest_hash": mhash,
-        "verified_logic_hash": "0" * 64,
-        "public_key": "0" * 32,
-        "signature": "0" * 64,
-        "telemetry": {
-            "phase1_execution_time_ms": 100,
-            "phase2_execution_time_ms": 5000,
-            "total_branches_searched": 1000,
-            "abundance_pruned": 200,
-            "raycast_pruned": 0,
-            "target_min_log10": 35,
-            "target_max_log10": 37,
-        },
-    }
+    """Create signed test certificate dictionary aligned with manifest hash."""
+    cert_data, _ = cert_util.create_signed_test_cert(manifest_path, bounds_path)
+    return cert_data
 
 
 def parse_tex_macros(content: str) -> Dict[str, str]:
@@ -81,25 +66,27 @@ def generate_paper_macros(
 ) -> None:
     """Generate telemetry.tex and verification_manifest.tex in target_dir."""
     with tempfile.TemporaryDirectory() as tmp_cert_dir:
-        dummy_cert_path = os.path.join(tmp_cert_dir, "dummy_cert.json")
-        dummy_cert_data = create_dummy_cert(manifest_path, bounds_path)
-        with open(dummy_cert_path, "w", encoding="utf-8") as f:
-            json.dump(dummy_cert_data, f)
+        test_cert_path = os.path.join(tmp_cert_dir, "test_cert.json")
+        cert_data, pub_hex = cert_util.create_signed_test_cert(
+            manifest_path=manifest_path, bounds_path=bounds_path
+        )
+        with open(test_cert_path, "w", encoding="utf-8") as f:
+            json.dump(cert_data, f)
 
-        orig_dummy = env_util.get_env_var("UALBF_DUMMY_PAPER_CI")
-        os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+        orig_trusted_key = os.environ.get("UALBF_TRUSTED_PUBLIC_KEY")
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
         try:
             ingest_cert.write_telemetry_tex(
-                cert_path=dummy_cert_path,
+                cert_path=test_cert_path,
                 manifest_path=manifest_path,
                 bounds_path=bounds_path,
                 output_dir=target_dir,
             )
         finally:
-            if orig_dummy is None:
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+            if orig_trusted_key is None:
+                os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
             else:
-                os.environ["UALBF_DUMMY_PAPER_CI"] = orig_dummy
+                os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = orig_trusted_key
 
 
 def verify_paper_macro_sync(

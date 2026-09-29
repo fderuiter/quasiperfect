@@ -1,8 +1,12 @@
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Optional, Union
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 import env_util
 import hash_util
@@ -691,3 +695,74 @@ def verify_theorem_checksum(
             return computed == thm.get("checksum", "")
         else:
             return False
+
+
+def create_signed_test_cert(
+    manifest_path: str,
+    bounds_path: Optional[str] = None,
+    extra_telemetry: Optional[dict] = None,
+    commit_hash: Optional[str] = None,
+) -> tuple[dict, str]:
+    """
+    Creates an Ed25519-signed test certificate for testing and CI paper sync verification.
+    Returns (cert_dict, public_key_hex).
+    """
+    mbytes = BoundedJSONLoader().read_file_bytes(manifest_path)
+    manifest_hash = hash_util.hash_bytes(mbytes)
+
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    verified_logic_hash = (
+        hash_tcb(project_root) if (_has_verification_lib and hash_tcb) else "0" * 64
+    )
+
+    if commit_hash is None:
+        try:
+            commit_hash = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=project_root,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        except Exception:
+            commit_hash = "unknown"
+
+    tel = {
+        "phase1_execution_time_ms": 100,
+        "phase2_execution_time_ms": 5000,
+        "total_branches_searched": 1000,
+        "abundance_pruned": 200,
+        "raycast_pruned": 0,
+        "target_min_log10": 35,
+        "target_max_log10": 37,
+    }
+    if extra_telemetry:
+        tel.update(extra_telemetry)
+
+    map_obj = {
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": verified_logic_hash,
+        "total_branches_searched": tel["total_branches_searched"],
+        "target_min_log10": tel["target_min_log10"],
+        "target_max_log10": tel["target_max_log10"],
+        "trace_hash": tel.get("trace_hash", ""),
+        "factorization_depth": tel.get("factorization_depth", 0),
+    }
+    if "path_ranges" in tel:
+        map_obj["path_ranges"] = tel["path_ranges"]
+
+    priv = Ed25519PrivateKey.generate()
+    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+    payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+    sig_hex = priv.sign(payload.encode("utf-8")).hex()
+
+    cert_data = {
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": verified_logic_hash,
+        "public_key": pub_hex,
+        "signature": sig_hex,
+        "engine_version": "1.0.0",
+        "commit_hash": commit_hash,
+        "telemetry": tel,
+    }
+
+    return cert_data, pub_hex
