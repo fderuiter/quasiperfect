@@ -30,7 +30,7 @@ The CRT tensor sieve has optional Metal and OpenCL backends in `rust-engine/src/
 
 ## 4a. Trusted Mathematical Axioms
 One literature result is assumed rather than proved in Lean, and it is the only entry in the ALLOWED_AXIOMS whitelist in cert_util.py:
-- `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (`UALBF/QPN/PrasadSunitha.lean`): a quasiperfect number divisible by 5 and coprime to 3 has at least 11 distinct prime factors (Hagis and Cohen, 1982). It is marked `is_axiomatic: true` in `bounds_manifest.json`, and the auditor rejects any other axiom.
+- `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (`UALBF/QPN/PrasadSunitha.lean`): a quasiperfect number divisible by 5 and coprime to 3 has at least 7 distinct prime factors. This is the general bound of Hagis and Cohen (1982); the search engine does not prune on any stronger, unproven bound for this case. It is marked `is_axiomatic: true` in `bounds_manifest.json`, and the auditor rejects any other axiom.
 
 ## 5. Build Environment Variables & Verification Configuration
 

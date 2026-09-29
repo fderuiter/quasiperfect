@@ -390,64 +390,43 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
   | some v => some (toU512 v.toNat)
   | none   => none
 
+/-
+  Limb-wise wrappers so the Rust engine can call the modular inverse without
+  allocating Lean `U512` objects. They delegate to `ualbf_mod_inverse_impl`
+  rather than re-inlining it, which keeps C code generation tractable.
+-/
 @[export ualbf_mod_inverse_ok_limbs]
 def ualbf_mod_inverse_ok_limbs_impl (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) : Bool :=
-  let a_u := U512.mk a0 a1 a2 a3 a4 a5 a6 a7
-  let m_u := U512.mk m0 m1 m2 m3 m4 m5 m6 m7
-  let a := fromU512Signed a_u a_neg
-  let m := (fromU512 m_u : Int)
-  match modInverse a m with
-  | some _ => true
-  | none   => false
+  (ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7)).isSome
+
+/-- Selects limb `i` (0 = least significant) of a 512-bit value; out-of-range indices give 0. -/
+def U512.limbAt (res : U512) (i : UInt32) : UInt64 :=
+  match i.toNat with
+  | 0 => U512.w0 res
+  | 1 => U512.w1 res
+  | 2 => U512.w2 res
+  | 3 => U512.w3 res
+  | 4 => U512.w4 res
+  | 5 => U512.w5 res
+  | 6 => U512.w6 res
+  | 7 => U512.w7 res
+  | _ => 0
 
 @[export ualbf_mod_inverse_limb]
 def ualbf_mod_inverse_limb_impl (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) (limb_idx : UInt32) : UInt64 :=
-  let a_u := U512.mk a0 a1 a2 a3 a4 a5 a6 a7
-  let m_u := U512.mk m0 m1 m2 m3 m4 m5 m6 m7
-  let a := fromU512Signed a_u a_neg
-  let m := (fromU512 m_u : Int)
-  match modInverse a m with
-  | some v =>
-    let res := toU512 v.toNat
-    match limb_idx.toNat with
-    | 0 => U512.w0 res
-    | 1 => U512.w1 res
-    | 2 => U512.w2 res
-    | 3 => U512.w3 res
-    | 4 => U512.w4 res
-    | 5 => U512.w5 res
-    | 6 => U512.w6 res
-    | 7 => U512.w7 res
-    | _ => 0
-  | none => 0
+  (ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7)).elim 0
+    (fun res => U512.limbAt res limb_idx)
 
 theorem ualbf_mod_inverse_ok_limbs_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) :
     ualbf_mod_inverse_ok_limbs_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 =
       (ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7)).isSome := by
-  unfold ualbf_mod_inverse_ok_limbs_impl ualbf_mod_inverse_impl
-  dsimp only
-  generalize modInverse _ _ = r
-  cases r <;> rfl
+  rw [ualbf_mod_inverse_ok_limbs_impl]
 
 theorem ualbf_mod_inverse_limb_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) (limb_idx : UInt32) :
-    (match ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7) with
-     | some res =>
-       match limb_idx.toNat with
-       | 0 => U512.w0 res
-       | 1 => U512.w1 res
-       | 2 => U512.w2 res
-       | 3 => U512.w3 res
-       | 4 => U512.w4 res
-       | 5 => U512.w5 res
-       | 6 => U512.w6 res
-       | 7 => U512.w7 res
-       | _ => 0
-     | none => 0) =
-    ualbf_mod_inverse_limb_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 limb_idx := by
-  unfold ualbf_mod_inverse_limb_impl ualbf_mod_inverse_impl
-  dsimp only
-  generalize modInverse _ _ = r
-  cases r <;> rfl
+    ualbf_mod_inverse_limb_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 limb_idx =
+      (ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7)).elim 0
+        (fun res => U512.limbAt res limb_idx) := by
+  rw [ualbf_mod_inverse_limb_impl]
 
 /-! ### FFI Overflow Tests -/
 

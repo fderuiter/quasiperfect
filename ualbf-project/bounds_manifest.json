@@ -13,9 +13,9 @@
       }
     },
     "div_5_coprime_3": {
-      "proof_bound": 11,
+      "proof_bound": 7,
       "engine_justified_gap": 0,
-      "justification": "Literature bound (Hagis & Cohen 1982) for QPNs divisible by 5 but coprime to 3, assumed as a whitelisted Lean axiom rather than proved.",
+      "justification": "Hagis & Cohen (1982) prove every quasiperfect number has at least 7 distinct prime factors; assumed here as a whitelisted Lean axiom. A stronger bound for this case is not established in the cited source, so the engine does not prune on one.",
       "is_axiomatic": true,
       "citation": {
         "author": "Hagis & Cohen",
