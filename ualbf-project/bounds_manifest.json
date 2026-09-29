@@ -15,7 +15,7 @@
     "div_5_coprime_3": {
       "proof_bound": 11,
       "engine_justified_gap": 0,
-      "justification": "Proven bound for QPNs divisible by 5 but coprime to 3.",
+      "justification": "Literature bound (Hagis & Cohen 1982) for QPNs divisible by 5 but coprime to 3, assumed as a whitelisted Lean axiom rather than proved.",
       "is_axiomatic": true,
       "citation": {
         "author": "Hagis & Cohen",
@@ -372,7 +372,7 @@
       19
     ],
     "is_axiomatic": false,
-    "justification": "Touchard's theorem implies quasiperfect numbers are congruent to 3 or 19 modulo 24.",
+    "justification": "A quasiperfect number N is an odd square, so N is congruent to 1 or 9 modulo 24 and sigma(N) = 2N + 1 is congruent to 3 or 19 modulo 24 (Touchard-style congruence argument).",
     "citation": {
       "author": "Touchard, Jacques",
       "year": "1953",
