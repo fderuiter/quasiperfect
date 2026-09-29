@@ -269,6 +269,64 @@ class BoundedJSONLoader:
         self.max_size_bytes = max_size_bytes
         self.max_depth = max_depth
 
+    def _lexical_prescan_depth(self, payload: str | bytes | bytearray) -> None:
+        """
+        Performs an O(N) iterative single-pass lexical pre-scan over raw JSON text or bytes
+        to calculate container nesting depth prior to invoking json.loads.
+        Raises CertificateValidationError immediately if peak nesting depth exceeds self.max_depth.
+        """
+        current_depth = 0
+        in_string = False
+        is_escaped = False
+        max_depth = self.max_depth
+
+        if isinstance(payload, (bytes, bytearray)):
+            for b in payload:
+                if in_string:
+                    if is_escaped:
+                        is_escaped = False
+                    elif b == 92:  # \
+                        is_escaped = True
+                    elif b == 34:  # "
+                        in_string = False
+                else:
+                    if b == 34:  # "
+                        in_string = True
+                    elif b == 123 or b == 91:  # { or [
+                        current_depth += 1
+                        if current_depth > max_depth:
+                            raise CertificateValidationError(
+                                f"JSON container nesting depth ({current_depth}) exceeds maximum allowed limit of {max_depth} levels."
+                            )
+                    elif b == 125 or b == 93:  # } or ]
+                        if current_depth > 0:
+                            current_depth -= 1
+        elif isinstance(payload, str):
+            for ch in payload:
+                if in_string:
+                    if is_escaped:
+                        is_escaped = False
+                    elif ch == "\\":
+                        is_escaped = True
+                    elif ch == '"':
+                        in_string = False
+                else:
+                    if ch == '"':
+                        in_string = True
+                    elif ch == "{" or ch == "[":
+                        current_depth += 1
+                        if current_depth > max_depth:
+                            raise CertificateValidationError(
+                                f"JSON container nesting depth ({current_depth}) exceeds maximum allowed limit of {max_depth} levels."
+                            )
+                    elif ch == "}" or ch == "]":
+                        if current_depth > 0:
+                            current_depth -= 1
+        else:
+            raise CertificateValidationError(
+                f"Invalid JSON input type: {type(payload)}"
+            )
+
     def _verify_depth(self, obj: Any, current_depth: int = 0) -> None:
         if current_depth > self.max_depth:
             raise CertificateValidationError(
@@ -330,10 +388,8 @@ class BoundedJSONLoader:
     def loads(self, s: str | bytes | bytearray, **kwargs: Any) -> Any:
         if isinstance(s, (bytes, bytearray)):
             byte_len = len(s)
-            text = s.decode(kwargs.pop("encoding", "utf-8"))
         elif isinstance(s, str):
             byte_len = len(s.encode("utf-8"))
-            text = s
         else:
             raise CertificateValidationError(f"Invalid JSON input type: {type(s)}")
 
@@ -341,6 +397,13 @@ class BoundedJSONLoader:
             raise CertificateValidationError(
                 f"JSON payload size ({byte_len} bytes) exceeds maximum allowed limit of {self.max_size_bytes} bytes."
             )
+
+        self._lexical_prescan_depth(s)
+
+        if isinstance(s, (bytes, bytearray)):
+            text = s.decode(kwargs.pop("encoding", "utf-8"))
+        else:
+            text = s
 
         try:
             data = json.loads(text, **kwargs)
