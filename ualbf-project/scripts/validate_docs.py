@@ -102,6 +102,8 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
 
     # First pass: collect anchors from all registered markdown files
     for rel_path in registered_files:
+        if not rel_path.endswith(".md"):
+            continue
         abs_path = os.path.join(repo_root, rel_path)
         if os.path.exists(abs_path):
             try:
@@ -113,6 +115,8 @@ def validate_markdown_links(repo_root: str, registered_files: list) -> bool:
 
     # Second pass: validate links and section anchors
     for rel_path in registered_files:
+        if not rel_path.endswith(".md"):
+            continue
         abs_path = os.path.join(repo_root, rel_path)
         if not os.path.exists(abs_path):
             continue
@@ -225,6 +229,7 @@ def validate_spec_sync(repo_root: str) -> bool:
     spec_files = [
         "rust-engine/src/schema_generated.rs",
         "lean4-proofs/schema_generated.h",
+        "lean4-proofs/include/verification_lib.h",
         "lean4-proofs/UALBF/Engine/SearchState.lean",
         "rust-engine/src/lean_export.rs",
         "lean4-proofs/UALBF/FFI_generated.lean",
@@ -742,6 +747,21 @@ def main():
         ):
             filtered_md_files.append(md_file)
 
+    # Check that all registered manifest entries exist on disk
+    missing_registered = []
+    for rel_path in manifest.keys():
+        if not os.path.exists(os.path.join(repo_root, rel_path)):
+            missing_registered.append(rel_path)
+
+    if missing_registered:
+        print(
+            "Error: The following registered files in docs_manifest.json do not exist on disk:",
+            file=sys.stderr,
+        )
+        for f in missing_registered:
+            print(f"  - {f}", file=sys.stderr)
+        sys.exit(1)
+
     # Check if all .md files are registered in manifest
     unregistered = []
     for md_file in filtered_md_files:
@@ -801,20 +821,20 @@ def main():
 
         authoritative_touched = False
         for f in pr_files:
-            if f.endswith(".md"):
-                if f not in manifest:
-                    print(
-                        f"Error: PR introduces a documentation file '{f}' not registered in docs_manifest.json.",
-                        file=sys.stderr,
-                    )
-                    print(
-                        "Please add it to docs_manifest.json with its authority level.",
-                        file=sys.stderr,
-                    )
-                    sys.exit(1)
+            if f in manifest:
                 if manifest[f] == "authoritative":
                     print(f"Authoritative document modified: {f}")
                     authoritative_touched = True
+            elif f.endswith(".md"):
+                print(
+                    f"Error: PR introduces a documentation file '{f}' not registered in docs_manifest.json.",
+                    file=sys.stderr,
+                )
+                print(
+                    "Please add it to docs_manifest.json with its authority level.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
 
         if authoritative_touched:
             print("AUTHORITATIVE_TOUCHED=1")
