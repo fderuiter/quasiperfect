@@ -405,27 +405,23 @@ def _setup_staging_workspace(host_dir, staging_dir):
                         except Exception:
                             shutil.copy2(h_f, s_f)
 
-    # Copy parent docs_manifest.json if present and not in staging_dir
-    parent_docs = os.path.abspath(os.path.join(host_dir, "..", "docs_manifest.json"))
-    if not os.path.exists(parent_docs):
-        parent_docs = os.path.abspath(os.path.join(host_dir, "docs_manifest.json"))
-    if os.path.exists(parent_docs) and not os.path.exists(
-        os.path.join(staging_dir, "docs_manifest.json")
+    # Copy parent root files (docs_manifest.json, README.md, env_manifest.json, env_manifest.schema.json) if present and not in staging_dir
+    for parent_filename in (
+        "docs_manifest.json",
+        "README.md",
+        "env_manifest.json",
+        "env_manifest.schema.json",
     ):
-        try:
-            shutil.copy2(parent_docs, os.path.join(staging_dir, "docs_manifest.json"))
-        except Exception:
-            pass
-
-    # Copy parent README.md if present and not in staging_dir
-    parent_readme = os.path.abspath(os.path.join(host_dir, "..", "README.md"))
-    if os.path.exists(parent_readme) and not os.path.exists(
-        os.path.join(staging_dir, "README.md")
-    ):
-        try:
-            shutil.copy2(parent_readme, os.path.join(staging_dir, "README.md"))
-        except Exception:
-            pass
+        parent_file = os.path.abspath(os.path.join(host_dir, "..", parent_filename))
+        if not os.path.exists(parent_file):
+            parent_file = os.path.abspath(os.path.join(host_dir, parent_filename))
+        if os.path.exists(parent_file) and not os.path.exists(
+            os.path.join(staging_dir, parent_filename)
+        ):
+            try:
+                shutil.copy2(parent_file, os.path.join(staging_dir, parent_filename))
+            except Exception:
+                pass
 
 
 def generate_manifest():
