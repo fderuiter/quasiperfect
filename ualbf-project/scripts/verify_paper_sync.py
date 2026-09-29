@@ -21,6 +21,8 @@ paper_dir = os.path.join(project_root, "paper")
 
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
 if paper_dir not in sys.path:
     sys.path.insert(0, paper_dir)
 
@@ -28,6 +30,7 @@ import cert_util  # noqa: E402
 import env_util  # noqa: E402
 import hash_util  # noqa: E402
 import ingest_cert  # noqa: E402
+import validate_paper  # noqa: E402
 
 
 def run_paper_unit_tests() -> bool:
@@ -108,9 +111,7 @@ def verify_paper_macro_sync(
     paper_directory: Optional[str] = None,
 ) -> bool:
     """Assert telemetry.tex and verification_manifest.tex match proof_manifest.json."""
-    print(
-        "=== Verifying LaTeX Macro Synchronization against proof_manifest.json ==="
-    )
+    print("=== Verifying LaTeX Macro Synchronization against proof_manifest.json ===")
     if manifest_path is None:
         manifest_path = os.path.join(project_root, "proof_manifest.json")
     if bounds_path is None:
@@ -129,9 +130,7 @@ def verify_paper_macro_sync(
     verification_path = os.path.join(paper_directory, "verification_manifest.tex")
 
     # Ensure TeX macro files exist on disk in paper directory
-    if not os.path.exists(telemetry_path) or not os.path.exists(
-        verification_path
-    ):
+    if not os.path.exists(telemetry_path) or not os.path.exists(verification_path):
         print("LaTeX macro files not found on disk. Generating paper TeX macros...")
         generate_paper_macros(manifest_path, bounds_path, paper_directory)
 
@@ -224,6 +223,15 @@ def main() -> None:
     sync_ok = verify_paper_macro_sync()
     if not sync_ok:
         print("\n[FAIL] Paper LaTeX macro synchronization failed!")
+        sys.exit(1)
+
+    repo_root = os.path.abspath(os.path.join(project_root, ".."))
+    if not os.path.exists(os.path.join(repo_root, "docs_manifest.json")):
+        repo_root = project_root
+
+    paper_ok = validate_paper.validate_paper_sources(paper_dir, repo_root)
+    if not paper_ok:
+        print("\n[FAIL] Paper source validation failed!")
         sys.exit(1)
 
     print("\n[PASS] All paper sync and compliance checks passed successfully.")

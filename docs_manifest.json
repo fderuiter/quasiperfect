@@ -7,5 +7,16 @@
   "ualbf-project/lean4-proofs/README.md": "authoritative",
   "ualbf-project/rust-engine/README.md": "authoritative",
   "ualbf-project/lean4-proofs/schema_generated.h": "authoritative",
-  "ualbf-project/lean4-proofs/include/verification_lib.h": "authoritative"
+  "ualbf-project/lean4-proofs/include/verification_lib.h": "authoritative",
+  "ualbf-project/paper/main.tex": "authoritative",
+  "ualbf-project/paper/lean-setup.tex": "authoritative",
+  "ualbf-project/paper/telemetry.tex": "authoritative",
+  "ualbf-project/paper/verification_manifest.tex": "authoritative",
+  "ualbf-project/paper/sections/01_introduction.tex": "authoritative",
+  "ualbf-project/paper/sections/02_math_and_formalization.tex": "authoritative",
+  "ualbf-project/paper/sections/03_bipartition_algorithm.tex": "authoritative",
+  "ualbf-project/paper/sections/04_verified_engine.tex": "authoritative",
+  "ualbf-project/paper/sections/05_results.tex": "authoritative",
+  "ualbf-project/paper/sections/06_conclusion.tex": "authoritative",
+  "ualbf-project/paper/sections/07_appendix.tex": "authoritative"
 }

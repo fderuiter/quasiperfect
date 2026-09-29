@@ -501,13 +501,9 @@ class EnvVarASTVisitor(ast.NodeVisitor):
 
     def visit_Compare(self, node: ast.Compare):
         if len(node.ops) == 1 and isinstance(node.ops[0], (ast.In, ast.NotIn)):
-            if isinstance(node.left, ast.Constant) and isinstance(
-                node.left.value, str
-            ):
+            if isinstance(node.left, ast.Constant) and isinstance(node.left.value, str):
                 comp = node.comparators[0]
-                if isinstance(comp, ast.Attribute) and isinstance(
-                    comp.value, ast.Name
-                ):
+                if isinstance(comp, ast.Attribute) and isinstance(comp.value, ast.Name):
                     if comp.value.id == "os" and comp.attr == "environ":
                         self.env_vars.append((node.lineno, node.left.value))
         self.generic_visit(node)
@@ -539,7 +535,9 @@ def validate_env_manifest(repo_root: str) -> bool:
     try:
         env_util.load_manifest_and_schema(manifest_path, schema_path)
     except Exception as e:
-        print(f"Error validating env_manifest.json against schema: {e}", file=sys.stderr)
+        print(
+            f"Error validating env_manifest.json against schema: {e}", file=sys.stderr
+        )
         return False
 
     return True
@@ -594,11 +592,18 @@ def validate_env_vars(repo_root: str) -> bool:
             if not file.endswith(".py"):
                 continue
             # Skip test files and env_util.py itself
-            if file.startswith("test_") or file.endswith("_test.py") or file in ("env_util.py",):
+            if (
+                file.startswith("test_")
+                or file.endswith("_test.py")
+                or file in ("env_util.py",)
+            ):
                 continue
 
             rel_file = os.path.relpath(os.path.join(root_dir, file), repo_root)
-            if any(part in exclude_dirs or part == "tests" for part in rel_file.split(os.sep)):
+            if any(
+                part in exclude_dirs or part == "tests"
+                for part in rel_file.split(os.sep)
+            ):
                 continue
 
             full_path = os.path.join(root_dir, file)
@@ -610,7 +615,10 @@ def validate_env_vars(repo_root: str) -> bool:
                 visitor.visit(tree)
 
                 for line_no, var_name in visitor.env_vars:
-                    if var_name not in registered_vars and var_name not in STANDARD_ENV_VARS:
+                    if (
+                        var_name not in registered_vars
+                        and var_name not in STANDARD_ENV_VARS
+                    ):
                         unregistered_findings.append((rel_file, line_no, var_name))
             except Exception:
                 pass
@@ -621,7 +629,10 @@ def validate_env_vars(repo_root: str) -> bool:
             file=sys.stderr,
         )
         for rel_f, line_no, var_name in unregistered_findings:
-            print(f"  - {rel_f}:{line_no}: Unregistered environment variable '{var_name}'", file=sys.stderr)
+            print(
+                f"  - {rel_f}:{line_no}: Unregistered environment variable '{var_name}'",
+                file=sys.stderr,
+            )
         print(
             "\nRemedy: Register missing environment variables in env_manifest.json and document active ones in TCB.md / README.md.",
             file=sys.stderr,
@@ -781,16 +792,56 @@ def main():
         )
         sys.exit(1)
 
+    # Check if all .tex files in paper/ are registered in manifest
+    all_tex_files = glob.glob("**/*.tex", recursive=True)
+    filtered_tex_files = []
+    for tex_file in all_tex_files:
+        parts = tex_file.split(os.sep)
+        if not any(
+            part.startswith(".")
+            or part.startswith("result")
+            or part.startswith("lake-")
+            or part in exclude_exact
+            for part in parts
+        ):
+            filtered_tex_files.append(tex_file)
+
+    unregistered_tex = []
+    for tex_file in filtered_tex_files:
+        if tex_file not in manifest:
+            unregistered_tex.append(tex_file)
+
+    if unregistered_tex:
+        print(
+            "Error: The following LaTeX paper files are not registered in docs_manifest.json:",
+            file=sys.stderr,
+        )
+        for f in unregistered_tex:
+            print(f"  - {f}", file=sys.stderr)
+        print(
+            "\nPlease add them to docs_manifest.json with their authority level ('authoritative' or 'informal').",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     # Validate relative links and section anchors across registered documentation
     registered_files = list(manifest.keys())
     if not validate_markdown_links(repo_root, registered_files):
         print("Documentation link/anchor validation failed.", file=sys.stderr)
         sys.exit(1)
 
-    # Run tuning guide parameter validation against bounds and profile manifests
+    # Run paper source validation
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
+    import validate_paper
+
+    paper_dir = os.path.join(repo_root, "ualbf-project", "paper")
+    if not validate_paper.validate_paper_sources(paper_dir, repo_root):
+        print("Error: Paper validation failed.", file=sys.stderr)
+        sys.exit(1)
+
+    # Run tuning guide parameter validation against bounds and profile manifests
     from validate_tuning_guide import validate_tuning_guide
 
     ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
@@ -825,7 +876,7 @@ def main():
                 if manifest[f] == "authoritative":
                     print(f"Authoritative document modified: {f}")
                     authoritative_touched = True
-            elif f.endswith(".md"):
+            elif f.endswith(".md") or f.endswith(".tex"):
                 print(
                     f"Error: PR introduces a documentation file '{f}' not registered in docs_manifest.json.",
                     file=sys.stderr,
