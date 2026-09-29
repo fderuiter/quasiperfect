@@ -524,6 +524,7 @@ CORE_THEOREMS = [
     "UALBF.Engine.TouchardBridge.touchard_bridge",
     "UALBF.FFI.fromU512_toU512",
     "UALBF.FFI.toU512_fromU512",
+    "UALBF.FFI.fromU512_eq_fromU512Fast",
     "UALBF.FFI.modInverse_spec",
     "UALBF.FFI.U512.w0_mk",
     "UALBF.FFI.U512.w1_mk",
