@@ -40,8 +40,7 @@ theorem forced_inclusion {p e N : ℕ}
   (hp_prime : p.Prime)
   (hp_ge_3 : 3 ≤ p)
   (he1 : 1 ≤ e)
-  (h_exact : ExactValuation p (2 * e) N)
-  (h_qpn : IsQuasiperfect N) :
+  (h_exact : ExactValuation p (2 * e) N) :
   ∀ d, d ∣ (2 * e + 1) → 1 < d → ∃ q, q.Prime ∧ q % d = 1 ∧ q ∣ sigma N := by
   have h_2e1_ge_3 : 2 * e + 1 ≥ 3 := by omega
   obtain ⟨q, hq_prime, hq_dvd_sigma_p, _, hq_mod_2e1⟩ :=
