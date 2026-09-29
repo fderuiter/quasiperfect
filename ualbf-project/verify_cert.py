@@ -722,8 +722,8 @@ def verify_certificate(
         )
         print("!" * 80 + "\n")
 
-    allow_missing = (
-        allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+    allow_missing = allow_missing_sources or env_util.get_env_var(
+        "UALBF_ALLOW_MISSING_SOURCES", False
     )
     if allow_missing:
         print("\n" + "!" * 80)
@@ -1280,8 +1280,8 @@ if __name__ == "__main__":
     if min_rigor is None:
         min_rigor = env_util.get_env_var("UALBF_MIN_RIGOR", 0.0)
 
-    allow_missing_sources = (
-        args.allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+    allow_missing_sources = args.allow_missing_sources or env_util.get_env_var(
+        "UALBF_ALLOW_MISSING_SOURCES", False
     )
 
     certs = args.cert if isinstance(args.cert, list) else [args.cert]

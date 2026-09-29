@@ -22,6 +22,60 @@ pub enum Message {
     Heartbeat,
 }
 
+pub const MAX_FRAME_SIZE: usize = 16 * 1024 * 1024; // 16 MB limit
+
+pub fn write_framed_msg<W: Write, T: Serialize>(writer: &mut W, msg: &T) -> std::io::Result<()> {
+    let payload = serde_json::to_vec(msg)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+    if payload.len() > MAX_FRAME_SIZE {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "Payload size {} exceeds max frame limit {}",
+                payload.len(),
+                MAX_FRAME_SIZE
+            ),
+        ));
+    }
+    let header = (payload.len() as u32).to_be_bytes();
+    writer.write_all(&header)?;
+    writer.write_all(&payload)?;
+    writer.flush()?;
+    Ok(())
+}
+
+pub fn send_message<T: Serialize>(
+    stream_mutex: &Arc<Mutex<TcpStream>>,
+    msg: &T,
+) -> std::io::Result<()> {
+    let mut stream = stream_mutex.lock().unwrap_or_else(|e| e.into_inner());
+    write_framed_msg(&mut *stream, msg)
+}
+
+pub fn read_framed_payload<R: Read>(reader: &mut R) -> std::io::Result<Vec<u8>> {
+    let mut header_buf = [0u8; 4];
+    reader.read_exact(&mut header_buf)?;
+    let length = u32::from_be_bytes(header_buf) as usize;
+    if length > MAX_FRAME_SIZE {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "Frame size {} exceeds max frame limit {}",
+                length, MAX_FRAME_SIZE
+            ),
+        ));
+    }
+    let mut payload = vec![0u8; length];
+    reader.read_exact(&mut payload)?;
+    Ok(payload)
+}
+
+pub fn recv_message<R: Read, T: for<'a> Deserialize<'a>>(reader: &mut R) -> std::io::Result<T> {
+    let payload = read_framed_payload(reader)?;
+    serde_json::from_slice(&payload)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
+}
+
 pub fn generate_work_units(
     components: &[PrimePower],
     target_bound: &Uint,
@@ -226,7 +280,13 @@ fn save_checkpoint(
 }
 
 pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
-    let listener = TcpListener::bind(addr).unwrap();
+    let listener = match TcpListener::bind(addr) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("Failed to bind controller to {}: {}", addr, e);
+            return;
+        }
+    };
 
     let heartbeat_timeout = crate::policy::get_safe_config().heartbeat_timeout_sec;
 
@@ -242,7 +302,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     let (initial_units, is_new_or_legacy) = load_checkpoint_or_fallback(checkpoint_path, units);
 
     let work_queue = Arc::new(Mutex::new(initial_units));
-    let total_units = work_queue.lock().unwrap().len();
+    let total_units = work_queue.lock().unwrap_or_else(|e| e.into_inner()).len();
     println!(
         "Partitioned search space into {} discrete pending work units.",
         total_units
@@ -250,7 +310,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
 
     // After constructing the initial queue, save the new schema immediately to persist the updated state
     if is_new_or_legacy {
-        let queue = work_queue.lock().unwrap();
+        let queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
         let empty_workers = HashMap::new();
         save_checkpoint(checkpoint_path, &queue, &empty_workers);
     }
@@ -267,7 +327,9 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
             let now = Instant::now();
             let mut to_remove = Vec::new();
             {
-                let workers = active_workers_monitor.lock().unwrap();
+                let workers = active_workers_monitor
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 for (&id, state) in workers.iter() {
                     if now.duration_since(state.last_heartbeat) > timeout {
                         to_remove.push(id);
@@ -275,8 +337,10 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
                 }
             }
             if !to_remove.is_empty() {
-                let mut queue = work_queue_monitor.lock().unwrap();
-                let mut workers = active_workers_monitor.lock().unwrap();
+                let mut queue = work_queue_monitor.lock().unwrap_or_else(|e| e.into_inner());
+                let mut workers = active_workers_monitor
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 let mut changed = false;
                 for id in &to_remove {
                     if let Some(state) = workers.remove(id) {
@@ -293,7 +357,7 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     });
 
     for stream in listener.incoming() {
-        if let Ok(mut stream) = stream {
+        if let Ok(stream) = stream {
             let work_queue = Arc::clone(&work_queue);
             let completed = Arc::clone(&completed);
             let active_workers = Arc::clone(&active_workers);
@@ -301,84 +365,81 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
             let checkpoint_path_clone = checkpoint_path.to_string();
 
             thread::spawn(move || {
-                let mut buf = vec![0; 1024 * 1024];
+                let mut reader = match stream.try_clone() {
+                    Ok(r) => r,
+                    Err(_) => return,
+                };
+                let stream_mutex = Arc::new(Mutex::new(stream));
+
                 loop {
-                    match stream.read(&mut buf) {
-                        Ok(0) => break, // Connection closed
-                        Ok(n) => {
-                            let msg: Result<Message, _> = serde_json::from_slice(&buf[..n]);
-                            if let Ok(msg) = msg {
-                                match msg {
-                                    Message::RequestWork => {
-                                        let mut queue = work_queue.lock().unwrap();
-                                        let work = queue.pop();
-                                        let mut workers = active_workers.lock().unwrap();
-                                        if let Some(ref w) = work {
-                                            workers.insert(
-                                                worker_id,
-                                                ActiveWorkerState {
-                                                    active_task: w.clone(),
-                                                    last_heartbeat: Instant::now(),
-                                                },
-                                            );
-                                        }
-                                        // Save checkpoint with updated queue and active workers
+                    match recv_message::<_, Message>(&mut reader) {
+                        Ok(msg) => match msg {
+                            Message::RequestWork => {
+                                let mut queue =
+                                    work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                let work = queue.pop();
+                                let mut workers =
+                                    active_workers.lock().unwrap_or_else(|e| e.into_inner());
+                                if let Some(ref w) = work {
+                                    workers.insert(
+                                        worker_id,
+                                        ActiveWorkerState {
+                                            active_task: w.clone(),
+                                            last_heartbeat: Instant::now(),
+                                        },
+                                    );
+                                }
+                                save_checkpoint(&checkpoint_path_clone, &queue, &workers);
+                                drop(workers);
+                                drop(queue);
+
+                                let reply = Message::WorkUnit(work);
+                                if send_message(&stream_mutex, &reply).is_err() {
+                                    break;
+                                }
+                            }
+                            Message::Heartbeat => {
+                                let mut workers =
+                                    active_workers.lock().unwrap_or_else(|e| e.into_inner());
+                                if let Some(state) = workers.get_mut(&worker_id) {
+                                    state.last_heartbeat = Instant::now();
+                                }
+                            }
+                            Message::WorkUnit(_) => {}
+                            Message::Event(event) => {
+                                if let Ok(event_json) = serde_json::to_string(&event) {
+                                    println!("{}", event_json);
+                                }
+                                if let crate::events::SearchEvent::DFSComplete { .. } = event {
+                                    let mut queue =
+                                        work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                    let mut workers =
+                                        active_workers.lock().unwrap_or_else(|e| e.into_inner());
+                                    if workers.remove(&worker_id).is_some() {
+                                        let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
                                         save_checkpoint(&checkpoint_path_clone, &queue, &workers);
-                                        let reply = Message::WorkUnit(work);
-                                        let reply_bytes = serde_json::to_vec(&reply).unwrap();
-                                        if stream.write_all(&reply_bytes).is_err() {
-                                            break;
-                                        }
-                                    }
-                                    Message::Heartbeat => {
-                                        let mut workers = active_workers.lock().unwrap();
-                                        if let Some(state) = workers.get_mut(&worker_id) {
-                                            state.last_heartbeat = Instant::now();
-                                        }
-                                    }
-                                    Message::WorkUnit(_) => {}
-                                    Message::Event(event) => {
-                                        println!("{}", serde_json::to_string(&event).unwrap());
-                                        if let crate::events::SearchEvent::DFSComplete { .. } =
-                                            event
-                                        {
-                                            let mut queue = work_queue.lock().unwrap();
-                                            let mut workers = active_workers.lock().unwrap();
-                                            if workers.remove(&worker_id).is_some() {
-                                                let c =
-                                                    completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                                save_checkpoint(
-                                                    &checkpoint_path_clone,
-                                                    &queue,
-                                                    &workers,
-                                                );
-                                                if c >= total_units {
-                                                    println!(
-                                                        "{}",
-                                                        serde_json::to_string(
-                                                            &crate::events::SearchEvent::Phase {
-                                                                phase: 4,
-                                                                name: "All work units completed"
-                                                                    .to_string()
-                                                            }
-                                                        )
-                                                        .unwrap()
-                                                    );
-                                                    std::process::exit(0);
-                                                }
+                                        if c >= total_units {
+                                            if let Ok(p4_json) = serde_json::to_string(
+                                                &crate::events::SearchEvent::Phase {
+                                                    phase: 4,
+                                                    name: "All work units completed".to_string(),
+                                                },
+                                            ) {
+                                                println!("{}", p4_json);
                                             }
+                                            std::process::exit(0);
                                         }
                                     }
                                 }
                             }
-                        }
-                        Err(_) => break,
+                        },
+                        Err(_) => break, // Socket error or peer disconnected cleanly
                     }
                 }
 
                 // Connection closed unexpectedly
-                let mut queue = work_queue.lock().unwrap();
-                let mut workers = active_workers.lock().unwrap();
+                let mut queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                let mut workers = active_workers.lock().unwrap_or_else(|e| e.into_inner());
                 if let Some(state) = workers.remove(&worker_id) {
                     println!(
                         "Worker {} disconnected unexpectedly. Recovering task.",
@@ -419,8 +480,45 @@ pub fn run_worker(
         components,
         &lazy_cache,
     ));
-    let mut stream = TcpStream::connect(addr).expect("Failed to connect to controller");
+
+    let stream = match TcpStream::connect(addr) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to connect to controller at {}: {}", addr, e);
+            return (
+                crate::dfs_tree::DfsTelemetry {
+                    total_branches: 0,
+                    abundance_pruned: 0,
+                    raycast_pruned: 0,
+                    search_space_density: 0.0,
+                    math_interruptions: 0,
+                    boundary_pruned: 0,
+                },
+                Vec::new(),
+            );
+        }
+    };
     println!("Connected to controller at {}", addr);
+
+    let mut reader = match stream.try_clone() {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to clone stream handle: {}", e);
+            return (
+                crate::dfs_tree::DfsTelemetry {
+                    total_branches: 0,
+                    abundance_pruned: 0,
+                    raycast_pruned: 0,
+                    search_space_density: 0.0,
+                    math_interruptions: 0,
+                    boundary_pruned: 0,
+                },
+                Vec::new(),
+            );
+        }
+    };
+    let stream_mutex = Arc::new(Mutex::new(stream));
+
     let mut total_branches = 0;
     let mut total_abundance_pruned = 0;
     let mut total_raycast_pruned = 0;
@@ -431,16 +529,19 @@ pub fn run_worker(
     loop {
         // Request work
         let req = Message::RequestWork;
-        let req_bytes = serde_json::to_vec(&req).unwrap();
-        stream.write_all(&req_bytes).unwrap();
-
-        let mut buf = vec![0; 1024 * 1024]; // 1MB buffer
-        let n = stream.read(&mut buf).unwrap();
-        if n == 0 {
+        if send_message(&stream_mutex, &req).is_err() {
+            eprintln!("Failed to send RequestWork to controller.");
             break;
         }
 
-        let msg: Message = serde_json::from_slice(&buf[..n]).unwrap();
+        let msg: Message = match recv_message(&mut reader) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("Worker stream error or disconnect: {}", e);
+                break;
+            }
+        };
+
         match msg {
             Message::WorkUnit(Some(range_bound)) => {
                 let mask_len = if !components.is_empty() {
@@ -467,19 +568,20 @@ pub fn run_worker(
                 let math_interruptions = AtomicUsize::new(0);
 
                 let (tx, rx) = crossbeam_channel::unbounded();
-                let mut stream_clone = stream.try_clone().unwrap();
+                let stream_mutex_reporter = Arc::clone(&stream_mutex);
                 let reporter_thread = std::thread::spawn(move || {
                     while let Ok(msg) = rx.recv() {
                         let rep = Message::Event(msg);
-                        let rep_bytes = serde_json::to_vec(&rep).unwrap();
-                        let _ = stream_clone.write_all(&rep_bytes);
+                        if send_message(&stream_mutex_reporter, &rep).is_err() {
+                            break;
+                        }
                     }
                 });
 
                 let heartbeat_interval = crate::policy::get_safe_config().heartbeat_interval_sec;
 
                 let (hb_tx, hb_rx) = crossbeam_channel::unbounded::<()>();
-                let mut hb_stream = stream.try_clone().unwrap();
+                let stream_mutex_hb = Arc::clone(&stream_mutex);
                 let hb_thread = std::thread::spawn(move || {
                     let interval = std::time::Duration::from_secs(heartbeat_interval);
                     loop {
@@ -487,10 +589,8 @@ pub fn run_worker(
                             Ok(_) | Err(crossbeam_channel::RecvTimeoutError::Disconnected) => break,
                             Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
                                 let rep = Message::Heartbeat;
-                                if let Ok(rep_bytes) = serde_json::to_vec(&rep) {
-                                    if hb_stream.write_all(&rep_bytes).is_err() {
-                                        break;
-                                    }
+                                if send_message(&stream_mutex_hb, &rep).is_err() {
+                                    break;
                                 }
                             }
                         }
@@ -555,8 +655,10 @@ pub fn run_worker(
                     rp: pruned_count.into_inner(),
                     bp: boundary_pruned.into_inner(),
                 });
-                let rep_bytes = serde_json::to_vec(&rep).unwrap();
-                stream.write_all(&rep_bytes).unwrap();
+                if send_message(&stream_mutex, &rep).is_err() {
+                    eprintln!("Failed to send DFSComplete event to controller.");
+                    break;
+                }
             }
             Message::WorkUnit(None) => {
                 println!("No more work. Worker exiting.");
@@ -714,5 +816,200 @@ mod tests {
         // Clean up
         let _ = fs::remove_file(temp_path);
         let _ = fs::remove_file(temp_tmp_path);
+    }
+
+    #[test]
+    fn test_framing_length_prefix_roundtrip() {
+        let msg = Message::RequestWork;
+        let mut buf = Vec::new();
+        write_framed_msg(&mut buf, &msg).unwrap();
+
+        // Verify length prefix
+        assert!(buf.len() > 4);
+        let len_bytes: [u8; 4] = buf[..4].try_into().unwrap();
+        let payload_len = u32::from_be_bytes(len_bytes) as usize;
+        assert_eq!(payload_len, buf.len() - 4);
+
+        // Read framed payload
+        let mut cursor = std::io::Cursor::new(buf);
+        let recv: Message = recv_message(&mut cursor).unwrap();
+        match recv {
+            Message::RequestWork => {}
+            _ => panic!("Unexpected message type"),
+        }
+    }
+
+    #[test]
+    fn test_coalesced_and_fragmented_frames() {
+        let msg1 = Message::RequestWork;
+        let msg2 = Message::Heartbeat;
+        let msg3 = Message::WorkUnit(Some(RangeWorkUnit {
+            start_bound: vec![1, 2, 3],
+            end_bound: vec![4, 5, 6],
+        }));
+
+        let mut buf = Vec::new();
+        write_framed_msg(&mut buf, &msg1).unwrap();
+        write_framed_msg(&mut buf, &msg2).unwrap();
+        write_framed_msg(&mut buf, &msg3).unwrap();
+
+        let mut cursor = std::io::Cursor::new(buf);
+
+        let r1: Message = recv_message(&mut cursor).unwrap();
+        match r1 {
+            Message::RequestWork => {}
+            _ => panic!("Expected RequestWork"),
+        }
+
+        let r2: Message = recv_message(&mut cursor).unwrap();
+        match r2 {
+            Message::Heartbeat => {}
+            _ => panic!("Expected Heartbeat"),
+        }
+
+        let r3: Message = recv_message(&mut cursor).unwrap();
+        match r3 {
+            Message::WorkUnit(Some(unit)) => {
+                assert_eq!(unit.start_bound, vec![1, 2, 3]);
+                assert_eq!(unit.end_bound, vec![4, 5, 6]);
+            }
+            _ => panic!("Expected WorkUnit"),
+        }
+    }
+
+    #[test]
+    fn test_max_frame_bound_exceeded() {
+        let mut buf = Vec::new();
+        // Claim length = 17 MB (exceeds 16 MB limit)
+        let huge_len: u32 = 17 * 1024 * 1024;
+        buf.extend_from_slice(&huge_len.to_be_bytes());
+        buf.extend_from_slice(&[0u8; 100]); // Dummy bytes
+
+        let mut cursor = std::io::Cursor::new(buf);
+        let res = read_framed_payload(&mut cursor);
+        assert!(res.is_err());
+        let err = res.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+        assert!(err.to_string().contains("exceeds max frame limit"));
+    }
+
+    #[test]
+    fn test_corrupt_payload_graceful_error() {
+        let mut buf = Vec::new();
+        let payload = b"invalid json content {";
+        let len_bytes = (payload.len() as u32).to_be_bytes();
+        buf.extend_from_slice(&len_bytes);
+        buf.extend_from_slice(payload);
+
+        let mut cursor = std::io::Cursor::new(buf);
+        let res: std::io::Result<Message> = recv_message(&mut cursor);
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_tcp_controller_worker_end_to_end() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let local_addr = listener.local_addr().unwrap();
+
+        let server_thread = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = stream.try_clone().unwrap();
+            let stream_mutex = Arc::new(Mutex::new(stream));
+
+            // Receive RequestWork
+            let msg: Message = recv_message(&mut reader).unwrap();
+            match msg {
+                Message::RequestWork => {}
+                _ => panic!("Expected RequestWork"),
+            }
+
+            // Send WorkUnit
+            let unit = RangeWorkUnit {
+                start_bound: vec![10],
+                end_bound: vec![20],
+            };
+            send_message(&stream_mutex, &Message::WorkUnit(Some(unit))).unwrap();
+
+            // Receive Event
+            let msg2: Message = recv_message(&mut reader).unwrap();
+            match msg2 {
+                Message::Event(_) | Message::Heartbeat => {}
+                _ => panic!("Expected Event or Heartbeat"),
+            }
+        });
+
+        let client_stream = TcpStream::connect(local_addr).unwrap();
+        let mut client_reader = client_stream.try_clone().unwrap();
+        let client_mutex = Arc::new(Mutex::new(client_stream));
+
+        // Send RequestWork
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+
+        // Recv WorkUnit
+        let resp: Message = recv_message(&mut client_reader).unwrap();
+        match resp {
+            Message::WorkUnit(Some(unit)) => {
+                assert_eq!(unit.start_bound, vec![10]);
+                assert_eq!(unit.end_bound, vec![20]);
+            }
+            _ => panic!("Expected WorkUnit"),
+        }
+
+        // Send Event
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::Phase {
+                phase: 1,
+                name: "Test".to_string(),
+            }),
+        )
+        .unwrap();
+
+        server_thread.join().unwrap();
+    }
+
+    #[test]
+    fn test_concurrent_mutex_writes() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let local_addr = listener.local_addr().unwrap();
+
+        let num_threads = 10;
+        let msgs_per_thread = 50;
+
+        let server_thread = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = stream.try_clone().unwrap();
+
+            let total_expected = num_threads * msgs_per_thread;
+            let mut received = 0;
+            while received < total_expected {
+                let msg: Message = recv_message(&mut reader).unwrap();
+                match msg {
+                    Message::Heartbeat => received += 1,
+                    _ => panic!("Expected Heartbeat message"),
+                }
+            }
+            assert_eq!(received, total_expected);
+        });
+
+        let client_stream = TcpStream::connect(local_addr).unwrap();
+        let client_mutex = Arc::new(Mutex::new(client_stream));
+
+        let mut handles = Vec::new();
+        for _ in 0..num_threads {
+            let mutex_clone = Arc::clone(&client_mutex);
+            handles.push(thread::spawn(move || {
+                for _ in 0..msgs_per_thread {
+                    send_message(&mutex_clone, &Message::Heartbeat).unwrap();
+                }
+            }));
+        }
+
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        server_thread.join().unwrap();
     }
 }

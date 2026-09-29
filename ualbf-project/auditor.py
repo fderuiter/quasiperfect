@@ -478,6 +478,17 @@ def _setup_staging_workspace(host_dir, staging_dir):
             except Exception:
                 pass
 
+    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
+    for mf in ["env_manifest.json", "env_manifest.schema.json"]:
+        p_mf = os.path.abspath(os.path.join(host_dir, "..", mf))
+        if not os.path.exists(p_mf):
+            p_mf = os.path.abspath(os.path.join(host_dir, mf))
+        if os.path.exists(p_mf) and not os.path.exists(os.path.join(staging_dir, mf)):
+            try:
+                shutil.copy2(p_mf, os.path.join(staging_dir, mf))
+            except Exception:
+                pass
+
 
 def generate_manifest():
     if env_util.get_env_var("UALBF_IN_STAGING_WORKSPACE"):

@@ -60,6 +60,8 @@ def load_manifest_and_schema(
             script_parent / "env_manifest.json",
             Path.cwd() / "env_manifest.json",
             Path.cwd().parent / "env_manifest.json",
+            Path(__file__).resolve().parent / "env_manifest.json",
+            Path(__file__).resolve().parent.parent / "env_manifest.json",
         ]
         m_path = next((p for p in possible_manifests if p.exists()), None)
         if not m_path:
@@ -75,6 +77,8 @@ def load_manifest_and_schema(
             script_parent / "env_manifest.schema.json",
             Path.cwd() / "env_manifest.schema.json",
             Path.cwd().parent / "env_manifest.schema.json",
+            Path(__file__).resolve().parent / "env_manifest.schema.json",
+            Path(__file__).resolve().parent.parent / "env_manifest.schema.json",
         ]
         s_path = next((p for p in possible_schemas if p.exists()), None)
         if not s_path:
