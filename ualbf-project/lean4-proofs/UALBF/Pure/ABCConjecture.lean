@@ -45,4 +45,3 @@ theorem conjectural_ceiling_size_exclusion
   linarith
 
 end UALBF.Pure.ABCConjecture
-
