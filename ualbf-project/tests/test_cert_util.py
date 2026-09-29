@@ -420,6 +420,33 @@ class TestLiveCertificateValidation:
         with pytest.raises(CertificateValidationError, match="Validation failed"):
             load_and_validate_cert(str(cert_file))
 
+    def test_load_and_validate_cert_empty_signature_raises(
+        self, tmp_path, monkeypatch
+    ):
+        cert, pub_hex, sig_hex, manifest_path = make_valid_manifest_and_cert(tmp_path)
+        cert["signature"] = ""
+        cert_file = tmp_path / "cert.json"
+        cert_file.write_text(json.dumps(cert), encoding="utf-8")
+
+        monkeypatch.setenv("UALBF_PROOF_MANIFEST", manifest_path)
+        monkeypatch.setenv("UALBF_TRUSTED_PUBLIC_KEY", pub_hex)
+        with pytest.raises(CertificateValidationError, match="Validation failed"):
+            load_and_validate_cert(str(cert_file))
+
+    def test_load_and_validate_cert_unsigned_forged_payload_raises(
+        self, tmp_path, monkeypatch
+    ):
+        cert, pub_hex, sig_hex, manifest_path = make_valid_manifest_and_cert(tmp_path)
+        # Forged payload modifying telemetry
+        cert["telemetry"]["total_branches_searched"] = 99999999
+        cert_file = tmp_path / "cert.json"
+        cert_file.write_text(json.dumps(cert), encoding="utf-8")
+
+        monkeypatch.setenv("UALBF_PROOF_MANIFEST", manifest_path)
+        monkeypatch.setenv("UALBF_TRUSTED_PUBLIC_KEY", pub_hex)
+        with pytest.raises(CertificateValidationError, match="Validation failed"):
+            load_and_validate_cert(str(cert_file))
+
     def test_load_and_validate_cert_bypass_env_vars_rejected(
         self, tmp_path, monkeypatch
     ):
