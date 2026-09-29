@@ -3,6 +3,7 @@
 pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str =
     "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb";
 
+use crate::state::BitSet;
 use crate::types::Uint;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -15,7 +16,7 @@ pub struct Prefix {
     pub factors: Vec<u64>,
     pub sigma_factors: Vec<Uint>,
     pub sigma_factors_u64: Vec<u64>,
-    pub active_mask: Vec<u64>,
+    pub active_mask: BitSet,
     pub sigma_mod24: u32,
 }
 
@@ -40,7 +41,7 @@ impl SerializedPrefix {
             factors: p.factors.clone(),
             sigma_factors: p.sigma_factors.iter().map(|x| x.to_string()).collect(),
             sigma_factors_u64: p.sigma_factors_u64.clone(),
-            active_mask: p.active_mask.clone(),
+            active_mask: p.active_mask.blocks.clone(),
             sigma_mod24: p.sigma_mod24.clone(),
         }
     }
@@ -57,7 +58,7 @@ impl SerializedPrefix {
                 .map(|x| Uint::from_str_radix(x, 10).unwrap())
                 .collect(),
             sigma_factors_u64: self.sigma_factors_u64.clone(),
-            active_mask: self.active_mask.clone(),
+            active_mask: BitSet::from_blocks(self.active_mask.clone()),
             sigma_mod24: self.sigma_mod24.clone(),
         }
     }

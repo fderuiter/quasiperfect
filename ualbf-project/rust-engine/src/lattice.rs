@@ -233,7 +233,7 @@ mod tests {
             factors: vec![3, 5],
             sigma_factors: vec![],
             sigma_factors_u64: vec![],
-            active_mask: vec![0b111], // Indices 0, 1, 2 are active
+            active_mask: vec![0b111].into(), // Indices 0, 1, 2 are active
             sigma_mod24: 1,
         };
 
