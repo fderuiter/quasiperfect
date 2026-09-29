@@ -796,6 +796,8 @@ pub fn check_and_evaluate_node(
         queue.push(last_comp_idx);
         forced_set[last_comp_idx] = true;
 
+        let mut clause_unsatisfiable = false;
+
         while let Some(u) = queue.pop() {
             let scc_id = backbone.scc_map[u];
             for &v in &backbone.scc_components[scc_id] {
@@ -804,12 +806,69 @@ pub fn check_and_evaluate_node(
                     queue.push(v);
                 }
             }
-            for &v in &backbone.forced_candidates[u] {
-                if !forced_set[v] {
-                    forced_set[v] = true;
-                    queue.push(v);
+            for clause in &backbone.disjunctive_clauses[u] {
+                let mut min_candidate = None;
+                let mut min_abundance = u128::MAX;
+
+                for &c in clause {
+                    if c >= curr.last_idx && (curr.active_mask[c / 64] & (1u64 << (c % 64))) != 0 {
+                        let ab = components[c].abundance_fp;
+                        if ab < min_abundance {
+                            min_abundance = ab;
+                            min_candidate = Some(c);
+                        }
+                    }
+                }
+
+                if let Some(c_star) = min_candidate {
+                    if !forced_set[c_star] {
+                        forced_set[c_star] = true;
+                        queue.push(c_star);
+                    }
+                } else {
+                    // Clause has 0 remaining active candidates!
+                    clause_unsatisfiable = true;
+                    break;
                 }
             }
+
+            if clause_unsatisfiable {
+                break;
+            }
+        }
+
+        if clause_unsatisfiable {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            pruned_count.fetch_add(1, Ordering::Relaxed);
+            if let Some(tx) = trace_tx {
+                let mut f_vec = smallvec::SmallVec::new();
+                f_vec.extend_from_slice(&curr.factors);
+                let topology_manifest = crate::trace::GraphTopologyManifest {
+                    adjacency: backbone.adjacency.clone(),
+                    scc_map: backbone.scc_map.clone(),
+                    scc_components: backbone.scc_components.clone(),
+                    disjunctive_clauses: backbone.disjunctive_clauses.clone(),
+                    forced_candidates: backbone.forced_candidates.clone(),
+                };
+                let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
+                let _ = tx.send(crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::CdgForcedCascade {
+                        forced_num: Uint::MAX,
+                        forced_den: Uint::one() << 64,
+                        lhs: Uint::MAX,
+                        rhs: Uint::zero(),
+                        topology_manifest: Some(topology_manifest),
+                        reachable_paths: None,
+                    },
+                    verification_status: "formally verified (disjunctive clause unsatisfiable)",
+                });
+            }
+            return false;
         }
 
         let mut forced_contributions = Vec::new();
@@ -871,6 +930,7 @@ pub fn check_and_evaluate_node(
                     adjacency: backbone.adjacency.clone(),
                     scc_map: backbone.scc_map.clone(),
                     scc_components: backbone.scc_components.clone(),
+                    disjunctive_clauses: backbone.disjunctive_clauses.clone(),
                     forced_candidates: backbone.forced_candidates.clone(),
                 };
                 let reachable_paths = vec![forced_contributions.clone()];

@@ -11,6 +11,7 @@ pub struct GraphTopologyManifest {
     pub adjacency: Vec<Vec<usize>>,
     pub scc_map: Vec<usize>,
     pub scc_components: Vec<Vec<usize>>,
+    pub disjunctive_clauses: Vec<Vec<Vec<usize>>>,
     pub forced_candidates: Vec<Vec<usize>>,
 }
 
