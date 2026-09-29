@@ -201,6 +201,26 @@ def verify_paper_macro_sync(
     return True
 
 
+def verify_manuscript_prose_compliance(
+    paper_directory: Optional[str] = None,
+    bounds_path: Optional[str] = None,
+) -> bool:
+    """Verify manuscript prose in paper/sections/ and paper/main.tex for bound compliance."""
+    print("=== Verifying Manuscript Prose Compliance ===")
+    if paper_directory is None:
+        paper_directory = paper_dir
+    if bounds_path is None:
+        bounds_path = os.path.join(project_root, "bounds_manifest.json")
+
+    telemetry_path = os.path.join(paper_directory, "telemetry.tex")
+    return ingest_cert.check_manuscript_compliance(
+        base_dir=paper_directory,
+        telemetry_tex_path=telemetry_path,
+        bounds_path=bounds_path,
+        raise_on_error=False,
+    )
+
+
 def main() -> None:
     """Main CLI entrypoint."""
     tests_ok = run_paper_unit_tests()
@@ -211,6 +231,11 @@ def main() -> None:
     sync_ok = verify_paper_macro_sync()
     if not sync_ok:
         print("\n[FAIL] Paper LaTeX macro synchronization failed!")
+        sys.exit(1)
+
+    prose_ok = verify_manuscript_prose_compliance()
+    if not prose_ok:
+        print("\n[FAIL] Manuscript prose compliance checks failed!")
         sys.exit(1)
 
     print("\n[PASS] All paper sync and compliance checks passed successfully.")

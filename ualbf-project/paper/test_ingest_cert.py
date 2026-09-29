@@ -694,6 +694,76 @@ class TestCheckManuscriptCompliance(unittest.TestCase):
                 )
             self.assertEqual(cm.exception.code, 1)
 
+    def test_commented_violations_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryPhaseTwoTime}{2.00}\n")
+
+            commented_tex = os.path.join(tmp_dir, "commented_section.tex")
+            with open(commented_tex, "w", encoding="utf-8") as f:
+                f.write("% \\newcommand{\\ClaimedPhaseTwoTime}{2.00}\n")
+                f.write("% Hardcoded bound 10^{40}\n")
+                f.write("Valid prose text with \\TelemetryMaxLog.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertTrue(ok)
+
+    def test_hardcoded_exponent_bound_detected(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+
+            bad_tex = os.path.join(tmp_dir, "bad_bound.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("Pushed the lower bound to $10^{40}$.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertFalse(ok)
+
+    def test_def_redefinition_detected(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+
+            bad_tex = os.path.join(tmp_dir, "def_redef.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("\\def\\TelemetryMaxLog{43}\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertFalse(ok)
+
+    def test_valid_macro_usage_passes(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+
+            good_tex = os.path.join(tmp_dir, "good_section.tex")
+            with open(good_tex, "w", encoding="utf-8") as f:
+                f.write("Pushed lower bound to $10^{\\TelemetryMaxLog}$.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertTrue(ok)
+
 
 class TestIngestCertFileSizeLimit(unittest.TestCase):
     def test_oversized_bounds_manifest_raises_error(self):
