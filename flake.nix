@@ -138,8 +138,11 @@
             echo "Cleaning up compiled files to prevent store path leaks..."
             # Delete all compiled files except those in mathlib (which are from cache and safe)
             find .lake -type f \( -name '*.olean' -o -name '*.ilean' -o -name '*.c' -o -name '*.o' \) | grep -v "\.lake/packages/mathlib" | xargs rm -f || true
-            find .lake -type f -name '*.trace*' -delete || true
-            find .lake -type f -name '*.hash' -delete || true
+            # Keep ProofWidgets' widget build traces: without them lake re-runs
+            # `npm install` downstream (no npm in the sandbox) and ProofWidgets'
+            # errorOnBuild guard rejects rebuilding the vendored JS bundle.
+            find .lake -type f -name '*.trace*' -not -path '*/proofwidgets/widget/*' -delete || true
+            find .lake -type f -name '*.hash' -not -path '*/proofwidgets/widget/*' -delete || true
             find .lake -type f -name '*.setup.json' -delete || true
             find .lake -name 'lake-manifest.json.tmp' -delete || true
 
@@ -159,28 +162,15 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
+          outputHash = "sha256-fPol3uoBBgJ0Z+DA7oQwxQOjvbQ2yjSYBayp08xYDXQ=";
         };
-
-        # ProofWidgets' lakefile re-runs `npm install` when its trace files are
-        # missing, and the leanDeps cleanup strips them to keep the FOD hash stable.
-        # The widget JS is already vendored in leanDeps, so a no-op npm is enough
-        # (mirrors the `mock-ui` target in ualbf-project/Makefile). Lake deletes
-        # package-lock.json before "rebuilding" it, so recreate a placeholder.
-        mockNpm = pkgs.writeShellScriptBin "npm" ''
-          echo "[mock npm] skipping: npm $*" >&2
-          if [ "''${1:-}" = "install" ] && [ ! -f package-lock.json ]; then
-            echo '{}' > package-lock.json
-          fi
-          exit 0
-        '';
 
         leanPkg = pkgs.stdenv.mkDerivation {
           pname = "ualbf-lean4-proofs";
           version = "0.1.0";
           src = ./ualbf-project/lean4-proofs;
 
-          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq mockNpm ];
+          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
 
           preBuild = ''
             chmod +w ..
@@ -470,7 +460,7 @@ with open("dummy_cert.json", "w") as f:
             version = "0.1.0";
             src = ./ualbf-project/lean4-proofs;
 
-            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq mockNpm ];
+            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
 
             preBuild = ''
               chmod +w ..
