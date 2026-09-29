@@ -532,6 +532,9 @@ def validate_env_manifest(repo_root: str) -> bool:
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
         schema_path = os.path.join(real_root, "env_manifest.schema.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
+            schema_path = os.path.join(real_root, "ualbf-project", "env_manifest.schema.json")
 
     if not os.path.exists(manifest_path) or not os.path.exists(schema_path):
         return True
@@ -557,6 +560,8 @@ def validate_env_vars(repo_root: str) -> bool:
     if not os.path.exists(manifest_path):
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
 
     if not os.path.exists(manifest_path):
         return True
@@ -643,6 +648,8 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
     if not os.path.exists(manifest_path):
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
 
     if not os.path.exists(manifest_path):
         return True
