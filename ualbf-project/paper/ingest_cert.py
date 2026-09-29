@@ -193,51 +193,47 @@ def write_telemetry_tex(
         if has_cert:
             try:
                 cert_util.validate_file_size(cert_path)
-                if env_util.get_env_var("UALBF_DUMMY_PAPER_CI"):
-                    cert = cert_util.BoundedJSONLoader().load_file(cert_path)
-                else:
-                    os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
-                    trusted_key = env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
-                    if not trusted_key:
-                        with open(cert_path, "r", encoding="utf-8") as cert_f:
-                            raw_cert = json.load(cert_f)
-                            trusted_key = raw_cert.get("public_key")
-                    cert = cert_util.load_and_validate_cert(
-                        cert_path, trusted_public_key=trusted_key
-                    )
+                os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
+                trusted_key = env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
+                if not trusted_key:
+                    with open(cert_path, "r", encoding="utf-8") as cert_f:
+                        raw_cert = json.load(cert_f)
+                        trusted_key = raw_cert.get("public_key")
+                cert = cert_util.load_and_validate_cert(
+                    cert_path, trusted_public_key=trusted_key
+                )
             except cert_util.CertificateError as e:
                 print(f"Error: {e}")
                 sys.exit(1)
 
             tel = cert["telemetry"]
 
-            if not env_util.get_env_var("UALBF_DUMMY_PAPER_CI"):
-                try:
-                    import subprocess
+            try:
+                import subprocess
 
-                    active_commit = subprocess.check_output(
-                        ["git", "rev-parse", "HEAD"],
-                        cwd=project_root,
-                        text=True,
-                        stderr=subprocess.DEVNULL,
-                    ).strip()
-                    cert_commit = cert.get("commit_hash", "")
-                    if cert_commit and cert_commit != "unknown" and active_commit:
-                        if cert_commit != active_commit:
-                            print(
-                                f"Error: Certificate commit hash '{cert_commit}' does not match active build commit '{active_commit}'."
-                            )
-                            sys.exit(1)
-                except Exception:
-                    pass
-
-                cert_ts = cert.get("timestamp") or tel.get("timestamp")
-                if cert_ts is not None:
-                    import time
-
-                    if cert_ts > time.time() + 300:
-                        print("Error: Certificate timestamp is in the future.")
+                active_commit = subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=project_root,
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+                cert_commit = cert.get("commit_hash", "")
+                if cert_commit and cert_commit != "unknown" and active_commit:
+                    if cert_commit != active_commit:
+                        print(
+                            f"Error: Certificate commit hash '{cert_commit}' does not match active build commit '{active_commit}'."
+                        )
                         sys.exit(1)
+            except Exception:
+                pass
+
+            cert_ts = cert.get("timestamp") or tel.get("timestamp")
+            if cert_ts is not None:
+                import time
+
+                if cert_ts > time.time() + 300:
+                    print("Error: Certificate timestamp is in the future.")
+                    sys.exit(1)
 
             # Requirement 4: Explicit validation errors for missing required fields
             required_tel_keys = [

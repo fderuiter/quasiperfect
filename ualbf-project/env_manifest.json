@@ -76,8 +76,8 @@
       "true",
       "false"
     ],
-    "status": "active",
-    "description": "Bypasses certificate verification during CI paper macro generation when set to 1."
+    "status": "deprecated",
+    "description": "Deprecated bypass flag for CI paper macro generation; execution is halted if detected."
   },
   "UALBF_IN_STAGING_WORKSPACE": {
     "type": "boolean",

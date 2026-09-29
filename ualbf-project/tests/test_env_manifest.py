@@ -69,14 +69,14 @@ class TestEnvManifestAndUtil(unittest.TestCase):
             os.environ,
             {
                 "UALBF_MAX_CERT_SIZE_MB": "25.5",
-                "UALBF_DUMMY_PAPER_CI": "1",
+                "MOCK_LEAN": "1",
                 "UALBF_SIEVE_LIMIT": "500000",
                 "UALBF_TRUSTED_PUBLIC_KEY": "1234567890abcdef",
             },
             clear=True,
         ):
             self.assertEqual(env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB"), 25.5)
-            self.assertTrue(env_util.get_env_var("UALBF_DUMMY_PAPER_CI"))
+            self.assertTrue(env_util.get_env_var("MOCK_LEAN"))
             self.assertEqual(env_util.get_env_var("UALBF_SIEVE_LIMIT"), 500000)
             self.assertEqual(env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY"), "1234567890abcdef")
 
@@ -94,7 +94,7 @@ class TestEnvManifestAndUtil(unittest.TestCase):
             env_util.get_env_var("NON_EXISTENT_VAR_12345")
 
     def test_deprecated_flags_halt_execution(self):
-        for deprecated_flag in ["ALLOW_UNVERIFIED_BUILD", "UALBF_SKIP_VALIDATION"]:
+        for deprecated_flag in ["ALLOW_UNVERIFIED_BUILD", "UALBF_SKIP_VALIDATION", "UALBF_DUMMY_PAPER_CI"]:
             with mock.patch.dict(os.environ, {deprecated_flag: "1"}, clear=True):
                 with self.assertRaises(SystemExit) as cm:
                     env_util.check_deprecated_env_vars()
