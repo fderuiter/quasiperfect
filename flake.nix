@@ -364,8 +364,9 @@
               export HOME=$TMPDIR
               cd ualbf-project
               echo "Setting up verification-lib..."
-              cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
+              cp ${verificationLib}/lib/libverification_lib.so ualbf-project/verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ualbf-project/verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ualbf-project/verification_lib.so
               
+              cd ualbf-project
               echo "Patching argparse for latexminted..."
               cp $(python3 -c "import argparse; print(argparse.__file__)") paper/argparse.py
               sed -i 's/parser = self._parser_class(\*\*kwargs)/kwargs.pop("color", None); parser = self._parser_class(\*\*kwargs)/g' paper/argparse.py
