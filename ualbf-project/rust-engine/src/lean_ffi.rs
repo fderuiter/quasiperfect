@@ -81,6 +81,8 @@ extern "C" {
     pub fn rs_lean_box_uint32(v: u32) -> *mut lean_object;
     pub fn rs_lean_box_bool(v: bool) -> *mut lean_object;
     pub fn rs_lean_box_unit() -> *mut lean_object;
+    #[cfg(unverified_build)]
+    pub fn make_some(val: *mut lean_object) -> *mut lean_object;
 }
 
 include!("ffi_generated.rs");
@@ -1230,6 +1232,41 @@ mod tests {
         for h in handles {
             let thread_hash = h.join().expect("Thread panicked");
             assert_eq!(thread_hash, hash1);
+        }
+    }
+
+    #[test]
+    #[cfg(unverified_build)]
+    fn test_dummy_ffi_reference_counting_and_deallocation() {
+        setup();
+        // 1. Test basic alloc and dec
+        let u = Uint::from_u64(12345);
+        let wrapper = u.to_lean();
+        assert!(!wrapper.as_ptr().is_null());
+
+        // 2. Test make_some and constructor dec
+        let raw_u512 = alloc_u512(ZERO_U512);
+        unsafe {
+            rs_lean_inc(raw_u512);
+            let opt = make_some(raw_u512);
+            assert!(!is_none(opt));
+            let inner = get_some(opt);
+            assert_eq!(inner, raw_u512);
+            rs_lean_dec(opt); // Drops opt and decrements raw_u512
+            rs_lean_dec(raw_u512); // Drops raw_u512 finalizer
+        }
+
+        // 3. Test 100,000 iterations of compute_sigma_checked and compute_mod_inverse
+        for i in 1..=100_000 {
+            let res = compute_sigma_checked((i % 100) + 2, 3);
+            assert!(res.is_some());
+
+            let a = Uint::from_u64(i as u64);
+            let m = Uint::from_u64(1000000007);
+            let inv = compute_mod_inverse(&a, false, &m);
+            if i % 1000000007 != 0 {
+                assert!(inv.is_some());
+            }
         }
     }
 }

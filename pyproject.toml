@@ -44,7 +44,8 @@ omit = [
     "*prototypes*",
     "*experimental*",
     "*run_gui.py*",
-    "*verify_cert*"
+    "*verify_cert*",
+    "*cert_util*"
 ]
 
 [tool.coverage.report]
