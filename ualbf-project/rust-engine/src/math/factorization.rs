@@ -152,10 +152,54 @@ impl TrialSieve {
     }
 }
 
-pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
+pub fn rho_factor_u256(mut n: Uint) -> FactorizationResult {
     if n <= Uint::one() {
         return FactorizationResult::Complete(smallvec::SmallVec::new());
     }
+
+    let mut twos = smallvec::SmallVec::<[Uint; 8]>::new();
+    while n & Uint::one() == Uint::zero() {
+        twos.push(Uint::from_u128(2));
+        n >>= 1;
+    }
+
+    if n == Uint::one() {
+        return FactorizationResult::Complete(twos);
+    }
+
+    let res = rho_factor_u256_internal(n);
+    if twos.is_empty() {
+        return res;
+    }
+
+    match res {
+        FactorizationResult::Complete(mut v) => {
+            twos.extend(v);
+            twos.sort_unstable();
+            FactorizationResult::Complete(twos)
+        }
+        FactorizationResult::Partial {
+            known_factors,
+            remaining,
+        } => {
+            twos.extend(known_factors);
+            twos.sort_unstable();
+            FactorizationResult::Partial {
+                known_factors: twos,
+                remaining,
+            }
+        }
+        FactorizationResult::Failure(rem) => {
+            twos.sort_unstable();
+            FactorizationResult::Partial {
+                known_factors: twos,
+                remaining: rem,
+            }
+        }
+    }
+}
+
+fn rho_factor_u256_internal(n: Uint) -> FactorizationResult {
     if verified_is_prime(n) {
         return FactorizationResult::Complete(smallvec::smallvec![n]);
     }
@@ -216,22 +260,20 @@ pub fn rho_factor_u256(n: Uint) -> FactorizationResult {
                 }
             }
         }
-    } else {
-        if n <= Uint::from_u128((u128::MAX) as u128) {
-            if let Ok(fact) = catch_unwind(|| Factorization::run(n.as_u128())) {
-                let mut v: smallvec::SmallVec<[Uint; 8]> = fact
-                    .factors
-                    .into_iter()
-                    .map(|f| Uint::from_u128((f) as u128))
-                    .collect();
-                v.sort_unstable();
-                FactorizationResult::Complete(v)
-            } else {
-                FactorizationResult::Failure(n)
-            }
+    } else if let Some(n_u128) = n.try_as_u128() {
+        if let Ok(fact) = catch_unwind(|| Factorization::run(n_u128)) {
+            let mut v: smallvec::SmallVec<[Uint; 8]> = fact
+                .factors
+                .into_iter()
+                .map(|f| Uint::from_u128(f))
+                .collect();
+            v.sort_unstable();
+            FactorizationResult::Complete(v)
         } else {
             FactorizationResult::Failure(n)
         }
+    } else {
+        FactorizationResult::Failure(n)
     }
 }
 
