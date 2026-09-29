@@ -417,8 +417,8 @@ def _setup_staging_workspace(host_dir, staging_dir):
         except Exception:
             pass
 
-    # Copy parent env_manifest.json and env_manifest.schema.json if present
-    for env_file in ["env_manifest.json", "env_manifest.schema.json"]:
+    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
+    for env_file in ("env_manifest.json", "env_manifest.schema.json"):
         parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
         if not os.path.exists(parent_env):
             parent_env = os.path.abspath(os.path.join(host_dir, env_file))
