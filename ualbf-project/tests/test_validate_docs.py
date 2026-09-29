@@ -217,6 +217,49 @@ def test_pr_argument_unregistered_file_causes_exit(tmp_path, monkeypatch):
     )
 
 
+def test_pr_argument_authoritative_c_header(tmp_path, monkeypatch):
+    manifest = {
+        "README.md": "authoritative",
+        "ualbf-project/lean4-proofs/schema_generated.h": "authoritative",
+        "ualbf-project/lean4-proofs/include/verification_lib.h": "authoritative",
+    }
+    repo_root, mock_script = _setup_mock_repo(tmp_path, manifest_data=manifest)
+
+    (repo_root / "README.md").write_text("# README", encoding="utf-8")
+    header1 = repo_root / "ualbf-project" / "lean4-proofs" / "schema_generated.h"
+    header1.parent.mkdir(parents=True, exist_ok=True)
+    header1.write_text("// schema generated header\n", encoding="utf-8")
+
+    header2 = repo_root / "ualbf-project" / "lean4-proofs" / "include" / "verification_lib.h"
+    header2.parent.mkdir(parents=True, exist_ok=True)
+    header2.write_text("// verification lib header\n", encoding="utf-8")
+
+    pr_file = repo_root / "pr_modified.txt"
+    pr_file.write_text(
+        "ualbf-project/lean4-proofs/schema_generated.h\nualbf-project/lean4-proofs/include/verification_lib.h\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(sys, "argv", [str(mock_script), str(pr_file)])
+    monkeypatch.setattr(validate_docs, "__file__", str(mock_script))
+
+    captured_out = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_out)
+
+    validate_docs.main()
+
+    out = captured_out.getvalue()
+    assert (
+        "Authoritative document modified: ualbf-project/lean4-proofs/schema_generated.h"
+        in out
+    )
+    assert (
+        "Authoritative document modified: ualbf-project/lean4-proofs/include/verification_lib.h"
+        in out
+    )
+    assert "AUTHORITATIVE_TOUCHED=1" in out
+
+
 class TestSlugifyAndAnchorExtraction(unittest.TestCase):
     def test_slugify(self):
         self.assertEqual(validate_docs.slugify("Overview"), "overview")
@@ -322,6 +365,25 @@ class TestLinkValidation(unittest.TestCase):
             valid = validate_docs.validate_markdown_links(tmpdir, registered)
             self.assertTrue(valid)
 
+    def test_validate_markdown_links_c_header_target(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            doc1 = tmp_path / "doc1.md"
+            header = tmp_path / "schema.h"
+
+            doc1.write_text(
+                "# Doc 1\n\nLink to [Header](schema.h).\nLink with line [Header Line](schema.h#L20).\n",
+                encoding="utf-8",
+            )
+            header.write_text(
+                "#include <stddef.h>\n// Heading-like comment: # fake heading\n",
+                encoding="utf-8",
+            )
+
+            registered = ["doc1.md", "schema.h"]
+            valid = validate_docs.validate_markdown_links(tmpdir, registered)
+            self.assertTrue(valid)
+
 
 class TestSpecSyncValidation(unittest.TestCase):
     def test_validate_spec_sync_pass(self):
@@ -360,6 +422,32 @@ class TestSpecSyncValidation(unittest.TestCase):
             self.assertEqual(restored_spec, original_spec)
         finally:
             Path(bounds_path).write_text(original_bounds, encoding="utf-8")
+
+    def test_validate_spec_sync_detects_verification_lib_h_mismatch(self):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        lib_rs_path = os.path.join(
+            repo_root, "ualbf-project", "verification-lib", "src", "lib.rs"
+        )
+        header_path = os.path.join(
+            repo_root, "ualbf-project", "lean4-proofs", "include", "verification_lib.h"
+        )
+        original_lib_rs = Path(lib_rs_path).read_text(encoding="utf-8")
+        original_header = Path(header_path).read_text(encoding="utf-8")
+        try:
+            # Modify verification-lib/src/lib.rs to trigger new function signature export
+            dummy_fn = '\n#[no_mangle]\npub extern "C" fn ualbf_dummy_test_spec_fn() -> bool { true }\n'
+            Path(lib_rs_path).write_text(original_lib_rs + dummy_fn, encoding="utf-8")
+
+            # validate_spec_sync should detect mismatch in verification_lib.h and restore original generated header
+            result = validate_docs.validate_spec_sync(repo_root)
+            self.assertFalse(result)
+
+            # Confirm original generated header content was preserved
+            restored_header = Path(header_path).read_text(encoding="utf-8")
+            self.assertEqual(restored_header, original_header)
+        finally:
+            Path(lib_rs_path).write_text(original_lib_rs, encoding="utf-8")
+            Path(header_path).write_text(original_header, encoding="utf-8")
 
 
 class TestToolchainSyncValidation(unittest.TestCase):

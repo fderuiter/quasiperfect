@@ -5,5 +5,7 @@
   "ualbf-project/TODO.md": "informal",
   "ualbf-project/semantic_verification_report.md": "authoritative",
   "ualbf-project/lean4-proofs/README.md": "authoritative",
-  "ualbf-project/rust-engine/README.md": "authoritative"
+  "ualbf-project/rust-engine/README.md": "authoritative",
+  "ualbf-project/lean4-proofs/schema_generated.h": "authoritative",
+  "ualbf-project/lean4-proofs/include/verification_lib.h": "authoritative"
 }

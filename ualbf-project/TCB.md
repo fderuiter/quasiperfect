@@ -48,6 +48,7 @@ All build tools, certificate verification scripts, and paper generation utilitie
 | `UALBF_TARGET_MAX_LOG10` | integer | `37` | Active | Upper bound log10 exponent for search space (N < 10^max) |
 | `UALBF_TARGET_MIN_LOG10` | integer | `35` | Active | Lower bound log10 exponent for search space (N > 10^min) |
 | `UALBF_TRUSTED_PUBLIC_KEY` | string | `null` | Active | Hex-encoded Ed25519 public key pinned for formal certificate signature verification |
+| `UALBF_ALLOW_MISSING_SOURCES` | boolean | `null` | Active | Bypasses missing source artifact checks during certificate verification when set to 1 |
 | `ALLOW_UNVERIFIED_BUILD` | boolean | `null` | Deprecated | Deprecated bypass flag for unverified builds; execution is halted if detected |
 | `UALBF_SKIP_VALIDATION` | boolean | `null` | Deprecated | Deprecated bypass flag for certificate validation; execution is halted if detected |
 
