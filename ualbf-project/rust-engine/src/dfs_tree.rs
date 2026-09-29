@@ -2914,7 +2914,7 @@ mod tests {
                     ctx.trace_tx = Some(tx);
                     let should_explore = __rust_dfs_check_evaluate(ptr, 0);
                     // Since remaining factors count (length) is short (factors is empty, so len=0),
-                    // it should be pruned because 0 < 11 (the bound).
+                    // it should be pruned because 0 < DIV_5_COPRIME_3_BOUND.
                     assert!(!should_explore);
                     if let Ok(event) = rx.try_recv() {
                         match event.reason {
@@ -2922,7 +2922,11 @@ mod tests {
                                 dynamic_min_factors,
                                 ..
                             } => {
-                                assert_eq!(dynamic_min_factors, 11, "Expected Hagis-Cohen bound of 11 when factor 3 is starved and factor 5 is absent");
+                                assert_eq!(
+                                    dynamic_min_factors,
+                                    crate::manifest_constants::DIV_5_COPRIME_3_BOUND as usize,
+                                    "Expected the div-5/coprime-3 manifest bound when factor 3 is starved"
+                                );
                             }
                             crate::trace::PruneReason::TargetBound => {
                                 panic!("Case 1: Pruned by TargetBound")

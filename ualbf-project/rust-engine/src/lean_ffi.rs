@@ -997,7 +997,11 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         setup();
         let value = get_div_5_coprime_3_bound();
-        assert_eq!(value, 11, "expected div_5_coprime_3_bound to match 11");
+        assert_eq!(
+            value,
+            crate::manifest_constants::DIV_5_COPRIME_3_PROOF_BOUND as usize,
+            "expected div_5_coprime_3_bound to match the manifest proof bound"
+        );
     }
 
     /// Repeated calls to get_baseline_min_prime_factors must return the same value,
@@ -1228,7 +1232,10 @@ mod tests {
         setup();
         std::env::remove_var("UALBF_PROOF_MODE");
         let div_5_bound_axiomatic = get_div_5_coprime_3_bound();
-        assert_eq!(div_5_bound_axiomatic, 11);
+        assert_eq!(
+            div_5_bound_axiomatic,
+            crate::manifest_constants::DIV_5_COPRIME_3_PROOF_BOUND as usize
+        );
 
         std::env::set_var("UALBF_PROOF_MODE", "pure");
         let div_5_bound_pure = get_div_5_coprime_3_bound();
