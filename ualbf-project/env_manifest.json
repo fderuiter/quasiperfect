@@ -152,6 +152,13 @@
     "status": "active",
     "description": "Lower bound log10 exponent for search space (N > 10^min)."
   },
+  "UALBF_TRIAL_DIVISION_LIMIT": {
+    "type": "integer",
+    "default": 10000000,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Trial division search limit used when attempting small prime factor discovery during search branch expansion."
+  },
   "UALBF_TRUSTED_PUBLIC_KEY": {
     "type": "string",
     "default": null,

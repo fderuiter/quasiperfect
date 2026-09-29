@@ -92,6 +92,7 @@ extern "C" {
     pub static ualbf_target_min_log10: u32;
     pub static ualbf_target_max_log10: u32;
     pub static ualbf_sieve_limit: u64;
+    pub static ualbf_trial_division_limit: u64;
     pub static ualbf_max_exponent: u32;
     pub static ualbf_prefix_stop_threshold: u64;
     pub static ualbf_raycast_gpu_threshold: u32;

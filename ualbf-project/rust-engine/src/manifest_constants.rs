@@ -22,6 +22,8 @@ pub const TARGET_MAX_LOG10: u32 = 43;
 #[cfg(not(verus_keep_ghost))]
 pub const SIEVE_LIMIT: usize = 250000;
 #[cfg(not(verus_keep_ghost))]
+pub const TRIAL_DIVISION_LIMIT: usize = 10000000;
+#[cfg(not(verus_keep_ghost))]
 pub const MAX_EXPONENT: u32 = 4;
 #[cfg(not(verus_keep_ghost))]
 pub const PREFIX_STOP_THRESHOLD: u64 = 100000000000;
@@ -74,6 +76,7 @@ verus! {
     pub const TARGET_MIN_LOG10: u32 = 37;
     pub const TARGET_MAX_LOG10: u32 = 43;
     pub const SIEVE_LIMIT: usize = 250000;
+    pub const TRIAL_DIVISION_LIMIT: usize = 10000000;
     pub const MAX_EXPONENT: u32 = 4;
     pub const PREFIX_STOP_THRESHOLD: u64 = 100000000000;
     pub const POLLARD_RHO_ITERATION_LIMIT: u32 = 1000000;

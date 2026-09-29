@@ -414,6 +414,7 @@ fn test_validate_constant_spec_equivalence_success() {
         pub const TARGET_MIN_LOG10: u32 = 35;
         pub const TARGET_MAX_LOG10: u32 = 37;
         pub const SIEVE_LIMIT: usize = 250000;
+        pub const TRIAL_DIVISION_LIMIT: usize = 10000000;
         pub const MAX_EXPONENT: u32 = 4;
         pub const PREFIX_STOP_THRESHOLD: u64 = 10000;
         pub const POLLARD_RHO_ITERATION_LIMIT: u32 = 1000;
@@ -438,6 +439,7 @@ fn test_validate_constant_spec_equivalence_success() {
         pub open spec fn lean_target_min_log10() -> u32 { 35 }
         pub open spec fn lean_target_max_log10() -> u32 { 37 }
         pub open spec fn lean_sieve_limit() -> usize { 250000 }
+        pub open spec fn lean_trial_division_limit() -> usize { 10000000 }
         pub open spec fn lean_max_exponent() -> u32 { 4 }
         pub open spec fn lean_prefix_stop_threshold() -> u64 { 10000 }
         pub open spec fn lean_pollard_rho_iteration_limit() -> u32 { 1000 }
