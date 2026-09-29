@@ -632,6 +632,10 @@ fn main() {
 
     // --- Ghost Pruning Assumption Binding Validation ---
     let required_ghost_functions = [
+        "ruleA_safe",
+        "ruleB_safe",
+        "ruleA_pruning",
+        "ruleB_pruning",
         "check_starvation_kill",
         "check_cdg_forced_kill",
         "lean_abundancy_starvation_theorem",

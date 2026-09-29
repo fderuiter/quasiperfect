@@ -507,6 +507,8 @@ def load_and_validate_cert(cert_path, trusted_public_key=None):
 
 
 CORE_THEOREMS = [
+    "UALBF.Engine.SearchMonad.ruleA_safe",
+    "UALBF.Engine.SearchMonad.ruleB_safe",
     "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
     "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",

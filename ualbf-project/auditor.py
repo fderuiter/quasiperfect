@@ -34,6 +34,10 @@ CORE_THEOREMS = cert_util.CORE_THEOREMS
 ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 
 GHOST_PRUNING_BINDINGS = {
+    "ruleA_safe": "UALBF.Engine.SearchMonad.ruleA_safe",
+    "ruleB_safe": "UALBF.Engine.SearchMonad.ruleB_safe",
+    "ruleA_pruning": "UALBF.Engine.SearchMonad.ruleA_safe",
+    "ruleB_pruning": "UALBF.Engine.SearchMonad.ruleB_safe",
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
     "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
@@ -467,30 +471,6 @@ def _setup_staging_workspace(host_dir, staging_dir):
 
     # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
     for env_file in ("env_manifest.json", "env_manifest.schema.json"):
-        parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
-        if not os.path.exists(parent_env):
-            parent_env = os.path.abspath(os.path.join(host_dir, env_file))
-        if os.path.exists(parent_env) and not os.path.exists(
-            os.path.join(staging_dir, env_file)
-        ):
-            try:
-                shutil.copy2(parent_env, os.path.join(staging_dir, env_file))
-            except Exception:
-                pass
-
-    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
-    for mf in ["env_manifest.json", "env_manifest.schema.json"]:
-        p_mf = os.path.abspath(os.path.join(host_dir, "..", mf))
-        if not os.path.exists(p_mf):
-            p_mf = os.path.abspath(os.path.join(host_dir, mf))
-        if os.path.exists(p_mf) and not os.path.exists(os.path.join(staging_dir, mf)):
-            try:
-                shutil.copy2(p_mf, os.path.join(staging_dir, mf))
-            except Exception:
-                pass
-
-    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
-    for env_file in ["env_manifest.json", "env_manifest.schema.json"]:
         parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
         if not os.path.exists(parent_env):
             parent_env = os.path.abspath(os.path.join(host_dir, env_file))
