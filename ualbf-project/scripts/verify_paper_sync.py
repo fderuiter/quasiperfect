@@ -24,6 +24,7 @@ if project_root not in sys.path:
 if paper_dir not in sys.path:
     sys.path.insert(0, paper_dir)
 
+import env_util  # noqa: E402
 import cert_util  # noqa: E402
 import env_util  # noqa: E402
 import hash_util  # noqa: E402
@@ -108,9 +109,7 @@ def verify_paper_macro_sync(
     paper_directory: Optional[str] = None,
 ) -> bool:
     """Assert telemetry.tex and verification_manifest.tex match proof_manifest.json."""
-    print(
-        "=== Verifying LaTeX Macro Synchronization against proof_manifest.json ==="
-    )
+    print("=== Verifying LaTeX Macro Synchronization against proof_manifest.json ===")
     if manifest_path is None:
         manifest_path = os.path.join(project_root, "proof_manifest.json")
     if bounds_path is None:
@@ -129,9 +128,7 @@ def verify_paper_macro_sync(
     verification_path = os.path.join(paper_directory, "verification_manifest.tex")
 
     # Ensure TeX macro files exist on disk in paper directory
-    if not os.path.exists(telemetry_path) or not os.path.exists(
-        verification_path
-    ):
+    if not os.path.exists(telemetry_path) or not os.path.exists(verification_path):
         print("LaTeX macro files not found on disk. Generating paper TeX macros...")
         generate_paper_macros(manifest_path, bounds_path, paper_directory)
 
