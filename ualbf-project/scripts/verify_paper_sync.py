@@ -132,12 +132,12 @@ def verify_paper_macro_sync(
     telemetry_path = os.path.join(paper_directory, "telemetry.tex")
     verification_path = os.path.join(paper_directory, "verification_manifest.tex")
 
-    if not os.path.exists(telemetry_path):
-        print(f"Error: telemetry.tex not found at {telemetry_path}")
-        return False
-    if not os.path.exists(verification_path):
-        print(f"Error: verification_manifest.tex not found at {verification_path}")
-        return False
+    # Generate TeX macro files if missing from paper directory
+    if not os.path.exists(telemetry_path) or not os.path.exists(
+        verification_path
+    ):
+        print("LaTeX macro files not found on disk. Generating paper TeX macros...")
+        generate_paper_macros(manifest_path, bounds_path, paper_directory)
 
     # Generate expected macros in a temporary directory to verify on-disk files without mutating workspace
     with tempfile.TemporaryDirectory() as tmp_dir:
