@@ -38,6 +38,7 @@ target libleanffi pkg : FilePath := do
 lean_lib UALBF where
   moreLinkObjs := #[libleanffi]
 
+@[default_target]
 lean_exe validator where
   root := `Validator
   moreLinkObjs := #[libleanffi]
