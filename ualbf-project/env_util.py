@@ -63,26 +63,13 @@ def load_manifest_and_schema(
     if not manifest_path:
         possible_manifests = [
             repo_root / "env_manifest.json",
-            Path(__file__).resolve().parent / "env_manifest.json",
-            repo_root / "ualbf-project" / "env_manifest.json",
-            Path(__file__).resolve().parent / "env_manifest.json",
-            Path(__file__).resolve().parent.parent / "env_manifest.json",
-            repo_root.parent / "env_manifest.json",
             script_parent / "env_manifest.json",
+            script_parent.parent / "env_manifest.json",
+            repo_root / "ualbf-project" / "env_manifest.json",
+            repo_root.parent / "env_manifest.json",
             Path.cwd() / "env_manifest.json",
             Path.cwd().parent / "env_manifest.json",
-            Path(__file__).resolve().parent / "env_manifest.json",
-            Path(__file__).resolve().parent.parent / "env_manifest.json",
         ]
-        try:
-            possible_manifests.extend(
-                [
-                    Path.cwd() / "env_manifest.json",
-                    Path.cwd().parent / "env_manifest.json",
-                ]
-            )
-        except Exception:
-            pass
 
         m_path = next((p for p in possible_manifests if p.exists()), None)
         if not m_path:
@@ -93,26 +80,13 @@ def load_manifest_and_schema(
     if not schema_path:
         possible_schemas = [
             repo_root / "env_manifest.schema.json",
-            Path(__file__).resolve().parent / "env_manifest.schema.json",
-            repo_root / "ualbf-project" / "env_manifest.schema.json",
-            Path(__file__).resolve().parent / "env_manifest.schema.json",
-            Path(__file__).resolve().parent.parent / "env_manifest.schema.json",
-            repo_root.parent / "env_manifest.schema.json",
             script_parent / "env_manifest.schema.json",
+            script_parent.parent / "env_manifest.schema.json",
+            repo_root / "ualbf-project" / "env_manifest.schema.json",
+            repo_root.parent / "env_manifest.schema.json",
             Path.cwd() / "env_manifest.schema.json",
             Path.cwd().parent / "env_manifest.schema.json",
-            Path(__file__).resolve().parent / "env_manifest.schema.json",
-            Path(__file__).resolve().parent.parent / "env_manifest.schema.json",
         ]
-        try:
-            possible_schemas.extend(
-                [
-                    Path.cwd() / "env_manifest.schema.json",
-                    Path.cwd().parent / "env_manifest.schema.json",
-                ]
-            )
-        except Exception:
-            pass
 
         s_path = next((p for p in possible_schemas if p.exists()), None)
         if not s_path:

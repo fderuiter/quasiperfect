@@ -977,14 +977,10 @@ fn main() {
     };
 
     #[cfg(not(feature = "signing"))]
-    let (signature_hex, public_key_hex) = {
-        println!(
-            "ERROR: Refusing to sign certificate. Signing is unavailable in unverified builds."
+    let (signature_hex, public_key_hex): (String, String) = {
+        panic!(
+            "ERROR: Refusing to generate certificate. Certificate generation requires the 'signing' feature flag."
         );
-        (
-            "unverified_signature".to_string(),
-            "unverified_public_key".to_string(),
-        )
     };
 
     let telemetry = SearchTelemetry {
