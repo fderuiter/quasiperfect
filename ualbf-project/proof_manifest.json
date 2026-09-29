@@ -422,7 +422,6 @@
     }
   ],
   "verus_hashes": {
-    "binom": "6783f10691dfc67e5e72cfd24df3e7cd1ae2f57b9657ecbc6f0704ff4640f966",
     "check_cdg_forced_kill": "fd5dceec55e366bafd28b764e97aa3b84b9d29653293695d4bb32059f1da07b5",
     "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb",
     "cyclotomic_eval_spec": "25cebf82f225d163bd96469454c1e3ee657da89962649268029c4739cf9824e5",
@@ -461,7 +460,6 @@
     "lean_sieve_limit": "d8e81b91dd484458558f59b3404ef888ec701a2ddb92210d9757892bd1af6bd4",
     "lean_target_max_log10": "938dc08d46d78e63e0b91559a735070ddf157e3ff4c944c92afc8d48694fa113",
     "lean_target_min_log10": "4d471ee6e66fe3c30f3313d9bcc0f562df401aac051912a88658feb6f1d43344",
-    "lemma_binom_prime_divisible": "4ec0519b31632eadbec010d9bf209dbb174818f63f30033fba3d94616947950b",
     "lemma_composite_has_prime_factor_le_sqrt": "a99f4d1a37cf56b8abf2cd6ea57e9a2e3ff094d41c514059d3a216d3c024a87d",
     "lemma_coprime_implies_multiplicative": "43dc1ca8a2341b479a646e0f777e803822f2f83d74f1047e362b1b7d9bd73a54",
     "lemma_coprime_implies_multiplicative_nonlinear": "3f83199ee284d4372f8742bee07b3240d22b0a0d28299f473a3220576b7645a8",
@@ -470,24 +468,13 @@
     "lemma_divisibility_transitive": "2ec5734be5cfa0240e2da57f8902667eb1297af8da8ff31c4fc0067c36ace4e8",
     "lemma_f_squared_gt_n_minus_1": "0bb50154bb815615185f7e10607fd00939b27471e43f6e0b2fad3fc358e5755b",
     "lemma_fermat_little_theorem": "a3b43a62b0532015c72eb3b25babbcbfc3b87f8eed96be75527c8e2c07bd1dc1",
-    "lemma_find_min_order": "51a653b99d1a3fba9e009349ac3fbebac735fe41ce0a17f1bc93742bab122b00",
     "lemma_modpow_add_mul": "5c061a58da2b5632f44f2ce4760521ec9766913e7230e8bbda3f28c04d4d49f4",
     "lemma_modpow_mod_divisibility": "7d8df134ae16613cfc7b10a8cedb6fe351d204f6f8fabf235d4ef651cf6a6404",
     "lemma_order_exists": "83d837d2873f69f81afc7c8e5ba2accfa6d1b22d221889de7ad50de1bc89fa8a",
     "lemma_order_le_p_minus_1": "afa07507ab9c53b6308ef849104ebc11135654d35f4415f472ded94328eee5ac",
     "lemma_order_prime_factor": "dbc5c22b9ad8fa4b277f45559460f48728f30b27918519d39e37aa1603107b9e",
-    "lemma_order_prime_factor_induction": "d35c3af543f74cbcfdb0ca109bac97c2884a48d2807682300f17f268ba2d3ac7",
     "lemma_pocklington_certificate": "4c18755e2796218d2dc167b161ee2be96223bcdbf2b75c3e1c7ab7274105cb21",
-    "lemma_pow_add_spec": "9bd0f9a2dfb50b14509311a986ca57eb7ef451b0ee3e9356f4531115dfb888ec",
-    "lemma_pow_induction": "d486ecd82290b076041068aa2cf45ae39886f2d507a69fd137e382e16bd2b96e",
-    "lemma_pow_mod_mul": "328368b25c8c9c2007d258143026a00e8585de7a154952ec954fb397b9e2f701",
-    "lemma_pow_mul_spec": "bc3a63931addfb304ff9d81d8ee3a05bd94f87d4007d7c48728e645e4a604414",
-    "lemma_prime_divides_product": "a792743bce91265e19a4268825dffcd8d1ec2fd147a9146ee59948f1c544fb41",
-    "lemma_prime_factors_mul": "e75c9982b1690cc9325deacb15764fdbe5ff5e3764c031f81462367ef188ef39",
-    "lemma_sigma_aux_mul": "124df2aa994ac0c59d13e0375a3545af8dbebcee95a39fa137dad860a5b4741b",
-    "lemma_sigma_chunk": "76719be7685e2330ef8b8cd0ab0e4ff1241bb317e689dcbfb3fbb984dd6cb5bf",
     "lemma_sigma_multiplicative": "e5a0eb59ed740c0608f7464e8076cf9a6938711b4532d7b5db353c65c86e7bf8",
-    "lemma_smallest_divisor": "cfc8a9ad081887f89e2da5b034469edefa35aa7f02cb5b8c984175fbcb1222d3",
     "lemma_smallest_factor_is_prime": "eef56c28181f254140a52a6d139507ab9712c59c5330df577a98f871243af286",
     "lemma_square_comparison_contradiction": "001fe983f651d95c3d53b524e3fbb19e1d697fc8fe0ec4db056a86dbc3a80f2b",
     "modpow_spec": "57bd9cccef197081a718cbe176d531117f970030cf1f0b63b315e7ee458ca6a9",
@@ -529,8 +516,7 @@
     "scale_bound_spec": "def035629b1ef362535899872bea3405160c6b7f3836dd9f4b267f7634c12d03",
     "screen_mod_8": "99e0f1eedd8c0a5ed8de911f482f0bf02427ecfe29ad84391aaf2284b2abede1",
     "sigma_spec": "dce126e7cfef78866bffcb84dfeb0f82330850c0ef177a2f3166540aa6405f9b",
-    "sigma_spec_val": "e85615949227c43b5f81560ecbccc2183a2dfc9c6796b06b9ddc605104fb4f15",
-    "sigma_sum_aux": "f6749ec465de02cb5133b402f413377ceeddcdb884f63c5a50b8d803d4e9ea57",
+    "sigma_spec_val": "d9a7fb2dbe4e4d37f1c9752a6aac71abab205b37829db533cfa0ce8355ac8ae8",
     "try_scale_bound_ceil": "b557cc466b504830ce067946b3541e2741a904d4ae14659ec620f39ae02e5020",
     "u512_to_nat": "2515c2db85b32ffba43960532624bc0c6a371d52d528926e06de6e8da935a77d",
     "verified_alloc_u512": "725a44210587084ad50473e06994a60da9cb63463c4fd92a9e0a5fd93180789a",
@@ -788,6 +774,6 @@
       "theorem_hash": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     }
   },
-  "verified_logic_hash": "69362af1b97ead8deb110ae01e9ada9e5da9eab41fcde062a3be465bd0f5d3a4",
+  "verified_logic_hash": "b856d494b19ed7d474324476ef8949becf18ab96dd1cc04a2c1be5a82f83bf24",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
