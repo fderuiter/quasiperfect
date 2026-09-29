@@ -380,7 +380,6 @@
 
             buildPhase = ''
               export HOME=$TMPDIR
-              cd ualbf-project
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
@@ -422,7 +421,7 @@ with open("dummy_cert.json", "w") as f:
               echo "Compiling LaTeX paper..."
               cd paper
               make all
-              cd ../..
+              cd ..
             '';
 
             installPhase = ''
