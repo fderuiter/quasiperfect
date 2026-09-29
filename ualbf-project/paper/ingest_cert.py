@@ -10,6 +10,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 import cert_util
+import env_util
 
 
 def make_macro_name(s: str) -> str:
@@ -38,11 +39,7 @@ def make_macro_name(s: str) -> str:
 
 
 def check_deprecated_bypass() -> None:
-    if "ALLOW_UNVERIFIED_BUILD" in os.environ or "UALBF_SKIP_VALIDATION" in os.environ:
-        print(
-            "Error: Bypass options are deprecated and verification cannot be skipped."
-        )
-        sys.exit(1)
+    env_util.check_deprecated_env_vars()
 
 
 def load_bounds(bounds_path: Optional[str] = None) -> dict:
@@ -73,7 +70,7 @@ def load_bounds(bounds_path: Optional[str] = None) -> dict:
 
 def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
     if manifest_path is None:
-        manifest_path = os.environ.get("UALBF_PROOF_MANIFEST")
+        manifest_path = env_util.get_env_var("UALBF_PROOF_MANIFEST")
     if not manifest_path or not os.path.exists(manifest_path):
         manifest_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -152,7 +149,7 @@ def write_telemetry_tex(
     manifest_data_macros, manifest_path = check_manifest(manifest_path)
 
     if cert_path is None:
-        cert_path = os.environ.get("UALBF_CERT_PATH")
+        cert_path = env_util.get_env_var("UALBF_CERT_PATH")
 
     if not cert_path:
         local_cert = (
@@ -193,11 +190,11 @@ def write_telemetry_tex(
         if has_cert:
             try:
                 cert_util.validate_file_size(cert_path)
-                if os.environ.get("UALBF_DUMMY_PAPER_CI") == "1":
+                if env_util.get_env_var("UALBF_DUMMY_PAPER_CI"):
                     cert = cert_util.BoundedJSONLoader().load_file(cert_path)
                 else:
                     os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
-                    trusted_key = os.environ.get("UALBF_TRUSTED_PUBLIC_KEY")
+                    trusted_key = env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
                     if not trusted_key:
                         with open(cert_path, "r", encoding="utf-8") as cert_f:
                             raw_cert = json.load(cert_f)
@@ -211,7 +208,7 @@ def write_telemetry_tex(
 
             tel = cert["telemetry"]
 
-            if os.environ.get("UALBF_DUMMY_PAPER_CI") != "1":
+            if not env_util.get_env_var("UALBF_DUMMY_PAPER_CI"):
                 try:
                     import subprocess
 

@@ -15,6 +15,8 @@ import tempfile
 import unittest
 from typing import Dict, Optional
 
+import env_util
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 paper_dir = os.path.join(project_root, "paper")
@@ -85,7 +87,7 @@ def generate_paper_macros(
         with open(dummy_cert_path, "w", encoding="utf-8") as f:
             json.dump(dummy_cert_data, f)
 
-        orig_dummy = os.environ.get("UALBF_DUMMY_PAPER_CI")
+        orig_dummy = env_util.get_env_var("UALBF_DUMMY_PAPER_CI")
         os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
         try:
             ingest_cert.write_telemetry_tex(

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import env_util
 import hash_util
 
 from matrix_utils import (  # noqa: F401
@@ -435,14 +436,9 @@ DEFAULT_MAX_CERT_SIZE_MB = 10.0
 
 def get_max_cert_size_bytes() -> int:
     """Returns the maximum allowed certificate file size in bytes based on UALBF_MAX_CERT_SIZE_MB."""
-    env_val = os.getenv("UALBF_MAX_CERT_SIZE_MB")
-    if env_val:
-        try:
-            val = float(env_val.strip())
-            if val > 0:
-                return int(val * 1024 * 1024)
-        except (ValueError, TypeError):
-            pass
+    val = env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB", DEFAULT_MAX_CERT_SIZE_MB)
+    if isinstance(val, (int, float)) and val > 0:
+        return int(val * 1024 * 1024)
     return int(DEFAULT_MAX_CERT_SIZE_MB * 1024 * 1024)
 
 
@@ -478,7 +474,7 @@ def load_and_validate_cert(cert_path, trusted_public_key=None):
             "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop`)."
         )
 
-    trusted_key = trusted_public_key or os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
+    trusted_key = trusted_public_key or env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
     if not trusted_key or not trusted_key.strip():
         print(
             "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set).",
@@ -492,16 +488,8 @@ def load_and_validate_cert(cert_path, trusted_public_key=None):
     cert_str = loader.read_file_text(cert_path)
 
     try:
-        # If skip validation is requested, reject it completely
-        if (
-            "ALLOW_UNVERIFIED_BUILD" in os.environ
-            or "UALBF_SKIP_VALIDATION" in os.environ
-        ):
-            print(
-                "Error: Bypass options are deprecated and verification cannot be skipped.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+        # Halt execution on deprecated flags
+        env_util.check_deprecated_env_vars()
 
         # The native library validates the signature, key, and structure
         cert = verification_lib.validate_certificate(cert_str, trusted_key.strip())

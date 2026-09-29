@@ -7,6 +7,7 @@ import os
 import hash_util
 import shutil
 import cert_util
+import env_util
 import re
 import contextlib
 import uuid
@@ -20,7 +21,7 @@ from verify_metadata import (
 
 def get_repo_root():
     if (
-        os.environ.get("UALBF_IN_STAGING_WORKSPACE") == "1"
+        env_util.get_env_var("UALBF_IN_STAGING_WORKSPACE")
         or os.path.exists("proof_manifest.json")
         or os.path.exists("bounds_manifest.json")
         or os.path.exists("lean4-proofs")
@@ -202,14 +203,14 @@ def offline_lake_manifest(cwd):
 
 
 def check_lean_environment():
-    if "MOCK_LEAN" in os.environ:
+    if env_util.get_env_var("MOCK_LEAN"):
         print(
             "Fatal Error: MOCK_LEAN is forbidden. Real Lean 4 compiler verification is mandatory.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    lean_sysroot = os.environ.get("LEAN_SYSROOT")
+    lean_sysroot = env_util.get_env_var("LEAN_SYSROOT")
     lean_found = False
 
     if lean_sysroot and lean_sysroot != "DUMMY":
@@ -233,12 +234,7 @@ def check_lean_environment():
         except FileNotFoundError:
             pass
 
-    if "ALLOW_UNVERIFIED_BUILD" in os.environ or "UALBF_SKIP_VALIDATION" in os.environ:
-        print(
-            "Error: Bypass options are deprecated and verification cannot be skipped.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    env_util.check_deprecated_env_vars()
 
     if not lean_found:
         print(
@@ -433,7 +429,7 @@ def _setup_staging_workspace(host_dir, staging_dir):
 
 
 def generate_manifest():
-    if os.environ.get("UALBF_IN_STAGING_WORKSPACE") == "1":
+    if env_util.get_env_var("UALBF_IN_STAGING_WORKSPACE"):
         return _generate_manifest_impl()
 
     host_dir = get_repo_root()
@@ -615,7 +611,7 @@ def _generate_manifest_impl():
     if has_lean:
         ensure_verification_lib()
         env = os.environ.copy()
-        lean_sysroot = os.environ.get("LEAN_SYSROOT")
+        lean_sysroot = env_util.get_env_var("LEAN_SYSROOT")
         if lean_sysroot:
             env["LEAN_SYSROOT"] = lean_sysroot
             env["PATH"] = f"{os.path.join(lean_sysroot, 'bin')}:{env.get('PATH', '')}"
@@ -1409,7 +1405,29 @@ def check_documentation(manifest):
                 except Exception:
                     pass
 
+    try:
+        env_manifest_path = os.path.join(manifest_dir, "env_manifest.json")
+        if not os.path.exists(env_manifest_path):
+            env_manifest_path = os.path.join(
+                os.path.dirname(manifest_dir), "env_manifest.json"
+            )
+        if os.path.exists(env_manifest_path):
+            with open(env_manifest_path, "r", encoding="utf-8") as emf:
+                env_data = json.load(emf)
+                for env_k in env_data.keys():
+                    valid_symbols.add(env_k)
+    except Exception:
+        pass
+
     ignore_symbols = {
+        "null",
+        "path",
+        "boolean",
+        "integer",
+        "float",
+        "active",
+        "deprecated",
+        "internal",
         "u8",
         "u16",
         "u32",

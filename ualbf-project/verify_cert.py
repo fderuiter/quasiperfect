@@ -7,6 +7,7 @@ import hash_util
 import tempfile
 
 import cert_util
+import env_util
 from matrix_utils import (
     exact_det,
     mat_mul,
@@ -16,7 +17,7 @@ from matrix_utils import (
 
 # Pinned trusted signer public key (hex-encoded Ed25519 public key)
 # This must be set to the legitimate signer's public key to prevent forgery
-TRUSTED_PUBLIC_KEY = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
+TRUSTED_PUBLIC_KEY = env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
 
 
 def canonicalize_trace(trace_path):
@@ -720,7 +721,7 @@ def verify_certificate(cert_path, manifest_path):
         sys.exit(1)
 
     # Verify the certificate's public key matches the pinned trusted key
-    trusted_public_key = os.getenv("UALBF_TRUSTED_PUBLIC_KEY", None)
+    trusted_public_key = env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
     if not trusted_public_key or not trusted_public_key.strip():
         print(
             "ERROR: No trusted public key is pinned (UALBF_TRUSTED_PUBLIC_KEY not set).",
@@ -1179,11 +1180,7 @@ if __name__ == "__main__":
 
     min_rigor = args.min_rigor
     if min_rigor is None:
-        env_val = os.getenv("UALBF_MIN_RIGOR")
-        if env_val is not None:
-            min_rigor = float(env_val)
-        else:
-            min_rigor = 0.0
+        min_rigor = env_util.get_env_var("UALBF_MIN_RIGOR", 0.0)
 
     certs = args.cert if isinstance(args.cert, list) else [args.cert]
 

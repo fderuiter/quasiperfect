@@ -28,5 +28,28 @@ The OpenCL CRT tensor sieve kernel executes modular residue checks and Bloom fil
 - **Current State:** To ensure GPU hardware execution cannot bypass formal verification or skip valid search candidates, the OpenCL GPU kernel and host execution pipeline output structured `GpuBloomWitness` certificates for every eliminated component and calculated bit index.
 - **Verification Status:** Before candidate pruning or bitmap modification, a host-side CPU witness verification gateway validates every witness record asynchronously across worker threads against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` in Lean 4. If any GPU witness fails CPU gateway validation, GPU execution is immediately halted and the calculation is flagged in telemetry logs. Thus, all GPU candidate eliminations are formally verified by CPU witness validation before candidate pruning.
 
+## 5. Build Environment Variables & Verification Configuration
+
+All build tools, certificate verification scripts, and paper generation utilities strictly validate environment variables against `env_manifest.json` and `env_manifest.schema.json`.
+
+| Variable | Type | Default | Status | Description |
+|---|---|---|---|---|
+| `LEAN_SYSROOT` | path | `null` | Active | Path to the Lean toolchain sysroot directory used during proof and spec checks |
+| `MOCK_LEAN` | boolean | `null` | Active | Bypasses external Lean binary invocation during tests by enabling mock verification |
+| `UALBF_CERT_PATH` | path | `null` | Active | Custom path to the formal certificate JSON file for ingest and verification |
+| `UALBF_DUMMY_PAPER_CI` | boolean | `null` | Active | Bypasses certificate verification during CI paper macro generation when set to 1 |
+| `UALBF_IN_STAGING_WORKSPACE` | boolean | `null` | Active | Flag indicating execution within a staging workspace for audit checks |
+| `UALBF_MAX_CERT_SIZE_MB` | float | `10.0` | Active | Maximum allowed formal certificate file size in megabytes |
+| `UALBF_MAX_EXPONENT` | integer | `4` | Active | Maximum prime-power exponent considered in Phase 1 search space |
+| `UALBF_MIN_RIGOR` | float | `0.0` | Active | Minimum acceptable rigor level ratio required during certificate verification |
+| `UALBF_PREFIX_STOP_THRESHOLD` | integer | `100000000000` | Active | DFS search threshold where prefix construction stops when n_L exceeds this value |
+| `UALBF_PROOF_MANIFEST` | path | `null` | Active | Custom path to the proof manifest JSON file containing theorem verification checksums |
+| `UALBF_SIEVE_LIMIT` | integer | `250000` | Active | Number of primes evaluated in Phase 1 CRT tensor sieve |
+| `UALBF_TARGET_MAX_LOG10` | integer | `37` | Active | Upper bound log10 exponent for search space (N < 10^max) |
+| `UALBF_TARGET_MIN_LOG10` | integer | `35` | Active | Lower bound log10 exponent for search space (N > 10^min) |
+| `UALBF_TRUSTED_PUBLIC_KEY` | string | `null` | Active | Hex-encoded Ed25519 public key pinned for formal certificate signature verification |
+| `ALLOW_UNVERIFIED_BUILD` | boolean | `null` | Deprecated | Deprecated bypass flag for unverified builds; execution is halted if detected |
+| `UALBF_SKIP_VALIDATION` | boolean | `null` | Deprecated | Deprecated bypass flag for certificate validation; execution is halted if detected |
+
 ---
 By explicitly defining these boundaries, future research contributors can better identify current verification gaps and contribute meaningful proofs to the repository.
