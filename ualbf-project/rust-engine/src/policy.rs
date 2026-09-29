@@ -24,6 +24,7 @@ pub struct EngineConfig {
     pub heartbeat_timeout_sec: u64,
     pub heartbeat_interval_sec: u64,
     pub verify_sidecar: Option<String>,
+    pub allow_unverified_gpu: bool,
 }
 
 static CONFIG: OnceLock<EngineConfig> = OnceLock::new();
@@ -91,7 +92,10 @@ where
 
     // Check for deprecated GPU-related CLI arguments or environment variables
     for arg in args_vec.iter().skip(1) {
-        if arg.contains("gpu") || arg.contains("GPU") {
+        if (arg.contains("gpu") || arg.contains("GPU"))
+            && arg != "--allow-unverified-gpu"
+            && !arg.starts_with("--allow-unverified-gpu=")
+        {
             eprintln!(
                 "WARNING: Runtime flag '{}' is deprecated. The unverified GPU path has been eliminated; all calculations now run securely on the CPU.",
                 arg
@@ -99,7 +103,7 @@ where
         }
     }
     for (key, _val) in vars_map.iter() {
-        if key.contains("GPU") {
+        if key.contains("GPU") && key != "UALBF_ALLOW_UNVERIFIED_GPU" {
             eprintln!(
                 "WARNING: Environment variable '{}' is deprecated. The unverified GPU path has been eliminated; all calculations now run securely on the CPU.",
                 key
@@ -178,7 +182,8 @@ where
                 | "--sidecar-path"
                 | "--heartbeat-timeout-sec"
                 | "--heartbeat-interval-sec"
-                | "--verify-sidecar" => {
+                | "--verify-sidecar"
+                | "--allow-unverified-gpu" => {
                     cli_map.insert(key, val);
                 }
                 k if k.contains("gpu") || k.contains("GPU") => {
@@ -366,6 +371,10 @@ where
 
     let verify_sidecar = get_opt("--verify-sidecar", "UALBF_VERIFY_SIDECAR");
 
+    let allow_unverified_gpu = get_opt("--allow-unverified-gpu", "UALBF_ALLOW_UNVERIFIED_GPU")
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
+
     let config = EngineConfig {
         target_min_log10,
         target_max_log10,
@@ -386,6 +395,7 @@ where
         heartbeat_timeout_sec,
         heartbeat_interval_sec,
         verify_sidecar,
+        allow_unverified_gpu,
     };
 
     if config.target_max_log10 < config.target_min_log10 {
@@ -580,5 +590,24 @@ mod tests {
         let vars = vec![];
         let cfg = parse_config_from(args, vars);
         assert_eq!(cfg.proof_mode, "axiomatic");
+    }
+
+    #[test]
+    fn test_allow_unverified_gpu_flag() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+        let default_cfg = parse_config_from(vec!["engine".to_string()], vec![]);
+        assert!(!default_cfg.allow_unverified_gpu);
+
+        let flag_cfg = parse_config_from(
+            vec!["engine".to_string(), "--allow-unverified-gpu".to_string()],
+            vec![],
+        );
+        assert!(flag_cfg.allow_unverified_gpu);
+
+        let env_cfg = parse_config_from(
+            vec!["engine".to_string()],
+            vec![("UALBF_ALLOW_UNVERIFIED_GPU".to_string(), "1".to_string())],
+        );
+        assert!(env_cfg.allow_unverified_gpu);
     }
 }

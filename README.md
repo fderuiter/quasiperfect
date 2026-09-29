@@ -482,6 +482,8 @@ The Rust engine reads the following environment variables at startup (all have s
 | `UALBF_SIEVE_LIMIT` | `250000` | Number of primes evaluated in Phase 1 |
 | `UALBF_MAX_EXPONENT` | `4` | Maximum prime-power exponent considered |
 | `UALBF_PREFIX_STOP_THRESHOLD` | `100000000000` | DFS stops building a prefix when n_L exceeds this value |
+| `UALBF_ALLOW_MISSING_SOURCES` | `false` | Allows certificate verification when Lean source files are missing |
+| `UALBF_ALLOW_UNVERIFIED_GPU` | `false` | Allows execution of unverified GPU sieve algorithms and inclusion of GPU witness data |
 
 Example:
 

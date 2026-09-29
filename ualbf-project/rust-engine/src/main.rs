@@ -772,10 +772,18 @@ fn main() {
     let valid_components = sieve_result.components;
     let sigma_cache = sieve_result.sigma_cache;
 
-    // Run parallel CRT tensor convolutions and Bloom filter candidate generation on the GPU execution path, generating mathematical witnesses
-    let _gpu_bitmap =
-        crate::unverified::gpu::run_gpu_sieve_and_generate_witnesses(&valid_components, 1048576, 4)
-            .expect("GPU CRT Tensor Sieve and Bloom filter generation failed");
+    // Run parallel CRT tensor convolutions and Bloom filter candidate generation on the GPU execution path only if explicitly allowed
+    if config.allow_unverified_gpu {
+        println!("Allowing unverified GPU sieve execution (--allow-unverified-gpu active)...");
+        let _gpu_bitmap = crate::unverified::gpu::run_gpu_sieve_and_generate_witnesses(
+            &valid_components,
+            1048576,
+            4,
+        )
+        .expect("GPU CRT Tensor Sieve and Bloom filter generation failed");
+    } else {
+        println!("GPU sieve execution disabled (CPU-only verified pipeline active).");
+    }
 
     // Precompute suffix-max abundance product array for DFS pruning.
     // We dynamically calculate the maximum possible depth before the 256-bit product overflows target_bound.
@@ -944,7 +952,11 @@ fn main() {
             config.sampling_rate,
             config.deterministic_seed,
             Some(crate::lean_ffi::is_conjectural_active()),
-            Some(crate::manifest_constants::CONJECTURE_NAME),
+            if crate::lean_ffi::is_conjectural_active() {
+                Some(crate::manifest_constants::CONJECTURE_NAME)
+            } else {
+                None
+            },
             serde_json::to_value(&explored_ranges_out).ok(),
             Some(&config.proof_mode),
             Some(&sidecar_hash),
@@ -1043,13 +1055,15 @@ fn main() {
     #[cfg(not(feature = "lattice"))]
     let lattice_witnesses = None;
 
-    let gpu_witnesses = {
+    let gpu_witnesses = if config.allow_unverified_gpu {
         let witnesses = crate::unverified::gpu::get_gpu_witnesses();
         if witnesses.is_empty() {
             None
         } else {
             serde_json::to_value(witnesses).ok()
         }
+    } else {
+        None
     };
 
     let compositeness_witnesses = {
