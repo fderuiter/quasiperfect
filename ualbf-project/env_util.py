@@ -48,6 +48,7 @@ def load_manifest_and_schema(
     if not manifest_path:
         possible_manifests = [
             repo_root / "env_manifest.json",
+            Path(__file__).resolve().parent / "env_manifest.json",
             repo_root / "ualbf-project" / "env_manifest.json",
             repo_root.parent / "env_manifest.json",
         ]
@@ -60,6 +61,7 @@ def load_manifest_and_schema(
     if not schema_path:
         possible_schemas = [
             repo_root / "env_manifest.schema.json",
+            Path(__file__).resolve().parent / "env_manifest.schema.json",
             repo_root / "ualbf-project" / "env_manifest.schema.json",
             repo_root.parent / "env_manifest.schema.json",
         ]
