@@ -355,6 +355,7 @@
             nativeBuildInputs = [ 
               pkgs.python3 
               pkgs.python3Packages.pygments 
+              pkgs.python3Packages.cryptography
               (if pkgs ? texliveFull then pkgs.texliveFull else pkgs.texlive.combined.scheme-full)
               pkgs.gnumake 
               pkgs.which
