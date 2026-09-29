@@ -784,6 +784,129 @@
       "theorem_hash": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     }
   },
-  "verified_logic_hash": "6f11bd71300d69c8e275aa530e1791678c45edb2cd701839b1071cc79de48076",
+  "cross_language_bindings": [
+    {
+      "section": "1. Pruning Starvation Logic",
+      "lean_symbols": [
+        "abundancy_starvation"
+      ],
+      "lean_files": [
+        "lean4-proofs/UALBF/QPN/AbundancyBound.lean"
+      ],
+      "verus_identifiers": [
+        "lean_abundancy_starvation_theorem"
+      ],
+      "verus_files": [
+        "rust-engine/src/verus_proofs.rs"
+      ],
+      "rust_functions": [
+        "check_starvation_kill"
+      ],
+      "rust_files": [
+        "rust-engine/src/verus_proofs.rs"
+      ],
+      "component_hashes": {
+        "abundancy_starvation": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11",
+        "lean_abundancy_starvation_theorem": "3f4300e9de5e8e30ef5786aef95f510ca2fdd189fc24e155441bfa357c7ea366",
+        "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb"
+      },
+      "file_checksums": {
+        "lean4-proofs/UALBF/QPN/AbundancyBound.lean": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11",
+        "rust-engine/src/verus_proofs.rs": "34be8c1e2992f917d26c4903acb2d6427a98eebd8389c6c882f345b92c56d794"
+      }
+    },
+    {
+      "section": "2. Fixed-Point Scaling Logic",
+      "lean_symbols": [
+        "scaleBoundCeil_conservative"
+      ],
+      "lean_files": [
+        "lean4-proofs/UALBF/Pure/Fixed64.lean"
+      ],
+      "verus_identifiers": [
+        "scale_bound_spec"
+      ],
+      "verus_files": [
+        "rust-engine/src/verus_proofs.rs"
+      ],
+      "rust_functions": [
+        "scale_bound_ceil",
+        "try_scale_bound_ceil"
+      ],
+      "rust_files": [
+        "rust-engine/src/verus_proofs.rs",
+        "rust-engine/src/lean_ffi.rs"
+      ],
+      "component_hashes": {
+        "scaleBoundCeil_conservative": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece",
+        "scale_bound_spec": "def035629b1ef362535899872bea3405160c6b7f3836dd9f4b267f7634c12d03",
+        "scale_bound_ceil": "209ae501b1cf4f71b3b81e6a00cabcdc8e5fc1472d8c16d80f401d3e49c340bf",
+        "try_scale_bound_ceil": "b557cc466b504830ce067946b3541e2741a904d4ae14659ec620f39ae02e5020"
+      },
+      "file_checksums": {
+        "lean4-proofs/UALBF/Pure/Fixed64.lean": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece",
+        "rust-engine/src/lean_ffi.rs": "cd34b9e0d8c6c0a21e10c9cf62c948a20fd33d55a267f13a4e9516470db9c99a",
+        "rust-engine/src/verus_proofs.rs": "34be8c1e2992f917d26c4903acb2d6427a98eebd8389c6c882f345b92c56d794"
+      }
+    },
+    {
+      "section": "3. Epistemological Memory Boundary",
+      "lean_symbols": [
+        "verified_ualbf_compute_sigma",
+        "verified_ualbf_cyclotomic_eval"
+      ],
+      "lean_files": [],
+      "verus_identifiers": [
+        "verified_ualbf_compute_sigma"
+      ],
+      "verus_files": [
+        "rust-engine/src/verus_proofs.rs"
+      ],
+      "rust_functions": [],
+      "rust_files": [],
+      "component_hashes": {
+        "verified_ualbf_compute_sigma": "ebe1a16d20de6e44aa75290dc6cc1033f57342d5adc05cec6f28a59a11ebe58b"
+      },
+      "file_checksums": {
+        "rust-engine/src/verus_proofs.rs": "34be8c1e2992f917d26c4903acb2d6427a98eebd8389c6c882f345b92c56d794"
+      }
+    },
+    {
+      "section": "4. Abbott-Aull Mod-5 Obstruction",
+      "lean_symbols": [
+        "rust_sieve_soundness_mod_5",
+        "ualbf_check_mod_5_soundness_ffi"
+      ],
+      "lean_files": [
+        "lean4-proofs/UALBF/Engine/SieveSoundness.lean",
+        "lean4-proofs/UALBF/Engine/Mod5Bridge.lean"
+      ],
+      "verus_identifiers": [
+        "ModularSieve"
+      ],
+      "verus_files": [],
+      "rust_functions": [
+        "check_mod_5",
+        "Mod5Obstruction"
+      ],
+      "rust_files": [
+        "rust-engine/src/lean_ffi.rs",
+        "rust-engine/src/obstruction.rs"
+      ],
+      "component_hashes": {
+        "rust_sieve_soundness_mod_5": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8",
+        "ualbf_check_mod_5_soundness_ffi": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f",
+        "check_mod_5": "cd34b9e0d8c6c0a21e10c9cf62c948a20fd33d55a267f13a4e9516470db9c99a",
+        "Mod5Obstruction": "cd34b9e0d8c6c0a21e10c9cf62c948a20fd33d55a267f13a4e9516470db9c99a"
+      },
+      "file_checksums": {
+        "lean4-proofs/UALBF/Engine/Mod5Bridge.lean": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f",
+        "lean4-proofs/UALBF/Engine/SieveSoundness.lean": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8",
+        "rust-engine/src/lean_ffi.rs": "cd34b9e0d8c6c0a21e10c9cf62c948a20fd33d55a267f13a4e9516470db9c99a",
+        "rust-engine/src/obstruction.rs": "e67bb0fff49b8da790a0e8ad83e34b3dbc97c33706836b5311fb85e966d54851"
+      }
+    }
+  ],
+  "verified_logic_hash": "9b92a36082b5d30d59cf8c624321a9aa774a310c313d82cfb87569aea507a990",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
