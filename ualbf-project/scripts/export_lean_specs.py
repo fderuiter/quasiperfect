@@ -951,28 +951,6 @@ def generate_c_headers(repo_root):
     normalize_mtime_if_lean_spec(header_path)
     print(f"C header generated to {header_path}")
 
-    ffi_header_path = os.path.join(header_dir, "verification_ffi.h")
-    ffi_header_content = (
-        "/* AUTO-GENERATED from verification-lib/src/lib.rs. DO NOT EDIT. */\n\n"
-        "#ifndef VERIFICATION_FFI_H\n"
-        "#define VERIFICATION_FFI_H\n\n"
-        "#include <stdbool.h>\n"
-        "#include <stddef.h>\n"
-        "#include <stdint.h>\n\n"
-        "#ifdef __cplusplus\n"
-        'extern "C" {\n'
-        "#endif\n\n" + "\n".join(decls) + "\n\n"
-        "#ifdef __cplusplus\n"
-        "}\n"
-        "#endif\n\n"
-        "#endif /* VERIFICATION_FFI_H */\n"
-    )
-    with open(ffi_header_path, "w", encoding="utf-8") as f:
-        f.write(ffi_header_content)
-
-    normalize_mtime_if_lean_spec(ffi_header_path)
-    print(f"C header generated to {ffi_header_path}")
-
 
 def main():
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
