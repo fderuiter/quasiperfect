@@ -117,7 +117,7 @@
           version = "0.1.0";
           src = pkgs.lib.cleanSourceWith {
             src = ./ualbf-project/lean4-proofs;
-            filter = path: type: builtins.match ".*(lake-manifest.json|lakefile.lean|lean-toolchain|lakefile.toml|.*\\.h)$" path != null || type == "directory";
+            filter = path: type: builtins.match ".*(lake-manifest.json|lakefile.lean|lean-toolchain|lakefile.toml)$" path != null || type == "directory";
           };
           nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq pkgs.curl ];
           buildPhase = ''
@@ -159,7 +159,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
+          outputHash = "sha256-JzoxPKsQ9uNNlHZo9dbhpo63MWjfOoCWbYLhVZV1LCk=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
