@@ -852,4 +852,3 @@ def verify_meta_certificate_envelope(
             )
 
     return meta_cert_data
-
