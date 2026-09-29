@@ -13,6 +13,10 @@ pub trait UintExt {
     fn as_u64(&self) -> u64;
     fn as_u32(&self) -> u32;
     fn as_usize(&self) -> usize;
+    fn try_as_u128(&self) -> Option<u128>;
+    fn try_as_u64(&self) -> Option<u64>;
+    fn try_as_u32(&self) -> Option<u32>;
+    fn try_as_usize(&self) -> Option<usize>;
     fn as_int(&self) -> Int;
     fn as_uint(&self) -> Uint;
 }
@@ -48,6 +52,18 @@ impl UintExt for Uint {
     fn as_usize(&self) -> usize {
         (*self).try_into().unwrap()
     }
+    fn try_as_u128(&self) -> Option<u128> {
+        (*self).try_into().ok()
+    }
+    fn try_as_u64(&self) -> Option<u64> {
+        (*self).try_into().ok()
+    }
+    fn try_as_u32(&self) -> Option<u32> {
+        (*self).try_into().ok()
+    }
+    fn try_as_usize(&self) -> Option<usize> {
+        (*self).try_into().ok()
+    }
     fn as_int(&self) -> Int {
         Int::from_le_bytes(self.to_le_bytes())
     }
@@ -66,6 +82,10 @@ pub trait IntExt {
     fn as_u64(&self) -> u64;
     fn as_u32(&self) -> u32;
     fn as_usize(&self) -> usize;
+    fn try_as_u128(&self) -> Option<u128>;
+    fn try_as_u64(&self) -> Option<u64>;
+    fn try_as_u32(&self) -> Option<u32>;
+    fn try_as_usize(&self) -> Option<usize>;
     fn as_int(&self) -> Int;
     fn as_uint(&self) -> Uint;
 }
@@ -97,6 +117,18 @@ impl IntExt for Int {
     }
     fn as_usize(&self) -> usize {
         (*self).try_into().unwrap()
+    }
+    fn try_as_u128(&self) -> Option<u128> {
+        (*self).try_into().ok()
+    }
+    fn try_as_u64(&self) -> Option<u64> {
+        (*self).try_into().ok()
+    }
+    fn try_as_u32(&self) -> Option<u32> {
+        (*self).try_into().ok()
+    }
+    fn try_as_usize(&self) -> Option<usize> {
+        (*self).try_into().ok()
     }
     fn as_uint(&self) -> Uint {
         Uint::from_le_bytes(self.to_le_bytes())

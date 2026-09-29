@@ -357,3 +357,80 @@ fn test_tonelli_shanks_large_two_adicity() {
     let n4 = Int::from_u32(11);
     assert_eq!(tonelli_shanks(n4, p1), None);
 }
+
+#[test]
+fn test_try_as_conversions_uint() {
+    let u_zero = Uint::zero();
+    assert_eq!(u_zero.try_as_u128(), Some(0));
+    assert_eq!(u_zero.try_as_u64(), Some(0));
+    assert_eq!(u_zero.try_as_u32(), Some(0));
+    assert_eq!(u_zero.try_as_usize(), Some(0));
+
+    let u32_max = Uint::from_u32(u32::MAX);
+    assert_eq!(u32_max.try_as_u32(), Some(u32::MAX));
+    assert_eq!(u32_max.try_as_u64(), Some(u32::MAX as u64));
+    assert_eq!(u32_max.try_as_u128(), Some(u32::MAX as u128));
+
+    let u32_overflow = u32_max + Uint::one();
+    assert_eq!(u32_overflow.try_as_u32(), None);
+    assert_eq!(u32_overflow.try_as_u64(), Some((u32::MAX as u64) + 1));
+
+    let u64_max = Uint::from_u64(u64::MAX);
+    assert_eq!(u64_max.try_as_u64(), Some(u64::MAX));
+    assert_eq!(u64_max.try_as_u32(), None);
+    assert_eq!(u64_max.try_as_u128(), Some(u64::MAX as u128));
+
+    let u64_overflow = u64_max + Uint::one();
+    assert_eq!(u64_overflow.try_as_u64(), None);
+
+    let u128_max = Uint::from_u128(u128::MAX);
+    assert_eq!(u128_max.try_as_u128(), Some(u128::MAX));
+    assert_eq!(u128_max.try_as_u64(), None);
+
+    let u128_overflow = u128_max + Uint::one();
+    assert_eq!(u128_overflow.try_as_u128(), None);
+}
+
+#[test]
+fn test_try_as_conversions_int() {
+    let i_zero = Int::zero();
+    assert_eq!(i_zero.try_as_u128(), Some(0));
+    assert_eq!(i_zero.try_as_u64(), Some(0));
+    assert_eq!(i_zero.try_as_u32(), Some(0));
+    assert_eq!(i_zero.try_as_usize(), Some(0));
+
+    let i128_max = Int::from_u128(u128::MAX);
+    assert_eq!(i128_max.try_as_u128(), Some(u128::MAX));
+
+    let i128_overflow = i128_max + Int::one();
+    assert_eq!(i128_overflow.try_as_u128(), None);
+}
+
+#[test]
+fn test_rho_factor_u256_large_candidate() {
+    // 1. Power of two exceeding 128 bits (2^128)
+    let candidate_128 = Uint::one() << 128;
+    let res_128 = rho_factor_u256(candidate_128);
+    match res_128 {
+        FactorizationResult::Complete(factors) => {
+            assert_eq!(factors.len(), 128);
+            let mut prod = Uint::one();
+            for f in factors {
+                prod *= f;
+            }
+            assert_eq!(prod, candidate_128);
+        }
+        _ => panic!("Expected complete factorization for 2^128"),
+    }
+
+    // 2. Odd integer exceeding 256 bits (2^300 + 1)
+    let candidate_300 = (Uint::one() << 300) + Uint::one();
+    let res_300 = rho_factor_u256(candidate_300);
+    match res_300 {
+        FactorizationResult::Partial { remaining, .. } => {
+            assert_eq!(remaining, candidate_300);
+        }
+        _ => panic!("Expected partial factorization for 2^300 + 1 exceeding 256-bit limit"),
+    }
+}
+
