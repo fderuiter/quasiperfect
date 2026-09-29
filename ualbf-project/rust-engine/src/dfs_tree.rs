@@ -999,18 +999,8 @@ pub fn check_and_evaluate_node(
                 let mut f_vec = smallvec::SmallVec::new();
                 f_vec.extend_from_slice(&curr.factors);
 
-                let ln_2 = 2.0_f64.ln();
-                let s_l_f64 = curr.s_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let n_l_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let a_curr = s_l_f64 / n_l_f64;
-                let target_log = ln_2 - a_curr.ln();
-
-                let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let epsilon = if n_f64 > 0.0 {
-                    (0.5 / n_f64).ln_1p()
-                } else {
-                    0.0
-                };
+                let (target_log, epsilon) =
+                    crate::lattice::compute_target_log_and_epsilon(&curr.s_l, &curr.n_l);
 
                 let mut m = 0;
                 let mask = &curr.active_mask;
