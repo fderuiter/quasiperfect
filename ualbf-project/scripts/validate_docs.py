@@ -714,11 +714,7 @@ def main():
             print(f"Error: Invalid JSON in docs_manifest.json - {e}", file=sys.stderr)
             sys.exit(1)
 
-    # Change to repo root to find all .md files with relative paths
-    os.chdir(repo_root)
-    all_md_files = glob.glob("**/*.md", recursive=True)
-
-    # Filter out common build, hidden, and virtual environment directories
+    # Find all .md files in the repository, whitelisting .jules/skills/ and .agents/skills/ hidden directories
     exclude_exact = {
         "target",
         "node_modules",
@@ -735,17 +731,32 @@ def main():
         "lake-manifest",
         "site-packages",
     }
+    allowed_dot_prefixes = (".jules/skills/", ".agents/skills/")
+
     filtered_md_files = []
-    for md_file in all_md_files:
-        parts = md_file.split(os.sep)
-        if not any(
-            part.startswith(".")
-            or part.startswith("result")
-            or part.startswith("lake-")
-            or part in exclude_exact
-            for part in parts
-        ):
-            filtered_md_files.append(md_file)
+    for root_dir, dirs, files in os.walk(repo_root):
+        rel_root = os.path.relpath(root_dir, repo_root)
+        norm_rel_root = "" if rel_root == "." else rel_root.replace("\\", "/")
+
+        pruned_dirs = []
+        for d in dirs:
+            if d in exclude_exact or d.startswith("result") or d.startswith("lake-"):
+                continue
+            if d.startswith("."):
+                candidate_rel = f"{norm_rel_root}/{d}" if norm_rel_root else d
+                if (
+                    candidate_rel in (".jules", ".agents", ".jules/skills", ".agents/skills")
+                    or candidate_rel.startswith(allowed_dot_prefixes)
+                ):
+                    pruned_dirs.append(d)
+            else:
+                pruned_dirs.append(d)
+        dirs[:] = pruned_dirs
+
+        for f in files:
+            if f.endswith(".md"):
+                rel_path = os.path.relpath(os.path.join(root_dir, f), repo_root).replace("\\", "/")
+                filtered_md_files.append(rel_path)
 
     # Check that all registered manifest entries exist on disk
     missing_registered = []
