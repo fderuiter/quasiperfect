@@ -65,6 +65,10 @@
       "value": 61,
       "is_axiomatic": false
     },
+    "trial_division_limit": {
+      "value": 10000000,
+      "is_axiomatic": false
+    },
     "pollard_rho": {
       "iteration_limit": 1000000,
       "batch_size": 128,

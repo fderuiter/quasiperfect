@@ -407,6 +407,9 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
+        trial_division_limit = (
+            bounds["search_bounds"].get("trial_division_limit", {}).get("value", 10000000)
+        )
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
             "value"
@@ -438,6 +441,7 @@ verus! {{
     pub open spec fn lean_target_min_log10() -> nat {{ {target_min_log10} }}
     pub open spec fn lean_target_max_log10() -> nat {{ {target_max_log10} }}
     pub open spec fn lean_sieve_limit() -> nat {{ {sieve_limit} }}
+    pub open spec fn lean_trial_division_limit() -> nat {{ {trial_division_limit} }}
     pub open spec fn lean_max_exponent() -> nat {{ {max_exponent} }}
     pub open spec fn lean_prefix_stop_threshold() -> nat {{ {prefix_stop_threshold} }}
     pub open spec fn lean_pollard_rho_iteration_limit() -> nat {{ {pollard_rho_iteration_limit} }}
@@ -498,6 +502,10 @@ verus! {{
 
     pub proof fn prove_sieve_limit_equivalence()
         ensures (crate::manifest_constants::SIEVE_LIMIT as nat) == lean_sieve_limit()
+    {{}}
+
+    pub proof fn prove_trial_division_limit_equivalence()
+        ensures (crate::manifest_constants::TRIAL_DIVISION_LIMIT as nat) == lean_trial_division_limit()
     {{}}
 
     pub proof fn prove_max_exponent_equivalence()
@@ -1004,6 +1012,9 @@ def main():
         target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
+        trial_division_limit = (
+            bounds["search_bounds"].get("trial_division_limit", {}).get("value", 10000000)
+        )
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
             "value"
@@ -1068,6 +1079,8 @@ pub const TARGET_MAX_LOG10: u32 = {target_max_log10};
 #[cfg(not(verus_keep_ghost))]
 pub const SIEVE_LIMIT: usize = {sieve_limit};
 #[cfg(not(verus_keep_ghost))]
+pub const TRIAL_DIVISION_LIMIT: usize = {trial_division_limit};
+#[cfg(not(verus_keep_ghost))]
 pub const MAX_EXPONENT: u32 = {max_exponent};
 #[cfg(not(verus_keep_ghost))]
 pub const PREFIX_STOP_THRESHOLD: u64 = {prefix_stop_threshold};
@@ -1120,6 +1133,7 @@ verus! {{
     pub const TARGET_MIN_LOG10: u32 = {target_min_log10};
     pub const TARGET_MAX_LOG10: u32 = {target_max_log10};
     pub const SIEVE_LIMIT: usize = {sieve_limit};
+    pub const TRIAL_DIVISION_LIMIT: usize = {trial_division_limit};
     pub const MAX_EXPONENT: u32 = {max_exponent};
     pub const PREFIX_STOP_THRESHOLD: u64 = {prefix_stop_threshold};
     pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {pollard_rho_iteration_limit};
@@ -1161,6 +1175,7 @@ verus! {{
 #define TARGET_MIN_LOG10 {target_min_log10}
 #define TARGET_MAX_LOG10 {target_max_log10}
 #define SIEVE_LIMIT {sieve_limit}
+#define TRIAL_DIVISION_LIMIT {trial_division_limit}
 #define MAX_EXPONENT {max_exponent}
 #define PREFIX_STOP_THRESHOLD {prefix_stop_threshold}
 #define POLLARD_RHO_ITERATION_LIMIT {pollard_rho_iteration_limit}
@@ -1201,6 +1216,7 @@ def EULER_CEILING_DEN : Nat := {euler_den}
 def TARGET_MIN_LOG10 : Nat := {target_min_log10}
 def TARGET_MAX_LOG10 : Nat := {target_max_log10}
 def SIEVE_LIMIT : Nat := {sieve_limit}
+def TRIAL_DIVISION_LIMIT : Nat := {trial_division_limit}
 def MAX_EXPONENT : Nat := {max_exponent}
 def PREFIX_STOP_THRESHOLD : Nat := {prefix_stop_threshold}
 def POLLARD_RHO_ITERATION_LIMIT : Nat := {pollard_rho_iteration_limit}

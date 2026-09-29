@@ -460,6 +460,7 @@
     "lean_sieve_limit": "d8e81b91dd484458558f59b3404ef888ec701a2ddb92210d9757892bd1af6bd4",
     "lean_target_max_log10": "938dc08d46d78e63e0b91559a735070ddf157e3ff4c944c92afc8d48694fa113",
     "lean_target_min_log10": "4d471ee6e66fe3c30f3313d9bcc0f562df401aac051912a88658feb6f1d43344",
+    "lean_trial_division_limit": "48212906b2df9199981ff04a4a298ceaba35bf1c9205be786f2290b5a9f422ad",
     "lemma_composite_has_prime_factor_le_sqrt": "a99f4d1a37cf56b8abf2cd6ea57e9a2e3ff094d41c514059d3a216d3c024a87d",
     "lemma_coprime_implies_multiplicative": "43dc1ca8a2341b479a646e0f777e803822f2f83d74f1047e362b1b7d9bd73a54",
     "lemma_coprime_implies_multiplicative_nonlinear": "3f83199ee284d4372f8742bee07b3240d22b0a0d28299f473a3220576b7645a8",
@@ -509,6 +510,7 @@
     "prove_sieve_limit_equivalence": "1cc13a1fa752a539fc523e7526d42c2afebd6c21bb86a727cd7f651777bcea6c",
     "prove_target_max_log10_equivalence": "b4932d34fa506bc6cc57750c9b392edb7717d1e74df198e8035bbf0befaf9d32",
     "prove_target_min_log10_equivalence": "3e6375b921b467b0f1ea20cec033c0e55934f10a8fa5dab4d39b135f9488449f",
+    "prove_trial_division_limit_equivalence": "11125a55ede2e273ea2cfa64f2362c2d2118edd4980835117ac475fc052b0b48",
     "rns512_gcd_spec": "326bf8dad421fb30d03432967c2fa2e50077f926b6b04d96fed84e8ac39fede6",
     "rns512_mont_mul_spec": "8bf52d4e2e0e21a29f600c907229fd2c9ec76c010f5524ea15ce97c3c5ed48c7",
     "rns512_valid_bounds": "bfe913f82b1159919d12287b03b1ebd1c7816b606e1e3c4b892fbb217d90f5e7",
@@ -643,7 +645,7 @@
       "checksum": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
     }
   ],
-  "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
+  "bounds_manifest_hash": "2033421ac2dabf3703330c206d00c80e7e9c35cc8798d92c77a24ad583acde13",
   "ghost_pruning_bindings": {
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",

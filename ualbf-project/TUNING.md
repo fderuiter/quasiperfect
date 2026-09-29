@@ -85,6 +85,9 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **search_bounds.prime_split_threshold.value**
   - **Description**: The prime split threshold parameter used to decouple mathematical proofs of infinite tail products from hardcoded static prime threshold values.
 
+- **search_bounds.trial_division_limit.value**
+  - **Description**: Trial division search limit used when attempting small prime factor discovery during search branch expansion.
+
 - **euler_ceiling.num**
   - **Description**: Numerator of the Euler ceiling quotient bound.
 

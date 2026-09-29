@@ -1098,13 +1098,41 @@ def main():
                 )
                 errors += 1
 
-        # 4. Check conjectural bounds constants in ManifestConstants.lean match bounds_manifest.json
+        # 4. Check conjectural and search bounds constants in ManifestConstants.lean match bounds_manifest.json
         manifest_constants_path = os.path.join(
             base_dir, "lean4-proofs", "UALBF", "ManifestConstants.lean"
         )
         if os.path.exists(manifest_constants_path):
             with open(manifest_constants_path, "r", encoding="utf-8") as f:
                 constants_content = f.read()
+
+            # Parse search bounds constants
+            trial_limit_match = re.search(
+                r"def TRIAL_DIVISION_LIMIT\s*:\s*Nat\s*:=\s*(\d+)",
+                constants_content,
+            )
+            if trial_limit_match:
+                lean_trial_limit = int(trial_limit_match.group(1))
+                json_trial_limit = (
+                    bounds_data.get("search_bounds", {})
+                    .get("trial_division_limit", {})
+                    .get("value")
+                )
+                if json_trial_limit is None:
+                    print(
+                        "Error: trial_division_limit missing from bounds_manifest.json search_bounds."
+                    )
+                    errors += 1
+                elif lean_trial_limit != json_trial_limit:
+                    print(
+                        f"Error: TRIAL_DIVISION_LIMIT mismatch! Lean: {lean_trial_limit}, JSON: {json_trial_limit}"
+                    )
+                    errors += 1
+            else:
+                print(
+                    "Error: Could not parse TRIAL_DIVISION_LIMIT from ManifestConstants.lean"
+                )
+                errors += 1
 
             # Parse lean values
             active_match = re.search(

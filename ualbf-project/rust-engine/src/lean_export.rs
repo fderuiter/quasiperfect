@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df";
+    "2033421ac2dabf3703330c206d00c80e7e9c35cc8798d92c77a24ad583acde13";
 
 use vstd::prelude::*;
 
@@ -17,6 +17,7 @@ verus! {
     pub open spec fn lean_target_min_log10() -> nat { 37 }
     pub open spec fn lean_target_max_log10() -> nat { 43 }
     pub open spec fn lean_sieve_limit() -> nat { 250000 }
+    pub open spec fn lean_trial_division_limit() -> nat { 10000000 }
     pub open spec fn lean_max_exponent() -> nat { 4 }
     pub open spec fn lean_prefix_stop_threshold() -> nat { 100000000000 }
     pub open spec fn lean_pollard_rho_iteration_limit() -> nat { 1000000 }
@@ -77,6 +78,10 @@ verus! {
 
     pub proof fn prove_sieve_limit_equivalence()
         ensures (crate::manifest_constants::SIEVE_LIMIT as nat) == lean_sieve_limit()
+    {}
+
+    pub proof fn prove_trial_division_limit_equivalence()
+        ensures (crate::manifest_constants::TRIAL_DIVISION_LIMIT as nat) == lean_trial_division_limit()
     {}
 
     pub proof fn prove_max_exponent_equivalence()

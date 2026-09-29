@@ -1018,11 +1018,43 @@ def _generate_manifest_impl():
                 proof_files.append({"file": rel_path, "checksum": checksum})
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
-    # Compute bounds_manifest.json hash
+    # Compute bounds_manifest.json hash and validate trial_division_limit against ManifestConstants.lean
     bounds_manifest_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_manifest_path):
         bounds_hash = hash_util.hash_file_bounded(bounds_manifest_path)
         manifest["bounds_manifest_hash"] = bounds_hash
+
+        manifest_constants_lean = os.path.join(
+            repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean"
+        )
+        if os.path.exists(manifest_constants_lean):
+            with open(manifest_constants_lean, "r", encoding="utf-8") as f:
+                lean_constants_content = f.read()
+
+            match = re.search(
+                r"def TRIAL_DIVISION_LIMIT\s*:\s*Nat\s*:=\s*(\d+)",
+                lean_constants_content,
+            )
+            if match:
+                lean_trial_limit = int(match.group(1))
+                trial_limit = None
+                try:
+                    with open(bounds_manifest_path, "r", encoding="utf-8") as f:
+                        bounds_json = json.load(f)
+                    trial_limit = (
+                        bounds_json.get("search_bounds", {})
+                        .get("trial_division_limit", {})
+                        .get("value")
+                    )
+                except Exception:
+                    pass
+
+                if trial_limit is None or lean_trial_limit != trial_limit:
+                    print(
+                        f"ERROR: trial_division_limit mismatch! bounds_manifest.json: {trial_limit}, ManifestConstants.lean: {lean_trial_limit}",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
     else:
         print(
             f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",

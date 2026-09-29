@@ -124,6 +124,7 @@ pub struct SearchBounds {
     pub pollard_rho: PollardRhoBounds,
     pub raycast: RaycastBounds,
     pub prime_split_threshold: Option<BoundValueU64>,
+    pub trial_division_limit: Option<BoundValueUsize>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -182,6 +183,16 @@ pub fn validate_bounds_manifest(manifest: &BoundsManifest) -> Result<(), String>
         }
     } else {
         return Err("FATAL: prime_split_threshold not found in bounds_manifest.json!".to_string());
+    }
+
+    if let Some(ref trial_div) = manifest.search_bounds.trial_division_limit {
+        let val = trial_div.value;
+        if val > 100_000_000 {
+            return Err(format!(
+                "FATAL: Invalid configuration! Configured value for trial_division_limit ({}) exceeds maximum safe limit allowed (100000000).",
+                val
+            ));
+        }
     }
 
     if let Some(ref cb) = manifest.conjectural_bounds {
@@ -486,6 +497,7 @@ pub fn validate_constant_spec_equivalence(
         ("TARGET_MIN_LOG10", "lean_target_min_log10"),
         ("TARGET_MAX_LOG10", "lean_target_max_log10"),
         ("SIEVE_LIMIT", "lean_sieve_limit"),
+        ("TRIAL_DIVISION_LIMIT", "lean_trial_division_limit"),
         ("MAX_EXPONENT", "lean_max_exponent"),
         ("PREFIX_STOP_THRESHOLD", "lean_prefix_stop_threshold"),
         (

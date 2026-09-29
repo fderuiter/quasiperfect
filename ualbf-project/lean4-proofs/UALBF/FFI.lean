@@ -595,6 +595,9 @@ def ualbf_target_max_log10_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Mani
 @[export ualbf_sieve_limit]
 def ualbf_sieve_limit_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.SIEVE_LIMIT.toUInt64
 
+@[export ualbf_trial_division_limit]
+def ualbf_trial_division_limit_impl : UInt64 := ((1 : UInt64) <<< 63) ||| UALBF.Manifest.TRIAL_DIVISION_LIMIT.toUInt64
+
 @[export ualbf_max_exponent]
 def ualbf_max_exponent_impl : UInt32 := ((1 : UInt32) <<< 31) ||| UALBF.Manifest.MAX_EXPONENT.toUInt32
 
