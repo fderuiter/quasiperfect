@@ -10,6 +10,7 @@ Covers:
 import hashlib
 import json
 import os
+from unittest.mock import patch
 import pytest  # type: ignore
 
 pytest.importorskip("cryptography")
@@ -309,6 +310,58 @@ class TestBoundedJSONLoaderUnit:
             obj = {"a": obj}
         with pytest.raises(CertificateValidationError, match="nesting depth"):
             loader.loads(json.dumps(obj))
+
+    def test_prescan_raises_before_json_loads(self):
+        loader = BoundedJSONLoader(max_depth=3)
+        payload = '{"a": {"b": {"c": {"d": 1}}}}'
+        with patch("json.loads") as mock_json_loads:
+            with pytest.raises(
+                CertificateValidationError, match="nesting depth"
+            ):
+                loader.loads(payload)
+            mock_json_loads.assert_not_called()
+
+    def test_prescan_brackets_inside_strings_ignored(self):
+        loader = BoundedJSONLoader(max_depth=3)
+        payload = '{"key": "[[[[[[[[[[ bracket ]]]]]]]]]]"}'
+        parsed = loader.loads(payload)
+        assert parsed == {"key": "[[[[[[[[[[ bracket ]]]]]]]]]]"}
+
+    def test_prescan_escaped_characters_in_strings(self):
+        loader = BoundedJSONLoader(max_depth=3)
+        payload = '{"key": "escaped \\" [bracket] \\\\"}'
+        parsed = loader.loads(payload)
+        assert parsed["key"] == 'escaped " [bracket] \\'
+
+    def test_prescan_bytes_and_bytearray(self):
+        loader = BoundedJSONLoader(max_depth=2)
+        valid_bytes = b'{"a": {"b": 1}}'
+        valid_bytearray = bytearray(b'{"a": {"b": 1}}')
+        assert loader.loads(valid_bytes) == {"a": {"b": 1}}
+        assert loader.loads(valid_bytearray) == {"a": {"b": 1}}
+
+        invalid_bytes = b'{"a": {"b": {"c": 1}}}'
+        invalid_bytearray = bytearray(b'{"a": {"b": {"c": 1}}}')
+        with patch("json.loads") as mock_json_loads:
+            with pytest.raises(CertificateValidationError, match="nesting depth"):
+                loader.loads(invalid_bytes)
+            with pytest.raises(CertificateValidationError, match="nesting depth"):
+                loader.loads(invalid_bytearray)
+            mock_json_loads.assert_not_called()
+
+    def test_loads_encoding_kwarg(self):
+        loader = BoundedJSONLoader()
+        assert loader.loads('{"a": 1}', encoding="utf-8") == {"a": 1}
+        assert loader.loads(b'{"a": 1}', encoding="utf-8") == {"a": 1}
+
+    def test_prescan_deeply_nested_adversarial_payload(self):
+        loader = BoundedJSONLoader(max_depth=10)
+        # Payload with depth 200 within 10MB limit
+        payload = "[" * 200 + "1" + "]" * 200
+        with patch("json.loads") as mock_json_loads:
+            with pytest.raises(CertificateValidationError, match="nesting depth"):
+                loader.loads(payload)
+            mock_json_loads.assert_not_called()
 
     def test_depth_verification_list_and_dict(self):
         loader = BoundedJSONLoader(max_depth=3)
