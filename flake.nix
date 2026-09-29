@@ -162,12 +162,21 @@
           outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
         };
 
+        # ProofWidgets' lakefile re-runs `npm install` when its trace files are
+        # missing, and the leanDeps cleanup strips them to keep the FOD hash stable.
+        # The widget JS is already vendored in leanDeps, so a no-op npm is enough
+        # (mirrors the `mock-ui` target in ualbf-project/Makefile).
+        mockNpm = pkgs.writeShellScriptBin "npm" ''
+          echo "[mock npm] skipping: npm $*" >&2
+          exit 0
+        '';
+
         leanPkg = pkgs.stdenv.mkDerivation {
           pname = "ualbf-lean4-proofs";
           version = "0.1.0";
           src = ./ualbf-project/lean4-proofs;
 
-          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
+          nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq mockNpm ];
 
           preBuild = ''
             chmod +w ..
@@ -457,7 +466,7 @@ with open("dummy_cert.json", "w") as f:
             version = "0.1.0";
             src = ./ualbf-project/lean4-proofs;
 
-            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq ];
+            nativeBuildInputs = [ pkgs.lean4 pkgs.git pkgs.cacert pkgs.jq mockNpm ];
 
             preBuild = ''
               chmod +w ..
