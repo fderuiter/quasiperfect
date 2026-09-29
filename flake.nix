@@ -363,7 +363,6 @@
             buildPhase = ''
               cd ualbf-project
               export HOME=$TMPDIR
-              cd ualbf-project
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
