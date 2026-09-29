@@ -435,15 +435,16 @@ def ualbf_mod_inverse_limb_impl (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt
   match modInverse a m with
   | some v =>
     let res := toU512 v.toNat
-    if limb_idx == 0 then U512.w0 res
-    else if limb_idx == 1 then U512.w1 res
-    else if limb_idx == 2 then U512.w2 res
-    else if limb_idx == 3 then U512.w3 res
-    else if limb_idx == 4 then U512.w4 res
-    else if limb_idx == 5 then U512.w5 res
-    else if limb_idx == 6 then U512.w6 res
-    else if limb_idx == 7 then U512.w7 res
-    else 0
+    match limb_idx.toNat with
+    | 0 => U512.w0 res
+    | 1 => U512.w1 res
+    | 2 => U512.w2 res
+    | 3 => U512.w3 res
+    | 4 => U512.w4 res
+    | 5 => U512.w5 res
+    | 6 => U512.w6 res
+    | 7 => U512.w7 res
+    | _ => 0
   | none => 0
 
 theorem ualbf_mod_inverse_ok_limbs_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) :
@@ -456,15 +457,16 @@ theorem ualbf_mod_inverse_ok_limbs_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg 
 theorem ualbf_mod_inverse_limb_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) (limb_idx : UInt32) :
     (match ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7) with
      | some res =>
-       if limb_idx == 0 then U512.w0 res
-       else if limb_idx == 1 then U512.w1 res
-       else if limb_idx == 2 then U512.w2 res
-       else if limb_idx == 3 then U512.w3 res
-       else if limb_idx == 4 then U512.w4 res
-       else if limb_idx == 5 then U512.w5 res
-       else if limb_idx == 6 then U512.w6 res
-       else if limb_idx == 7 then U512.w7 res
-       else 0
+       match limb_idx.toNat with
+       | 0 => U512.w0 res
+       | 1 => U512.w1 res
+       | 2 => U512.w2 res
+       | 3 => U512.w3 res
+       | 4 => U512.w4 res
+       | 5 => U512.w5 res
+       | 6 => U512.w6 res
+       | 7 => U512.w7 res
+       | _ => 0
      | none => 0) =
     ualbf_mod_inverse_limb_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 limb_idx := by
   unfold ualbf_mod_inverse_limb_impl ualbf_mod_inverse_impl
