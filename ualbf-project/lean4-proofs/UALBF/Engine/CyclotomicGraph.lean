@@ -128,17 +128,13 @@ lemma transitive_reach_start_exact {p1 e1 p2 e2 N : ℕ}
   then q divides sigma N.
 -/
 theorem transitive_reachability_soundness {p1 e1 p2 e2 q N : ℕ}
-  (hp1 : p1.Prime)
-  (h_exact1 : ExactValuation p1 (2 * e1) N)
+  (_hp1 : p1.Prime)
+  (_h_exact1 : ExactValuation p1 (2 * e1) N)
   (h_reach : TransitiveReach N p1 e1 p2 e2)
   (h_force : SingleStepForce p2 e2 q) :
   q ∣ sigma N := by
-  have h_start := transitive_reach_start_exact h_reach
-  have h_target := transitive_reach_target_exact h_reach
-  have _ : p1.Prime := hp1
-  have _ : ExactValuation p1 (2 * e1) N := h_exact1
-  have _ := h_start
-  exact single_step_forced_inclusion h_target.1 h_target.2 h_force
+  obtain ⟨hp2, h_exact2⟩ := transitive_reach_target_exact h_reach
+  exact single_step_forced_inclusion hp2 h_exact2 h_force
 
 
 /--
