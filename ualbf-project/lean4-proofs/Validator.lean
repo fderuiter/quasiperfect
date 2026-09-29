@@ -29,7 +29,7 @@ opaque verifyCertificateFFI (certJson : @& String) (trustedPubKey : @& String) :
 -- Pure SHA256 implementation (FIPS 180-4 standard specification)
 
 def rotr32 (x : UInt32) (n : Nat) : UInt32 :=
-  (x >>> n) ||| (x <<< (32 - n))
+  (x >>> n.toUInt32) ||| (x <<< (32 - n).toUInt32)
 
 def sha256_Ch (x y z : UInt32) : UInt32 :=
   (x &&& y) ^^^ ((~~~ x) &&& z)
@@ -44,10 +44,10 @@ def sha256_Sigma1 (x : UInt32) : UInt32 :=
   rotr32 x 6 ^^^ rotr32 x 11 ^^^ rotr32 x 25
 
 def sha256_sigma0 (x : UInt32) : UInt32 :=
-  rotr32 x 7 ^^^ rotr32 x 18 ^^^ (x >>> 3)
+  rotr32 x 7 ^^^ rotr32 x 18 ^^^ (x >>> (3 : UInt32))
 
 def sha256_sigma1 (x : UInt32) : UInt32 :=
-  rotr32 x 17 ^^^ rotr32 x 19 ^^^ (x >>> 10)
+  rotr32 x 17 ^^^ rotr32 x 19 ^^^ (x >>> (10 : UInt32))
 
 def sha256K : Array UInt32 := #[
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -65,9 +65,9 @@ def getUInt32BE (b : ByteArray) (off : Nat) : UInt32 :=
   let b1 := b[off + 1]!.toUInt32
   let b2 := b[off + 2]!.toUInt32
   let b3 := b[off + 3]!.toUInt32
-  (b0 <<< 24) ||| (b1 <<< 16) ||| (b2 <<< 8) ||| b3
+  (b0 <<< (24 : UInt32)) ||| (b1 <<< (16 : UInt32)) ||| (b2 <<< (8 : UInt32)) ||| b3
 
-def padMessage (msg : ByteArray) : ByteArray :=
+def padMessage (msg : ByteArray) : ByteArray := Id.run do
   let len := msg.size
   let bitLen : UInt64 := len.toUInt64 * 8
   let mut padded := msg.push 0x80
@@ -75,30 +75,30 @@ def padMessage (msg : ByteArray) : ByteArray :=
   let padZeros := if rem <= 56 then 56 - rem else 120 - rem
   for _ in [:padZeros] do
     padded := padded.push 0x00
-  padded := padded.push (bitLen >>> 56).toUInt8
-  padded := padded.push (bitLen >>> 48).toUInt8
-  padded := padded.push (bitLen >>> 40).toUInt8
-  padded := padded.push (bitLen >>> 32).toUInt8
-  padded := padded.push (bitLen >>> 24).toUInt8
-  padded := padded.push (bitLen >>> 16).toUInt8
-  padded := padded.push (bitLen >>> 8).toUInt8
+  padded := padded.push (bitLen >>> (56 : UInt64)).toUInt8
+  padded := padded.push (bitLen >>> (48 : UInt64)).toUInt8
+  padded := padded.push (bitLen >>> (40 : UInt64)).toUInt8
+  padded := padded.push (bitLen >>> (32 : UInt64)).toUInt8
+  padded := padded.push (bitLen >>> (24 : UInt64)).toUInt8
+  padded := padded.push (bitLen >>> (16 : UInt64)).toUInt8
+  padded := padded.push (bitLen >>> (8 : UInt64)).toUInt8
   padded := padded.push bitLen.toUInt8
-  padded
+  return padded
 
 def uint32ToHex (n : UInt32) : String :=
   let hexChars : Array Char := #['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f']
-  let d7 := hexChars[(n >>> 28).toNat % 16]!
-  let d6 := hexChars[((n >>> 24) &&& 0xf).toNat]!
-  let d5 := hexChars[((n >>> 20) &&& 0xf).toNat]!
-  let d4 := hexChars[((n >>> 16) &&& 0xf).toNat]!
-  let d3 := hexChars[((n >>> 12) &&& 0xf).toNat]!
-  let d2 := hexChars[((n >>> 8) &&& 0xf).toNat]!
-  let d1 := hexChars[((n >>> 4) &&& 0xf).toNat]!
+  let d7 := hexChars[(n >>> (28 : UInt32)).toNat % 16]!
+  let d6 := hexChars[((n >>> (24 : UInt32)) &&& 0xf).toNat]!
+  let d5 := hexChars[((n >>> (20 : UInt32)) &&& 0xf).toNat]!
+  let d4 := hexChars[((n >>> (16 : UInt32)) &&& 0xf).toNat]!
+  let d3 := hexChars[((n >>> (12 : UInt32)) &&& 0xf).toNat]!
+  let d2 := hexChars[((n >>> (8 : UInt32)) &&& 0xf).toNat]!
+  let d1 := hexChars[((n >>> (4 : UInt32)) &&& 0xf).toNat]!
   let d0 := hexChars[(n &&& 0xf).toNat]!
-  String.mk [d7, d6, d5, d4, d3, d2, d1, d0]
+  String.ofList [d7, d6, d5, d4, d3, d2, d1, d0]
 
 /-- Pure Lean SHA-256 function operating on ByteArray -/
-def sha256 (data : ByteArray) : String :=
+def sha256 (data : ByteArray) : String := Id.run do
   let padded := padMessage data
   let numBlocks := padded.size / 64
   let mut h0 : UInt32 := 0x6a09e667
@@ -149,7 +149,7 @@ def sha256 (data : ByteArray) : String :=
     h6 := h6 + g
     h7 := h7 + h
 
-  uint32ToHex h0 ++ uint32ToHex h1 ++ uint32ToHex h2 ++ uint32ToHex h3 ++
+  return uint32ToHex h0 ++ uint32ToHex h1 ++ uint32ToHex h2 ++ uint32ToHex h3 ++
   uint32ToHex h4 ++ uint32ToHex h5 ++ uint32ToHex h6 ++ uint32ToHex h7
 
 def sha256String (s : String) : String :=
@@ -264,8 +264,7 @@ def main (args : List String) : IO UInt32 := do
 
   IO.println "--- Formally Verified Lean 4 Validator ---"
 
-  let manifestEnvPath ← do
-    match ← IO.getEnv "UALBF_PROOF_MANIFEST" with
+  let manifestEnvPath ← match ← IO.getEnv "UALBF_PROOF_MANIFEST" with
     | some p => pure p
     | none => pure "proof_manifest.json"
 
