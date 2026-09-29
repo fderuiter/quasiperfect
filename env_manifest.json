@@ -20,6 +20,18 @@
     "status": "active",
     "description": "Bypasses external Lean binary invocation during tests by enabling mock verification."
   },
+  "UALBF_ALLOW_MISSING_SOURCES": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": [
+      "0",
+      "1",
+      "true",
+      "false"
+    ],
+    "status": "active",
+    "description": "Bypasses missing physical proof source files and tactic checks during certificate verification when set to 1."
+  },
   "UALBF_CERT_PATH": {
     "type": "path",
     "default": null,

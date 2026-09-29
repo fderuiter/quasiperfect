@@ -36,6 +36,7 @@ All build tools, certificate verification scripts, and paper generation utilitie
 |---|---|---|---|---|
 | `LEAN_SYSROOT` | path | `null` | Active | Path to the Lean toolchain sysroot directory used during proof and spec checks |
 | `MOCK_LEAN` | boolean | `null` | Active | Bypasses external Lean binary invocation during tests by enabling mock verification |
+| `UALBF_ALLOW_MISSING_SOURCES` | boolean | `null` | Active | Bypasses missing physical proof source files and tactic checks during certificate verification when set to 1 |
 | `UALBF_CERT_PATH` | path | `null` | Active | Custom path to the formal certificate JSON file for ingest and verification |
 | `UALBF_DUMMY_PAPER_CI` | boolean | `null` | Active | Bypasses certificate verification during CI paper macro generation when set to 1 |
 | `UALBF_IN_STAGING_WORKSPACE` | boolean | `null` | Active | Flag indicating execution within a staging workspace for audit checks |
