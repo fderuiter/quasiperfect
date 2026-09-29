@@ -44,6 +44,10 @@ def create_dummy_cert(manifest_path: str, bounds_path: str) -> dict:
     """Create minimal certificate dictionary aligned with manifest hash."""
     mbytes = cert_util.BoundedJSONLoader().read_file_bytes(manifest_path)
     mhash = hash_util.hash_bytes(mbytes)
+    bounds = ingest_cert.load_bounds(bounds_path)
+    search_bounds = bounds.get("search_bounds", {})
+    min_log = search_bounds.get("target_min_log10", {}).get("value", 37)
+    max_log = search_bounds.get("target_max_log10", {}).get("value", 43)
     return {
         "manifest_hash": mhash,
         "verified_logic_hash": "0" * 64,
@@ -55,8 +59,8 @@ def create_dummy_cert(manifest_path: str, bounds_path: str) -> dict:
             "total_branches_searched": 1000,
             "abundance_pruned": 200,
             "raycast_pruned": 0,
-            "target_min_log10": 35,
-            "target_max_log10": 37,
+            "target_min_log10": min_log,
+            "target_max_log10": max_log,
         },
     }
 
