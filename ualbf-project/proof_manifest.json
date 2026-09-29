@@ -3,115 +3,115 @@
     {
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a9884ff580ff90182ed2d918858cc92c65720653933a2c69f41d4d16488917e4"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a9884ff580ff90182ed2d918858cc92c65720653933a2c69f41d4d16488917e4"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a9884ff580ff90182ed2d918858cc92c65720653933a2c69f41d4d16488917e4"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8"
     },
     {
       "name": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a6af3be26b5232683c3e6f2a6bd943d63040dccae52350d68084cbe4de784a31"
     },
     {
       "name": "UALBF.Engine.Bipartition.ambs_suffix_target",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a6af3be26b5232683c3e6f2a6bd943d63040dccae52350d68084cbe4de784a31"
     },
     {
       "name": "UALBF.Engine.Bipartition.no_solution_no_qpn",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a6af3be26b5232683c3e6f2a6bd943d63040dccae52350d68084cbe4de784a31"
     },
     {
       "name": "UALBF.Engine.Bipartition.root_partition_complete_coverage",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a6af3be26b5232683c3e6f2a6bd943d63040dccae52350d68084cbe4de784a31"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
       "file": "UALBF/QPN/Obstruction.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "baa58ae2a1028f90061fafee1c2d9a2287d6d5de264faf4b7fc3f67c73e2243b"
     },
     {
       "name": "UALBF.QPN.BasicProperties.qpn_is_odd_square",
       "file": "UALBF/QPN/BasicProperties.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "8992defd0cff60fce435d433d20749c86bdc42ca822648993c86c1487a29abb6"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_3",
       "file": "UALBF/Engine/Obstruction.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7"
     },
     {
       "name": "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
       "file": "UALBF/Engine/Obstruction.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "7b1260c280195bb3b99caa4267fdb6dfe13cc0e9b9e3f78e490a1f78c19307e7"
     },
     {
       "name": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
       "file": "UALBF/QPN/TouchardQPN.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
     },
     {
       "name": "UALBF.Engine.TouchardBridge.touchard_bridge",
       "file": "UALBF/Engine/TouchardBridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "4b18e1ce4fae9f6284a31b5cd5b904962d91348d3098b49e1c41761278c61b61"
     },
     {
@@ -140,291 +140,290 @@
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
-      "file": "UALBF.lean",
+      "file": "UALBF/FFI_generated.lean",
       "status": "proven",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
->>>>>>> 1168fe3 (fix(lean): remove invalid exponentiation.threshold option causing warning build failure)
+      "checksum": "1fe60dd3bc62a7fb4d57252973ec4bcaacdc408972cc9e34a8b8b064060f456f"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
       "file": "UALBF/Pure/ABCConjecture.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
       "file": "UALBF/Pure/ABCConjecture.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod7",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_to_mod11",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod1155_soundness",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.ualbf_check_crt_1155_sound",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "bb42b858c81d6f0ba68feb7d88424e17c13c84430a2e3ffe0a238894ecb3df2b"
     },
     {
       "name": "UALBF.Fixed64.scaleBoundCeil_conservative",
       "file": "UALBF/Pure/Fixed64.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness_mod_5",
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8"
     },
     {
       "name": "UALBF.Engine.Mod5Bridge.ualbf_check_mod_5_soundness_ffi",
       "file": "UALBF/Engine/Mod5Bridge.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.ModularSieve",
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.verify_starvation_pruning",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.is_starved_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a9884ff580ff90182ed2d918858cc92c65720653933a2c69f41d4d16488917e4"
     },
     {
       "name": "UALBF.Engine.Bipartition.coprime_multiplicative_nonlinear",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a6af3be26b5232683c3e6f2a6bd943d63040dccae52350d68084cbe4de784a31"
     },
     {
       "name": "UALBF.Engine.Bipartition.coprime_multiplicative",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a6af3be26b5232683c3e6f2a6bd943d63040dccae52350d68084cbe4de784a31"
     },
     {
       "name": "UALBF.Engine.Bipartition.disjoint_by_construction",
       "file": "UALBF/Engine/Bipartition.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a6af3be26b5232683c3e6f2a6bd943d63040dccae52350d68084cbe4de784a31"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.verify_prasad_sunitha",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.QPN.TouchardQPN.screen_mod_8",
       "file": "UALBF/QPN/TouchardQPN.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
     },
     {
       "name": "UALBF.QPN.Obstruction.is_valid_mod_8",
       "file": "UALBF/QPN/Obstruction.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "baa58ae2a1028f90061fafee1c2d9a2287d6d5de264faf4b7fc3f67c73e2243b"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.passes_raycast_sieve_spec",
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.verified_passes_raycast_sieve",
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a9884ff580ff90182ed2d918858cc92c65720653933a2c69f41d4d16488917e4"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.proof_verify_zsigmondy_preconditions",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "a9884ff580ff90182ed2d918858cc92c65720653933a2c69f41d4d16488917e4"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_composite_has_prime_factor_le_sqrt",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_smallest_factor_is_prime",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_modpow_mod_divisibility",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_modpow_add_mul",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_order_exists",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_order_prime_factor",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_divisibility_bounds",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_fermat_little_theorem",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_order_le_p_minus_1",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_square_comparison_contradiction",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_f_squared_gt_n_minus_1",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_pocklington_certificate",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_divisibility_transitive",
       "file": "UALBF/Pure/Arithmetic.lean",
-      "status": "error",
+      "status": "proven",
       "checksum": "5bfe171e75ac9e67830459609625e03e1ba336133818c22c53499854bd0d4e3f"
     }
   ],
@@ -781,7 +780,6 @@
       "theorem_hash": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     }
   },
-<<<<<<< HEAD
   "cross_language_bindings": [
     {
       "section": "1. Pruning Starvation Logic",
@@ -905,6 +903,6 @@
       }
     }
   ],
-  "verified_logic_hash": "2c37de3e85e3daa41f4e9aaacfe4d201f24761acbfe9ca3c654c834dc1c7b90f",
+  "verified_logic_hash": "320392e7170ab0ae501d5d09cee180d8d7154d0472c9ecf984190e477e6674d3",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
