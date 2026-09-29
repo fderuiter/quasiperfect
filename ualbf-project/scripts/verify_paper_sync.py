@@ -92,6 +92,7 @@ def generate_paper_macros(
                 os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = orig_trusted_key
 
 
+
 # Macros whose value depends on the commit being checked. A tracked file cannot
 # contain its own commit hash, so these are left out of the comparison.
 VOLATILE_MACROS = ("TelemetryCommitHash",)

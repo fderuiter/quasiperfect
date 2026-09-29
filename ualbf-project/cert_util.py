@@ -835,6 +835,7 @@ def create_signed_test_cert(
     return cert_data, pub_hex
 
 
+
 def verify_meta_certificate_envelope(
     meta_cert_data: dict,
     manifest_path: str,

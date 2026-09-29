@@ -45,7 +45,7 @@ All build tools, certificate verification scripts, and paper generation utilitie
 | `UALBF_ALLOW_MISSING_SOURCES` | boolean | `null` | Active | Allows certificate verification without requiring local Lean 4 proof source files |
 | `UALBF_ALLOW_UNVERIFIED_GPU` | boolean | `false` | Active | Allows execution of unverified GPU sieve algorithms and inclusion of GPU witness data |
 | `UALBF_CERT_PATH` | path | `null` | Active | Custom path to the formal certificate JSON file for ingest and verification |
-| `UALBF_DUMMY_PAPER_CI` | boolean | `null` | Active | Bypasses certificate verification during CI paper macro generation when set to 1 |
+| `UALBF_DUMMY_PAPER_CI` | boolean | `null` | Deprecated | Deprecated bypass flag for CI paper macro generation; execution is halted if detected |
 | `UALBF_IN_STAGING_WORKSPACE` | boolean | `null` | Active | Flag indicating execution within a staging workspace for audit checks |
 | `UALBF_MAX_CERT_SIZE_MB` | float | `10.0` | Active | Maximum allowed formal certificate file size in megabytes |
 | `UALBF_MAX_EXPONENT` | integer | `4` | Active | Maximum prime-power exponent considered in Phase 1 search space |
