@@ -1,6 +1,18 @@
 {
   "theorems": [
     {
+      "name": "UALBF.Engine.SearchMonad.ruleA_safe",
+      "file": "UALBF/Engine/SearchMonad.lean",
+      "status": "proven",
+      "checksum": "83b27dfefc93e0cb7caf8288109473fdb4d3b100154a91101260a02e335e0b4b"
+    },
+    {
+      "name": "UALBF.Engine.SearchMonad.ruleB_safe",
+      "file": "UALBF/Engine/SearchMonad.lean",
+      "status": "proven",
+      "checksum": "83b27dfefc93e0cb7caf8288109473fdb4d3b100154a91101260a02e335e0b4b"
+    },
+    {
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
@@ -564,7 +576,7 @@
     },
     {
       "file": "UALBF/Engine/SearchMonad.lean",
-      "checksum": "55103be5da5576ba2f0061d5abdd828c9ab43210f00c0406307dfef933c5fd97"
+      "checksum": "83b27dfefc93e0cb7caf8288109473fdb4d3b100154a91101260a02e335e0b4b"
     },
     {
       "file": "UALBF/Engine/SearchState.lean",
@@ -645,6 +657,22 @@
   ],
   "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
   "ghost_pruning_bindings": {
+    "ruleA_safe": {
+      "lean_theorem": "UALBF.Engine.SearchMonad.ruleA_safe",
+      "theorem_hash": "83b27dfefc93e0cb7caf8288109473fdb4d3b100154a91101260a02e335e0b4b"
+    },
+    "ruleB_safe": {
+      "lean_theorem": "UALBF.Engine.SearchMonad.ruleB_safe",
+      "theorem_hash": "83b27dfefc93e0cb7caf8288109473fdb4d3b100154a91101260a02e335e0b4b"
+    },
+    "ruleA_pruning": {
+      "lean_theorem": "UALBF.Engine.SearchMonad.ruleA_safe",
+      "theorem_hash": "83b27dfefc93e0cb7caf8288109473fdb4d3b100154a91101260a02e335e0b4b"
+    },
+    "ruleB_pruning": {
+      "lean_theorem": "UALBF.Engine.SearchMonad.ruleB_safe",
+      "theorem_hash": "83b27dfefc93e0cb7caf8288109473fdb4d3b100154a91101260a02e335e0b4b"
+    },
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "theorem_hash": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"

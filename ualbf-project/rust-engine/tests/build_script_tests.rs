@@ -39,6 +39,10 @@ fn sample_valid_bounds_manifest_json() -> &'static str {
 
 fn sample_valid_proof_manifest_json(bounds_hash: &str) -> String {
     let fns = [
+        "ruleA_safe",
+        "ruleB_safe",
+        "ruleA_pruning",
+        "ruleB_pruning",
         "check_starvation_kill",
         "check_cdg_forced_kill",
         "lean_abundancy_starvation_theorem",
