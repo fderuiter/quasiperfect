@@ -108,7 +108,7 @@ lemma transitive_reach_target_exact {p1 e1 p2 e2 N : ℕ}
   p2.Prime ∧ ExactValuation p2 (2 * e2) N := by
   induction h_reach with
   | step _ _ _ _ _ _ _ hp2 h_exact2 => exact ⟨hp2, h_exact2⟩
-  | trans _ _ _ _ _ _ _ _ ih2 => exact ih2
+  | trans _ _ _ _ _ _ _ _ _ ih2 => exact ih2
 
 /--
   Transitive reachability soundness theorem:
