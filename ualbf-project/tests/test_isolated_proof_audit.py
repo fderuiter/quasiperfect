@@ -117,7 +117,8 @@ def test_proof_audit_staging_workspace_immutability():
 def test_concurrent_audit_staging_isolation():
     """
     Verify that multiple audit tasks generate unique staging directories under
-    /tmp/ualbf_audit_<uuid> avoiding locks or permission conflicts.
+    /tmp/ualbf_audit_<uuid> avoiding locks or permission conflicts, and that
+    env_manifest files are correctly copied into the staging workspace.
     """
     staging_dirs = set()
     project_dir = Path(__file__).parent.parent.resolve()
@@ -136,6 +137,14 @@ def test_concurrent_audit_staging_isolation():
                 auditor._setup_staging_workspace(tmp, s_dir)
                 staging_dirs.add(s_dir)
                 assert os.path.exists(s_dir)
+                # Verify env_manifest.json and env_manifest.schema.json exist in staging_dir
+                if (project_dir / "env_manifest.json").exists() or (
+                    project_dir.parent / "env_manifest.json"
+                ).exists():
+                    assert os.path.exists(os.path.join(s_dir, "env_manifest.json"))
+                    assert os.path.exists(
+                        os.path.join(s_dir, "env_manifest.schema.json")
+                    )
                 shutil.rmtree(s_dir)
             finally:
                 os.chdir(old_cwd)
@@ -294,6 +303,3 @@ def test_cross_language_bindings_mismatch_fails_check_documentation():
     ]
 
     assert auditor.check_documentation(tampered_manifest) is False
-
-
-

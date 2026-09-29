@@ -434,7 +434,7 @@ STANDARD_ENV_VARS = {
 class EnvVarASTVisitor(ast.NodeVisitor):
     def __init__(self, filename: str):
         self.filename = filename
-        self.env_vars = []  # (lineno, var_name)
+        self.env_vars: list[tuple[int, str]] = []  # (lineno, var_name)
 
     def visit_Subscript(self, node: ast.Subscript):
         if isinstance(node.value, ast.Attribute) and isinstance(
@@ -701,6 +701,51 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
     return True
 
 
+def validate_auditor_doc_checks(repo_root: str) -> bool:
+    """
+    Perform auditor documentation checks against proof_manifest.json, verifying backticked
+    code symbols, unquoted static symbols, and Lean theorem proof statuses in authoritative documentation.
+    """
+    proof_manifest_path = os.path.join(repo_root, "proof_manifest.json")
+    if not os.path.exists(proof_manifest_path):
+        proof_manifest_path = os.path.join(
+            repo_root, "ualbf-project", "proof_manifest.json"
+        )
+
+    if not os.path.exists(proof_manifest_path):
+        print(
+            f"Warning: proof_manifest.json not found at {proof_manifest_path}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    try:
+        with open(proof_manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as e:
+        print(
+            f"Warning: Failed to load proof_manifest.json: {e}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    ualbf_project_dir = os.path.dirname(scripts_dir)
+    if ualbf_project_dir not in sys.path:
+        sys.path.insert(0, ualbf_project_dir)
+
+    try:
+        import auditor
+
+        return auditor.check_documentation(manifest, repo_root=repo_root)
+    except Exception as e:
+        print(
+            f"Error executing auditor documentation verification: {e}",
+            file=sys.stderr,
+        )
+        return False
+
+
 def main():
     args = sys.argv[1:]
     check_specs = False
@@ -853,6 +898,11 @@ def main():
     registered_files = list(manifest.keys())
     if not validate_markdown_links(repo_root, registered_files):
         print("Documentation link/anchor validation failed.", file=sys.stderr)
+        sys.exit(1)
+
+    # Perform auditor documentation verification against proof_manifest.json
+    if not validate_auditor_doc_checks(repo_root):
+        print("Auditor documentation verification failed.", file=sys.stderr)
         sys.exit(1)
 
     # Run paper source validation

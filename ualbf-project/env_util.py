@@ -28,7 +28,15 @@ def find_repo_root(start_dir: Optional[Path] = None) -> Path:
         if (p / "env_manifest.json").exists():
             return p
 
-    for p in [current] + list(current.parents):
+    search_dirs = [current] + list(current.parents)
+    try:
+        cwd = Path.cwd().resolve()
+        if cwd not in search_dirs:
+            search_dirs.extend([cwd] + list(cwd.parents))
+    except Exception:
+        pass
+
+    for p in search_dirs:
         if (
             (p / "env_manifest.json").exists()
             or (p / "docs_manifest.json").exists()
@@ -65,6 +73,16 @@ def load_manifest_and_schema(
             Path(__file__).resolve().parent / "env_manifest.json",
             Path(__file__).resolve().parent.parent / "env_manifest.json",
         ]
+        try:
+            possible_manifests.extend(
+                [
+                    Path.cwd() / "env_manifest.json",
+                    Path.cwd().parent / "env_manifest.json",
+                ]
+            )
+        except Exception:
+            pass
+
         m_path = next((p for p in possible_manifests if p.exists()), None)
         if not m_path:
             raise FileNotFoundError("env_manifest.json not found in repository root.")
@@ -84,9 +102,21 @@ def load_manifest_and_schema(
             Path(__file__).resolve().parent / "env_manifest.schema.json",
             Path(__file__).resolve().parent.parent / "env_manifest.schema.json",
         ]
+        try:
+            possible_schemas.extend(
+                [
+                    Path.cwd() / "env_manifest.schema.json",
+                    Path.cwd().parent / "env_manifest.schema.json",
+                ]
+            )
+        except Exception:
+            pass
+
         s_path = next((p for p in possible_schemas if p.exists()), None)
         if not s_path:
-            raise FileNotFoundError("env_manifest.schema.json not found in repository root.")
+            raise FileNotFoundError(
+                "env_manifest.schema.json not found in repository root."
+            )
     else:
         s_path = Path(schema_path)
 
@@ -120,20 +150,30 @@ def validate_manifest_schema(manifest: Dict[str, Any], schema: Dict[str, Any]) -
 
         for req in ["type", "default", "status", "description"]:
             if req not in val:
-                raise ValueError(f"Manifest entry for '{key}' missing required property '{req}'.")
+                raise ValueError(
+                    f"Manifest entry for '{key}' missing required property '{req}'."
+                )
 
         if val["type"] not in valid_types:
-            raise ValueError(f"Manifest entry for '{key}' has invalid type '{val['type']}'.")
+            raise ValueError(
+                f"Manifest entry for '{key}' has invalid type '{val['type']}'."
+            )
 
         if val["status"] not in valid_statuses:
-            raise ValueError(f"Manifest entry for '{key}' has invalid status '{val['status']}'.")
+            raise ValueError(
+                f"Manifest entry for '{key}' has invalid status '{val['status']}'."
+            )
 
         if not isinstance(val["description"], str):
-            raise ValueError(f"Manifest entry for '{key}' description must be a string.")
+            raise ValueError(
+                f"Manifest entry for '{key}' description must be a string."
+            )
 
         allowed = val.get("allowed_values")
         if allowed is not None and not isinstance(allowed, (list, tuple)):
-            raise ValueError(f"Manifest entry for '{key}' allowed_values must be a list or null.")
+            raise ValueError(
+                f"Manifest entry for '{key}' allowed_values must be a list or null."
+            )
 
 
 def check_deprecated_env_vars() -> None:
@@ -183,17 +223,23 @@ def get_env_var(name: str, default: Any = None) -> Any:
             elif lower in ("0", "false", "no", "n", "off", ""):
                 return False
             else:
-                raise ValueError(f"Invalid boolean value for environment variable '{name}': '{raw_val}'")
+                raise ValueError(
+                    f"Invalid boolean value for environment variable '{name}': '{raw_val}'"
+                )
         elif var_type == "integer":
             try:
                 return int(raw_val)
             except ValueError:
-                raise ValueError(f"Invalid integer value for environment variable '{name}': '{raw_val}'")
+                raise ValueError(
+                    f"Invalid integer value for environment variable '{name}': '{raw_val}'"
+                )
         elif var_type == "float":
             try:
                 return float(raw_val)
             except ValueError:
-                raise ValueError(f"Invalid float value for environment variable '{name}': '{raw_val}'")
+                raise ValueError(
+                    f"Invalid float value for environment variable '{name}': '{raw_val}'"
+                )
         else:
             return raw_val
 
@@ -210,7 +256,10 @@ def require_env_var(name: str) -> Any:
     """
     check_deprecated_env_vars()
     if name not in os.environ or not str(os.environ[name]).strip():
-        print(f"Error: Required environment variable '{name}' is not set.", file=sys.stderr)
+        print(
+            f"Error: Required environment variable '{name}' is not set.",
+            file=sys.stderr,
+        )
         raise ValueError(f"Required environment variable '{name}' is not set.")
     return get_env_var(name)
 

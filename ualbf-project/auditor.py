@@ -1513,8 +1513,9 @@ def _generate_manifest_impl():
         sys.exit(1)
 
 
-def check_documentation(manifest):
-    repo_root = get_repo_root()
+def check_documentation(manifest, repo_root=None):
+    if repo_root is None:
+        repo_root = get_repo_root()
 
     cand_staging = os.path.join(repo_root, "docs_manifest.json")
     cand_parent = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
@@ -1903,7 +1904,9 @@ def check_documentation(manifest):
                         and sym not in ignore_symbols
                         and sym.lower() not in ignore_symbols
                     ):
-                        if re.search(r"\b" + re.escape(sym) + r"\b", line_no_bt):
+                        if sym in line_no_bt and re.search(
+                            r"\b" + re.escape(sym) + r"\b", line_no_bt
+                        ):
                             errors.append(
                                 f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Static unquoted symbol reference detected (must use backticks): '{sym}'"
                             )

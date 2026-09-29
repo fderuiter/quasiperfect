@@ -260,6 +260,126 @@ def test_pr_argument_authoritative_c_header(tmp_path, monkeypatch):
     assert "AUTHORITATIVE_TOUCHED=1" in out
 
 
+def test_validate_auditor_doc_checks_missing_manifest(tmp_path, monkeypatch):
+    repo_root, mock_script = _setup_mock_repo(tmp_path, create_manifest=True)
+    captured_err = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", captured_err)
+
+    res = validate_docs.validate_auditor_doc_checks(str(repo_root))
+    assert res is True
+    assert "proof_manifest.json not found" in captured_err.getvalue()
+
+
+def test_validate_auditor_doc_checks_invalid_symbol_detected(tmp_path, monkeypatch):
+    manifest = {"ualbf-project/TCB.md": "authoritative"}
+    repo_root, mock_script = _setup_mock_repo(tmp_path, manifest_data=manifest)
+
+    proof_manifest = {
+        "theorems": [
+            {
+                "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+                "file": "UALBF/Engine/CyclotomicGraph.lean",
+                "status": "proven",
+                "checksum": "123456",
+            }
+        ]
+    }
+    (repo_root / "proof_manifest.json").write_text(
+        json.dumps(proof_manifest), encoding="utf-8"
+    )
+
+    tcb = repo_root / "ualbf-project" / "TCB.md"
+    tcb.parent.mkdir(parents=True, exist_ok=True)
+    tcb.write_text(
+        "Invalid symbol reference: `nonexistent_symbol_xyz_999`\n", encoding="utf-8"
+    )
+
+    captured_err = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", captured_err)
+
+    res = validate_docs.validate_auditor_doc_checks(str(repo_root))
+    assert res is False
+    err_out = captured_err.getvalue()
+    assert "[DOC CHECK ERROR]" in err_out
+    assert "Invalid code symbol: 'nonexistent_symbol_xyz_999'" in err_out
+    assert "TCB.md:1" in err_out
+
+
+def test_validate_auditor_doc_checks_unproven_theorem_detected(tmp_path, monkeypatch):
+    manifest = {"ualbf-project/TCB.md": "authoritative"}
+    repo_root, mock_script = _setup_mock_repo(tmp_path, manifest_data=manifest)
+
+    proof_manifest = {
+        "theorems": [
+            {
+                "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+                "file": "UALBF/Engine/CyclotomicGraph.lean",
+                "status": "sorry",
+                "checksum": "123456",
+            }
+        ]
+    }
+    (repo_root / "proof_manifest.json").write_text(
+        json.dumps(proof_manifest), encoding="utf-8"
+    )
+
+    tcb = repo_root / "ualbf-project" / "TCB.md"
+    tcb.parent.mkdir(parents=True, exist_ok=True)
+    tcb.write_text(
+        "Theorem: `UALBF.Engine.CyclotomicGraph.forced_inclusion`\n",
+        encoding="utf-8",
+    )
+
+    captured_err = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", captured_err)
+
+    res = validate_docs.validate_auditor_doc_checks(str(repo_root))
+    assert res is False
+    err_out = captured_err.getvalue()
+    assert "[DOC CHECK ERROR]" in err_out
+    assert "Unproven or status-tainted theorem symbol" in err_out
+    assert "status: sorry" in err_out
+    assert "TCB.md:1" in err_out
+
+
+def test_validate_auditor_doc_checks_unquoted_static_symbol_detected(
+    tmp_path, monkeypatch
+):
+    manifest = {"ualbf-project/TCB.md": "authoritative"}
+    repo_root, mock_script = _setup_mock_repo(tmp_path, manifest_data=manifest)
+
+    proof_manifest = {
+        "theorems": [
+            {
+                "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
+                "file": "UALBF/Engine/CyclotomicGraph.lean",
+                "status": "proven",
+                "checksum": "123456",
+            }
+        ]
+    }
+    (repo_root / "proof_manifest.json").write_text(
+        json.dumps(proof_manifest), encoding="utf-8"
+    )
+
+    tcb = repo_root / "ualbf-project" / "TCB.md"
+    tcb.parent.mkdir(parents=True, exist_ok=True)
+    tcb.write_text(
+        "We rely on UALBF.Engine.CyclotomicGraph.forced_inclusion in our proofs.\n",
+        encoding="utf-8",
+    )
+
+    captured_err = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", captured_err)
+
+    res = validate_docs.validate_auditor_doc_checks(str(repo_root))
+    assert res is False
+    err_out = captured_err.getvalue()
+    assert "[DOC CHECK ERROR]" in err_out
+    assert "Static unquoted symbol reference detected" in err_out
+    assert "TCB.md:1" in err_out
+
+
 class TestSlugifyAndAnchorExtraction(unittest.TestCase):
     def test_slugify(self):
         self.assertEqual(validate_docs.slugify("Overview"), "overview")
