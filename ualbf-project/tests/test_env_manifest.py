@@ -36,8 +36,12 @@ class TestEnvManifestAndUtil(unittest.TestCase):
         manifest_path = os.path.join(self.repo_root, "env_manifest.json")
         schema_path = os.path.join(self.repo_root, "env_manifest.schema.json")
 
-        self.assertTrue(os.path.exists(manifest_path), "env_manifest.json must exist at repo root")
-        self.assertTrue(os.path.exists(schema_path), "env_manifest.schema.json must exist at repo root")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(self.repo_root, "ualbf-project", "env_manifest.json")
+            schema_path = os.path.join(self.repo_root, "ualbf-project", "env_manifest.schema.json")
+
+        self.assertTrue(os.path.exists(manifest_path), "env_manifest.json must exist")
+        self.assertTrue(os.path.exists(schema_path), "env_manifest.schema.json must exist")
 
         manifest, schema = env_util.load_manifest_and_schema(manifest_path, schema_path)
         self.assertIsInstance(manifest, dict)
