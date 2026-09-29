@@ -30,7 +30,7 @@ The OpenCL CRT tensor sieve kernel executes modular residue checks and Bloom fil
 
 ## 5. Build Environment Variables & Verification Configuration
 
-All build tools, certificate verification scripts, and paper generation utilities strictly validate environment variables against `env_manifest.json` and `env_manifest.schema.json`.
+All build tools, certificate verification scripts, and paper generation utilities strictly validate environment variables against `../env_manifest.json` and `../env_manifest.schema.json`.
 
 | Variable | Type | Default | Status | Description |
 |---|---|---|---|---|
