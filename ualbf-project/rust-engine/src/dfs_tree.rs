@@ -394,8 +394,7 @@ pub fn phase2_and_4_fused(
     let rp = pruned_count.load(Ordering::Relaxed);
     let bp = boundary_pruned.load(Ordering::Relaxed);
     drop(trace_tx);
-    drop(trace_writer.sender);
-    let _ = trace_writer.handle.join();
+    let _ = trace_writer.finish();
     let density = (total_branches as f64) / (total_weight_scaled as f64 + 1.0); // simple proxy for density
     if let Some(r) = reporter {
         let _ = r.send(crate::events::SearchEvent::DFSComplete {
@@ -477,15 +476,18 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::TargetBound,
-                verification_status: "formally verified",
-            });
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::TargetBound,
+                    verification_status: "formally verified",
+                },
+            );
         }
         return false;
     }
@@ -531,17 +533,20 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::Touchard {
-                    sigma_mod24: curr.sigma_mod24,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::Touchard {
+                        sigma_mod24: curr.sigma_mod24,
+                    },
+                    verification_status: "formally verified",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -596,20 +601,23 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::UnconditionalStarvation {
-                    max_allowed,
-                    static_best_remaining,
-                    lhs,
-                    rhs,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::UnconditionalStarvation {
+                        max_allowed,
+                        static_best_remaining,
+                        lhs,
+                        rhs,
+                    },
+                    verification_status: "formally verified",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -740,18 +748,21 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::OverflowKill {
-                    s_l_mul: curr.s_l * overflow_den_u,
-                    n_l_mul: curr.n_l * overflow_num_u,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::OverflowKill {
+                        s_l_mul: curr.s_l * overflow_den_u,
+                        n_l_mul: curr.n_l * overflow_num_u,
+                    },
+                    verification_status: "formally verified",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -770,20 +781,23 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::EulerCeiling {
-                    num,
-                    den,
-                    euler_num,
-                    euler_den,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::EulerCeiling {
+                        num,
+                        den,
+                        euler_num,
+                        euler_den,
+                    },
+                    verification_status: "formally verified",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -935,22 +949,25 @@ pub fn check_and_evaluate_node(
                 };
                 let reachable_paths = vec![forced_contributions.clone()];
                 let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-                let _ = tx.send(crate::trace::TraceEvent {
-                    work_unit_id,
-                    step_index,
-                    factors: f_vec,
-                    n_l: curr.n_l,
-                    s_l: curr.s_l,
-                    reason: crate::trace::PruneReason::CdgForcedCascade {
-                        forced_num,
-                        forced_den,
-                        lhs,
-                        rhs,
-                        topology_manifest: Some(topology_manifest),
-                        reachable_paths: Some(reachable_paths),
+                let _ = crate::trace::send_trace_event(
+                    tx,
+                    crate::trace::TraceEvent {
+                        work_unit_id,
+                        step_index,
+                        factors: f_vec,
+                        n_l: curr.n_l,
+                        s_l: curr.s_l,
+                        reason: crate::trace::PruneReason::CdgForcedCascade {
+                            forced_num,
+                            forced_den,
+                            lhs,
+                            rhs,
+                            topology_manifest: Some(topology_manifest),
+                            reachable_paths: Some(reachable_paths),
+                        },
+                        verification_status: "formally verified (graph topology audited)",
                     },
-                    verification_status: "formally verified (graph topology audited)",
-                });
+                );
             }
             return false;
         }
@@ -980,19 +997,22 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::DynamicStarvation {
-                    dynamic_best_achievable_fp,
-                    lhs: lhs_dyn,
-                    rhs: rhs_dyn,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::DynamicStarvation {
+                        dynamic_best_achievable_fp,
+                        lhs: lhs_dyn,
+                        rhs: rhs_dyn,
+                    },
+                    verification_status: "formally verified",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -1034,19 +1054,22 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::MinFactors {
-                    dynamic_min_factors: baseline_min,
-                    curr_factors: curr.factors.len(),
-                    remaining_components,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::MinFactors {
+                        dynamic_min_factors: baseline_min,
+                        curr_factors: curr.factors.len(),
+                        remaining_components,
+                    },
+                    verification_status: "formally verified",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -1082,20 +1105,23 @@ pub fn check_and_evaluate_node(
                 }
 
                 let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-                let _ = tx.send(crate::trace::TraceEvent {
-                    work_unit_id,
-                    step_index,
-                    factors: f_vec,
-                    n_l: curr.n_l,
-                    s_l: curr.s_l,
-                    reason: crate::trace::PruneReason::Lll {
-                        m,
-                        shortest_sq_norm: "N/A".to_string(),
-                        target_log,
-                        epsilon,
+                let _ = crate::trace::send_trace_event(
+                    tx,
+                    crate::trace::TraceEvent {
+                        work_unit_id,
+                        step_index,
+                        factors: f_vec,
+                        n_l: curr.n_l,
+                        s_l: curr.s_l,
+                        reason: crate::trace::PruneReason::Lll {
+                            m,
+                            shortest_sq_norm: "N/A".to_string(),
+                            target_log,
+                            epsilon,
+                        },
+                        verification_status: "approximate bound",
                     },
-                    verification_status: "approximate bound",
-                });
+                );
             }
             return false;
         }
@@ -1172,15 +1198,18 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::Raycast,
-                verification_status: "formally verified",
-            });
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::Raycast,
+                    verification_status: "formally verified",
+                },
+            );
         }
         phase4_exact_ray_casting(
             curr,

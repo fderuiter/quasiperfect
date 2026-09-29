@@ -56,6 +56,8 @@ def load_manifest_and_schema(
         possible_manifests = [
             repo_root / "env_manifest.json",
             repo_root / "ualbf-project" / "env_manifest.json",
+            Path(__file__).resolve().parent / "env_manifest.json",
+            Path(__file__).resolve().parent.parent / "env_manifest.json",
             repo_root.parent / "env_manifest.json",
             script_parent / "env_manifest.json",
             Path.cwd() / "env_manifest.json",
@@ -73,6 +75,8 @@ def load_manifest_and_schema(
         possible_schemas = [
             repo_root / "env_manifest.schema.json",
             repo_root / "ualbf-project" / "env_manifest.schema.json",
+            Path(__file__).resolve().parent / "env_manifest.schema.json",
+            Path(__file__).resolve().parent.parent / "env_manifest.schema.json",
             repo_root.parent / "env_manifest.schema.json",
             script_parent / "env_manifest.schema.json",
             Path.cwd() / "env_manifest.schema.json",

@@ -718,6 +718,9 @@ def main():
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     manifest_path = os.path.join(repo_root, "docs_manifest.json")
+    if not os.path.exists(manifest_path):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        manifest_path = os.path.join(repo_root, "docs_manifest.json")
 
     if not os.path.exists(manifest_path):
         print(
@@ -794,7 +797,7 @@ def main():
     # Check if all .md files are registered in manifest
     unregistered = []
     for md_file in filtered_md_files:
-        if md_file not in manifest:
+        if md_file not in manifest and f"ualbf-project/{md_file}" not in manifest:
             unregistered.append(md_file)
 
     if unregistered:
@@ -868,6 +871,8 @@ def main():
     from validate_tuning_guide import validate_tuning_guide
 
     ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    if not os.path.exists(ualbf_project_dir):
+        ualbf_project_dir = repo_root
     if not validate_tuning_guide(ualbf_project_dir):
         sys.exit(1)
 
