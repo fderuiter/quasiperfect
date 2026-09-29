@@ -33,7 +33,7 @@ def _get_max_file_size_bytes() -> int:
         val = env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB", 10.0)
         if isinstance(val, (int, float)) and val > 0:
             return int(val * 1024 * 1024)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, Exception):
         pass
     return int(10.0 * 1024 * 1024)
 

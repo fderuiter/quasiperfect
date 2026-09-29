@@ -505,7 +505,7 @@ def get_max_cert_size_bytes() -> int:
         val = env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB", DEFAULT_MAX_CERT_SIZE_MB)
         if isinstance(val, (int, float)) and val > 0:
             return int(val * 1024 * 1024)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, Exception):
         pass
     return int(DEFAULT_MAX_CERT_SIZE_MB * 1024 * 1024)
 

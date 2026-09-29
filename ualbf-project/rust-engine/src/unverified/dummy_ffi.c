@@ -290,7 +290,6 @@ bool ualbf_mod_inverse_raw(const uint64_t a_limbs[8], uint8_t a_neg, const uint6
     (void)a_limbs; (void)a_neg; (void)m_limbs; (void)out_limbs;
     return false;
 }
-
 uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
 
 uint8_t ualbf_check_crt_1155(void* z_val, void* x_l_val) {

@@ -883,7 +883,7 @@
       },
       "file_checksums": {
         "lean4-proofs/UALBF/Pure/Fixed64.lean": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece",
-        "rust-engine/src/lean_ffi.rs": "729b1a134f6e0c21e9914c50d5d57f07fc395b79d8b27adec6bee36793b4dc5a",
+        "rust-engine/src/lean_ffi.rs": "17876c751c471bbbcf98f031aed567e6fedbb8322d7bb29272d1ead59a8c399c",
         "rust-engine/src/verus_proofs.rs": "34be8c1e2992f917d26c4903acb2d6427a98eebd8389c6c882f345b92c56d794"
       }
     },
@@ -934,17 +934,17 @@
       "component_hashes": {
         "rust_sieve_soundness_mod_5": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5",
         "ualbf_check_mod_5_soundness_ffi": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f",
-        "check_mod_5": "729b1a134f6e0c21e9914c50d5d57f07fc395b79d8b27adec6bee36793b4dc5a",
-        "Mod5Obstruction": "729b1a134f6e0c21e9914c50d5d57f07fc395b79d8b27adec6bee36793b4dc5a"
+        "check_mod_5": "17876c751c471bbbcf98f031aed567e6fedbb8322d7bb29272d1ead59a8c399c",
+        "Mod5Obstruction": "17876c751c471bbbcf98f031aed567e6fedbb8322d7bb29272d1ead59a8c399c"
       },
       "file_checksums": {
         "lean4-proofs/UALBF/Engine/Mod5Bridge.lean": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f",
         "lean4-proofs/UALBF/Engine/SieveSoundness.lean": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5",
-        "rust-engine/src/lean_ffi.rs": "729b1a134f6e0c21e9914c50d5d57f07fc395b79d8b27adec6bee36793b4dc5a",
+        "rust-engine/src/lean_ffi.rs": "17876c751c471bbbcf98f031aed567e6fedbb8322d7bb29272d1ead59a8c399c",
         "rust-engine/src/obstruction.rs": "e67bb0fff49b8da790a0e8ad83e34b3dbc97c33706836b5311fb85e966d54851"
       }
     }
   ],
-  "verified_logic_hash": "71363233b5501e77ec65d9dcc2ddaf6abdcc5065335e45c1e4fceebd45620ae0",
+  "verified_logic_hash": "dd4c1635e28c27513084b30f0105e13b7379593e58824dceb2e13939a579390a",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

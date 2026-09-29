@@ -1317,8 +1317,6 @@ mod tests {
         assert_eq!(rust_u512_get_w6(valid_obj), 70);
         assert_eq!(rust_u512_get_w7(valid_obj), 80);
     }
-
-    #[test]
     #[cfg(unverified_build)]
     fn test_dummy_ffi_reference_counting_and_deallocation() {
         setup();
