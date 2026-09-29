@@ -715,17 +715,18 @@ fn main() {
             .map_or(false, |mut entries| entries.next().is_some())
         && lean_project.join(".lake/build/lib/libUALBF.a").exists();
 
+    let validator_ir_c = ir_dir.join("Validator.c");
+    if validator_ir_c.exists() {
+        let _ = fs::remove_file(&validator_ir_c);
+    }
+    let validator_ir_ot = ir_dir.join("Validator.ot");
+    if validator_ir_ot.exists() {
+        let _ = fs::remove_file(&validator_ir_ot);
+    }
+
     if !has_prebuilt {
         if ualbf_ir_dir.exists() {
             let _ = fs::remove_dir_all(&ualbf_ir_dir);
-        }
-        let validator_ir_c = ir_dir.join("Validator.c");
-        if validator_ir_c.exists() {
-            let _ = fs::remove_file(&validator_ir_c);
-        }
-        let validator_ir_ot = ir_dir.join("Validator.ot");
-        if validator_ir_ot.exists() {
-            let _ = fs::remove_file(&validator_ir_ot);
         }
     }
 
@@ -938,7 +939,9 @@ fn main() {
                 if path.is_dir() {
                     visit_dirs(&path, c_files)?;
                 } else if path.extension().and_then(|s| s.to_str()) == Some("c") {
-                    c_files.push(path);
+                    if path.file_name().and_then(|s| s.to_str()) != Some("Validator.c") {
+                        c_files.push(path);
+                    }
                 }
             }
         }
