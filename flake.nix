@@ -404,12 +404,13 @@ with open("dummy_cert.json", "w") as f:
               echo "Compiling LaTeX paper..."
               cd paper
               make all
-              cd ../..
+              cd ..
+              cd ..
             '';
 
             installPhase = ''
               mkdir -p $out
-              cp ualbf-project/paper/main.pdf $out/ || cp paper/main.pdf $out/
+              cp ualbf-project/paper/main.pdf $out/
               touch $out/success
             '';
           };
