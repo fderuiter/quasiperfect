@@ -350,7 +350,15 @@
           latex-paper = pkgs.stdenv.mkDerivation {
             pname = "latex-paper-check";
             version = "0.1.0";
-            src = ./.;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let
+                  p = toString path;
+                in
+                  builtins.match ".*(ualbf-project.*|env_manifest.*)$" p != null || type == "directory";
+            };
+            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ 
               pkgs.python3 
