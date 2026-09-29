@@ -9,6 +9,7 @@ This script performs automated verification that:
 4. Specification manifest updates (`bounds_manifest.json` and `schema_manifest.json`) are in sync with generated code and proof artifacts (when `--check-specs` is passed).
 """
 
+import ast
 import os
 import sys
 import json
@@ -387,6 +388,296 @@ def validate_toolchain_sync(repo_root: str) -> bool:
     return True
 
 
+STANDARD_ENV_VARS = {
+    "PATH",
+    "PYTHONPATH",
+    "CPATH",
+    "LIBRARY_PATH",
+    "LD_LIBRARY_PATH",
+    "DYLD_LIBRARY_PATH",
+    "HOME",
+    "USER",
+    "SHELL",
+    "TERM",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "TMPDIR",
+    "TEMP",
+    "TMP",
+    "GITHUB_ACTIONS",
+    "GITHUB_REPOSITORY",
+    "GITHUB_EVENT_PATH",
+    "GITHUB_TOKEN",
+    "GH_TOKEN",
+    "GITHUB_REF",
+    "GITHUB_SHA",
+    "GITHUB_WORKFLOW",
+    "GITHUB_RUN_ID",
+    "GITHUB_WORKSPACE",
+    "REPO",
+    "ISSUE_NUMBER",
+    "PR_NUMBER",
+    "SSL_CERT_FILE",
+    "GIT_SSL_CAINFO",
+    "NIX_ARCH",
+    "PYTHONUNBUFFERED",
+    "PWD",
+}
+
+
+class EnvVarASTVisitor(ast.NodeVisitor):
+    def __init__(self, filename: str):
+        self.filename = filename
+        self.env_vars = []  # (lineno, var_name)
+
+    def visit_Subscript(self, node: ast.Subscript):
+        if isinstance(node.value, ast.Attribute) and isinstance(
+            node.value.value, ast.Name
+        ):
+            if node.value.value.id == "os" and node.value.attr == "environ":
+                if isinstance(node.slice, ast.Constant) and isinstance(
+                    node.slice.value, str
+                ):
+                    self.env_vars.append((node.lineno, node.slice.value))
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call):
+        func = node.func
+        if isinstance(func, ast.Attribute):
+            if (
+                isinstance(func.value, ast.Name)
+                and func.value.id == "os"
+                and func.attr == "getenv"
+            ):
+                if (
+                    node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                ):
+                    self.env_vars.append((node.lineno, node.args[0].value))
+            elif isinstance(func.value, ast.Attribute) and isinstance(
+                func.value.value, ast.Name
+            ):
+                if (
+                    func.value.value.id == "os"
+                    and func.value.attr == "environ"
+                    and func.attr in ("get", "pop", "setdefault")
+                ):
+                    if (
+                        node.args
+                        and isinstance(node.args[0], ast.Constant)
+                        and isinstance(node.args[0].value, str)
+                    ):
+                        self.env_vars.append((node.lineno, node.args[0].value))
+            elif (
+                isinstance(func.value, ast.Name)
+                and func.value.id == "env_util"
+                and func.attr in ("get_env_var", "require_env_var")
+            ):
+                if (
+                    node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                ):
+                    self.env_vars.append((node.lineno, node.args[0].value))
+        elif isinstance(func, ast.Name) and func.id in (
+            "get_env_var",
+            "require_env_var",
+        ):
+            if (
+                node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                self.env_vars.append((node.lineno, node.args[0].value))
+
+        self.generic_visit(node)
+
+    def visit_Compare(self, node: ast.Compare):
+        if len(node.ops) == 1 and isinstance(node.ops[0], (ast.In, ast.NotIn)):
+            if isinstance(node.left, ast.Constant) and isinstance(
+                node.left.value, str
+            ):
+                comp = node.comparators[0]
+                if isinstance(comp, ast.Attribute) and isinstance(
+                    comp.value, ast.Name
+                ):
+                    if comp.value.id == "os" and comp.attr == "environ":
+                        self.env_vars.append((node.lineno, node.left.value))
+        self.generic_visit(node)
+
+
+def validate_env_manifest(repo_root: str) -> bool:
+    """Validate structure of env_manifest.json against env_manifest.schema.json."""
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(scripts_dir)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    try:
+        import env_util
+    except ImportError:
+        print("Error: Could not import env_util.", file=sys.stderr)
+        return False
+
+    manifest_path = os.path.join(repo_root, "env_manifest.json")
+    schema_path = os.path.join(repo_root, "env_manifest.schema.json")
+
+    if not os.path.exists(manifest_path):
+        real_root = env_util.find_repo_root()
+        manifest_path = os.path.join(real_root, "env_manifest.json")
+        schema_path = os.path.join(real_root, "env_manifest.schema.json")
+
+    if not os.path.exists(manifest_path) or not os.path.exists(schema_path):
+        return True
+
+    try:
+        env_util.load_manifest_and_schema(manifest_path, schema_path)
+    except Exception as e:
+        print(f"Error validating env_manifest.json against schema: {e}", file=sys.stderr)
+        return False
+
+    return True
+
+
+def validate_env_vars(repo_root: str) -> bool:
+    """Static analysis stage: Scan Python files for os.environ, os.getenv, and env_util calls to verify registration in env_manifest.json."""
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(scripts_dir)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    import env_util
+
+    manifest_path = os.path.join(repo_root, "env_manifest.json")
+    if not os.path.exists(manifest_path):
+        real_root = env_util.find_repo_root()
+        manifest_path = os.path.join(real_root, "env_manifest.json")
+
+    if not os.path.exists(manifest_path):
+        return True
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    registered_vars = set(manifest.keys())
+
+    exclude_dirs = {
+        "tests",
+        "target",
+        "node_modules",
+        "build",
+        "dist",
+        "lean-built",
+        "test-env",
+        "test_env",
+        "env",
+        "venv",
+        "virtualenv",
+        "virtualenvs",
+        "lake-packages",
+        "lake-manifest",
+        "site-packages",
+        ".git",
+    }
+
+    unregistered_findings = []
+
+    for root_dir, dirs, files in os.walk(repo_root):
+        dirs[:] = [d for d in dirs if d not in exclude_dirs and not d.startswith(".")]
+
+        for file in files:
+            if not file.endswith(".py"):
+                continue
+            # Skip test files and env_util.py itself
+            if file.startswith("test_") or file.endswith("_test.py") or file in ("env_util.py",):
+                continue
+
+            rel_file = os.path.relpath(os.path.join(root_dir, file), repo_root)
+            if any(part in exclude_dirs or part == "tests" for part in rel_file.split(os.sep)):
+                continue
+
+            full_path = os.path.join(root_dir, file)
+            try:
+                with open(full_path, "r", encoding="utf-8") as pf:
+                    code = pf.read()
+                tree = ast.parse(code, filename=rel_file)
+                visitor = EnvVarASTVisitor(rel_file)
+                visitor.visit(tree)
+
+                for line_no, var_name in visitor.env_vars:
+                    if var_name not in registered_vars and var_name not in STANDARD_ENV_VARS:
+                        unregistered_findings.append((rel_file, line_no, var_name))
+            except Exception:
+                pass
+
+    if unregistered_findings:
+        print(
+            "Error: Static AST scan detected unregistered environment variable references:",
+            file=sys.stderr,
+        )
+        for rel_f, line_no, var_name in unregistered_findings:
+            print(f"  - {rel_f}:{line_no}: Unregistered environment variable '{var_name}'", file=sys.stderr)
+        print(
+            "\nRemedy: Register missing environment variables in env_manifest.json and document active ones in TCB.md / README.md.",
+            file=sys.stderr,
+        )
+        return False
+
+    return True
+
+
+def validate_env_docs_alignment(repo_root: str) -> bool:
+    """Verify that all active variables in env_manifest.json appear in TCB.md or README.md."""
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(scripts_dir)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    import env_util
+
+    manifest_path = os.path.join(repo_root, "env_manifest.json")
+    if not os.path.exists(manifest_path):
+        real_root = env_util.find_repo_root()
+        manifest_path = os.path.join(real_root, "env_manifest.json")
+
+    if not os.path.exists(manifest_path):
+        return True
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    active_vars = [k for k, v in manifest.items() if v.get("status") == "active"]
+
+    real_root = env_util.find_repo_root()
+    doc_paths = [
+        os.path.join(repo_root, "README.md"),
+        os.path.join(repo_root, "ualbf-project", "TCB.md"),
+        os.path.join(repo_root, "TCB.md"),
+        os.path.join(real_root, "README.md"),
+        os.path.join(real_root, "ualbf-project", "TCB.md"),
+        os.path.join(real_root, "TCB.md"),
+    ]
+
+    doc_contents = ""
+    for dp in set(doc_paths):
+        if os.path.exists(dp):
+            with open(dp, "r", encoding="utf-8") as df:
+                doc_contents += "\n" + df.read()
+
+    missing_vars = [v for v in active_vars if v not in doc_contents]
+
+    if missing_vars:
+        print(
+            "Error: Environment variable documentation alignment check failed!\n"
+            "The following active environment variables are not documented in TCB.md or README.md:",
+            file=sys.stderr,
+        )
+        for mv in missing_vars:
+            print(f"  - {mv}", file=sys.stderr)
+        return False
+
+    return True
+
+
 def main():
     args = sys.argv[1:]
     check_specs = False
@@ -487,6 +778,15 @@ def main():
         sys.exit(1)
 
     if not validate_toolchain_sync(repo_root):
+        sys.exit(1)
+
+    if not validate_env_manifest(repo_root):
+        sys.exit(1)
+
+    if not validate_env_vars(repo_root):
+        sys.exit(1)
+
+    if not validate_env_docs_alignment(repo_root):
         sys.exit(1)
 
     # Check specification sync if requested or in default mode without PR file path

@@ -1,7 +1,8 @@
 import hashlib
-import os
 from pathlib import Path
 from typing import Optional, Union
+
+import env_util
 
 
 def hash_bytes(data: bytes) -> str:
@@ -28,14 +29,9 @@ def hash_file(filepath: Union[str, Path], chunk_size: int = 65536) -> str:
 
 
 def _get_max_file_size_bytes() -> int:
-    env_val = os.getenv("UALBF_MAX_CERT_SIZE_MB")
-    if env_val:
-        try:
-            val = float(env_val.strip())
-            if val > 0:
-                return int(val * 1024 * 1024)
-        except (ValueError, TypeError):
-            pass
+    val = env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB", 10.0)
+    if isinstance(val, (int, float)) and val > 0:
+        return int(val * 1024 * 1024)
     return int(10.0 * 1024 * 1024)
 
 
