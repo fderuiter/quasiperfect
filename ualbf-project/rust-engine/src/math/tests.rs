@@ -433,4 +433,3 @@ fn test_rho_factor_u256_large_candidate() {
         _ => panic!("Expected partial factorization for 2^300 + 1 exceeding 256-bit limit"),
     }
 }
-
