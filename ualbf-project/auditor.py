@@ -1409,12 +1409,13 @@ def check_documentation(manifest):
                     pass
 
     try:
-        env_manifest_path = os.path.join(manifest_dir, "env_manifest.json")
-        if not os.path.exists(env_manifest_path):
-            env_manifest_path = os.path.join(
-                os.path.dirname(manifest_dir), "env_manifest.json"
-            )
-        if os.path.exists(env_manifest_path):
+        possible_env_manifests = [
+            os.path.join(manifest_dir, "env_manifest.json"),
+            os.path.join(manifest_dir, "ualbf-project", "env_manifest.json"),
+            os.path.join(os.path.dirname(manifest_dir), "env_manifest.json"),
+        ]
+        env_manifest_path = next((p for p in possible_env_manifests if os.path.exists(p)), None)
+        if env_manifest_path:
             with open(env_manifest_path, "r", encoding="utf-8") as emf:
                 env_data = json.load(emf)
                 for env_k in env_data.keys():
