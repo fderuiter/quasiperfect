@@ -3,8 +3,6 @@ import UALBF.Basic
 import UALBF.Engine.SearchState
 import UALBF.Engine.CyclotomicGraph
 
-set_option linter.unusedVariables false
-
 namespace UALBF.Engine
 
 abbrev SearchM := StateRefT SearchState IO

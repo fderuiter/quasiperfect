@@ -4,13 +4,13 @@
       "name": "UALBF.Engine.SearchMonad.ruleA_safe",
       "file": "UALBF/Engine/SearchMonad.lean",
       "status": "proven",
-      "checksum": "60c41874fcb11e3a463a6943e552addb020ebed6c38e3f5e7d95928f3e9ba034"
+      "checksum": "1178a0903412c57c98d593a9fe268f756eb821126b461e23af5faa0083c362a8"
     },
     {
       "name": "UALBF.Engine.SearchMonad.ruleB_safe",
       "file": "UALBF/Engine/SearchMonad.lean",
       "status": "proven",
-      "checksum": "60c41874fcb11e3a463a6943e552addb020ebed6c38e3f5e7d95928f3e9ba034"
+      "checksum": "1178a0903412c57c98d593a9fe268f756eb821126b461e23af5faa0083c362a8"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
@@ -544,7 +544,7 @@
   "proof_files": [
     {
       "file": "UALBF.lean",
-      "checksum": "8943d65fdad0b8368695082a3646da6ce1d419edd99f969ae8f23eb6e170441e"
+      "checksum": "78e1e82479877372a1e2f054c369602262269df3dc40f9df8e4e90f59b58fd2c"
     },
     {
       "file": "UALBF/Basic.lean",
@@ -576,7 +576,7 @@
     },
     {
       "file": "UALBF/Engine/SearchMonad.lean",
-      "checksum": "60c41874fcb11e3a463a6943e552addb020ebed6c38e3f5e7d95928f3e9ba034"
+      "checksum": "1178a0903412c57c98d593a9fe268f756eb821126b461e23af5faa0083c362a8"
     },
     {
       "file": "UALBF/Engine/SearchState.lean",
@@ -659,19 +659,19 @@
   "ghost_pruning_bindings": {
     "ruleA_safe": {
       "lean_theorem": "UALBF.Engine.SearchMonad.ruleA_safe",
-      "theorem_hash": "60c41874fcb11e3a463a6943e552addb020ebed6c38e3f5e7d95928f3e9ba034"
+      "theorem_hash": "1178a0903412c57c98d593a9fe268f756eb821126b461e23af5faa0083c362a8"
     },
     "ruleB_safe": {
       "lean_theorem": "UALBF.Engine.SearchMonad.ruleB_safe",
-      "theorem_hash": "60c41874fcb11e3a463a6943e552addb020ebed6c38e3f5e7d95928f3e9ba034"
+      "theorem_hash": "1178a0903412c57c98d593a9fe268f756eb821126b461e23af5faa0083c362a8"
     },
     "ruleA_pruning": {
       "lean_theorem": "UALBF.Engine.SearchMonad.ruleA_safe",
-      "theorem_hash": "60c41874fcb11e3a463a6943e552addb020ebed6c38e3f5e7d95928f3e9ba034"
+      "theorem_hash": "1178a0903412c57c98d593a9fe268f756eb821126b461e23af5faa0083c362a8"
     },
     "ruleB_pruning": {
       "lean_theorem": "UALBF.Engine.SearchMonad.ruleB_safe",
-      "theorem_hash": "60c41874fcb11e3a463a6943e552addb020ebed6c38e3f5e7d95928f3e9ba034"
+      "theorem_hash": "1178a0903412c57c98d593a9fe268f756eb821126b461e23af5faa0083c362a8"
     },
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
@@ -925,6 +925,6 @@
       }
     }
   ],
-  "verified_logic_hash": "599a5529215750c4e3f14cd2aa1190465e79b6796ef9906d214168d3e4dd6e07",
+  "verified_logic_hash": "5fe55827119697b04189dd58e6303ea7d6ec4d2e00590206e75b00e9ec7019e7",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
