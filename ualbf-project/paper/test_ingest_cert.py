@@ -165,6 +165,7 @@ class TestCollisionDetection(unittest.TestCase):
             mock_verif.check_path_continuity = lambda x: "{}"
             mock_verif.compute_verus_hashes = lambda x: {}
             orig_verif = sys.modules.get("verification_lib")
+            orig_cert = sys.modules.get("cert_util")
             sys.modules["verification_lib"] = mock_verif
 
             try:
@@ -213,7 +214,10 @@ class TestCollisionDetection(unittest.TestCase):
                     os.environ["UALBF_CERT_PATH"] = orig_env
                 if root_dir in sys.path:
                     sys.path.remove(root_dir)
-                sys.modules.pop("cert_util", None)
+                if orig_cert is not None:
+                    sys.modules["cert_util"] = orig_cert
+                else:
+                    sys.modules.pop("cert_util", None)
 
 
 class TestManifestStatusGate(unittest.TestCase):
