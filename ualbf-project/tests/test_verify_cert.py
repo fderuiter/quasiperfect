@@ -375,6 +375,24 @@ class TestSignatureVerification:
             verify_certificate(cert_path, manifest_path)
         assert exc_info.value.code != 0
 
+    def test_unverified_signature_exits(self, tmp_path):
+        manifest = make_manifest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
+        cert = build_cert(manifest_hash)
+        cert["signature"] = "unverified_signature"
+
+        cert_path = str(tmp_path / "formal_certificate.json")
+        manifest_path = str(tmp_path / "proof_manifest.json")
+        with open(cert_path, "w", encoding="utf-8") as f:
+            json.dump(cert, f)
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            f.write(manifest_content)
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code != 0
+
 
 # ---------------------------------------------------------------------------
 # Tests: payload format (PR change — new simple string format)
