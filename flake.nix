@@ -237,7 +237,7 @@
             pkgs.libuv
           ];
 
-          buildFeatures = [ "python" ];
+          buildFeatures = [ "python" "signing" ];
           
           preBuild = ''
             chmod +w ..
@@ -294,6 +294,8 @@
             pkgs.gmp
             pkgs.libuv
           ];
+
+          buildFeatures = [ "signing" ];
 
           # Symlink the built Lean objects so build.rs can find them.
           preBuild = ''
