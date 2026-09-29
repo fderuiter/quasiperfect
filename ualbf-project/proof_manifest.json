@@ -128,9 +128,9 @@
     },
     {
       "name": "UALBF.FFI.fromU512_eq_fromU512Fast",
-      "file": "UALBF/FFI.lean",
-      "status": "error",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "file": "UALBF/FFI_generated.lean",
+      "status": "proven",
+      "checksum": "293e0e6e2b7835792f5a9f2d789928e8f078693668ed9db9bab3e2baee3ff60f"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
@@ -590,7 +590,7 @@
     },
     {
       "file": "UALBF/FFI_generated.lean",
-      "checksum": "3728a92d9d2dcbf24f61145e9e7812b79bfdf00ca03caa7c87cb85cbc251fb71"
+      "checksum": "293e0e6e2b7835792f5a9f2d789928e8f078693668ed9db9bab3e2baee3ff60f"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
@@ -903,6 +903,6 @@
       }
     }
   ],
-  "verified_logic_hash": "91797208732a4a554bdb4797d83391328d7001721f09ec10b3dcf3ef4dad6ca4",
+  "verified_logic_hash": "636d79ab2e1897bc409d545fd6f429a67a356bcdd066e4168dd783aecff9660f",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
