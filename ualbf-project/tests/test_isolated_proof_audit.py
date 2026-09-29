@@ -170,3 +170,130 @@ def test_check_lean_environment():
         auditor.check_lean_environment()
 
 
+def test_cross_language_bindings_parsed_and_verified():
+    """
+    Verify that parse_semantic_verification_report correctly extracts
+    all 4 sections of formal cross-language bindings from semantic_verification_report.md
+    and verifies all symbol references.
+    """
+    project_dir = Path(__file__).parent.parent.resolve()
+    report_path = project_dir / "semantic_verification_report.md"
+    manifest_path = project_dir / "proof_manifest.json"
+    assert report_path.exists()
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    bindings = auditor.parse_semantic_verification_report(
+        str(report_path), manifest=manifest, repo_root=str(project_dir)
+    )
+
+    assert len(bindings) == 4
+    sections = [b["section"] for b in bindings]
+    assert "1. Pruning Starvation Logic" in sections
+    assert "2. Fixed-Point Scaling Logic" in sections
+    assert "3. Epistemological Memory Boundary" in sections
+    assert "4. Abbott-Aull Mod-5 Obstruction" in sections
+
+    for b in bindings:
+        assert "lean_symbols" in b
+        assert "verus_identifiers" in b
+        assert "rust_functions" in b
+        assert "component_hashes" in b
+        assert "file_checksums" in b
+        assert len(b["component_hashes"]) > 0
+        assert len(b["file_checksums"]) > 0
+
+
+def test_cross_language_bindings_broken_lean_symbol_fails(tmp_path):
+    """
+    Verify that an unrecognized or broken Lean symbol in semantic_verification_report.md
+    causes verify_cross_language_bindings to raise ValueError.
+    """
+    fake_report = tmp_path / "semantic_verification_report.md"
+    fake_report.write_text(
+        "## 1. Test Section\n"
+        "- **Lean Theorem:** `nonexistent_lean_theorem_xyz_999` in `lean4-proofs/UALBF/QPN/AbundancyBound.lean`\n"
+        "- **Verus Specification:** `scale_bound_spec` in `rust-engine/src/verus_proofs.rs`\n"
+        "- **Rust Implementation:** `check_starvation_kill` in `rust-engine/src/verus_proofs.rs`\n"
+    )
+
+    project_dir = Path(__file__).parent.parent.resolve()
+    with pytest.raises(ValueError) as excinfo:
+        auditor.parse_semantic_verification_report(
+            str(fake_report), manifest={}, repo_root=str(project_dir)
+        )
+    assert "nonexistent_lean_theorem_xyz_999" in str(excinfo.value)
+
+
+def test_cross_language_bindings_broken_verus_identifier_fails(tmp_path):
+    """
+    Verify that an unrecognized Verus identifier in semantic_verification_report.md
+    causes verify_cross_language_bindings to raise ValueError.
+    """
+    fake_report = tmp_path / "semantic_verification_report.md"
+    fake_report.write_text(
+        "## 1. Test Section\n"
+        "- **Lean Theorem:** `abundancy_starvation` in `lean4-proofs/UALBF/QPN/AbundancyBound.lean`\n"
+        "- **Verus Specification:** `nonexistent_verus_identifier_xyz_999` in `rust-engine/src/verus_proofs.rs`\n"
+        "- **Rust Implementation:** `check_starvation_kill` in `rust-engine/src/verus_proofs.rs`\n"
+    )
+
+    project_dir = Path(__file__).parent.parent.resolve()
+    with pytest.raises(ValueError) as excinfo:
+        auditor.parse_semantic_verification_report(
+            str(fake_report), manifest={}, repo_root=str(project_dir)
+        )
+    assert "nonexistent_verus_identifier_xyz_999" in str(excinfo.value)
+
+
+def test_cross_language_bindings_broken_rust_function_fails(tmp_path):
+    """
+    Verify that an unrecognized Rust function in semantic_verification_report.md
+    causes verify_cross_language_bindings to raise ValueError.
+    """
+    fake_report = tmp_path / "semantic_verification_report.md"
+    fake_report.write_text(
+        "## 1. Test Section\n"
+        "- **Lean Theorem:** `abundancy_starvation` in `lean4-proofs/UALBF/QPN/AbundancyBound.lean`\n"
+        "- **Verus Specification:** `scale_bound_spec` in `rust-engine/src/verus_proofs.rs`\n"
+        "- **Rust Implementation:** `nonexistent_rust_function_xyz_999` in `rust-engine/src/verus_proofs.rs`\n"
+    )
+
+    project_dir = Path(__file__).parent.parent.resolve()
+    with pytest.raises(ValueError) as excinfo:
+        auditor.parse_semantic_verification_report(
+            str(fake_report), manifest={}, repo_root=str(project_dir)
+        )
+    assert "nonexistent_rust_function_xyz_999" in str(excinfo.value)
+
+
+def test_cross_language_bindings_mismatch_fails_check_documentation():
+    """
+    Verify that if cross_language_bindings in proof_manifest.json does not match
+    semantic_verification_report.md, check_documentation returns False.
+    """
+    project_dir = Path(__file__).parent.parent.resolve()
+    manifest_path = project_dir / "proof_manifest.json"
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    tampered_manifest = dict(manifest)
+    tampered_manifest["cross_language_bindings"] = [
+        {
+            "section": "1. Pruning Starvation Logic",
+            "lean_symbols": ["tampered_symbol"],
+            "lean_files": [],
+            "verus_identifiers": [],
+            "verus_files": [],
+            "rust_functions": [],
+            "rust_files": [],
+            "component_hashes": {},
+            "file_checksums": {},
+        }
+    ]
+
+    assert auditor.check_documentation(tampered_manifest) is False
+
+
+
