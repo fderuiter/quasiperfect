@@ -781,8 +781,6 @@ def verify_certificate(
 
     if os.path.exists(rust_src_dir):
         repo_root = os.path.dirname(os.path.dirname(rust_src_dir))
-        if os.path.basename(repo_root) != "ualbf-project":
-            repo_root = os.path.dirname(rust_src_dir)
 
         try:
             computed_logic_hash = cert_util.hash_tcb(repo_root)
