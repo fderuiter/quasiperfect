@@ -50,6 +50,8 @@ def load_manifest_and_schema(
             repo_root / "env_manifest.json",
             repo_root / "ualbf-project" / "env_manifest.json",
             repo_root.parent / "env_manifest.json",
+            Path(__file__).resolve().parent / "env_manifest.json",
+            Path(__file__).resolve().parent.parent / "env_manifest.json",
         ]
         m_path = next((p for p in possible_manifests if p.exists()), None)
         if not m_path:
@@ -62,6 +64,8 @@ def load_manifest_and_schema(
             repo_root / "env_manifest.schema.json",
             repo_root / "ualbf-project" / "env_manifest.schema.json",
             repo_root.parent / "env_manifest.schema.json",
+            Path(__file__).resolve().parent / "env_manifest.schema.json",
+            Path(__file__).resolve().parent.parent / "env_manifest.schema.json",
         ]
         s_path = next((p for p in possible_schemas if p.exists()), None)
         if not s_path:

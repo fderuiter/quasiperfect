@@ -332,7 +332,16 @@
           rust-literals = pkgs.stdenv.mkDerivation {
             pname = "rust-literals-check";
             version = "0.1.0";
-            src = ./ualbf-project;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let 
+                  p = toString path;
+                in
+                  builtins.match ".*(ualbf-project.*|env_manifest\\.json|env_manifest\\.schema\\.json|docs_manifest\\.json)$" p != null || type == "directory";
+            };
+
+            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ pkgs.python3 ];
 
@@ -350,7 +359,16 @@
           latex-paper = pkgs.stdenv.mkDerivation {
             pname = "latex-paper-check";
             version = "0.1.0";
-            src = ./.;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let 
+                  p = toString path;
+                in
+                  builtins.match ".*(ualbf-project.*|env_manifest\\.json|env_manifest\\.schema\\.json|docs_manifest\\.json)$" p != null || type == "directory";
+            };
+
+            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ 
               pkgs.python3 
