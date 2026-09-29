@@ -651,7 +651,6 @@ macro_rules
         f.write(f"""import Mathlib.Data.UInt
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 set_option linter.all false
-set_option exponentiation.threshold 1000
 
 namespace UALBF.FFI
 
