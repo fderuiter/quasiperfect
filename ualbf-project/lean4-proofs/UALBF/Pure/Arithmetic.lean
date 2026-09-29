@@ -552,11 +552,11 @@ lemma nat_geom_sum (p n : ℕ) (hp : 1 ≤ p) :
 lemma lemma_x_y_ge_x_add_y {x y : ℕ} (hx : 2 ≤ x) (hy : 2 ≤ y) : x + y ≤ x * y := by
   nlinarith
 
-theorem lemma_divisibility_transitive (n d c : ℕ) (hc : 0 < c) (hd : 0 < d) (hnd : d ∣ n) (hdc : c ∣ d) :
+theorem lemma_divisibility_transitive (n d c : ℕ) (_hc : 0 < c) (_hd : 0 < d) (hnd : d ∣ n) (hdc : c ∣ d) :
     c ∣ n :=
   dvd_trans hdc hnd
 
-theorem lemma_smallest_factor_is_prime (n d : ℕ) (hn : 1 < n) (hd : 1 < d) (hdvd : d ∣ n)
+theorem lemma_smallest_factor_is_prime (n d : ℕ) (_hn : 1 < n) (hd : 1 < d) (hdvd : d ∣ n)
     (hmin : ∀ c, 1 < c ∧ c < d → ¬ c ∣ n) : d.Prime := by
   refine Nat.prime_def_minFac.mpr ⟨hd, ?_⟩
   have h_minFac_dvd : d.minFac ∣ d := Nat.minFac_dvd d
@@ -576,7 +576,7 @@ theorem lemma_composite_has_prime_factor_le_sqrt (n : ℕ) (hn : 1 < n) (hnot : 
     have h := Nat.minFac_sq_le_self (by omega : 0 < n) hnot
     rwa [sq] at h⟩
 
-theorem lemma_modpow_mod_divisibility (a m n p : ℕ) (hn : 0 < n) (hp : 1 < p) (hdiv : p ∣ n) (hpow : a ^ m % n = 1) :
+theorem lemma_modpow_mod_divisibility (a m n p : ℕ) (_hn : 0 < n) (hp : 1 < p) (hdiv : p ∣ n) (hpow : a ^ m % n = 1) :
     a ^ m % p = 1 := by
   have h_base : n * (a ^ m / n) + 1 = a ^ m := by
     have := Nat.div_add_mod (a ^ m) n
@@ -622,7 +622,7 @@ theorem lemma_order_exists (a m p : ℕ) (hp : 1 < p) (hm : 0 < m) (hpow : a ^ m
     exact hd_least (m % d) ⟨hr_pos, hr_lt⟩ h_r_pow
   exact ⟨d, hd_pos, hd_pow, hd_least, hd_dvd⟩
 
-theorem lemma_order_prime_factor (d f r_val p : ℕ) (hd : 0 < d) (hf : 0 < f) (hr : 0 < r_val)
+theorem lemma_order_prime_factor (d f r_val _p : ℕ) (_hd : 0 < d) (hf : 0 < f) (_hr : 0 < r_val)
     (h_dvd : d ∣ f * r_val) (h_not : ∀ q, q.Prime ∧ q ∣ f → ¬ (d ∣ (f * r_val) / q)) : f ∣ d := by
   by_contra h_not_dvd
   have hg_pos : 0 < Nat.gcd f d := Nat.gcd_pos_of_pos_left d hf
@@ -665,7 +665,7 @@ theorem lemma_order_prime_factor (d f r_val p : ℕ) (hd : 0 < d) (hf : 0 < f) (
     rw [hd']
     exact Nat.mul_dvd_mul_left _ h3
 
-theorem lemma_divisibility_bounds (a b : ℕ) (ha : 0 < a) (hb : 0 < b) (hdvd : a ∣ b) : a ≤ b :=
+theorem lemma_divisibility_bounds (a b : ℕ) (_ha : 0 < a) (hb : 0 < b) (hdvd : a ∣ b) : a ≤ b :=
   Nat.le_of_dvd hb hdvd
 
 theorem lemma_fermat_little_theorem (a p : ℕ) (hp : p.Prime) (hcop : ¬ p ∣ a) :

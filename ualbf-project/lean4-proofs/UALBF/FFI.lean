@@ -17,6 +17,7 @@ import UALBF.Pure.Cyclotomic
 import UALBF.FFI_generated
 
 set_option compiler.ignoreBorrowAnnotation true
+set_option exponentiation.threshold 512
 
 namespace UALBF.FFI
 
@@ -424,8 +425,9 @@ theorem ualbf_mod_inverse_ok_limbs_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg 
     ualbf_mod_inverse_ok_limbs_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 =
       (ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7)).isSome := by
   unfold ualbf_mod_inverse_ok_limbs_impl ualbf_mod_inverse_impl
-  dsimp
-  split <;> rfl
+  dsimp only
+  generalize modInverse _ _ = r
+  cases r <;> rfl
 
 theorem ualbf_mod_inverse_limb_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) (limb_idx : UInt32) :
     (match ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7) with
@@ -443,8 +445,9 @@ theorem ualbf_mod_inverse_limb_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UI
      | none => 0) =
     ualbf_mod_inverse_limb_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 limb_idx := by
   unfold ualbf_mod_inverse_limb_impl ualbf_mod_inverse_impl
-  dsimp
-  split <;> rfl
+  dsimp only
+  generalize modInverse _ _ = r
+  cases r <;> rfl
 
 /-! ### FFI Overflow Tests -/
 

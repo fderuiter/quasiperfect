@@ -126,7 +126,6 @@ private lemma telescoping_sq_range (K : ℕ) (_hK : K ≥ 2) (m : ℕ) :
   | succ m ih =>
     rw [Finset.sum_range_succ, ih]
     have _h_eq : ((K : ℚ) + (m : ℚ)) ^ 2 = ((K : ℚ) - 1 + ((m : ℚ) + 1)) ^ 2 := by
-      push_cast
       ring
     rw [_h_eq]
     have _h_succ : ((m : ℚ) + 1) = ((m + 1 : ℕ) : ℚ) := by
