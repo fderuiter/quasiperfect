@@ -681,8 +681,8 @@ def verify_theorem_checksum(
         computed = hash_util.hash_file_bounded(file_path)
         return computed == thm.get("checksum", "")
     else:
-        explicit_fallback = (
-            allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+        explicit_fallback = allow_missing_sources or env_util.get_env_var(
+            "UALBF_ALLOW_MISSING_SOURCES", False
         )
         if explicit_fallback:
             computed = hash_util.hash_theorem_metadata(
