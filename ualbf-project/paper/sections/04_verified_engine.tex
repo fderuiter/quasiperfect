@@ -100,7 +100,7 @@ factors it using cyclotomic polynomial decomposition.
 
 \paragraph{Cyclotomic decomposition for efficient factorisation.}
 Rather than factoring the full value $\sigma(p^{2e})$ directly---which
-can exceed $10^{40}$---the engine exploits the cyclotomic expansion of
+can exceed $10^{\TelemetryMaxLog}$---the engine exploits the cyclotomic expansion of
 \cref{lem:cyclotomic-expansion}.  The routine
 \texttt{factor\_\allowbreak{}sigma\_\allowbreak{}cyclotomic} computes
 each cyclotomic factor $\Phi_d(p)$ for $d \mid (2e+1)$, $d > 1$, via
