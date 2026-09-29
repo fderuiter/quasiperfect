@@ -416,6 +416,63 @@ def ualbf_mod_inverse_impl (a_obj : @& U512) (a_neg : UInt8) (m_obj : @& U512) :
   | some v => some (toU512 v.toNat)
   | none   => none
 
+@[export ualbf_mod_inverse_ok_limbs]
+def ualbf_mod_inverse_ok_limbs_impl (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) : Bool :=
+  let a_u := U512.mk a0 a1 a2 a3 a4 a5 a6 a7
+  let m_u := U512.mk m0 m1 m2 m3 m4 m5 m6 m7
+  let a := fromU512Signed a_u a_neg
+  let m := (fromU512 m_u : Int)
+  match modInverse a m with
+  | some _ => true
+  | none   => false
+
+@[export ualbf_mod_inverse_limb]
+def ualbf_mod_inverse_limb_impl (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) (limb_idx : UInt32) : UInt64 :=
+  let a_u := U512.mk a0 a1 a2 a3 a4 a5 a6 a7
+  let m_u := U512.mk m0 m1 m2 m3 m4 m5 m6 m7
+  let a := fromU512Signed a_u a_neg
+  let m := (fromU512 m_u : Int)
+  match modInverse a m with
+  | some v =>
+    let res := toU512 v.toNat
+    match limb_idx with
+    | 0 => U512.w0 res
+    | 1 => U512.w1 res
+    | 2 => U512.w2 res
+    | 3 => U512.w3 res
+    | 4 => U512.w4 res
+    | 5 => U512.w5 res
+    | 6 => U512.w6 res
+    | 7 => U512.w7 res
+    | _ => 0
+  | none => 0
+
+theorem ualbf_mod_inverse_ok_limbs_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) :
+    ualbf_mod_inverse_ok_limbs_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 =
+      (ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7)).isSome := by
+  unfold ualbf_mod_inverse_ok_limbs_impl ualbf_mod_inverse_impl
+  dsimp
+  split <;> rfl
+
+theorem ualbf_mod_inverse_limb_eq (a0 a1 a2 a3 a4 a5 a6 a7 : UInt64) (a_neg : UInt8) (m0 m1 m2 m3 m4 m5 m6 m7 : UInt64) (limb_idx : UInt32) :
+    (match ualbf_mod_inverse_impl (U512.mk a0 a1 a2 a3 a4 a5 a6 a7) a_neg (U512.mk m0 m1 m2 m3 m4 m5 m6 m7) with
+     | some res =>
+       match limb_idx with
+       | 0 => U512.w0 res
+       | 1 => U512.w1 res
+       | 2 => U512.w2 res
+       | 3 => U512.w3 res
+       | 4 => U512.w4 res
+       | 5 => U512.w5 res
+       | 6 => U512.w6 res
+       | 7 => U512.w7 res
+       | _ => 0
+     | none => 0) =
+    ualbf_mod_inverse_limb_impl a0 a1 a2 a3 a4 a5 a6 a7 a_neg m0 m1 m2 m3 m4 m5 m6 m7 limb_idx := by
+  unfold ualbf_mod_inverse_limb_impl ualbf_mod_inverse_impl
+  dsimp
+  split <;> rfl
+
 /-! ### FFI Overflow Tests -/
 
 /-- Compute the cyclotomic polynomial Φ_d(p) as a Nat.
@@ -614,6 +671,18 @@ def ualbf_check_crt_1155_impl (z_val : @& U512) (x_l_val : @& U512) : Bool :=
   let xl := fromU512 x_l_val
   let z2 := z ^ 2
   (z2 % 3 == xl % 3) && (z2 % 5 == xl % 5) && (z2 % 7 == xl % 7) && (z2 % 11 == xl % 11)
+
+@[export ualbf_check_crt_1155_limbs]
+def ualbf_check_crt_1155_limbs_impl (z0 z1 z2 z3 z4 z5 z6 z7 : UInt64) (xl0 xl1 xl2 xl3 xl4 xl5 xl6 xl7 : UInt64) : Bool :=
+  let z := fromU512 (U512.mk z0 z1 z2 z3 z4 z5 z6 z7)
+  let xl := fromU512 (U512.mk xl0 xl1 xl2 xl3 xl4 xl5 xl6 xl7)
+  let z2 := z ^ 2
+  (z2 % 3 == xl % 3) && (z2 % 5 == xl % 5) && (z2 % 7 == xl % 7) && (z2 % 11 == xl % 11)
+
+theorem ualbf_check_crt_1155_limbs_eq (z0 z1 z2 z3 z4 z5 z6 z7 xl0 xl1 xl2 xl3 xl4 xl5 xl6 xl7 : UInt64) :
+    ualbf_check_crt_1155_limbs_impl z0 z1 z2 z3 z4 z5 z6 z7 xl0 xl1 xl2 xl3 xl4 xl5 xl6 xl7 =
+      ualbf_check_crt_1155_impl (U512.mk z0 z1 z2 z3 z4 z5 z6 z7) (U512.mk xl0 xl1 xl2 xl3 xl4 xl5 xl6 xl7) := by
+  rfl
 
 @[export ualbf_logic_hash]
 def ualbf_logic_hash_impl : String := UALBF.Manifest.LOGIC_HASH

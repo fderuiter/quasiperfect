@@ -118,67 +118,85 @@
       "name": "UALBF.FFI.fromU512_toU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.toU512_fromU512",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
+    },
+    {
+      "name": "UALBF.FFI.ualbf_mod_inverse_ok_limbs_eq",
+      "file": "UALBF/FFI.lean",
+      "status": "proven",
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
+    },
+    {
+      "name": "UALBF.FFI.ualbf_mod_inverse_limb_eq",
+      "file": "UALBF/FFI.lean",
+      "status": "proven",
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
+    },
+    {
+      "name": "UALBF.FFI.ualbf_check_crt_1155_limbs_eq",
+      "file": "UALBF/FFI.lean",
+      "status": "proven",
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w0_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w1_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w2_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w3_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w4_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w5_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w6_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.FFI.U512.w7_mk",
       "file": "UALBF/FFI.lean",
       "status": "proven",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
@@ -580,7 +598,7 @@
     },
     {
       "file": "UALBF/FFI.lean",
-      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+      "checksum": "72ff9c1778e02aa6771699052cb05352c7f3f06c39bdf3d004015226042b8eaf"
     },
     {
       "file": "UALBF/FFI_generated.lean",
@@ -774,6 +792,6 @@
       "theorem_hash": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     }
   },
-  "verified_logic_hash": "b856d494b19ed7d474324476ef8949becf18ab96dd1cc04a2c1be5a82f83bf24",
+  "verified_logic_hash": "1ff62fd189eb03c497dfd36ef58137616695a6568692df343d2161b198a82167",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

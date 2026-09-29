@@ -92,6 +92,36 @@ void* ualbf_mod_inverse(void* a_obj, uint8_t a_neg, void* m_obj) {
     (void)a_obj; (void)a_neg; (void)m_obj;
     return NULL;
 }
+
+uint8_t ualbf_mod_inverse_ok_limbs(
+    uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7,
+    uint8_t a_neg,
+    uint64_t m0, uint64_t m1, uint64_t m2, uint64_t m3, uint64_t m4, uint64_t m5, uint64_t m6, uint64_t m7
+) {
+    (void)a0; (void)a1; (void)a2; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7;
+    (void)a_neg;
+    (void)m0; (void)m1; (void)m2; (void)m3; (void)m4; (void)m5; (void)m6; (void)m7;
+    return 0;
+}
+
+uint64_t ualbf_mod_inverse_limb(
+    uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7,
+    uint8_t a_neg,
+    uint64_t m0, uint64_t m1, uint64_t m2, uint64_t m3, uint64_t m4, uint64_t m5, uint64_t m6, uint64_t m7,
+    uint32_t limb_idx
+) {
+    (void)a0; (void)a1; (void)a2; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7;
+    (void)a_neg;
+    (void)m0; (void)m1; (void)m2; (void)m3; (void)m4; (void)m5; (void)m6; (void)m7;
+    (void)limb_idx;
+    return 0;
+}
+
+bool ualbf_mod_inverse_raw(const uint64_t a_limbs[8], uint8_t a_neg, const uint64_t m_limbs[8], uint64_t out_limbs[8]) {
+    (void)a_limbs; (void)a_neg; (void)m_limbs; (void)out_limbs;
+    return false;
+}
+
 uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
 uint8_t ualbf_check_crt_1155(void* z_val, void* x_l_val) {
     uint64_t* z_data = (uint64_t*)rs_lean_get_external_data(z_val);
@@ -104,6 +134,20 @@ uint8_t ualbf_check_crt_1155(void* z_val, void* x_l_val) {
     if (z2 % 5 != xl % 5) return 0;
     if (z2 % 7 != xl % 7) return 0;
     if (z2 % 11 != xl % 11) return 0;
+    return 1;
+}
+
+uint8_t ualbf_check_crt_1155_limbs(
+    uint64_t z0, uint64_t z1, uint64_t z2, uint64_t z3, uint64_t z4, uint64_t z5, uint64_t z6, uint64_t z7,
+    uint64_t xl0, uint64_t xl1, uint64_t xl2, uint64_t xl3, uint64_t xl4, uint64_t xl5, uint64_t xl6, uint64_t xl7
+) {
+    (void)z1; (void)z2; (void)z3; (void)z4; (void)z5; (void)z6; (void)z7;
+    (void)xl1; (void)xl2; (void)xl3; (void)xl4; (void)xl5; (void)xl6; (void)xl7;
+    uint64_t sq = z0 * z0;
+    if (sq % 3 != xl0 % 3) return 0;
+    if (sq % 5 != xl0 % 5) return 0;
+    if (sq % 7 != xl0 % 7) return 0;
+    if (sq % 11 != xl0 % 11) return 0;
     return 1;
 }
 
