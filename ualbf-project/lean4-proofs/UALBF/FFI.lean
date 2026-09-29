@@ -57,6 +57,7 @@ theorem toU512_fromU512 (u : U512) (hu : u < 2 ^ 512) : toU512 (fromU512 u) = u 
     have h6 : ((u / 2^384) % 2^64).toUInt64.toNat = (u / 2^384) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
     have h7 : ((u / 2^448) % 2^64).toUInt64.toNat = (u / 2^448) % 2^64 := by simp [UInt64.toNat, Nat.toUInt64, UInt64.ofNat, BitVec.toNat_ofNat]
     simp only [h0, h1, h2, h3, h4, h5, h6, h7]
+    unfold U512 at hu ⊢
     omega
   rw [h_from_eq]
   unfold toU512 U512.mk
@@ -72,6 +73,7 @@ theorem toU512_fromU512 (u : U512) (hu : u < 2 ^ 512) : toU512 (fromU512 u) = u 
   -- But toU512 calls U512.mk which is defined as w0.toNat + w1.toNat * 2^64 ...
   -- But we unfolded U512.mk, so it's a sum.
   simp only [h0, h1, h2, h3, h4, h5, h6, h7]
+  unfold U512 at hu ⊢
   omega
 
 
@@ -263,46 +265,18 @@ theorem modInverse_spec (a m : Int) (v : Int)
     injection hv with hv_eq
     have hv_def : v = ((x % m) + m) % m := hv_eq.symm
 
-    -- Linearize modulo variables explicitly for algebraic substitution
-    have H_a' : a' % m = a % m := by rw [ha'_def]; omega
-    have h_a_eq : a = a' + m * (a / m - a' / m) := by
-      have hA : a = a % m + m * (a / m) := by omega
-      have ha' : a' = a' % m + m * (a' / m) := by omega
-      calc a = a % m + m * (a / m) := hA
-        _ = a' % m + m * (a / m) := by rw [← H_a']
-        _ = (a' - m * (a' / m)) + m * (a / m) := by omega
-        _ = a' + m * (a / m - a' / m) := by ring
-
-    have H_v : v % m = x % m := by rw [hv_def]; omega
-    have h_v_eq : v = x + m * (v / m - x / m) := by
-      have hV : v = v % m + m * (v / m) := by omega
-      have hX : x = x % m + m * (x / m) := by omega
-      calc v = v % m + m * (v / m) := hV
-        _ = x % m + m * (v / m) := by rw [H_v]
-        _ = (x - m * (x / m)) + m * (v / m) := by omega
-        _ = x + m * (v / m - x / m) := by ring
-
-    set Ka := a / m - a' / m
-    set Kv := v / m - x / m
-
-    have h_av : a * v = a' * x + m * (a' * Kv + Ka * x + m * Ka * Kv) := by
-      calc a * v = (a' + m * Ka) * (x + m * Kv) := by rw [h_a_eq, h_v_eq]
-        _ = a' * x + m * (a' * Kv + Ka * x + m * Ka * Kv) := by ring
+    have H_a' : a' % m = a % m := by rw [ha'_def]; simp
+    have H_v : v % m = x % m := by rw [hv_def]; simp
 
     have h_bezout_1 : a' * x + m * y = 1 := by
       calc a' * x + m * y = g := h_bezout
         _ = 1 := hg_1
 
-    -- Extract equivalent modulo term from Beźout
-    have h_a'x : a' * x = 1 - m * y := by omega
+    have h_a'x : a' * x = 1 + m * (-y) := by linarith
 
-    have h_av2 : a * v = 1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv) := by
-      calc a * v = (1 - m * y) + m * (a' * Kv + Ka * x + m * Ka * Kv) := by rw [h_av, h_a'x]
-        _ = 1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv) := by ring
-
-    -- Fold it back natively
-    calc (a * v) % m = (1 + m * (-y + a' * Kv + Ka * x + m * Ka * Kv)) % m := by rw [h_av2]
-      _ = 1 % m := by rw [Int.add_mul_emod_self_left]
+    calc (a * v) % m = (a' * x) % m := by
+          rw [Int.mul_emod, ← H_a', H_v, ← Int.mul_emod]
+      _ = 1 % m := by rw [h_a'x, Int.add_mul_emod_self_left]
 
   · rename_i h_guard
     contradiction
