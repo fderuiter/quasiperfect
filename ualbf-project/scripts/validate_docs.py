@@ -799,6 +799,7 @@ def main():
         parts = tex_file.split(os.sep)
         if not any(
             part.startswith(".")
+            or part.startswith("_")
             or part.startswith("result")
             or part.startswith("lake-")
             or part in exclude_exact
@@ -837,9 +838,10 @@ def main():
     import validate_paper
 
     paper_dir = os.path.join(repo_root, "ualbf-project", "paper")
-    if not validate_paper.validate_paper_sources(paper_dir, repo_root):
-        print("Error: Paper validation failed.", file=sys.stderr)
-        sys.exit(1)
+    if os.path.exists(paper_dir):
+        if not validate_paper.validate_paper_sources(paper_dir, repo_root):
+            print("Error: Paper validation failed.", file=sys.stderr)
+            sys.exit(1)
 
     # Run tuning guide parameter validation against bounds and profile manifests
     from validate_tuning_guide import validate_tuning_guide

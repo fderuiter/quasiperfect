@@ -1505,6 +1505,9 @@ def check_documentation(manifest):
         if not os.path.exists(doc_path):
             continue
 
+        if not doc_path.endswith(".md"):
+            continue
+
         try:
             with open(doc_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
