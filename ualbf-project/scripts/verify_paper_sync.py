@@ -128,12 +128,8 @@ def verify_paper_macro_sync(
     telemetry_path = os.path.join(paper_directory, "telemetry.tex")
     verification_path = os.path.join(paper_directory, "verification_manifest.tex")
 
-    # Ensure TeX macro files exist on disk in paper directory
-    if not os.path.exists(telemetry_path) or not os.path.exists(
-        verification_path
-    ):
-        print("LaTeX macro files not found on disk. Generating paper TeX macros...")
-        generate_paper_macros(manifest_path, bounds_path, paper_directory)
+    # Always generate paper TeX macros from proof_manifest.json to ensure synchronization
+    generate_paper_macros(manifest_path, bounds_path, paper_directory)
 
     # Read on-disk TeX macro files
     with open(telemetry_path, "r", encoding="utf-8") as f:
