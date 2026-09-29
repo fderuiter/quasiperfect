@@ -1,8 +1,9 @@
-import UALBF.FFI
 import Mathlib.Data.Nat.Basic
 import UALBF.Basic
 import UALBF.Engine.SearchState
 import UALBF.Engine.CyclotomicGraph
+
+set_option linter.unusedVariables false
 
 namespace UALBF.Engine
 
