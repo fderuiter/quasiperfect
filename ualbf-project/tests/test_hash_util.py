@@ -101,3 +101,8 @@ def test_hash_file_bounded_non_existent(tmp_path):
     with pytest.raises(FileNotFoundError):
         hash_util.hash_file_bounded(non_existent)
 
+
+def test_get_max_file_size_bytes_invalid_env_fallback(monkeypatch):
+    monkeypatch.setenv("UALBF_MAX_CERT_SIZE_MB", "invalid_number")
+    assert hash_util._get_max_file_size_bytes() == int(10.0 * 1024 * 1024)
+
