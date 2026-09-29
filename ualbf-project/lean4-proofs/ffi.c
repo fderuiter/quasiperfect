@@ -38,10 +38,9 @@ lean_obj_res lean_sha256_file(b_lean_obj_arg path_obj) {
     return res;
 }
 
-lean_obj_res lean_sha256_string(lean_obj_arg data_obj) {
+lean_obj_res lean_sha256_string(b_lean_obj_arg data_obj) {
     const char* data = lean_string_cstr(data_obj);
     char* c_hash = rust_sha256_string(data);
-    lean_dec(data_obj);
     if (c_hash == NULL) {
         return lean_mk_string("");
     }

@@ -427,6 +427,19 @@ def _setup_staging_workspace(host_dir, staging_dir):
         except Exception:
             pass
 
+    # Copy parent env_manifest files if present and not in staging_dir
+    for env_file in ["env_manifest.json", "env_manifest.schema.json"]:
+        parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
+        if not os.path.exists(parent_env):
+            parent_env = os.path.abspath(os.path.join(host_dir, env_file))
+        if os.path.exists(parent_env) and not os.path.exists(
+            os.path.join(staging_dir, env_file)
+        ):
+            try:
+                shutil.copy2(parent_env, os.path.join(staging_dir, env_file))
+            except Exception:
+                pass
+
 
 def generate_manifest():
     if env_util.get_env_var("UALBF_IN_STAGING_WORKSPACE"):
@@ -1234,6 +1247,9 @@ def check_documentation(manifest):
         target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
         if os.path.exists(target_repo_rel):
             return True
+        repo_root = os.path.dirname(manifest_dir)
+        if os.path.exists(os.path.join(repo_root, target.lstrip("/"))):
+            return True
         if target.lstrip("/").startswith("ualbf-project/"):
             target_stripped = target.lstrip("/")[len("ualbf-project/") :]
             if os.path.exists(os.path.join(manifest_dir, target_stripped)):
@@ -1496,6 +1512,17 @@ def check_documentation(manifest):
         "UALBF_MAX_EXPONENT",
         "UALBF_PREFIX_STOP_THRESHOLD",
     }
+    try:
+        for env_path in [
+            os.path.join(manifest_dir, "..", "env_manifest.json"),
+            os.path.join(manifest_dir, "env_manifest.json"),
+        ]:
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    env_manifest_data = json.load(f)
+                    ignore_symbols.update(env_manifest_data.keys())
+    except Exception:
+        pass
     ignore_symbols.update(SAFE_COMMON_WORDS)
 
     errors = []

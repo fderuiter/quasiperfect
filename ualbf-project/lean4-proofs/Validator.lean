@@ -28,7 +28,7 @@ opaque verifyCertificateFFI (certJson : @& String) (trustedPubKey : @& String) :
 
 -- Pure SHA256 helper for pure specifications
 @[extern "lean_sha256_string"]
-opaque sha256 (data : String) : String
+opaque sha256 (data : @& String) : String
 
 -- Core Logic Verification
 
