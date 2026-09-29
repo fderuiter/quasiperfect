@@ -125,5 +125,14 @@
   ".jules/skills/writing-for-agents/SKILL.md": "informal",
   ".jules/skills/writing-for-agents/references/SKILL-MECHANICS.md": "informal",
   ".jules/skills/writing-fragments/SKILL.md": "informal",
-  ".jules/skills/writing-shape/SKILL.md": "informal"
+  ".jules/skills/writing-shape/SKILL.md": "informal",
+  "ualbf-project/paper/main.tex": "authoritative",
+  "ualbf-project/paper/lean-setup.tex": "authoritative",
+  "ualbf-project/paper/sections/01_introduction.tex": "authoritative",
+  "ualbf-project/paper/sections/02_math_and_formalization.tex": "authoritative",
+  "ualbf-project/paper/sections/03_bipartition_algorithm.tex": "authoritative",
+  "ualbf-project/paper/sections/04_verified_engine.tex": "authoritative",
+  "ualbf-project/paper/sections/05_results.tex": "authoritative",
+  "ualbf-project/paper/sections/06_conclusion.tex": "authoritative",
+  "ualbf-project/paper/sections/07_appendix.tex": "authoritative"
 }
