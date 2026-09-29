@@ -74,6 +74,9 @@ def compute_transport_layout(fields, schema):
                 c_inner, _, _ = map_rust_type_to_c_info(inner)
                 transport_fields.append((fname, f"const {c_inner}*", 8, 8))
                 transport_fields.append((f"{fname}_len", "size_t", 8, 8))
+            elif rust_t == "BitSet":
+                transport_fields.append((fname, "const uint64_t*", 8, 8))
+                transport_fields.append((f"{fname}_len", "size_t", 8, 8))
             else:
                 c_type, size, align = map_rust_type_to_c_info(rust_t)
                 transport_fields.append((fname, c_type, size, align))
@@ -100,9 +103,10 @@ def generate_rust_types(schema, repo_root, schema_hash):
     with open(rust_path, "w", encoding="utf-8") as f:
         f.write("// AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
         f.write(f'pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str = "{schema_hash}";\n\n')
+        f.write("use crate::state::BitSet;\n")
         f.write("use crate::types::Uint;\n")
-        f.write("use smallvec::SmallVec;\n")
-        f.write("use serde::{Serialize, Deserialize};\n\n")
+        f.write("use serde::{Deserialize, Serialize};\n")
+        f.write("use smallvec::SmallVec;\n\n")
 
         for struct_name, struct_def in schema.items():
             if "fields" not in struct_def:
@@ -183,6 +187,9 @@ def generate_rust_types(schema, repo_root, schema_hash):
                             inner = rust_t.replace("Vec<", "").replace(">", "")
                             f.write(f"    pub {field['name']}: *const {inner},\n")
                             f.write(f"    pub {field['name']}_len: usize,\n")
+                        elif rust_t == "BitSet":
+                            f.write(f"    pub {field['name']}: *const u64,\n")
+                            f.write(f"    pub {field['name']}_len: usize,\n")
                         else:
                             f.write(f"    pub {field['name']}: {rust_t},\n")
                 f.write("}\n\n")
@@ -212,7 +219,7 @@ def generate_rust_types(schema, repo_root, schema_hash):
                             )
                     else:
                         rust_t = field["rust_type"]
-                        if "Vec<" in rust_t:
+                        if "Vec<" in rust_t or rust_t == "BitSet":
                             f.write(
                                 f"            {field['name']}: self.{field['name']}.as_ptr(),\n"
                             )
