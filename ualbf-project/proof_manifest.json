@@ -127,6 +127,12 @@
       "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
     },
     {
+      "name": "UALBF.FFI.fromU512_eq_fromU512Fast",
+      "file": "UALBF/FFI.lean",
+      "status": "proven",
+      "checksum": "a875accd043c3d84f043f16282032f17a20b4aa2b251171f70d2daf1e6f3cb26"
+    },
+    {
       "name": "UALBF.FFI.modInverse_spec",
       "file": "UALBF/FFI.lean",
       "status": "proven",
@@ -584,7 +590,7 @@
     },
     {
       "file": "UALBF/FFI_generated.lean",
-      "checksum": "f2bc8643427d23cce2e8911e00f1d9a835c37696618e9a91630fd96ed4e3285c"
+      "checksum": "3728a92d9d2dcbf24f61145e9e7812b79bfdf00ca03caa7c87cb85cbc251fb71"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
@@ -774,6 +780,6 @@
       "theorem_hash": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     }
   },
-  "verified_logic_hash": "b856d494b19ed7d474324476ef8949becf18ab96dd1cc04a2c1be5a82f83bf24",
+  "verified_logic_hash": "90c7b9ba293cfc5146b8b898493e919d21cfa9a065122841e6190e87b69abf39",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

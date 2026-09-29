@@ -166,7 +166,6 @@ macro_rules
 def fromU512Fast (u : U512) : Nat :=
   (((u.w0.toNat + (u.w1.toNat <<< 64)) + ((u.w2.toNat + (u.w3.toNat <<< 64)) <<< 128)) + (((u.w4.toNat + (u.w5.toNat <<< 64)) + ((u.w6.toNat + (u.w7.toNat <<< 64)) <<< 128)) <<< 256))
 
-@[implemented_by fromU512Fast]
 def fromU512 (u : U512) : Nat :=
   u.w0.toNat +
   u.w1.toNat * (2 ^ 64) +
@@ -176,6 +175,12 @@ def fromU512 (u : U512) : Nat :=
   u.w5.toNat * (2 ^ 320) +
   u.w6.toNat * (2 ^ 384) +
   u.w7.toNat * (2 ^ 448)
+
+@[csimp] theorem fromU512_eq_fromU512Fast : fromU512 = fromU512Fast := by
+  funext u
+  unfold fromU512 fromU512Fast
+  dsimp
+  ring
 
 def toU512 (n : Nat) : U512 :=
   U512.mk
