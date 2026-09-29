@@ -176,8 +176,7 @@ def fromU512 (u : U512) : Nat :=
   u.w6.toNat * (2 ^ 384) +
   u.w7.toNat * (2 ^ 448)
 
-@[csimp] theorem fromU512_eq_fromU512Fast : fromU512 = fromU512Fast := by
-  funext u
+@[csimp] theorem fromU512_eq_fromU512Fast (u : U512) : fromU512 u = fromU512Fast u := by
   unfold fromU512 fromU512Fast
   dsimp
   ring

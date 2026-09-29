@@ -675,8 +675,7 @@ def fromU512Fast (u : U512) : Nat :=
 def fromU512 (u : U512) : Nat :=
   {from_u512_expr}
 
-@[csimp] theorem fromU512_eq_fromU512Fast : fromU512 = fromU512Fast := by
-  funext u
+@[csimp] theorem fromU512_eq_fromU512Fast (u : U512) : fromU512 u = fromU512Fast u := by
   unfold fromU512 fromU512Fast
   dsimp
   ring
