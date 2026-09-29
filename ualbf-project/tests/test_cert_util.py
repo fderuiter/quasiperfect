@@ -349,6 +349,11 @@ class TestBoundedJSONLoaderUnit:
                 loader.loads(invalid_bytearray)
             mock_json_loads.assert_not_called()
 
+    def test_loads_encoding_kwarg(self):
+        loader = BoundedJSONLoader()
+        assert loader.loads('{"a": 1}', encoding="utf-8") == {"a": 1}
+        assert loader.loads(b'{"a": 1}', encoding="utf-8") == {"a": 1}
+
     def test_prescan_deeply_nested_adversarial_payload(self):
         loader = BoundedJSONLoader(max_depth=10)
         # Payload with depth 200 within 10MB limit

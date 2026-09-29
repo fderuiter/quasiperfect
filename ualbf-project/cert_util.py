@@ -386,10 +386,13 @@ class BoundedJSONLoader:
             )
 
     def loads(self, s: str | bytes | bytearray, **kwargs: Any) -> Any:
+        encoding = kwargs.pop("encoding", "utf-8")
         if isinstance(s, (bytes, bytearray)):
             byte_len = len(s)
+            text = s.decode(encoding)
         elif isinstance(s, str):
             byte_len = len(s.encode("utf-8"))
+            text = s
         else:
             raise CertificateValidationError(f"Invalid JSON input type: {type(s)}")
 
@@ -399,11 +402,6 @@ class BoundedJSONLoader:
             )
 
         self._lexical_prescan_depth(s)
-
-        if isinstance(s, (bytes, bytearray)):
-            text = s.decode(kwargs.pop("encoding", "utf-8"))
-        else:
-            text = s
 
         try:
             data = json.loads(text, **kwargs)
