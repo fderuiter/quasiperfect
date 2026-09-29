@@ -209,7 +209,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest\\.json|env_manifest\\.schema\\.json)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*)$" p != null || type == "directory";
           };
           buildAndTestSubdir = "verification-lib";
 
@@ -269,7 +269,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest\\.json|env_manifest\\.schema\\.json|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*|lean4-proofs.*)$" p != null || type == "directory";
           };
 
           sourceRoot = "source/rust-engine";
