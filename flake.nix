@@ -165,9 +165,13 @@
         # ProofWidgets' lakefile re-runs `npm install` when its trace files are
         # missing, and the leanDeps cleanup strips them to keep the FOD hash stable.
         # The widget JS is already vendored in leanDeps, so a no-op npm is enough
-        # (mirrors the `mock-ui` target in ualbf-project/Makefile).
+        # (mirrors the `mock-ui` target in ualbf-project/Makefile). Lake deletes
+        # package-lock.json before "rebuilding" it, so recreate a placeholder.
         mockNpm = pkgs.writeShellScriptBin "npm" ''
           echo "[mock npm] skipping: npm $*" >&2
+          if [ "''${1:-}" = "install" ] && [ ! -f package-lock.json ]; then
+            echo '{}' > package-lock.json
+          fi
           exit 0
         '';
 
