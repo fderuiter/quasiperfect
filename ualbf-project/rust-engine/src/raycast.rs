@@ -126,7 +126,15 @@ fn isqrt(n: Int) -> Option<Int> {
 
 use crate::math_utils::{composite_tonelli_shanks, sigma_cached, SigmaCache};
 use crate::types::{Int, IntExt, Uint, UintExt};
+use std::cell::RefCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+thread_local! {
+    /// Thread-local buffer for chunk candidate indices, reused across search chunks.
+    static CHUNK_CANDIDATES_POOL: RefCell<Vec<usize>> = RefCell::new(Vec::new());
+    /// Thread-local buffer for candidates passing initial sieving to be factored, reused across search chunks.
+    static CANDIDATES_TO_FACTOR_POOL: RefCell<Vec<(usize, Uint, Uint)>> = RefCell::new(Vec::new());
+}
 
 /// Precomputes primes whose squares yield sigma ≡ 5 or 7 mod 8
 /// Returns tuples `(p^e, p^{e+1})` for the sieve.
@@ -415,114 +423,121 @@ pub fn phase4_exact_ray_casting(
                 );
                 let c_end = c_current + chunk_size - 1;
 
-                let chunk_candidates: Vec<usize> = (c_current..=c_end).collect();
+                CHUNK_CANDIDATES_POOL.with(|chunk_cell| {
+                    CANDIDATES_TO_FACTOR_POOL.with(|factor_cell| {
+                        let mut chunk_candidates = chunk_cell.borrow_mut();
+                        chunk_candidates.clear();
+                        chunk_candidates.extend(c_current..=c_end);
 
-                let mut candidates_to_factor = Vec::new();
+                        let mut candidates_to_factor = factor_cell.borrow_mut();
+                        candidates_to_factor.clear();
 
-                for c in chunk_candidates {
-                    let z = r_i + Int::from_u64(c as u64) * s_l_int;
+                        for &c in chunk_candidates.iter() {
+                            let z = r_i + Int::from_u64(c as u64) * s_l_int;
 
-                    if z > z_max {
-                        continue;
-                    }
+                            if z > z_max {
+                                continue;
+                            }
 
-                    if z % Int::from_u32(2) == Int::zero() {
-                        continue;
-                    }
+                            if z % Int::from_u32(2) == Int::zero() {
+                                continue;
+                            }
 
-                    let s_l_is_multiple_1155 = s_l_int % Int::from_u32(1155) == Int::zero();
-                    if s_l_is_multiple_1155 {
-                        let z_uint = z.as_uint();
-                        let x_l_uint = x_l.as_uint();
-                        if !crate::lean_ffi::check_crt_1155(&z_uint, &x_l_uint) {
-                            pruned_count.fetch_add(1, Ordering::Relaxed);
-                            continue;
-                        }
-                    }
+                            let s_l_is_multiple_1155 = s_l_int % Int::from_u32(1155) == Int::zero();
+                            if s_l_is_multiple_1155 {
+                                let z_uint = z.as_uint();
+                                let x_l_uint = x_l.as_uint();
+                                if !crate::lean_ffi::check_crt_1155(&z_uint, &x_l_uint) {
+                                    pruned_count.fetch_add(1, Ordering::Relaxed);
+                                    continue;
+                                }
+                            }
 
-                    let mut passed_sieve = true;
-                    for &(pe, pe1) in illegal_z_valuations {
-                        let rem = z % pe1;
-                        if rem % pe == Int::zero() && rem != Int::zero() {
-                            passed_sieve = false;
-                            pruned_count.fetch_add(1, Ordering::Relaxed);
-                            break;
-                        }
-                    }
+                            let mut passed_sieve = true;
+                            for &(pe, pe1) in illegal_z_valuations {
+                                let rem = z % pe1;
+                                if rem % pe == Int::zero() && rem != Int::zero() {
+                                    passed_sieve = false;
+                                    pruned_count.fetch_add(1, Ordering::Relaxed);
+                                    break;
+                                }
+                            }
 
-                    if !passed_sieve {
-                        continue;
-                    }
+                            if !passed_sieve {
+                                continue;
+                            }
 
-                    let mut is_coprime = true;
-                    for &p in &prefix.factors {
-                        if z % Int::from_u64(p) == Int::zero() {
-                            is_coprime = false;
-                            break;
-                        }
-                    }
-                    if !is_coprime {
-                        continue;
-                    }
+                            let mut is_coprime = true;
+                            for &p in &prefix.factors {
+                                if z % Int::from_u64(p) == Int::zero() {
+                                    is_coprime = false;
+                                    break;
+                                }
+                            }
+                            if !is_coprime {
+                                continue;
+                            }
 
-                    let z_tiered = z.as_uint();
-                    let n_l_tiered = prefix.n_l;
-                    let s_l_tiered = prefix.s_l;
+                            let z_tiered = z.as_uint();
+                            let n_l_tiered = prefix.n_l;
+                            let s_l_tiered = prefix.s_l;
 
-                    let n_r = match z_tiered.checked_mul(z_tiered) {
-                        Some(v) => v,
-                        None => continue,
-                    };
-                    let total_n = match n_l_tiered.checked_mul(n_r) {
-                        Some(v) => v,
-                        None => continue,
-                    };
-
-                    let two_n_plus_one = match total_n
-                        .checked_mul(Uint::from_u32(2))
-                        .and_then(|v| v.checked_add(Uint::one()))
-                    {
-                        Some(v) => v,
-                        None => continue,
-                    };
-
-                    if &two_n_plus_one % &s_l_tiered != Uint::from_u128(0 as u128) {
-                        continue;
-                    }
-                    let required_s_r = &two_n_plus_one / &s_l_tiered;
-
-                    if required_s_r <= n_r {
-                        continue;
-                    }
-
-                    if let Some(upper) = n_r.checked_mul(Uint::from_u32(3)) {
-                        if required_s_r > upper {
-                            continue;
-                        }
-                    }
-
-                    if required_s_r % Uint::from_u32(2) == Uint::zero() {
-                        continue;
-                    }
-
-                    candidates_to_factor.push((c, z_tiered, required_s_r));
-                }
-
-                if !candidates_to_factor.is_empty() {
-                    for &(c, z_tiered, required_s_r) in &candidates_to_factor {
-                        if verify_candidate_cpu_only(z_tiered, required_s_r, sigma_cache) {
-                            let total_n = prefix.n_l * z_tiered * z_tiered;
-                            let event = crate::events::SearchEvent::Candidate {
-                                len: 0,
-                                factors_str: total_n.to_string(),
-                                rem_str: "".to_string(),
+                            let n_r = match z_tiered.checked_mul(z_tiered) {
+                                Some(v) => v,
+                                None => continue,
                             };
-                            if let Some(r) = reporter {
-                                let _ = r.send(event);
+                            let total_n = match n_l_tiered.checked_mul(n_r) {
+                                Some(v) => v,
+                                None => continue,
+                            };
+
+                            let two_n_plus_one = match total_n
+                                .checked_mul(Uint::from_u32(2))
+                                .and_then(|v| v.checked_add(Uint::one()))
+                            {
+                                Some(v) => v,
+                                None => continue,
+                            };
+
+                            if &two_n_plus_one % &s_l_tiered != Uint::from_u128(0 as u128) {
+                                continue;
+                            }
+                            let required_s_r = &two_n_plus_one / &s_l_tiered;
+
+                            if required_s_r <= n_r {
+                                continue;
+                            }
+
+                            if let Some(upper) = n_r.checked_mul(Uint::from_u32(3)) {
+                                if required_s_r > upper {
+                                    continue;
+                                }
+                            }
+
+                            if required_s_r % Uint::from_u32(2) == Uint::zero() {
+                                continue;
+                            }
+
+                            candidates_to_factor.push((c, z_tiered, required_s_r));
+                        }
+
+                        if !candidates_to_factor.is_empty() {
+                            for &(c, z_tiered, required_s_r) in candidates_to_factor.iter() {
+                                if verify_candidate_cpu_only(z_tiered, required_s_r, sigma_cache) {
+                                    let total_n = prefix.n_l * z_tiered * z_tiered;
+                                    let event = crate::events::SearchEvent::Candidate {
+                                        len: 0,
+                                        factors_str: total_n.to_string(),
+                                        rem_str: "".to_string(),
+                                    };
+                                    if let Some(r) = reporter {
+                                        let _ = r.send(event);
+                                    }
+                                }
                             }
                         }
-                    }
-                }
+                    });
+                });
 
                 c_current = c_end + 1;
             }
@@ -788,5 +803,70 @@ mod additional_tests {
 
         let unsorted = [Uint::from_u32(7), Uint::from_u32(3), Uint::from_u32(5)];
         assert!(!unsorted.windows(2).all(|w| w[0] <= w[1]));
+    }
+
+    #[test]
+    fn test_thread_local_raycast_vector_pooling() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let n_l = Uint::from_u32(6);
+        let s_l = Uint::from_u32(13);
+
+        let prefix = Prefix {
+            n_l,
+            s_l,
+            last_idx: 1,
+            factors: vec![2, 3],
+            sigma_factors: vec![Uint::from_u32(13)],
+            sigma_factors_u64: vec![13],
+            active_mask: vec![1],
+            sigma_mod24: 13,
+        };
+
+        let target_min = Uint::from_u32(1);
+        let target_max = Uint::from_u32(1000000);
+        let illegal_z_valuations: Vec<(Int, Int)> = vec![];
+        let pruned_count = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
+        let sigma_cache = std::collections::HashMap::new();
+
+        phase4_exact_ray_casting(
+            &prefix,
+            &target_min,
+            &target_max,
+            &illegal_z_valuations,
+            &pruned_count,
+            &math_interruptions,
+            &sigma_cache,
+            None,
+            0,
+            0,
+            1,
+        );
+
+        let cap1 = CHUNK_CANDIDATES_POOL.with(|cell| cell.borrow().capacity());
+        assert!(
+            cap1 > 0,
+            "Chunk candidate vector pool must allocate capacity on first run"
+        );
+
+        phase4_exact_ray_casting(
+            &prefix,
+            &target_min,
+            &target_max,
+            &illegal_z_valuations,
+            &pruned_count,
+            &math_interruptions,
+            &sigma_cache,
+            None,
+            0,
+            0,
+            1,
+        );
+
+        let cap2 = CHUNK_CANDIDATES_POOL.with(|cell| cell.borrow().capacity());
+        assert_eq!(
+            cap1, cap2,
+            "Thread-local candidate vector pool capacity must be retained across execution steps without reallocation"
+        );
     }
 }
