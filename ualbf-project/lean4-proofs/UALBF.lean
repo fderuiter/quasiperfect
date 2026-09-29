@@ -20,6 +20,7 @@ import UALBF.QPN.Obstruction
 import UALBF.QPN.TouchardQPN
 import UALBF.QPN.PrasadSunitha
 import UALBF.QPN.AbundancyBound
+import UALBF.QPN.ABCConjecture
 
 -- Layer 3: Engine Verification
 import UALBF.Engine.SearchState
