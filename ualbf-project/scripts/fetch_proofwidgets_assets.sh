@@ -86,7 +86,9 @@ EOF
 
 # Check if offline mode is requested
 IS_OFFLINE=0
-if [[ "${OFFLINE:-0}" == "1" ]] || [[ "${LAKE_OFFLINE:-0}" == "1" ]] || [[ "${FORCE_OFFLINE:-0}" == "1" ]] || [[ -n "${NIX_BUILD_TOP:-}" ]]; then
+if [[ "${OFFLINE:-0}" == "1" ]] || [[ "${LAKE_OFFLINE:-0}" == "1" ]] || [[ "${FORCE_OFFLINE:-0}" == "1" ]]; then
+    IS_OFFLINE=1
+elif [[ -n "${NIX_BUILD_TOP:-}" ]] && [[ "${PROOFWIDGETS_ALLOW_NET:-0}" != "1" ]]; then
     IS_OFFLINE=1
 fi
 
