@@ -4,24 +4,24 @@
       "name": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "checksum": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "checksum": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "checksum": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "194314c7164aa79cd30b189ef8f219f85cb5ad61f512065e2ff992410ca9cea8"
     },
     {
@@ -57,7 +57,7 @@
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "3b8eeda31f9d8dece3da0fc5412f00f11b5844e371a8c3541987deadb2f2cb11"
     },
     {
@@ -69,25 +69,25 @@
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
       "file": "UALBF/QPN/Obstruction.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "baa58ae2a1028f90061fafee1c2d9a2287d6d5de264faf4b7fc3f67c73e2243b"
     },
     {
       "name": "UALBF.QPN.BasicProperties.qpn_is_odd_square",
       "file": "UALBF/QPN/BasicProperties.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "8992defd0cff60fce435d433d20749c86bdc42ca822648993c86c1487a29abb6"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
@@ -105,7 +105,7 @@
     {
       "name": "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
       "file": "UALBF/QPN/TouchardQPN.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
     },
     {
@@ -280,7 +280,7 @@
       "name": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "checksum": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     {
       "name": "UALBF.Engine.Bipartition.coprime_multiplicative_nonlinear",
@@ -303,13 +303,13 @@
     {
       "name": "UALBF.QPN.PrasadSunitha.verify_prasad_sunitha",
       "file": "UALBF/QPN/PrasadSunitha.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "942397a7c5f9dfa712b8e5496af0d9f45923b2691ebeaf10d89e7ec244b05090"
     },
     {
       "name": "UALBF.QPN.TouchardQPN.screen_mod_8",
       "file": "UALBF/QPN/TouchardQPN.lean",
-      "status": "sorry",
+      "status": "proven",
       "checksum": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
     },
     {
@@ -334,13 +334,13 @@
       "name": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "checksum": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.proof_verify_zsigmondy_preconditions",
       "file": "UALBF/Engine/CyclotomicGraph.lean",
       "status": "proven",
-      "checksum": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "checksum": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     {
       "name": "UALBF.Pure.Arithmetic.lemma_composite_has_prime_factor_le_sqrt",
@@ -548,7 +548,7 @@
     },
     {
       "file": "UALBF/Engine/CyclotomicGraph.lean",
-      "checksum": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "checksum": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     {
       "file": "UALBF/Engine/Mod1155Bridge.lean",
@@ -651,7 +651,7 @@
     },
     "check_cdg_forced_kill": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
-      "theorem_hash": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "theorem_hash": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     "lean_abundancy_starvation_theorem": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
@@ -667,7 +667,7 @@
     },
     "is_cdg_forced_pruned": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
-      "theorem_hash": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "theorem_hash": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     "lemma_sigma_multiplicative": {
       "lean_theorem": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
@@ -711,11 +711,11 @@
     },
     "zsigmondy_preconditions_satisfied": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
-      "theorem_hash": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "theorem_hash": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     "proof_verify_zsigmondy_preconditions": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.proof_verify_zsigmondy_preconditions",
-      "theorem_hash": "66b13b5499dba7580abee7153052596e1eda1134bd46d10eded9b0d1d03a6019"
+      "theorem_hash": "98af5f79cfd707745092ef69f60071ca6dc923a1b84e4e448e0701ddff2791c9"
     },
     "lemma_composite_has_prime_factor_le_sqrt": {
       "lean_theorem": "UALBF.Pure.Arithmetic.lemma_composite_has_prime_factor_le_sqrt",
@@ -897,6 +897,6 @@
       }
     }
   ],
-  "verified_logic_hash": "08fd4f5f6d3adca04dcb953c96661900932c8ce881d2458be909f4cd3907db82",
+  "verified_logic_hash": "3e7391506aa87e674b33ef9eead8f506bb732a2c6edad7498a3a420e2426e8bb",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
