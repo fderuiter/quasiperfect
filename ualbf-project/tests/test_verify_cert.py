@@ -2567,3 +2567,90 @@ class TestReadOnlyTraceVerification:
         finally:
             os.chmod(trace_path, stat.S_IRUSR | stat.S_IWUSR)
 
+
+class TestAllowMissingSourcesOverride:
+    def test_missing_proof_file_fails_without_override(self, tmp_path):
+        manifest = {
+            "theorems": [
+                {
+                    "name": "UALBF.Pure.Arithmetic.foo",
+                    "file": "UALBF/Pure/MissingProof.lean",
+                    "status": "proven",
+                    "checksum": "abc12345",
+                }
+            ],
+            "proof_files": [
+                {
+                    "file": "UALBF/Pure/MissingProof.lean",
+                    "checksum": "abc12345",
+                }
+            ],
+        }
+
+        cert_path, manifest_path = write_files(manifest, build_cert("placeholder"))
+
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        missing_file = os.path.join(manifest_dir, "UALBF/Pure/MissingProof.lean")
+        if os.path.exists(missing_file):
+            os.remove(missing_file)
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path, allow_missing_sources=False)
+        assert exc_info.value.code == 1
+
+    def test_missing_proof_file_passes_with_allow_missing_sources_flag(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        monkeypatch.delenv("UALBF_ALLOW_MISSING_SOURCES", raising=False)
+        manifest = {
+            "theorems": [],
+            "proof_files": [
+                {
+                    "file": "UALBF/Pure/MissingProof.lean",
+                    "checksum": "abc12345",
+                }
+            ],
+        }
+
+        cert_path, manifest_path = write_files(manifest, build_cert("placeholder"))
+
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        missing_file = os.path.join(manifest_dir, "UALBF/Pure/MissingProof.lean")
+        if os.path.exists(missing_file):
+            os.remove(missing_file)
+
+        cert = verify_certificate(cert_path, manifest_path, allow_missing_sources=True)
+        assert cert is not None
+
+        captured = capsys.readouterr()
+        assert "SOURCE-LESS VERIFICATION OVERRIDE ACTIVE" in captured.out
+        assert "Physical source files are missing" in captured.out
+
+    def test_missing_proof_file_passes_with_env_var(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        monkeypatch.setenv("UALBF_ALLOW_MISSING_SOURCES", "1")
+        manifest = {
+            "theorems": [],
+            "proof_files": [
+                {
+                    "file": "UALBF/Pure/MissingProof.lean",
+                    "checksum": "abc12345",
+                }
+            ],
+        }
+
+        cert_path, manifest_path = write_files(manifest, build_cert("placeholder"))
+
+        manifest_dir = os.path.dirname(os.path.abspath(manifest_path))
+        missing_file = os.path.join(manifest_dir, "UALBF/Pure/MissingProof.lean")
+        if os.path.exists(missing_file):
+            os.remove(missing_file)
+
+        cert = verify_certificate(cert_path, manifest_path)
+        assert cert is not None
+
+        captured = capsys.readouterr()
+        assert "SOURCE-LESS VERIFICATION OVERRIDE ACTIVE" in captured.out
+
+
