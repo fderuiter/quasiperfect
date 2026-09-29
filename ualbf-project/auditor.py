@@ -427,6 +427,17 @@ def _setup_staging_workspace(host_dir, staging_dir):
         except Exception:
             pass
 
+    # Copy parent env_manifest files if present and not in staging_dir
+    for env_mf in ("env_manifest.json", "env_manifest.schema.json"):
+        parent_env_mf = os.path.abspath(os.path.join(host_dir, "..", env_mf))
+        if os.path.exists(parent_env_mf) and not os.path.exists(
+            os.path.join(staging_dir, env_mf)
+        ):
+            try:
+                shutil.copy2(parent_env_mf, os.path.join(staging_dir, env_mf))
+            except Exception:
+                pass
+
 
 def generate_manifest():
     if env_util.get_env_var("UALBF_IN_STAGING_WORKSPACE"):
@@ -1233,6 +1244,11 @@ def check_documentation(manifest):
         # 2. Try absolute repo path
         target_repo_rel = os.path.join(manifest_dir, target.lstrip("/"))
         if os.path.exists(target_repo_rel):
+            return True
+        target_parent_repo_rel = os.path.join(
+            os.path.dirname(manifest_dir), target.lstrip("/")
+        )
+        if os.path.exists(target_parent_repo_rel):
             return True
         if target.lstrip("/").startswith("ualbf-project/"):
             target_stripped = target.lstrip("/")[len("ualbf-project/") :]
