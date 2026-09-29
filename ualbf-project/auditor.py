@@ -417,16 +417,18 @@ def _setup_staging_workspace(host_dir, staging_dir):
         except Exception:
             pass
 
-    # Copy parent env_manifest.json and env_manifest.schema.json if present
-    for env_file in ["env_manifest.json", "env_manifest.schema.json"]:
-        parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
-        if not os.path.exists(parent_env):
-            parent_env = os.path.abspath(os.path.join(host_dir, env_file))
-        if os.path.exists(parent_env) and not os.path.exists(
-            os.path.join(staging_dir, env_file)
-        ):
+    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
+    for env_f in ("env_manifest.json", "env_manifest.schema.json"):
+        candidates = [
+            os.path.abspath(os.path.join(host_dir, env_f)),
+            os.path.abspath(os.path.join(host_dir, "..", env_f)),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), env_f)),
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", env_f)),
+        ]
+        parent_env = next((c for c in candidates if os.path.exists(c)), None)
+        if parent_env and not os.path.exists(os.path.join(staging_dir, env_f)):
             try:
-                shutil.copy2(parent_env, os.path.join(staging_dir, env_file))
+                shutil.copy2(parent_env, os.path.join(staging_dir, env_f))
             except Exception:
                 pass
 
@@ -1458,8 +1460,9 @@ def _generate_manifest_impl():
         sys.exit(1)
 
 
-def check_documentation(manifest):
-    repo_root = get_repo_root()
+def check_documentation(manifest, repo_root=None):
+    if repo_root is None:
+        repo_root = get_repo_root()
 
     cand_staging = os.path.join(repo_root, "docs_manifest.json")
     cand_parent = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
@@ -1845,7 +1848,9 @@ def check_documentation(manifest):
                         and sym not in ignore_symbols
                         and sym.lower() not in ignore_symbols
                     ):
-                        if re.search(r"\b" + re.escape(sym) + r"\b", line_no_bt):
+                        if sym in line_no_bt and re.search(
+                            r"\b" + re.escape(sym) + r"\b", line_no_bt
+                        ):
                             errors.append(
                                 f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Static unquoted symbol reference detected (must use backticks): '{sym}'"
                             )

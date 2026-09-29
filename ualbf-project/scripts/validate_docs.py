@@ -434,7 +434,7 @@ STANDARD_ENV_VARS = {
 class EnvVarASTVisitor(ast.NodeVisitor):
     def __init__(self, filename: str):
         self.filename = filename
-        self.env_vars = []  # (lineno, var_name)
+        self.env_vars: list[tuple[int, str]] = []  # (lineno, var_name)
 
     def visit_Subscript(self, node: ast.Subscript):
         if isinstance(node.value, ast.Attribute) and isinstance(
@@ -501,13 +501,9 @@ class EnvVarASTVisitor(ast.NodeVisitor):
 
     def visit_Compare(self, node: ast.Compare):
         if len(node.ops) == 1 and isinstance(node.ops[0], (ast.In, ast.NotIn)):
-            if isinstance(node.left, ast.Constant) and isinstance(
-                node.left.value, str
-            ):
+            if isinstance(node.left, ast.Constant) and isinstance(node.left.value, str):
                 comp = node.comparators[0]
-                if isinstance(comp, ast.Attribute) and isinstance(
-                    comp.value, ast.Name
-                ):
+                if isinstance(comp, ast.Attribute) and isinstance(comp.value, ast.Name):
                     if comp.value.id == "os" and comp.attr == "environ":
                         self.env_vars.append((node.lineno, node.left.value))
         self.generic_visit(node)
@@ -539,7 +535,9 @@ def validate_env_manifest(repo_root: str) -> bool:
     try:
         env_util.load_manifest_and_schema(manifest_path, schema_path)
     except Exception as e:
-        print(f"Error validating env_manifest.json against schema: {e}", file=sys.stderr)
+        print(
+            f"Error validating env_manifest.json against schema: {e}", file=sys.stderr
+        )
         return False
 
     return True
@@ -594,11 +592,18 @@ def validate_env_vars(repo_root: str) -> bool:
             if not file.endswith(".py"):
                 continue
             # Skip test files and env_util.py itself
-            if file.startswith("test_") or file.endswith("_test.py") or file in ("env_util.py",):
+            if (
+                file.startswith("test_")
+                or file.endswith("_test.py")
+                or file in ("env_util.py",)
+            ):
                 continue
 
             rel_file = os.path.relpath(os.path.join(root_dir, file), repo_root)
-            if any(part in exclude_dirs or part == "tests" for part in rel_file.split(os.sep)):
+            if any(
+                part in exclude_dirs or part == "tests"
+                for part in rel_file.split(os.sep)
+            ):
                 continue
 
             full_path = os.path.join(root_dir, file)
@@ -610,7 +615,10 @@ def validate_env_vars(repo_root: str) -> bool:
                 visitor.visit(tree)
 
                 for line_no, var_name in visitor.env_vars:
-                    if var_name not in registered_vars and var_name not in STANDARD_ENV_VARS:
+                    if (
+                        var_name not in registered_vars
+                        and var_name not in STANDARD_ENV_VARS
+                    ):
                         unregistered_findings.append((rel_file, line_no, var_name))
             except Exception:
                 pass
@@ -621,7 +629,10 @@ def validate_env_vars(repo_root: str) -> bool:
             file=sys.stderr,
         )
         for rel_f, line_no, var_name in unregistered_findings:
-            print(f"  - {rel_f}:{line_no}: Unregistered environment variable '{var_name}'", file=sys.stderr)
+            print(
+                f"  - {rel_f}:{line_no}: Unregistered environment variable '{var_name}'",
+                file=sys.stderr,
+            )
         print(
             "\nRemedy: Register missing environment variables in env_manifest.json and document active ones in TCB.md / README.md.",
             file=sys.stderr,
@@ -681,6 +692,51 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
         return False
 
     return True
+
+
+def validate_auditor_doc_checks(repo_root: str) -> bool:
+    """
+    Perform auditor documentation checks against proof_manifest.json, verifying backticked
+    code symbols, unquoted static symbols, and Lean theorem proof statuses in authoritative documentation.
+    """
+    proof_manifest_path = os.path.join(repo_root, "proof_manifest.json")
+    if not os.path.exists(proof_manifest_path):
+        proof_manifest_path = os.path.join(
+            repo_root, "ualbf-project", "proof_manifest.json"
+        )
+
+    if not os.path.exists(proof_manifest_path):
+        print(
+            f"Warning: proof_manifest.json not found at {proof_manifest_path}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    try:
+        with open(proof_manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as e:
+        print(
+            f"Warning: Failed to load proof_manifest.json: {e}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    ualbf_project_dir = os.path.dirname(scripts_dir)
+    if ualbf_project_dir not in sys.path:
+        sys.path.insert(0, ualbf_project_dir)
+
+    try:
+        import auditor
+
+        return auditor.check_documentation(manifest, repo_root=repo_root)
+    except Exception as e:
+        print(
+            f"Error executing auditor documentation verification: {e}",
+            file=sys.stderr,
+        )
+        return False
 
 
 def main():
@@ -785,6 +841,11 @@ def main():
     registered_files = list(manifest.keys())
     if not validate_markdown_links(repo_root, registered_files):
         print("Documentation link/anchor validation failed.", file=sys.stderr)
+        sys.exit(1)
+
+    # Perform auditor documentation verification against proof_manifest.json
+    if not validate_auditor_doc_checks(repo_root):
+        print("Auditor documentation verification failed.", file=sys.stderr)
         sys.exit(1)
 
     # Run tuning guide parameter validation against bounds and profile manifests
