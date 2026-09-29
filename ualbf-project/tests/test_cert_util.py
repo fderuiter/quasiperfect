@@ -582,7 +582,9 @@ class TestVerifyManifestChainAndVerusHelpers:
         bounds_file = tmp_path / "bounds.json"
         bounds_file.write_text("{}", encoding="utf-8")
 
-        with pytest.raises(CertificateValidationError, match="Proof manifest .* not found"):
+        with pytest.raises(
+            CertificateValidationError, match="Proof manifest .* not found"
+        ):
             cert_util.verify_manifest_chain({}, str(missing_proof), str(bounds_file))
 
     def test_verify_manifest_chain_mismatched_manifest_hash(self, tmp_path):
@@ -602,12 +604,16 @@ class TestVerifyManifestChainAndVerusHelpers:
         bounds_file.write_text('{"real": "data"}', encoding="utf-8")
 
         proof_file = tmp_path / "proof.json"
-        proof_file.write_text('{"bounds_manifest_hash": "wrong_bounds_hash"}', encoding="utf-8")
+        proof_file.write_text(
+            '{"bounds_manifest_hash": "wrong_bounds_hash"}', encoding="utf-8"
+        )
 
         cert_hash = hashlib.sha256(proof_file.read_bytes()).hexdigest()
         cert = {"manifest_hash": cert_hash}
 
-        with pytest.raises(CertificateValidationError, match="Bounds manifest hash mismatch"):
+        with pytest.raises(
+            CertificateValidationError, match="Bounds manifest hash mismatch"
+        ):
             cert_util.verify_manifest_chain(cert, str(proof_file), str(bounds_file))
 
     def test_get_verus_proof_hashes(self, tmp_path):
@@ -615,10 +621,14 @@ class TestVerifyManifestChainAndVerusHelpers:
         rust_dir.mkdir()
 
         verus_proofs = rust_dir / "verus_proofs.rs"
-        verus_proofs.write_text("pub fn test_proof() {\n    let a = 1;\n}\n", encoding="utf-8")
+        verus_proofs.write_text(
+            "pub fn test_proof() {\n    let a = 1;\n}\n", encoding="utf-8"
+        )
 
         lean_export = rust_dir / "lean_export.rs"
-        lean_export.write_text("pub spec fn test_export() -> bool {\n    true\n}\n", encoding="utf-8")
+        lean_export.write_text(
+            "pub spec fn test_export() -> bool {\n    true\n}\n", encoding="utf-8"
+        )
 
         hashes = cert_util.get_verus_proof_hashes(str(rust_dir))
         assert "test_proof" in hashes
@@ -648,7 +658,9 @@ class TestVerifyManifestChainAndVerusHelpers:
         thm["checksum"] = expected
 
         # Explicit flag
-        assert cert_util.verify_theorem_checksum(thm, allow_missing_sources=True) is True
+        assert (
+            cert_util.verify_theorem_checksum(thm, allow_missing_sources=True) is True
+        )
 
         # Environment variable override
         monkeypatch.setenv("UALBF_ALLOW_MISSING_SOURCES", "1")
@@ -730,7 +742,8 @@ class TestVerifyMetaCertificateEnvelope:
         meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
         del meta_cert[missing_key]
         with pytest.raises(
-            CertificateValidationError, match=f"missing required top-level key '{missing_key}'"
+            CertificateValidationError,
+            match=f"missing required top-level key '{missing_key}'",
         ):
             cert_util.verify_meta_certificate_envelope(
                 meta_cert, manifest_path, verified_leaves
@@ -783,14 +796,14 @@ class TestVerifyMetaCertificateEnvelope:
         with pytest.raises(
             CertificateValidationError, match="empty leaf certificate array"
         ):
-            cert_util.verify_meta_certificate_envelope(
-                meta_cert, manifest_path, []
-            )
+            cert_util.verify_meta_certificate_envelope(meta_cert, manifest_path, [])
 
     def test_total_nodes_mismatch_raises(self, tmp_path):
         meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
         meta_cert["total_nodes"] = 99
-        with pytest.raises(CertificateValidationError, match="total_nodes .* does not match"):
+        with pytest.raises(
+            CertificateValidationError, match="total_nodes .* does not match"
+        ):
             cert_util.verify_meta_certificate_envelope(
                 meta_cert, manifest_path, verified_leaves
             )
@@ -799,7 +812,8 @@ class TestVerifyMetaCertificateEnvelope:
         meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
         meta_cert["aggregated_signatures"] = ["sig_leaf_1"]
         with pytest.raises(
-            CertificateValidationError, match="aggregated_signatures length .* does not match"
+            CertificateValidationError,
+            match="aggregated_signatures length .* does not match",
         ):
             cert_util.verify_meta_certificate_envelope(
                 meta_cert, manifest_path, verified_leaves
@@ -809,7 +823,8 @@ class TestVerifyMetaCertificateEnvelope:
         meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
         meta_cert["aggregated_signatures"] = ["sig_leaf_1", "WRONG_SIG"]
         with pytest.raises(
-            CertificateValidationError, match="does not match leaf certificate signature"
+            CertificateValidationError,
+            match="does not match leaf certificate signature",
         ):
             cert_util.verify_meta_certificate_envelope(
                 meta_cert, manifest_path, verified_leaves
@@ -834,7 +849,8 @@ class TestVerifyMetaCertificateEnvelope:
         meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
         meta_cert["telemetry"][field] = tampered_val
         with pytest.raises(
-            CertificateValidationError, match=f"Top-level telemetry field '{field}' mismatch"
+            CertificateValidationError,
+            match=f"Top-level telemetry field '{field}' mismatch",
         ):
             cert_util.verify_meta_certificate_envelope(
                 meta_cert, manifest_path, verified_leaves
@@ -868,5 +884,3 @@ class TestVerifyMetaCertificateEnvelope:
                 meta_cert, manifest_path, verified_leaves
             )
         assert exc_info.value.code == 1
-
-

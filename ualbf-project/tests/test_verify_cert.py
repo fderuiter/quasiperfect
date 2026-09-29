@@ -2564,13 +2564,14 @@ class TestMetaCertificateRecursionLimit:
             ), mock.patch("verify_cert.verify_telemetry_paths"), mock.patch(
                 "verify_cert.check_continuity"
             ):
-                with pytest.raises(CertificateValidationError, match="meta_manifest_hash mismatch"):
+                with pytest.raises(
+                    CertificateValidationError, match="meta_manifest_hash mismatch"
+                ):
                     verify_meta_certificate(
                         current_node, manifest_path, current_depth=0
                     )
         finally:
             os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
-
 
 
 import stat
