@@ -932,8 +932,19 @@ def _generate_manifest_impl():
             possible_rel = "/".join(parts[:i]) + ".lean"
             possible_path = os.path.join(cwd, possible_rel)
             if os.path.exists(possible_path):
-                found_file = possible_rel
-                break
+                try:
+                    with open(possible_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    if re.search(
+                        r"\b(theorem|def|class|structure|lemma)\s+"
+                        + re.escape(short_name)
+                        + r"\b",
+                        content,
+                    ):
+                        found_file = possible_rel
+                        break
+                except Exception:
+                    pass
 
         if not found_file or found_file == "UALBF.lean":
             for pf in disk_proof_files:
