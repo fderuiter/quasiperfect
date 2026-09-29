@@ -184,13 +184,19 @@
       "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
       "file": "UALBF/Pure/ABCConjecture.lean",
       "status": "proven",
-      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
+      "checksum": "81c526c6dbbcbd0d0d7fbb779527ee580455cae272534dc7fbc9a35f974ef232"
     },
     {
-      "name": "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
+      "name": "UALBF.Pure.ABCConjecture.conjectural_ceiling_size_exclusion",
       "file": "UALBF/Pure/ABCConjecture.lean",
       "status": "proven",
-      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
+      "checksum": "81c526c6dbbcbd0d0d7fbb779527ee580455cae272534dc7fbc9a35f974ef232"
+    },
+    {
+      "name": "UALBF.QPN.ABCConjecture.qpn_conjectural_pruning_sound",
+      "file": "UALBF/QPN/ABCConjecture.lean",
+      "status": "proven",
+      "checksum": "a16c610aa78bc8825751f49651c91490957cde2c67aab97b18bf16c5536958a2"
     },
     {
       "name": "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
@@ -592,7 +598,7 @@
     },
     {
       "file": "UALBF/Pure/ABCConjecture.lean",
-      "checksum": "ceca6e9a635330701875daedbd3ef20eab127531cb72115e2959e1d20b23b74a"
+      "checksum": "81c526c6dbbcbd0d0d7fbb779527ee580455cae272534dc7fbc9a35f974ef232"
     },
     {
       "file": "UALBF/Pure/Arithmetic.lean",
@@ -641,6 +647,10 @@
     {
       "file": "UALBF/QPN/TouchardQPN.lean",
       "checksum": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
+    },
+    {
+      "file": "UALBF/QPN/ABCConjecture.lean",
+      "checksum": "a16c610aa78bc8825751f49651c91490957cde2c67aab97b18bf16c5536958a2"
     }
   ],
   "bounds_manifest_hash": "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df",
