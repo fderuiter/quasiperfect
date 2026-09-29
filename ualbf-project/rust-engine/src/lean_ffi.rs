@@ -227,7 +227,7 @@ pub fn alloc_u512(data: crate::lean_ffi::U512Data) -> *mut lean_object {
 }
 
 pub fn get_u512_ptr(obj: *mut lean_object) -> Option<&'static crate::lean_ffi::U512Data> {
-    if obj.is_null() {
+    if obj.is_null() || unsafe { rs_lean_is_scalar(obj) } {
         return None;
     }
     initialize_lean_runtime();
@@ -1231,6 +1231,56 @@ mod tests {
             let thread_hash = h.join().expect("Thread panicked");
             assert_eq!(thread_hash, hash1);
         }
+    }
+
+    #[test]
+    fn test_get_u512_ptr_scalar_and_null_safety() {
+        setup();
+
+        // 1. Null pointer
+        let null_obj: *mut lean_object = std::ptr::null_mut();
+        assert_eq!(get_u512_ptr(null_obj), None);
+        assert_eq!(rust_u512_get_w0(null_obj), 0);
+        assert_eq!(rust_u512_get_w1(null_obj), 0);
+        assert_eq!(rust_u512_get_w2(null_obj), 0);
+        assert_eq!(rust_u512_get_w3(null_obj), 0);
+        assert_eq!(rust_u512_get_w4(null_obj), 0);
+        assert_eq!(rust_u512_get_w5(null_obj), 0);
+        assert_eq!(rust_u512_get_w6(null_obj), 0);
+        assert_eq!(rust_u512_get_w7(null_obj), 0);
+
+        // 2. Scalar handles (lean_box(0) == 1, tagged scalars with LSB set)
+        let scalar_obj_0: *mut lean_object = 1 as *mut lean_object;
+        assert_eq!(get_u512_ptr(scalar_obj_0), None);
+        assert_eq!(rust_u512_get_w0(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w1(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w2(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w3(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w4(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w5(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w6(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w7(scalar_obj_0), 0);
+
+        let scalar_obj_42: *mut lean_object = ((42 << 1) | 1) as *mut lean_object;
+        assert_eq!(get_u512_ptr(scalar_obj_42), None);
+        assert_eq!(rust_u512_get_w0(scalar_obj_42), 0);
+        assert_eq!(rust_u512_get_w7(scalar_obj_42), 0);
+
+        // 3. Valid allocated U512 object
+        let data: crate::lean_ffi::U512Data = [10, 20, 30, 40, 50, 60, 70, 80];
+        let valid_obj = alloc_u512(data);
+        assert!(valid_obj != std::ptr::null_mut());
+        let ptr_res = get_u512_ptr(valid_obj);
+        assert_eq!(ptr_res, Some(&data));
+
+        assert_eq!(rust_u512_get_w0(valid_obj), 10);
+        assert_eq!(rust_u512_get_w1(valid_obj), 20);
+        assert_eq!(rust_u512_get_w2(valid_obj), 30);
+        assert_eq!(rust_u512_get_w3(valid_obj), 40);
+        assert_eq!(rust_u512_get_w4(valid_obj), 50);
+        assert_eq!(rust_u512_get_w5(valid_obj), 60);
+        assert_eq!(rust_u512_get_w6(valid_obj), 70);
+        assert_eq!(rust_u512_get_w7(valid_obj), 80);
     }
 }
 
