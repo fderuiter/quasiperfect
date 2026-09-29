@@ -436,9 +436,12 @@ DEFAULT_MAX_CERT_SIZE_MB = 10.0
 
 def get_max_cert_size_bytes() -> int:
     """Returns the maximum allowed certificate file size in bytes based on UALBF_MAX_CERT_SIZE_MB."""
-    val = env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB", DEFAULT_MAX_CERT_SIZE_MB)
-    if isinstance(val, (int, float)) and val > 0:
-        return int(val * 1024 * 1024)
+    try:
+        val = env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB", DEFAULT_MAX_CERT_SIZE_MB)
+        if isinstance(val, (int, float)) and val > 0:
+            return int(val * 1024 * 1024)
+    except (ValueError, TypeError):
+        pass
     return int(DEFAULT_MAX_CERT_SIZE_MB * 1024 * 1024)
 
 
