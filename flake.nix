@@ -339,7 +339,7 @@
                 let 
                   p = toString path;
                 in
-                  builtins.match ".*(scripts.*|rust-engine.*|env_manifest.*|docs_manifest.*)$" p != null || type == "directory";
+                  builtins.match ".*(scripts.*|rust-engine.*|lean4-proofs.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest.*|docs_manifest.*)$" p != null || type == "directory";
             };
             sourceRoot = "source/ualbf-project";
 
