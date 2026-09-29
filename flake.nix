@@ -159,7 +159,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-JzoxPKsQ9uNNlHZo9dbhpo63MWjfOoCWbYLhVZV1LCk=";
+          outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -362,6 +362,8 @@
             buildPhase = ''
               export HOME=$TMPDIR
               cd ualbf-project
+              cp -f ${./env_manifest.json} ./env_manifest.json
+              cp -f ${./env_manifest.schema.json} ./env_manifest.schema.json
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
