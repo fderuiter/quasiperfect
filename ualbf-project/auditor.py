@@ -936,7 +936,7 @@ def _generate_manifest_impl():
                     with open(possible_path, "r", encoding="utf-8") as f:
                         content = f.read()
                     if re.search(
-                        r"\b(theorem|def|class|structure|lemma)\s+"
+                        r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
                         + re.escape(short_name)
                         + r"\b",
                         content,
@@ -954,7 +954,7 @@ def _generate_manifest_impl():
                         with open(pf_path, "r", encoding="utf-8") as f:
                             content = f.read()
                         if re.search(
-                            r"\b(theorem|def|class|structure|lemma)\s+"
+                            r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
                             + re.escape(short_name)
                             + r"\b",
                             content,
