@@ -469,45 +469,6 @@ def _setup_staging_workspace(host_dir, staging_dir):
                     except Exception:
                         pass
 
-    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
-    for env_file in ("env_manifest.json", "env_manifest.schema.json"):
-        parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
-        if not os.path.exists(parent_env):
-            parent_env = os.path.abspath(os.path.join(host_dir, env_file))
-        if os.path.exists(parent_env) and not os.path.exists(
-            os.path.join(staging_dir, env_file)
-        ):
-            try:
-                shutil.copy2(parent_env, os.path.join(staging_dir, env_file))
-            except Exception:
-                pass
-
-    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
-    for env_fname in ("env_manifest.json", "env_manifest.schema.json"):
-        parent_env_file = os.path.abspath(os.path.join(host_dir, "..", env_fname))
-        if not os.path.exists(parent_env_file):
-            parent_env_file = os.path.abspath(os.path.join(host_dir, env_fname))
-        if os.path.exists(parent_env_file) and not os.path.exists(
-            os.path.join(staging_dir, env_fname)
-        ):
-            try:
-                shutil.copy2(parent_env_file, os.path.join(staging_dir, env_fname))
-            except Exception:
-                pass
-
-    # Copy parent env_manifest.json and env_manifest.schema.json if present and not in staging_dir
-    for extra_file in ("env_manifest.json", "env_manifest.schema.json"):
-        parent_extra = os.path.abspath(os.path.join(host_dir, "..", extra_file))
-        if not os.path.exists(parent_extra):
-            parent_extra = os.path.abspath(os.path.join(host_dir, extra_file))
-        if os.path.exists(parent_extra) and not os.path.exists(
-            os.path.join(staging_dir, extra_file)
-        ):
-            try:
-                shutil.copy2(parent_extra, os.path.join(staging_dir, extra_file))
-            except Exception:
-                pass
-
 
 def generate_manifest():
     if env_util.get_env_var("UALBF_IN_STAGING_WORKSPACE"):

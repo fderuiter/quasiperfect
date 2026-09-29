@@ -818,7 +818,7 @@ mod additional_tests {
             factors: vec![2, 3],
             sigma_factors: vec![Uint::from_u32(13)],
             sigma_factors_u64: vec![13],
-            active_mask: vec![1],
+            active_mask: vec![1].into(),
             sigma_mod24: 13,
         };
 

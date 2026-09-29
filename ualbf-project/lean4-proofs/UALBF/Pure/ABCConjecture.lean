@@ -1,6 +1,8 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.Data.Rat.Defs
 import Mathlib.Tactic.Linarith
+import Mathlib.Data.Nat.PrimeFin
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 
 namespace UALBF.Pure.ABCConjecture
 

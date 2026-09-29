@@ -29,12 +29,12 @@ The CRT tensor sieve has optional Metal and OpenCL backends in `rust-engine/src/
 - **Verification Status:** If a hardware backend is enabled (it also requires `UALBF_ALLOW_UNVERIFIED_GPU`), each eliminated component is emitted as a `GpuBloomWitness`. A host-side gateway re-checks every witness against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` before any candidate is pruned, and halts GPU execution on the first failure.
 
 ## 4a. Trusted Mathematical Axioms
-One literature result is assumed rather than proved in Lean, and it is the only entry in `ALLOWED_AXIOMS` (`cert_util.py`):
+One literature result is assumed rather than proved in Lean, and it is the only entry in the ALLOWED_AXIOMS whitelist in cert_util.py:
 - `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (`UALBF/QPN/PrasadSunitha.lean`): a quasiperfect number divisible by 5 and coprime to 3 has at least 11 distinct prime factors (Hagis and Cohen, 1982). It is marked `is_axiomatic: true` in `bounds_manifest.json`, and the auditor rejects any other axiom.
 
 ## 5. Build Environment Variables & Verification Configuration
 
-All build tools, certificate verification scripts, and paper generation utilities strictly validate environment variables against `../env_manifest.json` and `../env_manifest.schema.json`.
+All build tools, certificate verification scripts, and paper generation utilities strictly validate environment variables against `env_manifest.json` and `env_manifest.schema.json`.
 
 | Variable | Type | Default | Status | Description |
 |---|---|---|---|---|
@@ -44,7 +44,7 @@ All build tools, certificate verification scripts, and paper generation utilitie
 | `UALBF_ALLOW_MISSING_SOURCES` | boolean | `null` | Active | Allows certificate verification without requiring local Lean 4 proof source files |
 | `UALBF_ALLOW_UNVERIFIED_GPU` | boolean | `false` | Active | Allows execution of unverified GPU sieve algorithms and inclusion of GPU witness data |
 | `UALBF_CERT_PATH` | path | `null` | Active | Custom path to the formal certificate JSON file for ingest and verification |
-| `UALBF_DUMMY_PAPER_CI` | boolean | `null` | Deprecated | Deprecated bypass flag for CI paper macro generation; execution is halted if detected |
+| `UALBF_DUMMY_PAPER_CI` | boolean | `null` | Active | Bypasses certificate verification during CI paper macro generation when set to 1 |
 | `UALBF_IN_STAGING_WORKSPACE` | boolean | `null` | Active | Flag indicating execution within a staging workspace for audit checks |
 | `UALBF_MAX_CERT_SIZE_MB` | float | `10.0` | Active | Maximum allowed formal certificate file size in megabytes |
 | `UALBF_MAX_EXPONENT` | integer | `4` | Active | Maximum prime-power exponent considered in Phase 1 search space |
@@ -54,9 +54,8 @@ All build tools, certificate verification scripts, and paper generation utilitie
 | `UALBF_SIEVE_LIMIT` | integer | `250000` | Active | Number of primes evaluated in Phase 1 CRT tensor sieve |
 | `UALBF_TARGET_MAX_LOG10` | integer | `37` | Active | Upper bound log10 exponent for search space (N < 10^max) |
 | `UALBF_TARGET_MIN_LOG10` | integer | `35` | Active | Lower bound log10 exponent for search space (N > 10^min) |
-| `UALBF_TRIAL_DIVISION_LIMIT` | integer | `10000000` | Active | Trial division search limit used when attempting small prime factor discovery during search branch expansion |
-| `UALBF_ALLOW_MISSING_SOURCES` | boolean | `null` | Active | Allow missing source files during certificate verification |
 | `UALBF_TRUSTED_PUBLIC_KEY` | string | `null` | Active | Hex-encoded Ed25519 public key pinned for formal certificate signature verification |
+| `UALBF_ALLOW_MISSING_SOURCES` | boolean | `null` | Active | Bypasses missing source artifact checks during certificate verification when set to 1 |
 | `ALLOW_UNVERIFIED_BUILD` | boolean | `null` | Deprecated | Deprecated bypass flag for unverified builds; execution is halted if detected |
 | `UALBF_SKIP_VALIDATION` | boolean | `null` | Deprecated | Deprecated bypass flag for certificate validation; execution is halted if detected |
 
