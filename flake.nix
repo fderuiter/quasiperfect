@@ -361,6 +361,7 @@
             ];
 
             buildPhase = ''
+              cd ualbf-project
               export HOME=$TMPDIR
               cd ualbf-project
               echo "Setting up verification-lib..."
