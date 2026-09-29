@@ -236,4 +236,49 @@ mod tests {
         assert!(!transport_nonempty.sigma_factors.is_null());
         assert_eq!(transport_nonempty.sigma_factors_len, 1);
     }
+
+    #[test]
+    fn test_bitset_methods() {
+        let bs_empty = BitSet::new();
+        assert!(bs_empty.is_empty());
+        assert_eq!(bs_empty.len(), 0);
+
+        let mut bs_cap = BitSet::with_capacity(16);
+        assert!(bs_cap.is_empty());
+        assert_eq!(bs_cap.len(), 0);
+
+        let mut bs = BitSet::from_blocks(vec![0b1111, 0b1010]);
+        assert!(!bs.is_empty());
+        assert_eq!(bs.len(), 2);
+
+        assert!(!bs.as_ptr().is_null());
+        assert!(!bs.as_mut_ptr().is_null());
+
+        // Deref & DerefMut
+        assert_eq!(bs[0], 0b1111);
+        bs[0] = 0b1100;
+        assert_eq!(bs[0], 0b1100);
+
+        // Conversions
+        let vec_blocks: Vec<u64> = vec![1, 2, 3];
+        let bs_converted: BitSet = vec_blocks.into();
+        assert_eq!(bs_converted.len(), 3);
+        let back_vec: Vec<u64> = bs_converted.into();
+        assert_eq!(back_vec, vec![1, 2, 3]);
+
+        // Prefix capture_state
+        let prefix = Prefix {
+            n_l: Uint::from_u64(10),
+            s_l: Uint::from_u64(20),
+            last_idx: 1,
+            factors: vec![3],
+            sigma_factors: vec![Uint::from_u64(4)],
+            sigma_factors_u64: vec![4],
+            active_mask: BitSet::from_blocks(vec![0b111]),
+            sigma_mod24: 0,
+        };
+        let snap = prefix.capture_state();
+        assert_eq!(snap.n_l, Uint::from_u64(10));
+        assert!(snap.active_mask_diff.is_empty());
+    }
 }

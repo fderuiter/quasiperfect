@@ -3009,6 +3009,43 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn test_dfs_context_ref_methods() {
+        let comps = vec![];
+        let mut curr = make_prefix(25, 27, 4);
+        curr.active_mask = vec![0b1111].into();
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = Uint::from_u64(1000),
+            max_idx_3 = usize::MAX,
+            max_idx_5 = usize::MAX,
+            saved_states = vec![],
+            |ptr| {
+                let mut ctx_ref = DfsContextRef::from_handle(ptr).expect("Valid handle");
+                assert_eq!(ctx_ref.last_idx(), 4);
+                assert_eq!(ctx_ref.n_l(), Uint::from_u64(25));
+                assert_eq!(ctx_ref.s_l(), Uint::from_u64(27));
+                assert_eq!(ctx_ref.factors(), &[] as &[u64]);
+                assert_eq!(ctx_ref.saved_states_len(), 0);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b1111]);
+
+                let mut diff = smallvec::SmallVec::new();
+                ctx_ref.intersect_bit_set(&[0b0011], &mut diff);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b0011]);
+
+                ctx_ref.undo_intersect_bit_set(&diff);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b1111]);
+
+                let _mut_ref = ctx_ref.bit_set_mut();
+                let _ref_back = ctx_ref.get_ref();
+            }
+        );
+
+        let limit = get_conjectural_limit();
+        assert!(limit > Uint::from_u64(0));
+    }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static CONJECTURAL_LIMIT: std::sync::OnceLock<Uint> = std::sync::OnceLock::new();
