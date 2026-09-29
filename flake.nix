@@ -358,7 +358,6 @@
                 in
                   builtins.match ".*(ualbf-project.*|env_manifest.*)$" p != null || type == "directory";
             };
-            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ 
               pkgs.python3 
