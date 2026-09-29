@@ -28,7 +28,6 @@ if paper_dir not in sys.path:
 
 import env_util  # noqa: E402
 import cert_util  # noqa: E402
-import env_util  # noqa: E402
 import hash_util  # noqa: E402
 import ingest_cert  # noqa: E402
 import validate_paper  # noqa: E402
@@ -117,10 +116,26 @@ def verify_paper_macro_sync(
     telemetry_path = os.path.join(paper_directory, "telemetry.tex")
     verification_path = os.path.join(paper_directory, "verification_manifest.tex")
 
-    # Ensure TeX macro files exist on disk in paper directory
-    if not os.path.exists(telemetry_path) or not os.path.exists(verification_path):
-        print("LaTeX macro files not found on disk. Generating paper TeX macros...")
-        generate_paper_macros(manifest_path, bounds_path, paper_directory)
+    if not os.path.exists(telemetry_path):
+        print(f"Error: telemetry.tex not found at {telemetry_path}")
+        return False
+    if not os.path.exists(verification_path):
+        print(f"Error: verification_manifest.tex not found at {verification_path}")
+        return False
+
+    # Generate expected macros in a temporary directory to verify on-disk files without mutating workspace
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        generate_paper_macros(manifest_path, bounds_path, tmp_dir)
+        with open(
+            os.path.join(tmp_dir, "telemetry.tex"), "r", encoding="utf-8"
+        ) as f:
+            expected_telemetry = f.read()
+        with open(
+            os.path.join(tmp_dir, "verification_manifest.tex"),
+            "r",
+            encoding="utf-8",
+        ) as f:
+            expected_verification = f.read()
 
     # Read on-disk TeX macro files
     with open(telemetry_path, "r", encoding="utf-8") as f:
@@ -132,6 +147,15 @@ def verify_paper_macro_sync(
     disk_macros = parse_tex_macros(on_disk_telemetry)
     manifest_data = cert_util.BoundedJSONLoader().load_file(manifest_path)
     mismatches = []
+
+    if on_disk_telemetry != expected_telemetry:
+        mismatches.append(
+            f"telemetry.tex at {telemetry_path} differs from expected macros generated from {manifest_path}."
+        )
+    if on_disk_verification != expected_verification:
+        mismatches.append(
+            f"verification_manifest.tex at {verification_path} differs from expected macros generated from {manifest_path}."
+        )
 
     # Verify theorems
     for thm in manifest_data.get("theorems", []):
@@ -223,6 +247,13 @@ def verify_manuscript_prose_compliance(
 
 def main() -> None:
     """Main CLI entrypoint."""
+    if "--update" in sys.argv:
+        manifest_path = os.path.join(project_root, "proof_manifest.json")
+        bounds_path = os.path.join(project_root, "bounds_manifest.json")
+        print("Generating paper TeX macros on disk...")
+        generate_paper_macros(manifest_path, bounds_path, paper_dir)
+        print("Paper TeX macros generated successfully.")
+
     tests_ok = run_paper_unit_tests()
     if not tests_ok:
         print("\n[FAIL] Paper unit tests failed!")
