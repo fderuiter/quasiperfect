@@ -5,7 +5,20 @@ use std::collections::HashMap;
 /// Computes the product of `a` and `b` modulo `m` without overflowing `u128`.
 pub fn mul_mod_u128(a: u128, b: u128, m: u128) -> u128 {
     assert!(m > 0, "m must be greater than 0");
-    ((a % m) * (b % m)) % m
+    if m == 1 {
+        return 0;
+    }
+    let a_mod = a % m;
+    let b_mod = b % m;
+    if let Some(prod) = a_mod.checked_mul(b_mod) {
+        return prod % m;
+    }
+
+    let a_256 = <bnum::types::U256 as bnum::cast::CastFrom<u128>>::cast_from(a_mod);
+    let b_256 = <bnum::types::U256 as bnum::cast::CastFrom<u128>>::cast_from(b_mod);
+    let m_256 = <bnum::types::U256 as bnum::cast::CastFrom<u128>>::cast_from(m);
+    let res_256 = (a_256 * b_256) % m_256;
+    <u128 as bnum::cast::CastFrom<bnum::types::U256>>::cast_from(res_256)
 }
 
 /// Compute modular exponentiation: base^exp modulo m.
