@@ -624,7 +624,7 @@ class TestVerifyManifestChainAndVerusHelpers:
         assert "test_proof" in hashes
         assert "test_export" in hashes
 
-    def test_verify_theorem_checksum_metadata_fallback(self, tmp_path):
+    def test_verify_theorem_checksum_missing_file_default(self):
         thm = {
             "name": "UALBF.Test.theorem_1",
             "file": "NonExistent.lean",
@@ -634,5 +634,23 @@ class TestVerifyManifestChainAndVerusHelpers:
         expected = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         thm["checksum"] = expected
 
+        # Under default settings, missing physical proof file returns False
+        assert cert_util.verify_theorem_checksum(thm) is False
+
+    def test_verify_theorem_checksum_metadata_fallback(self, monkeypatch):
+        thm = {
+            "name": "UALBF.Test.theorem_1",
+            "file": "NonExistent.lean",
+            "status": "proven",
+        }
+        payload = f"{thm['name']}|{thm['file']}|{thm['status']}"
+        expected = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        thm["checksum"] = expected
+
+        # Explicit flag
+        assert cert_util.verify_theorem_checksum(thm, allow_missing_sources=True) is True
+
+        # Environment variable override
+        monkeypatch.setenv("UALBF_ALLOW_MISSING_SOURCES", "1")
         assert cert_util.verify_theorem_checksum(thm) is True
 
