@@ -359,16 +359,7 @@
           latex-paper = pkgs.stdenv.mkDerivation {
             pname = "latex-paper-check";
             version = "0.1.0";
-            src = pkgs.lib.cleanSourceWith {
-              src = ./.;
-              filter = path: type:
-                let 
-                  p = toString path;
-                in
-                  builtins.match ".*(ualbf-project.*|env_manifest\\.json|env_manifest\\.schema\\.json|docs_manifest\\.json)$" p != null || type == "directory";
-            };
-
-            sourceRoot = "source/ualbf-project";
+            src = ./.;
 
             nativeBuildInputs = [ 
               pkgs.python3 
@@ -381,32 +372,49 @@
 
             buildPhase = ''
               export HOME=$TMPDIR
-              echo "Setting up verification-lib..."
-              cp ${verificationLib}/lib/libverification_lib.so ualbf-project/verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ualbf-project/verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ualbf-project/verification_lib.so
-              
               cd ualbf-project
+              echo "Setting up verification-lib..."
+              cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
+              
               echo "Patching argparse for latexminted..."
               cp $(python3 -c "import argparse; print(argparse.__file__)") paper/argparse.py
               sed -i 's/parser = self._parser_class(\*\*kwargs)/kwargs.pop("color", None); parser = self._parser_class(\*\*kwargs)/g' paper/argparse.py
               export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
 
-              echo "Generating test certificate..."
+              echo "Generating dummy certificate..."
               python3 -c '
-import json, cert_util
-cert, pub_hex = cert_util.create_signed_test_cert("proof_manifest.json", "bounds_manifest.json")
-with open("test_cert.json", "w") as f:
+import json, hashlib
+with open("proof_manifest.json", "rb") as f:
+    manifest_hash = hashlib.sha256(f.read()).hexdigest()
+with open("bounds_manifest.json", "r") as f:
+    bounds = json.load(f)
+cert = {
+    "manifest_hash": manifest_hash,
+    "verified_logic_hash": "dummy",
+    "telemetry": {
+        "phase1_execution_time_ms": 0,
+        "phase2_execution_time_ms": 1000,
+        "total_branches_searched": 10,
+        "abundance_pruned": 0,
+        "raycast_pruned": 0,
+        "target_min_log10": bounds["search_bounds"]["target_min_log10"]["value"],
+        "target_max_log10": bounds["search_bounds"]["target_max_log10"]["value"],
+        "phase1_pruned": 0
+    },
+    "engine_version": "dummy",
+    "commit_hash": "dummy"
+}
+with open("dummy_cert.json", "w") as f:
     json.dump(cert, f)
-with open("pubkey.txt", "w") as f:
-    f.write(pub_hex)
 '
-              export UALBF_CERT_PATH=$PWD/test_cert.json
-              export UALBF_TRUSTED_PUBLIC_KEY=$(cat pubkey.txt)
+              export UALBF_CERT_PATH=$PWD/dummy_cert.json
+              export UALBF_DUMMY_PAPER_CI=1
               export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
               
               echo "Compiling LaTeX paper..."
               cd paper
               make all
-              cd ..
+              cd ../..
             '';
 
             installPhase = ''

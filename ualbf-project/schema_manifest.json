@@ -59,10 +59,10 @@
       {
         "name": "active_mask",
         "lean_type": "Array UInt64",
-        "rust_type": "Vec<u64>",
+        "rust_type": "BitSet",
         "rust_ser_type": "Vec<u64>",
-        "rust_ser_convert": "v.clone()",
-        "rust_deser_convert": "v.clone()"
+        "rust_ser_convert": "v.blocks.clone()",
+        "rust_deser_convert": "BitSet::from_blocks(v.clone())"
       },
       {
         "name": "sigma_mod24",

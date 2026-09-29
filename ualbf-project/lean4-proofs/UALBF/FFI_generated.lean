@@ -188,6 +188,6 @@ def toU512 (n : Nat) : U512 :=
     ((n / 2^384) % 2^64).toUInt64
     ((n / 2^448) % 2^64).toUInt64
 
-def SCHEMA_MANIFEST_HASH : String := "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb"
+def SCHEMA_MANIFEST_HASH : String := "ce7d8946be98803db0a465b33948d0470229bbcd9c361a79b44319f2e01d7ab6"
 
 end UALBF.FFI

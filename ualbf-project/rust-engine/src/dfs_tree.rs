@@ -349,7 +349,7 @@ pub fn phase2_and_4_fused(
                 sf.extend_from_slice(&extra_factors);
                 sf
             },
-            active_mask: backbone.compatibility_matrix[i].clone(),
+            active_mask: backbone.compatibility_matrix[i].clone().into(),
             sigma_mod24: (comp.sigma % Uint::from_u64(24)).as_u32(),
         };
 
@@ -1322,7 +1322,7 @@ fn explore_prefix_sequential(
         max_idx_5,
         lazy_cache,
         backbone,
-        saved_states: Vec::new(),
+        saved_states: Vec::with_capacity(64),
         dyn_min_factors: 0,
         should_explore_memo: false,
         trace_tx: trace_tx.cloned(),
@@ -1460,9 +1460,8 @@ pub struct DfsContext<'a> {
 
 /// Typed reference wrapper around a validated `DfsContext`.
 /// Encapsulates non-null and alignment checks via `NonNullContext`.
-#[derive(Clone, Copy)]
 pub struct DfsContextRef<'a> {
-    ctx: &'a DfsContext<'a>,
+    ctx: &'a mut DfsContext<'a>,
 }
 
 impl<'a> std::fmt::Debug for DfsContextRef<'a> {
@@ -1482,8 +1481,8 @@ impl<'a> DfsContextRef<'a> {
     /// returning `Some(DfsContextRef)` if valid, or `None` otherwise.
     #[inline(always)]
     pub fn from_handle(handle: u64) -> Option<Self> {
-        let nn = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(handle)?;
-        let ctx = unsafe { nn.as_ref()? };
+        let mut nn = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(handle)?;
+        let ctx = unsafe { nn.as_mut()? };
         Some(Self { ctx })
     }
 
@@ -1517,9 +1516,40 @@ impl<'a> DfsContextRef<'a> {
         self.ctx.saved_states.len()
     }
 
+    /// Returns a shared reference to the active BitSet.
+    #[inline(always)]
+    pub fn bit_set(&self) -> &crate::state::BitSet {
+        &self.ctx.curr.active_mask
+    }
+
+    /// Returns a mutable reference to the active BitSet for in-place bit operations.
+    #[inline(always)]
+    pub fn bit_set_mut(&mut self) -> &mut crate::state::BitSet {
+        &mut self.ctx.curr.active_mask
+    }
+
+    /// Mutates the active BitSet in-place with a mask, recording cleared bits in `diff_out`.
+    #[inline(always)]
+    pub fn intersect_bit_set(
+        &mut self,
+        mask: &[u64],
+        diff_out: &mut smallvec::SmallVec<[u64; 16]>,
+    ) {
+        self.ctx
+            .curr
+            .active_mask
+            .intersect_with_undo(mask, diff_out);
+    }
+
+    /// Reverts a bit set intersection in-place using the recorded cleared bits.
+    #[inline(always)]
+    pub fn undo_intersect_bit_set(&mut self, diff: &[u64]) {
+        self.ctx.curr.active_mask.undo_intersect(diff);
+    }
+
     /// Returns a direct shared reference to the underlying `DfsContext`.
     #[inline(always)]
-    pub fn get_ref(&self) -> &'a DfsContext<'a> {
+    pub fn get_ref(&self) -> &DfsContext<'a> {
         self.ctx
     }
 }
@@ -1645,7 +1675,10 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
                     return false;
                 }
             }
-            dfs_ctx.saved_states.push(dfs_ctx.curr.capture_state());
+            let row = &dfs_ctx.backbone.compatibility_matrix[i];
+            dfs_ctx
+                .saved_states
+                .push(dfs_ctx.curr.capture_state_and_intersect(row));
             dfs_ctx.curr.n_l = next_n_l;
             dfs_ctx.curr.s_l = next_s_l;
             let comp_sigma_mod24 = (comp.sigma % Uint::from_u64(24)).as_u32();
@@ -1780,7 +1813,7 @@ mod tests {
             factors: vec![],
             sigma_factors: vec![],
             sigma_factors_u64: vec![],
-            active_mask: vec![],
+            active_mask: crate::state::BitSet::new(),
             sigma_mod24: (s_l % 24) as u32,
         }
     }
@@ -2750,7 +2783,7 @@ mod tests {
         }
 
         let mut curr = make_prefix(1, 1, 0);
-        curr.active_mask = vec![0x3FFu64]; // bits 0 to 9 set
+        curr.active_mask = vec![0x3FFu64].into(); // bits 0 to 9 set
 
         let tb = Uint::from_u128(u128::MAX);
 
@@ -2794,7 +2827,7 @@ mod tests {
         }
 
         let mut curr = make_prefix(1, 1, 0);
-        curr.active_mask = vec![0x3FFu64]; // bits 0 to 9 set
+        curr.active_mask = vec![0x3FFu64].into(); // bits 0 to 9 set
 
         let tb = Uint::from_u128(u128::MAX);
 
@@ -2847,7 +2880,7 @@ mod tests {
         // Since factors are empty, 5 is absent.
         // Thus, the Hagis-Cohen bound of 11 should be used.
         let mut curr = make_prefix(25, 27, 4);
-        curr.active_mask = vec![0x3FF; 1]; // All active up to index 9
+        curr.active_mask = vec![0x3FF; 1].into(); // All active up to index 9
         with_dfs_ctx!(
             curr = curr,
             components = &comps,
@@ -2913,7 +2946,7 @@ mod tests {
         // And last_idx (4) > max_idx_5 (3) => starved.
         // Thus, Prasad-Sunitha bound of 15 should be used.
         let mut curr = make_prefix(25, 27, 4);
-        curr.active_mask = vec![0x3FF; 1];
+        curr.active_mask = vec![0x3FF; 1].into();
         with_dfs_ctx!(
             curr = curr,
             components = &comps,
@@ -2977,7 +3010,7 @@ mod tests {
         // And last_idx (4) <= max_idx_5 (10) => NOT starved.
         // Thus, baseline min factor (9) should be used.
         let mut curr = make_prefix(25, 27, 4);
-        curr.active_mask = vec![0x3FF; 1];
+        curr.active_mask = vec![0x3FF; 1].into();
         with_dfs_ctx!(
             curr = curr,
             components = &comps,
@@ -3035,6 +3068,43 @@ mod tests {
                 }
             }
         );
+    }
+
+    #[test]
+    fn test_dfs_context_ref_methods() {
+        let comps = vec![];
+        let mut curr = make_prefix(25, 27, 4);
+        curr.active_mask = vec![0b1111].into();
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = Uint::from_u64(1000),
+            max_idx_3 = usize::MAX,
+            max_idx_5 = usize::MAX,
+            saved_states = vec![],
+            |ptr| {
+                let mut ctx_ref = DfsContextRef::from_handle(ptr).expect("Valid handle");
+                assert_eq!(ctx_ref.last_idx(), 4);
+                assert_eq!(ctx_ref.n_l(), Uint::from_u64(25));
+                assert_eq!(ctx_ref.s_l(), Uint::from_u64(27));
+                assert_eq!(ctx_ref.factors(), &[] as &[u64]);
+                assert_eq!(ctx_ref.saved_states_len(), 0);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b1111]);
+
+                let mut diff = smallvec::SmallVec::new();
+                ctx_ref.intersect_bit_set(&[0b0011], &mut diff);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b0011]);
+
+                ctx_ref.undo_intersect_bit_set(&diff);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b1111]);
+
+                let _mut_ref = ctx_ref.bit_set_mut();
+                let _ref_back = ctx_ref.get_ref();
+            }
+        );
+
+        let limit = get_conjectural_limit();
+        assert!(limit > Uint::from_u64(0));
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

@@ -26,6 +26,7 @@ if script_dir not in sys.path:
 if paper_dir not in sys.path:
     sys.path.insert(0, paper_dir)
 
+import env_util  # noqa: E402
 import cert_util  # noqa: E402
 import env_util  # noqa: E402
 import hash_util  # noqa: E402

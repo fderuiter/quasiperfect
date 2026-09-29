@@ -107,7 +107,7 @@ pub fn generate_work_units(
                 su
             },
             sigma_factors: comp.sigma_factors.clone(),
-            active_mask: backbone.compatibility_matrix[i].clone(),
+            active_mask: backbone.compatibility_matrix[i].clone().into(),
             sigma_mod24: (comp.sigma % Uint::from_u64(24)).as_u32(),
         };
         expand_work_units(
@@ -167,11 +167,11 @@ fn expand_work_units(
         return;
     }
 
-    let saved_state = curr.capture_state();
-
-    for i in saved_state.last_idx..components.len() {
+    for i in curr.last_idx..components.len() {
         let comp = &components[i];
         if !curr.factors.contains(&comp.p) {
+            let row = &backbone.compatibility_matrix[i];
+            let saved_state = curr.capture_state_and_intersect(row);
             if let (Some(next_n_l), Some(next_s_l)) = (
                 saved_state.n_l.checked_mul(comp.val),
                 saved_state.s_l.checked_mul(comp.sigma),
@@ -188,10 +188,6 @@ fn expand_work_units(
                         }
                     }
 
-                    let row = &backbone.compatibility_matrix[i];
-                    for k in 0..curr.active_mask.len() {
-                        curr.active_mask[k] &= row[k];
-                    }
                     expand_work_units(
                         curr,
                         components,
@@ -202,7 +198,11 @@ fn expand_work_units(
                         backbone,
                     );
                     curr.restore_state(&saved_state);
+                } else {
+                    curr.restore_state(&saved_state);
                 }
+            } else {
+                curr.restore_state(&saved_state);
             }
         }
     }
@@ -556,7 +556,7 @@ pub fn run_worker(
                     factors: vec![],
                     sigma_factors: vec![],
                     sigma_factors_u64: vec![],
-                    active_mask: vec![u64::MAX; mask_len],
+                    active_mask: vec![u64::MAX; mask_len].into(),
                     sigma_mod24: 1,
                 };
 
