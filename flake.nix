@@ -174,12 +174,13 @@
 
           preBuild = ''
             chmod +w ..
-            mkdir -p ../verification-lib/include ../target/include ../verification-lib/target/release ../target/release ../target/debug
+            mkdir -p include ../verification-lib/include ../target/include ../verification-lib/target/release ../target/release ../target/debug
             ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
             ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
+            cp -f ${verificationLib}/include/verification_ffi.h include/ || true
             cp -f ${verificationLib}/include/verification_ffi.h ../verification-lib/include/ || true
             cp -f ${verificationLib}/include/verification_ffi.h ../target/include/ || true
-            export CPATH="../verification-lib/include:../target/include:$CPATH"
+            export CPATH="include:../verification-lib/include:../target/include:$CPATH"
           '';
 
           buildPhase = ''
@@ -464,12 +465,13 @@ with open("dummy_cert.json", "w") as f:
 
             preBuild = ''
               chmod +w ..
-              mkdir -p ../verification-lib/include ../target/include ../verification-lib/target/release ../target/release ../target/debug
+              mkdir -p include ../verification-lib/include ../target/include ../verification-lib/target/release ../target/release ../target/debug
               ln -s ${verificationLib}/lib/libverification_lib.* ../verification-lib/target/release/ || true
               ln -s ${verificationLib}/lib/libverification_lib.* ../target/release/ || true
+              cp -f ${verificationLib}/include/verification_ffi.h include/ || true
               cp -f ${verificationLib}/include/verification_ffi.h ../verification-lib/include/ || true
               cp -f ${verificationLib}/include/verification_ffi.h ../target/include/ || true
-              export CPATH="../verification-lib/include:../target/include:$CPATH"
+              export CPATH="include:../verification-lib/include:../target/include:$CPATH"
             '';
 
             buildPhase = ''

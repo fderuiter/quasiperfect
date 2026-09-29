@@ -17,12 +17,17 @@ input_file verification_lib.h where
   path := "include/verification_lib.h"
   text := true
 
+input_file verification_ffi.h where
+  path := "include/verification_ffi.h"
+  text := true
+
 target ffi.o pkg : FilePath := do
   let oFile := pkg.buildDir / "c" / "ffi.o"
   let srcJob ← ffi.c.fetch
   let headerJob ← verification_lib.h.fetch
-  let srcJob := (srcJob.mix headerJob).map fun _ => pkg.dir / "ffi.c"
-  let flags := #["-I", (← getLeanIncludeDir).toString, "-I", "include", "-I", (pkg.dir / "include").toString, "-fPIC"]
+  let ffiHeaderJob ← verification_ffi.h.fetch
+  let srcJob := ((srcJob.mix headerJob).mix ffiHeaderJob).map fun _ => pkg.dir / "ffi.c"
+  let flags := #["-I", (← getLeanIncludeDir).toString, "-I", "include", "-I", (pkg.dir / "include").toString, "-I", "../verification-lib/include", "-I", "../target/include", "-fPIC"]
   buildO oFile srcJob flags #[] "cc"
 
 target libleanffi pkg : FilePath := do

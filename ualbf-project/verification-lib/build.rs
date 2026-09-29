@@ -201,4 +201,8 @@ fn main() {
     // 3. Output to target/include/verification_ffi.h if target directory exists
     let target_include_path = manifest_path.join("../target/include/verification_ffi.h");
     let _ = write_header_if_changed(&target_include_path, &header_content);
+
+    // 4. Output to lean4-proofs/include/verification_ffi.h if lean4-proofs directory exists
+    let lean_include_path = manifest_path.join("../lean4-proofs/include/verification_ffi.h");
+    let _ = write_header_if_changed(&lean_include_path, &header_content);
 }
