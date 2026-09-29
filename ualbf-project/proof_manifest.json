@@ -584,7 +584,7 @@
     },
     {
       "file": "UALBF/FFI_generated.lean",
-      "checksum": "f2bc8643427d23cce2e8911e00f1d9a835c37696618e9a91630fd96ed4e3285c"
+      "checksum": "22b7ec3ee80967b75f4a37cfc5f3e06b525d644eaccfca65923745a5c775c12b"
     },
     {
       "file": "UALBF/ManifestConstants.lean",
@@ -774,6 +774,6 @@
       "theorem_hash": "c01161d7f14eb9d953a6908cb77497a53c2ae55d54f48a7271545bfd4a497ece"
     }
   },
-  "verified_logic_hash": "b856d494b19ed7d474324476ef8949becf18ab96dd1cc04a2c1be5a82f83bf24",
+  "verified_logic_hash": "2e0be14dab8388267700e2e06b319203651a32b1035a649df208267fd099192c",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
