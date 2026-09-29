@@ -1,0 +1,134 @@
+{
+  "ALLOW_UNVERIFIED_BUILD": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": null,
+    "status": "deprecated",
+    "description": "Deprecated bypass flag for unverified builds; execution is halted if detected."
+  },
+  "LEAN_SYSROOT": {
+    "type": "path",
+    "default": null,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Path to the Lean toolchain sysroot directory used during proof and spec checks."
+  },
+  "MOCK_LEAN": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Bypasses external Lean binary invocation during tests by enabling mock verification."
+  },
+  "UALBF_ALLOW_MISSING_SOURCES": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": [
+      "0",
+      "1",
+      "true",
+      "false"
+    ],
+    "status": "active",
+    "description": "Bypasses missing physical proof source files and tactic checks during certificate verification when set to 1."
+  },
+  "UALBF_CERT_PATH": {
+    "type": "path",
+    "default": null,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Custom path to the formal certificate JSON file for ingest and verification."
+  },
+  "UALBF_DUMMY_PAPER_CI": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": [
+      "0",
+      "1",
+      "true",
+      "false"
+    ],
+    "status": "active",
+    "description": "Bypasses certificate verification during CI paper macro generation when set to 1."
+  },
+  "UALBF_IN_STAGING_WORKSPACE": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": [
+      "0",
+      "1"
+    ],
+    "status": "active",
+    "description": "Flag indicating execution within a staging workspace for audit checks."
+  },
+  "UALBF_MAX_CERT_SIZE_MB": {
+    "type": "float",
+    "default": 10.0,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Maximum allowed formal certificate file size in megabytes."
+  },
+  "UALBF_MAX_EXPONENT": {
+    "type": "integer",
+    "default": 4,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Maximum prime-power exponent considered in Phase 1 search space."
+  },
+  "UALBF_MIN_RIGOR": {
+    "type": "float",
+    "default": 0.0,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Minimum acceptable rigor level ratio required during certificate verification."
+  },
+  "UALBF_PREFIX_STOP_THRESHOLD": {
+    "type": "integer",
+    "default": 100000000000,
+    "allowed_values": null,
+    "status": "active",
+    "description": "DFS search threshold where prefix construction stops when n_L exceeds this value."
+  },
+  "UALBF_PROOF_MANIFEST": {
+    "type": "path",
+    "default": null,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Custom path to the proof manifest JSON file containing theorem verification checksums."
+  },
+  "UALBF_SIEVE_LIMIT": {
+    "type": "integer",
+    "default": 250000,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Number of primes evaluated in Phase 1 CRT tensor sieve."
+  },
+  "UALBF_SKIP_VALIDATION": {
+    "type": "boolean",
+    "default": null,
+    "allowed_values": null,
+    "status": "deprecated",
+    "description": "Deprecated bypass flag for certificate validation; execution is halted if detected."
+  },
+  "UALBF_TARGET_MAX_LOG10": {
+    "type": "integer",
+    "default": 37,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Upper bound log10 exponent for search space (N < 10^max)."
+  },
+  "UALBF_TARGET_MIN_LOG10": {
+    "type": "integer",
+    "default": 35,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Lower bound log10 exponent for search space (N > 10^min)."
+  },
+  "UALBF_TRUSTED_PUBLIC_KEY": {
+    "type": "string",
+    "default": null,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Hex-encoded Ed25519 public key pinned for formal certificate signature verification."
+  }
+}

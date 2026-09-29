@@ -19,13 +19,18 @@ _SCHEMA_CACHE: Optional[Dict[str, Any]] = None
 
 
 def find_repo_root(start_dir: Optional[Path] = None) -> Path:
-    """Finds the repository root containing env_manifest.json."""
+    """Finds the repository root containing env_manifest.json or docs_manifest.json or proof_manifest.json."""
     current = Path(start_dir or Path(__file__)).resolve()
     if current.is_file():
         current = current.parent
 
     for p in [current] + list(current.parents):
-        if (p / "env_manifest.json").exists() or (p / "docs_manifest.json").exists():
+        if (
+            (p / "env_manifest.json").exists()
+            or (p / "docs_manifest.json").exists()
+            or (p / "proof_manifest.json").exists()
+            or (p / "bounds_manifest.json").exists()
+        ):
             return p
     return current
 
@@ -40,11 +45,14 @@ def load_manifest_and_schema(
         return _MANIFEST_CACHE, _SCHEMA_CACHE
 
     repo_root = find_repo_root()
+    script_parent = Path(__file__).resolve().parent
 
     if not manifest_path:
         possible_manifests = [
             repo_root / "env_manifest.json",
+            repo_root / "ualbf-project" / "env_manifest.json",
             repo_root.parent / "env_manifest.json",
+            script_parent / "env_manifest.json",
         ]
         m_path = next((p for p in possible_manifests if p.exists()), None)
         if not m_path:
@@ -55,7 +63,9 @@ def load_manifest_and_schema(
     if not schema_path:
         possible_schemas = [
             repo_root / "env_manifest.schema.json",
+            repo_root / "ualbf-project" / "env_manifest.schema.json",
             repo_root.parent / "env_manifest.schema.json",
+            script_parent / "env_manifest.schema.json",
         ]
         s_path = next((p for p in possible_schemas if p.exists()), None)
         if not s_path:
