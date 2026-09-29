@@ -1222,6 +1222,30 @@ pub extern "C" fn rust_sha256_file(path_ptr: *const std::ffi::c_char) -> *mut st
 
 #[cfg(feature = "signing")]
 #[no_mangle]
+pub extern "C" fn rust_sha256_string(data_ptr: *const std::ffi::c_char) -> *mut std::ffi::c_char {
+    use ffi_boundary::FfiPtr;
+    use sha2::{Digest, Sha256};
+
+    safe_ffi_boundary!(std::ptr::null_mut(), {
+        let data_ffi = match FfiPtr::new(data_ptr) {
+            Some(p) => p,
+            None => return std::ptr::null_mut(),
+        };
+        let c_str = match data_ffi.to_cstr_bounded(MAX_CERT_JSON_LEN) {
+            Ok(c) => c,
+            Err(_) => return std::ptr::null_mut(),
+        };
+        let bytes = c_str.to_bytes();
+        let mut hasher = Sha256::new();
+        hasher.update(bytes);
+        let hash_str = hex::encode(hasher.finalize());
+        let c_string = std::ffi::CString::new(hash_str).unwrap();
+        c_string.into_raw()
+    })
+}
+
+#[cfg(feature = "signing")]
+#[no_mangle]
 pub extern "C" fn rust_free_string(ptr: *mut std::ffi::c_char) {
     use ffi_boundary::FfiMutPtr;
 
@@ -1405,6 +1429,22 @@ mod tests {
         rust_free_string(std::ptr::null_mut());
 
         let _ = std::fs::remove_file(&temp_path);
+    }
+
+    #[cfg(feature = "signing")]
+    #[test]
+    fn test_rust_sha256_string() {
+        let input = "hello world python";
+        let c_data = std::ffi::CString::new(input).unwrap();
+        let ptr = rust_sha256_string(c_data.as_ptr());
+        assert!(!ptr.is_null());
+
+        let c_str = unsafe { std::ffi::CStr::from_ptr(ptr) };
+        assert_eq!(
+            c_str.to_str().unwrap(),
+            "7ecc2c334ed8157731eb3404efa610481699d30292e6cfae429e1f28a06f1669"
+        );
+        rust_free_string(ptr);
     }
 
     #[cfg(feature = "signing")]

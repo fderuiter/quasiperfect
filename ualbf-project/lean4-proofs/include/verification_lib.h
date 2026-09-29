@@ -14,6 +14,7 @@ extern "C" {
 void* verify_certificate(const char* cert_json_ptr, const char* pub_key_ptr, bool* is_valid_out, char* out_manifest_hash_buf, size_t out_manifest_hash_len);
 void free_certificate(void* cert_ptr);
 char* rust_sha256_file(const char* path_ptr);
+char* rust_sha256_string(const char* data_ptr);
 void rust_free_string(char* ptr);
 
 #ifdef __cplusplus

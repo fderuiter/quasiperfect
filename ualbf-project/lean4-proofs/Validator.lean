@@ -27,8 +27,8 @@ builtin_initialize initCertClass
 opaque verifyCertificateFFI (certJson : @& String) (trustedPubKey : @& String) : Except String (String × CertHandle)
 
 -- Pure SHA256 helper for pure specifications
-def sha256 (data : String) : String :=
-  "dummy_hash_of_" ++ data
+@[extern "lean_sha256_string"]
+opaque sha256 (data : String) : String
 
 -- Core Logic Verification
 

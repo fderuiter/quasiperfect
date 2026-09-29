@@ -38,15 +38,27 @@ lean_obj_res lean_sha256_file(b_lean_obj_arg path_obj) {
     return res;
 }
 
+lean_obj_res lean_sha256_string(lean_obj_arg data_obj) {
+    const char* data = lean_string_cstr(data_obj);
+    char* c_hash = rust_sha256_string(data);
+    lean_dec(data_obj);
+    if (c_hash == NULL) {
+        return lean_mk_string("");
+    }
+    lean_object* res = lean_mk_string(c_hash);
+    rust_free_string(c_hash);
+    return res;
+}
+
 lean_obj_res verify_certificate_ffi(b_lean_obj_arg cert_json, b_lean_obj_arg pub_key) {
     const char* c_cert_json = lean_string_cstr(cert_json);
     const char* c_pub_key = lean_string_cstr(pub_key);
-    
+
     bool is_valid = false;
     char manifest_hash_buf[256];
     manifest_hash_buf[0] = '\0';
     void* cert_ptr = verify_certificate(c_cert_json, c_pub_key, &is_valid, manifest_hash_buf, sizeof(manifest_hash_buf));
-    
+
     if (!is_valid) {
         lean_object* err_msg;
         if (manifest_hash_buf[0] != '\0') {
@@ -58,17 +70,17 @@ lean_obj_res verify_certificate_ffi(b_lean_obj_arg cert_json, b_lean_obj_arg pub
         lean_ctor_set(res, 0, err_msg);
         return res;
     }
-    
+
     lean_object* hash_str = lean_mk_string(manifest_hash_buf);
     lean_object* cert_obj = lean_alloc_external(get_cert_class(), cert_ptr);
-    
+
     lean_object* tuple = lean_alloc_ctor(0, 2, 0); // Prod.mk
     lean_ctor_set(tuple, 0, hash_str);
     lean_ctor_set(tuple, 1, cert_obj);
-    
+
     lean_object* res = lean_alloc_ctor(1, 1, 0); // Except.ok
     lean_ctor_set(res, 0, tuple);
-    
+
     return res;
 }
 
