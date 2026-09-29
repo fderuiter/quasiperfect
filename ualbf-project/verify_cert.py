@@ -264,13 +264,15 @@ def verify_sidecar_file(cert, sidecar_path):
     print(f"✓ Sidecar log digest and schema verified ({computed_hash}).")
 
 
-def verify_theorem_checksum(thm, manifest_path=None):
+def verify_theorem_checksum(thm, manifest_path=None, allow_missing_sources=False):
     """
     Compute and verify the checksum for a single theorem entry.
 
     The checksum is computed using the physical file content hash.
     """
-    return cert_util.verify_theorem_checksum(thm, manifest_path)
+    return cert_util.verify_theorem_checksum(
+        thm, manifest_path, allow_missing_sources=allow_missing_sources
+    )
 
 
 from fractions import Fraction
@@ -640,7 +642,7 @@ def verify_lattice_witnesses(cert, manifest_path):
     )
 
 
-def verify_certificate(cert_path, manifest_path):
+def verify_certificate(cert_path, manifest_path, allow_missing_sources=False):
     """
     Verify a formal exhaustion certificate against its manifest and local source artifacts.
 
@@ -704,6 +706,20 @@ def verify_certificate(cert_path, manifest_path):
         print("! WARNING: THIS CERTIFICATE WAS GENERATED IN CONJECTURAL MODE!")
         print(
             f"! Its validity is strictly conditional upon the unproven '{conjecture_name}'."
+        )
+        print("!" * 80 + "\n")
+
+    allow_missing = (
+        allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+    )
+    if allow_missing:
+        print("\n" + "!" * 80)
+        print(
+            "! WARNING: SOURCE-LESS VERIFICATION OVERRIDE ACTIVE (--allow-missing-sources) !"
+        )
+        print("! Physical proof source files and tactic checks will be bypassed.")
+        print(
+            "! Zero-trust guarantees are degraded; relying on manifest metadata checksums."
         )
         print("!" * 80 + "\n")
 
@@ -818,16 +834,26 @@ def verify_certificate(cert_path, manifest_path):
     if not proof_dir or not os.path.exists(proof_dir):
         proof_dir = os.path.join(base_dir, "lean4-proofs")
 
+    missing_proof_files = []
     for pf in proof_files:
         file_path = os.path.join(proof_dir, pf["file"])
         if not os.path.exists(file_path):
             has_physical_files = False
-            break
+            missing_proof_files.append(pf["file"])
 
     if not has_physical_files:
-        print(
-            "INFO: Physical source files are missing; skipping physical proof file content checksum validation in production."
-        )
+        if not allow_missing:
+            print(
+                f"ERROR: Missing required proof source file(s): {', '.join(missing_proof_files)}"
+            )
+            print(
+                "ERROR: Cannot verify physical proof checksums. Use --allow-missing-sources to bypass."
+            )
+            sys.exit(1)
+        else:
+            print(
+                "INFO: Physical source files are missing; skipping physical proof file content checksum validation and tactic checks (--allow-missing-sources enabled)."
+            )
     else:
         # Check for unmanifested .lean proof files on disk
         disk_files = set()
@@ -870,7 +896,9 @@ def verify_certificate(cert_path, manifest_path):
     # Verify per-theorem checksums
     print("\n--- Verifying Theorem Checksums ---")
     for thm in manifest.get("theorems", []):
-        if not verify_theorem_checksum(thm, manifest_path):
+        if not verify_theorem_checksum(
+            thm, manifest_path, allow_missing_sources=allow_missing
+        ):
             print(
                 f"ERROR: Checksum mismatch for theorem '{thm['name']}' in {thm['file']}"
             )
@@ -1029,7 +1057,11 @@ MAX_RECURSION_DEPTH = 5
 
 
 def verify_meta_certificate(
-    meta_cert, manifest_path, current_depth=0, max_depth=MAX_RECURSION_DEPTH
+    meta_cert,
+    manifest_path,
+    current_depth=0,
+    max_depth=MAX_RECURSION_DEPTH,
+    allow_missing_sources=False,
 ):
     """
     Recursively verifies a meta-certificate and its nested node certificates,
@@ -1063,7 +1095,11 @@ def verify_meta_certificate(
             with open(tmp_cert_path, "w", encoding="utf-8") as tf:
                 json.dump(meta_cert_data, tf)
             cert_util.validate_file_size(tmp_cert_path)
-            return verify_certificate(tmp_cert_path, manifest_path)
+            return verify_certificate(
+                tmp_cert_path,
+                manifest_path,
+                allow_missing_sources=allow_missing_sources,
+            )
 
     print(f"\n=== Verifying Meta-Certificate (Depth {current_depth}) ===")
     loaded_certs = meta_cert_data["node_certificates"]
@@ -1101,6 +1137,7 @@ def verify_meta_certificate(
                     manifest_path,
                     current_depth=current_depth + 1,
                     max_depth=max_depth,
+                    allow_missing_sources=allow_missing_sources,
                 )
                 if isinstance(res, list):
                     verified_leaf_certs.extend(res)
@@ -1120,13 +1157,16 @@ def verify_meta_certificate(
                         manifest_path,
                         current_depth=current_depth + 1,
                         max_depth=max_depth,
+                        allow_missing_sources=allow_missing_sources,
                     )
                     if isinstance(res, list):
                         verified_leaf_certs.extend(res)
                     elif isinstance(res, dict):
                         verified_leaf_certs.append(res)
                 else:
-                    verified_leaf = verify_certificate(nc, manifest_path)
+                    verified_leaf = verify_certificate(
+                        nc, manifest_path, allow_missing_sources=allow_missing_sources
+                    )
                     verified_leaf_certs.append(verified_leaf)
             elif isinstance(nc, dict):
                 tmp_cert_path = os.path.join(
@@ -1135,7 +1175,11 @@ def verify_meta_certificate(
                 with open(tmp_cert_path, "w", encoding="utf-8") as tf:
                     json.dump(nc, tf)
                 cert_util.validate_file_size(tmp_cert_path)
-                verified_leaf = verify_certificate(tmp_cert_path, manifest_path)
+                verified_leaf = verify_certificate(
+                    tmp_cert_path,
+                    manifest_path,
+                    allow_missing_sources=allow_missing_sources,
+                )
                 verified_leaf_certs.append(verified_leaf)
             else:
                 msg = f"ERROR: Invalid node certificate format at index {i}."
@@ -1170,6 +1214,11 @@ if __name__ == "__main__":
         "--sidecar", default="overflow_sidecar.log", help="Path to overflow_sidecar.log"
     )
     parser.add_argument(
+        "--allow-missing-sources",
+        action="store_true",
+        help="Allow verification without local Lean 4 proof source files",
+    )
+    parser.add_argument(
         "--min-rigor",
         type=float,
         default=None,
@@ -1185,6 +1234,10 @@ if __name__ == "__main__":
         else:
             min_rigor = 0.0
 
+    allow_missing_sources = (
+        args.allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+    )
+
     certs = args.cert if isinstance(args.cert, list) else [args.cert]
 
     # If the user passed a single meta-certificate
@@ -1192,7 +1245,12 @@ if __name__ == "__main__":
         try:
             content_json = cert_util.BoundedJSONLoader().load_file(certs[0])
             if "node_certificates" in content_json:
-                verify_meta_certificate(content_json, args.manifest, current_depth=0)
+                verify_meta_certificate(
+                    content_json,
+                    args.manifest,
+                    current_depth=0,
+                    allow_missing_sources=allow_missing_sources,
+                )
                 sys.exit(0)
         except cert_util.CertificateError as e:
             print(f"ERROR: {e}")
@@ -1211,7 +1269,9 @@ if __name__ == "__main__":
             cert_files.append(c)
 
     if len(cert_files) == 1:
-        cert = verify_certificate(cert_files[0], args.manifest)
+        cert = verify_certificate(
+            cert_files[0], args.manifest, allow_missing_sources=allow_missing_sources
+        )
         verify_telemetry_paths([cert])
         tel = cert.get("telemetry", {})
     else:
@@ -1220,7 +1280,11 @@ if __name__ == "__main__":
         )
         loaded_certs = []
         for cf in cert_files:
-            loaded_certs.append(verify_certificate(cf, args.manifest))
+            loaded_certs.append(
+                verify_certificate(
+                    cf, args.manifest, allow_missing_sources=allow_missing_sources
+                )
+            )
 
         check_continuity(loaded_certs)
         verify_telemetry_paths(loaded_certs)

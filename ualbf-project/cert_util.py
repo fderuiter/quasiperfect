@@ -663,10 +663,16 @@ def get_verus_proof_hashes(rust_src_dir: Union[str, Path]) -> dict[str, str]:
     return dict(sorted(verus_hashes.items()))
 
 
-def verify_theorem_checksum(thm: dict, manifest_path: Optional[str] = None) -> bool:
+def verify_theorem_checksum(
+    thm: dict,
+    manifest_path: Optional[str] = None,
+    allow_missing_sources: bool = False,
+) -> bool:
     """
     Compute and verify the checksum for a single theorem entry.
     The checksum is computed using the physical file content hash bounded by size limits.
+    If the physical proof file is missing, returns False unless metadata fallback
+    is explicitly enabled via allow_missing_sources parameter or UALBF_ALLOW_MISSING_SOURCES=1.
     """
     base_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_dir, "lean4-proofs", thm["file"])
@@ -684,7 +690,13 @@ def verify_theorem_checksum(thm: dict, manifest_path: Optional[str] = None) -> b
         computed = hash_util.hash_file_bounded(file_path)
         return computed == thm.get("checksum", "")
     else:
-        computed = hash_util.hash_theorem_metadata(
-            thm["name"], thm["file"], thm["status"]
+        explicit_fallback = (
+            allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
         )
-        return computed == thm.get("checksum", "")
+        if explicit_fallback:
+            computed = hash_util.hash_theorem_metadata(
+                thm["name"], thm["file"], thm["status"]
+            )
+            return computed == thm.get("checksum", "")
+        else:
+            return False
