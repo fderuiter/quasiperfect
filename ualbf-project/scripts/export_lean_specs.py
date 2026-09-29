@@ -679,9 +679,13 @@ instance : Inhabited U512 where
 def fromU512Fast (u : U512) : Nat :=
   {from_u512_fast_expr}
 
-@[implemented_by fromU512Fast]
 def fromU512 (u : U512) : Nat :=
   {from_u512_expr}
+
+@[csimp] theorem fromU512_eq_fromU512Fast (u : U512) : fromU512 u = fromU512Fast u := by
+  unfold fromU512 fromU512Fast
+  dsimp
+  ring
 
 def toU512 (n : Nat) : U512 :=
 {to_u512_expr}

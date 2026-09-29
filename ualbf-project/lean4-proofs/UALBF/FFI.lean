@@ -17,7 +17,6 @@ import UALBF.Pure.Cyclotomic
 import UALBF.FFI_generated
 
 set_option compiler.ignoreBorrowAnnotation true
-set_option exponentiation.threshold 1024
 
 namespace UALBF.FFI
 
