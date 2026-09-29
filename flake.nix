@@ -209,7 +209,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest.*|docs_manifest.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*|docs_manifest.*)$" p != null || type == "directory";
           };
           sourceRoot = "source/ualbf-project";
           buildAndTestSubdir = "verification-lib";
@@ -270,7 +270,7 @@
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest.*|docs_manifest.*|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*|docs_manifest.*|lean4-proofs.*)$" p != null || type == "directory";
           };
 
           sourceRoot = "source/ualbf-project/rust-engine";
@@ -366,7 +366,7 @@
                 let 
                   p = toString path;
                 in
-                  builtins.match ".*(paper.*|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest.*|docs_manifest.*|.*\\.py|.*\\.json)$" p != null || type == "directory";
+                  builtins.match ".*(paper.*|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*|docs_manifest.*|.*\\.py|.*\\.json)$" p != null || type == "directory";
             };
             sourceRoot = "source/ualbf-project";
 
