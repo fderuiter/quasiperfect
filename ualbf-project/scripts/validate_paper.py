@@ -230,6 +230,25 @@ def validate_paper_sources(
         print(f"Error: Paper directory '{paper_dir_abs}' not found.", file=sys.stderr)
         return False
 
+    telemetry_path = os.path.join(paper_dir_abs, "telemetry.tex")
+    verification_path = os.path.join(paper_dir_abs, "verification_manifest.tex")
+    if not (os.path.exists(telemetry_path) and os.path.exists(verification_path)):
+        manifest_path = os.path.join(repo_root_abs, "proof_manifest.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(repo_root_abs, "ualbf-project", "proof_manifest.json")
+        bounds_path = os.path.join(repo_root_abs, "bounds_manifest.json")
+        if not os.path.exists(bounds_path):
+            bounds_path = os.path.join(repo_root_abs, "ualbf-project", "bounds_manifest.json")
+
+        if os.path.exists(manifest_path) and os.path.exists(bounds_path):
+            try:
+                import verify_paper_sync
+                verify_paper_sync.generate_paper_macros(
+                    manifest_path, bounds_path, paper_dir_abs
+                )
+            except Exception:
+                pass
+
     labels = extract_paper_labels(paper_dir_abs)
     bib_keys = extract_bib_keys(paper_dir_abs)
     refs_data = extract_paper_refs(paper_dir_abs)

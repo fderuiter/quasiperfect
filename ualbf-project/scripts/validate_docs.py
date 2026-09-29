@@ -795,6 +795,7 @@ def main():
     # Check if all .tex files in paper/ are registered in manifest
     all_tex_files = glob.glob("**/*.tex", recursive=True)
     filtered_tex_files = []
+    generated_tex_names = {"telemetry.tex", "verification_manifest.tex"}
     for tex_file in all_tex_files:
         parts = tex_file.split(os.sep)
         if not any(
@@ -805,6 +806,8 @@ def main():
             or part in exclude_exact
             for part in parts
         ):
+            if os.path.basename(tex_file) in generated_tex_names:
+                continue
             filtered_tex_files.append(tex_file)
 
     unregistered_tex = []
