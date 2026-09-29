@@ -347,7 +347,7 @@
           latex-paper = pkgs.stdenv.mkDerivation {
             pname = "latex-paper-check";
             version = "0.1.0";
-            src = ./ualbf-project;
+            src = ./.;
 
             nativeBuildInputs = [ 
               pkgs.python3 
@@ -359,6 +359,7 @@
 
             buildPhase = ''
               export HOME=$TMPDIR
+              cd ualbf-project
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
@@ -400,12 +401,12 @@ with open("dummy_cert.json", "w") as f:
               echo "Compiling LaTeX paper..."
               cd paper
               make all
-              cd ..
+              cd ../..
             '';
 
             installPhase = ''
               mkdir -p $out
-              cp paper/main.pdf $out/
+              cp ualbf-project/paper/main.pdf $out/ || cp paper/main.pdf $out/
               touch $out/success
             '';
           };

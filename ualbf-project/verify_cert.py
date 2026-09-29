@@ -643,7 +643,12 @@ def verify_lattice_witnesses(cert, manifest_path):
     )
 
 
-def verify_certificate(cert_path, manifest_path, allow_missing_sources=False):
+def verify_certificate(
+    cert_path,
+    manifest_path,
+    allow_missing_sources=False,
+    allow_logic_mismatch=None,
+):
     """
     Verify a formal exhaustion certificate against its manifest and local source artifacts.
 
@@ -658,6 +663,7 @@ def verify_certificate(cert_path, manifest_path, allow_missing_sources=False):
     Parameters:
         cert_path (str): Path to the JSON certificate file.
         manifest_path (str): Path to the proof manifest file (JSON or raw text used to compute hash).
+        allow_logic_mismatch (bool, optional): Whether to allow logic or extension hash mismatch.
 
     Returns:
         dict: The parsed certificate object loaded from `cert_path`.
@@ -666,6 +672,12 @@ def verify_certificate(cert_path, manifest_path, allow_missing_sources=False):
         On any verification failure the function prints an error message and exits the
         process with a non-zero status code via sys.exit(1).
     """
+    if allow_logic_mismatch is None:
+        allow_logic_mismatch = os.getenv("UALBF_ALLOW_LOGIC_MISMATCH", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
     if not os.path.exists(manifest_path):
         print(f"Error: Manifest file '{manifest_path}' not found.")
         sys.exit(1)
@@ -769,32 +781,48 @@ def verify_certificate(cert_path, manifest_path, allow_missing_sources=False):
 
     if os.path.exists(rust_src_dir):
         repo_root = os.path.dirname(os.path.dirname(rust_src_dir))
-        if os.path.basename(repo_root) != "ualbf-project":
-            repo_root = os.path.dirname(rust_src_dir)
 
         try:
             computed_logic_hash = cert_util.hash_tcb(repo_root)
             if computed_logic_hash != cert.get("verified_logic_hash"):
-                print(
-                    "WARNING: Manifest/Logic hash mismatch! (code/logic may have changed since certificate was generated)"
-                )
-                print(f"Expected: {cert.get('verified_logic_hash')}")
-                print(f"Got:      {computed_logic_hash}")
+                if not allow_logic_mismatch:
+                    print(
+                        f"ERROR: Manifest/Logic hash mismatch!\nExpected: {cert.get('verified_logic_hash')}\nGot:      {computed_logic_hash}",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+                else:
+                    print(
+                        "WARNING: Manifest/Logic hash mismatch! (code/logic may have changed since certificate was generated)"
+                    )
+                    print(f"Expected: {cert.get('verified_logic_hash')}")
+                    print(f"Got:      {computed_logic_hash}")
 
             if cert.get("verified_extension_hash") is not None:
                 try:
                     computed_ext_hash = cert_util.hash_extension_tcb(repo_root)
                     if computed_ext_hash != cert.get("verified_extension_hash"):
-                        print(
-                            "WARNING: Extension hash mismatch! GPU files may have been modified locally."
-                        )
-                        print(f"Expected: {cert.get('verified_extension_hash')}")
-                        print(f"Got:      {computed_ext_hash}")
+                        if not allow_logic_mismatch:
+                            print(
+                                f"ERROR: Extension hash mismatch! GPU files may have been modified locally.\nExpected: {cert.get('verified_extension_hash')}\nGot:      {computed_ext_hash}",
+                                file=sys.stderr,
+                            )
+                            sys.exit(1)
+                        else:
+                            print(
+                                "WARNING: Extension hash mismatch! GPU files may have been modified locally."
+                            )
+                            print(f"Expected: {cert.get('verified_extension_hash')}")
+                            print(f"Got:      {computed_ext_hash}")
+                except SystemExit:
+                    raise
                 except Exception as ext_e:
                     print(
                         f"INFO: Skipping extension hash check (GPU files missing or inaccessible): {ext_e}"
                     )
 
+        except SystemExit:
+            raise
         except Exception as e:
             print(f"WARNING: Failed to compute logic hash: {e}")
 
@@ -1063,6 +1091,7 @@ def verify_meta_certificate(
     current_depth=0,
     max_depth=MAX_RECURSION_DEPTH,
     allow_missing_sources=False,
+    allow_logic_mismatch=None,
 ):
     """
     Recursively verifies a meta-certificate and its nested node certificates,
@@ -1100,6 +1129,7 @@ def verify_meta_certificate(
                 tmp_cert_path,
                 manifest_path,
                 allow_missing_sources=allow_missing_sources,
+                allow_logic_mismatch=allow_logic_mismatch,
             )
 
     print(f"\n=== Verifying Meta-Certificate (Depth {current_depth}) ===")
@@ -1139,6 +1169,7 @@ def verify_meta_certificate(
                     current_depth=current_depth + 1,
                     max_depth=max_depth,
                     allow_missing_sources=allow_missing_sources,
+                    allow_logic_mismatch=allow_logic_mismatch,
                 )
                 if isinstance(res, list):
                     verified_leaf_certs.extend(res)
@@ -1159,6 +1190,7 @@ def verify_meta_certificate(
                         current_depth=current_depth + 1,
                         max_depth=max_depth,
                         allow_missing_sources=allow_missing_sources,
+                        allow_logic_mismatch=allow_logic_mismatch,
                     )
                     if isinstance(res, list):
                         verified_leaf_certs.extend(res)
@@ -1166,7 +1198,10 @@ def verify_meta_certificate(
                         verified_leaf_certs.append(res)
                 else:
                     verified_leaf = verify_certificate(
-                        nc, manifest_path, allow_missing_sources=allow_missing_sources
+                        nc,
+                        manifest_path,
+                        allow_missing_sources=allow_missing_sources,
+                        allow_logic_mismatch=allow_logic_mismatch,
                     )
                     verified_leaf_certs.append(verified_leaf)
             elif isinstance(nc, dict):
@@ -1180,6 +1215,7 @@ def verify_meta_certificate(
                     tmp_cert_path,
                     manifest_path,
                     allow_missing_sources=allow_missing_sources,
+                    allow_logic_mismatch=allow_logic_mismatch,
                 )
                 verified_leaf_certs.append(verified_leaf)
             else:
@@ -1225,7 +1261,16 @@ if __name__ == "__main__":
         default=None,
         help="Minimum acceptable rigor level (e.g. 0.05 for 5%%)",
     )
+    parser.add_argument(
+        "--allow-logic-mismatch",
+        action="store_true",
+        help="Allow execution to proceed despite logic/manifest hash mismatch",
+    )
     args = parser.parse_args()
+
+    allow_logic_mismatch = args.allow_logic_mismatch or (
+        os.getenv("UALBF_ALLOW_LOGIC_MISMATCH", "").lower() in ("1", "true", "yes")
+    )
 
     min_rigor = args.min_rigor
     if min_rigor is None:
@@ -1247,6 +1292,7 @@ if __name__ == "__main__":
                     args.manifest,
                     current_depth=0,
                     allow_missing_sources=allow_missing_sources,
+                    allow_logic_mismatch=allow_logic_mismatch,
                 )
                 sys.exit(0)
         except cert_util.CertificateError as e:
@@ -1267,7 +1313,10 @@ if __name__ == "__main__":
 
     if len(cert_files) == 1:
         cert = verify_certificate(
-            cert_files[0], args.manifest, allow_missing_sources=allow_missing_sources
+            cert_files[0],
+            args.manifest,
+            allow_missing_sources=allow_missing_sources,
+            allow_logic_mismatch=allow_logic_mismatch,
         )
         verify_telemetry_paths([cert])
         tel = cert.get("telemetry", {})
@@ -1279,7 +1328,10 @@ if __name__ == "__main__":
         for cf in cert_files:
             loaded_certs.append(
                 verify_certificate(
-                    cf, args.manifest, allow_missing_sources=allow_missing_sources
+                    cf,
+                    args.manifest,
+                    allow_missing_sources=allow_missing_sources,
+                    allow_logic_mismatch=allow_logic_mismatch,
                 )
             )
 

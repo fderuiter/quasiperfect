@@ -1238,6 +1238,9 @@ def check_documentation(manifest):
             target_stripped = target.lstrip("/")[len("ualbf-project/") :]
             if os.path.exists(os.path.join(manifest_dir, target_stripped)):
                 return True
+        parent_repo = os.path.dirname(manifest_dir)
+        if os.path.exists(os.path.join(parent_repo, target.lstrip("/"))):
+            return True
         # 3. Suffix matching via cache
         target_base = os.path.basename(target)
         if target_base in all_files_cache:

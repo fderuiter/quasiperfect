@@ -15,8 +15,6 @@ import tempfile
 import unittest
 from typing import Dict, Optional
 
-import env_util
-
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 paper_dir = os.path.join(project_root, "paper")
@@ -27,6 +25,7 @@ if paper_dir not in sys.path:
     sys.path.insert(0, paper_dir)
 
 import cert_util  # noqa: E402
+import env_util  # noqa: E402
 import hash_util  # noqa: E402
 import ingest_cert  # noqa: E402
 

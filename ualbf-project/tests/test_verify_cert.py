@@ -144,6 +144,20 @@ def write_mock_manifest_files(tmpdir, manifest):
         pf["checksum"] = hashlib.sha256(content).hexdigest()
 
 
+_CURRENT_EXPECTED_LOGIC_HASH = ["aabbccdd" * 8]
+
+
+@pytest.fixture(autouse=True)
+def mock_hash_tcb():
+    """Mock cert_util.hash_tcb in existing synthetic certificate tests to match expected test hashes."""
+
+    def _mock_tcb(repo_root):
+        return _CURRENT_EXPECTED_LOGIC_HASH[0]
+
+    with mock.patch("cert_util.hash_tcb", side_effect=_mock_tcb):
+        yield
+
+
 def build_cert(
     manifest_hash: str,
     verified_logic_hash: str = "aabbccdd" * 8,
@@ -154,6 +168,7 @@ def build_cert(
     path_ranges: Optional[list] = None,
 ) -> dict:
     """Construct a minimal valid (or optionally tampered) certificate."""
+    _CURRENT_EXPECTED_LOGIC_HASH[0] = verified_logic_hash
     payload = (
         f"{manifest_hash}_{verified_logic_hash}_{total_branches}_{target_max_log10}"
     )
@@ -219,6 +234,7 @@ def write_files(manifest: dict, cert: dict) -> tuple[str, str]:
     trace_hash = tel.get("trace_hash", "")
     factorization_depth = tel.get("factorization_depth", 0)
     verified_logic_hash = cert["verified_logic_hash"]
+    _CURRENT_EXPECTED_LOGIC_HASH[0] = verified_logic_hash
 
     map_obj = {
         "manifest_hash": manifest_hash,
@@ -413,6 +429,7 @@ class TestPayloadFormat:
         manifest_hash = hashlib.sha256(manifest_content.encode()).hexdigest()
 
         verified_logic_hash = "deadbeef" * 8
+        _CURRENT_EXPECTED_LOGIC_HASH[0] = verified_logic_hash
         total_branches = 999
         target_max_log10 = 37
         target_min_log10 = 35
@@ -1037,6 +1054,7 @@ class TestAggregationE2E:
                 cert_dir,
                 "--manifest",
                 os.path.join(tmpdir, "proof_manifest.json"),
+                "--allow-logic-mismatch",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -1061,6 +1079,7 @@ class TestAggregationE2E:
                 meta_file,
                 "--manifest",
                 os.path.join(tmpdir, "proof_manifest.json"),
+                "--allow-logic-mismatch",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -1147,6 +1166,7 @@ class TestMetaCertificateIsolation:
                 cert_dir,
                 "--manifest",
                 os.path.join(tmpdir, "proof_manifest.json"),
+                "--allow-logic-mismatch",
             ],
             cwd=tmpdir,
             capture_output=True,
@@ -1171,6 +1191,7 @@ class TestMetaCertificateIsolation:
                     meta_file,
                     "--manifest",
                     manifest_path,
+                    "--allow-logic-mismatch",
                 ],
                 cwd=tmpdir,
                 capture_output=True,
@@ -2511,11 +2532,30 @@ import stat
 class TestReadOnlyTraceVerification:
     def test_canonicalize_trace_readonly_in_memory(self, tmp_path):
         from verify_cert import canonicalize_trace
+
         trace_path = os.path.join(tmp_path, "readonly_trace.jsonl")
 
         raw_lines = [
-            json.dumps({"work_unit_id": 2, "step_index": 1, "reason": "raycast", "n_l": "1", "s_l": "1", "factors": []}),
-            json.dumps({"work_unit_id": 1, "step_index": 0, "reason": "touchard", "n_l": "1", "s_l": "1", "factors": []}),
+            json.dumps(
+                {
+                    "work_unit_id": 2,
+                    "step_index": 1,
+                    "reason": "raycast",
+                    "n_l": "1",
+                    "s_l": "1",
+                    "factors": [],
+                }
+            ),
+            json.dumps(
+                {
+                    "work_unit_id": 1,
+                    "step_index": 0,
+                    "reason": "touchard",
+                    "n_l": "1",
+                    "s_l": "1",
+                    "factors": [],
+                }
+            ),
         ]
         raw_content = "\n".join(raw_lines) + "\n"
         with open(trace_path, "w", encoding="utf-8") as f:
@@ -2525,7 +2565,9 @@ class TestReadOnlyTraceVerification:
 
         try:
             canonical = canonicalize_trace(trace_path)
-            parsed = [json.loads(line) for line in canonical.splitlines() if line.strip()]
+            parsed = [
+                json.loads(line) for line in canonical.splitlines() if line.strip()
+            ]
             assert len(parsed) == 2
             assert parsed[0]["work_unit_id"] == 1
             assert parsed[1]["work_unit_id"] == 2
@@ -2538,11 +2580,30 @@ class TestReadOnlyTraceVerification:
 
     def test_verify_trace_file_on_write_protected_file(self, tmp_path):
         from verify_cert import canonicalize_trace, verify_trace_file
+
         trace_path = os.path.join(tmp_path, "readonly_trace.jsonl")
 
         raw_lines = [
-            json.dumps({"work_unit_id": 2, "step_index": 0, "reason": "raycast", "n_l": "1", "s_l": "1", "factors": []}),
-            json.dumps({"work_unit_id": 1, "step_index": 0, "reason": "touchard", "n_l": "1", "s_l": "1", "factors": []}),
+            json.dumps(
+                {
+                    "work_unit_id": 2,
+                    "step_index": 0,
+                    "reason": "raycast",
+                    "n_l": "1",
+                    "s_l": "1",
+                    "factors": [],
+                }
+            ),
+            json.dumps(
+                {
+                    "work_unit_id": 1,
+                    "step_index": 0,
+                    "reason": "touchard",
+                    "n_l": "1",
+                    "s_l": "1",
+                    "factors": [],
+                }
+            ),
         ]
         raw_content = "\n".join(raw_lines) + "\n"
         with open(trace_path, "w", encoding="utf-8") as f:
@@ -2654,3 +2715,39 @@ class TestAllowMissingSourcesOverride:
         assert "SOURCE-LESS VERIFICATION OVERRIDE ACTIVE" in captured.out
 
 
+class TestLogicHashMismatch:
+    def test_logic_hash_mismatch_fatal_by_default(self, capsys):
+        manifest = make_manifest()
+        cert = build_cert("placeholder", verified_logic_hash="expected_hash_123")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        with mock.patch("cert_util.hash_tcb", return_value="computed_different_hash"):
+            with pytest.raises(SystemExit) as exc_info:
+                verify_certificate(cert_path, manifest_path)
+            assert exc_info.value.code == 1
+
+        captured = capsys.readouterr()
+        assert "Manifest/Logic hash mismatch!" in captured.err
+
+    def test_logic_hash_mismatch_allowed_via_cli_flag(self, capsys):
+        manifest = make_manifest()
+        cert = build_cert("placeholder", verified_logic_hash="expected_hash_123")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        with mock.patch("cert_util.hash_tcb", return_value="computed_different_hash"):
+            verify_certificate(cert_path, manifest_path, allow_logic_mismatch=True)
+
+        captured = capsys.readouterr()
+        assert "WARNING: Manifest/Logic hash mismatch!" in captured.out
+
+    def test_logic_hash_mismatch_allowed_via_env_var(self, monkeypatch, capsys):
+        manifest = make_manifest()
+        cert = build_cert("placeholder", verified_logic_hash="expected_hash_123")
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        monkeypatch.setenv("UALBF_ALLOW_LOGIC_MISMATCH", "1")
+        with mock.patch("cert_util.hash_tcb", return_value="computed_different_hash"):
+            verify_certificate(cert_path, manifest_path)
+
+        captured = capsys.readouterr()
+        assert "WARNING: Manifest/Logic hash mismatch!" in captured.out
