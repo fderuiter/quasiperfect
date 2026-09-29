@@ -836,3 +836,164 @@ def create_signed_test_cert(
     }
 
     return cert_data, pub_hex
+
+
+def verify_meta_certificate_envelope(
+    meta_cert_data: dict,
+    manifest_path: str,
+    verified_leaf_certs: list[dict],
+) -> dict:
+    """
+    Validates top-level meta-certificate envelope integrity, manifest hash binding,
+    aggregated signatures matching verified leaf certificates, and re-aggregated telemetry.
+
+    Parameters:
+        meta_cert_data (dict): Parsed meta-certificate payload dictionary.
+        manifest_path (str): Path to the proof manifest file.
+        verified_leaf_certs (list[dict]): List of verified leaf certificate dictionaries in exact order.
+
+    Returns:
+        dict: The verified meta_cert_data dictionary.
+
+    Raises:
+        CertificateValidationError: On any schema, manifest hash, node count, signature array,
+                                    or re-aggregated telemetry mismatch.
+    """
+    env_util.check_deprecated_env_vars()
+
+    if not isinstance(meta_cert_data, dict):
+        raise CertificateValidationError("Meta-certificate data must be a dictionary.")
+
+    # 1. Top-level schema validation
+    required_keys = {
+        "meta_manifest_hash": str,
+        "aggregated_signatures": list,
+        "telemetry": dict,
+        "total_nodes": int,
+    }
+
+    for key, expected_type in required_keys.items():
+        if key not in meta_cert_data:
+            raise CertificateValidationError(
+                f"Meta-certificate missing required top-level key '{key}'."
+            )
+        val = meta_cert_data[key]
+        if expected_type is int and isinstance(val, bool):
+            raise CertificateValidationError(
+                f"Meta-certificate top-level key '{key}' must be an integer, got bool."
+            )
+        if not isinstance(val, expected_type):
+            raise CertificateValidationError(
+                f"Meta-certificate top-level key '{key}' must be of type {expected_type.__name__}, got {type(val).__name__}."
+            )
+
+    # 2. Top-level manifest hash validation
+    if not os.path.exists(manifest_path):
+        raise CertificateValidationError(
+            f"Proof manifest file not found: '{manifest_path}'"
+        )
+
+    computed_manifest_hash = hash_util.hash_file_bounded(manifest_path)
+    if meta_cert_data["meta_manifest_hash"] != computed_manifest_hash:
+        raise CertificateValidationError(
+            f"Top-level meta_manifest_hash mismatch!\nExpected: {computed_manifest_hash}\nGot:      {meta_cert_data['meta_manifest_hash']}"
+        )
+
+    # 3. Total nodes validation
+    if not isinstance(verified_leaf_certs, list):
+        raise CertificateValidationError(
+            "verified_leaf_certs parameter must be a list."
+        )
+
+    if len(verified_leaf_certs) == 0:
+        raise CertificateValidationError(
+            "Cannot verify meta-certificate envelope with empty leaf certificate array."
+        )
+
+    if meta_cert_data["total_nodes"] != len(verified_leaf_certs):
+        raise CertificateValidationError(
+            f"Meta-certificate total_nodes ({meta_cert_data['total_nodes']}) does not match "
+            f"verified leaf certificate count ({len(verified_leaf_certs)})."
+        )
+
+    # 4. Aggregated signatures validation
+    aggregated_sigs = meta_cert_data["aggregated_signatures"]
+    if len(aggregated_sigs) != len(verified_leaf_certs):
+        raise CertificateValidationError(
+            f"Meta-certificate aggregated_signatures length ({len(aggregated_sigs)}) "
+            f"does not match verified leaf certificate count ({len(verified_leaf_certs)})."
+        )
+
+    for idx, (sig, leaf) in enumerate(zip(aggregated_sigs, verified_leaf_certs)):
+        if not isinstance(sig, str):
+            raise CertificateValidationError(
+                f"Aggregated signature at index {idx} must be a string."
+            )
+        if not isinstance(leaf, dict):
+            raise CertificateValidationError(
+                f"Leaf certificate at index {idx} must be a dictionary."
+            )
+        leaf_sig = leaf.get("signature")
+        if not leaf_sig or sig != leaf_sig:
+            raise CertificateValidationError(
+                f"Aggregated signature at index {idx} does not match leaf certificate signature.\n"
+                f"Expected: {leaf_sig}\n"
+                f"Got:      {sig}"
+            )
+
+    # 5. Leaf telemetry re-aggregation validation
+    for idx, leaf in enumerate(verified_leaf_certs):
+        if "telemetry" not in leaf or not isinstance(leaf["telemetry"], dict):
+            raise CertificateValidationError(
+                f"Leaf certificate at index {idx} is missing a valid 'telemetry' dictionary."
+            )
+
+    leaf_tels = [leaf["telemetry"] for leaf in verified_leaf_certs]
+
+    sum_fields = [
+        "total_branches_searched",
+        "abundance_pruned",
+        "raycast_pruned",
+        "phase2_execution_time_ms",
+        "total_execution_time_ms",
+        "math_interruptions",
+    ]
+
+    for f in sum_fields:
+        for idx, t in enumerate(leaf_tels):
+            if f not in t:
+                raise CertificateValidationError(
+                    f"Leaf certificate telemetry at index {idx} is missing required field '{f}'."
+                )
+
+    if "target_min_log10" not in leaf_tels[0]:
+        raise CertificateValidationError(
+            "Leaf certificate telemetry at index 0 is missing 'target_min_log10'."
+        )
+    if "target_max_log10" not in leaf_tels[-1]:
+        raise CertificateValidationError(
+            "Leaf certificate telemetry at last index is missing 'target_max_log10'."
+        )
+
+    expected_telemetry = {
+        "target_min_log10": leaf_tels[0]["target_min_log10"],
+        "target_max_log10": leaf_tels[-1]["target_max_log10"],
+    }
+    for f in sum_fields:
+        expected_telemetry[f] = sum(t[f] for t in leaf_tels)
+
+    top_telemetry = meta_cert_data["telemetry"]
+    for field, expected_val in expected_telemetry.items():
+        if field not in top_telemetry:
+            raise CertificateValidationError(
+                f"Top-level telemetry missing required field '{field}'."
+            )
+        actual_val = top_telemetry[field]
+        if actual_val != expected_val:
+            raise CertificateValidationError(
+                f"Top-level telemetry field '{field}' mismatch!\n"
+                f"Expected re-aggregated value: {expected_val}\n"
+                f"Got:                          {actual_val}"
+            )
+
+    return meta_cert_data

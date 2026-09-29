@@ -1231,6 +1231,10 @@ def verify_meta_certificate(
         check_continuity(verified_leaf_certs)
         verify_telemetry_paths(verified_leaf_certs)
 
+    cert_util.verify_meta_certificate_envelope(
+        meta_cert_data, manifest_path, verified_leaf_certs
+    )
+
     print("✓ Meta-certificate signature (composite) verified.")
     return verified_leaf_certs
 

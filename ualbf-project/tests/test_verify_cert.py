@@ -2485,10 +2485,16 @@ class TestMetaCertificateRecursionLimit:
         pub_key = leaf_cert["public_key"]
         os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
 
+        manifest_content = cert_util.BoundedJSONLoader().read_file_text(manifest_path)
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+
         try:
             current_node = leaf_cert
             for level in range(5):
                 current_node = {
+                    "meta_manifest_hash": manifest_hash,
+                    "aggregated_signatures": [leaf_cert["signature"]],
+                    "total_nodes": 1,
                     "node_certificates": [current_node],
                     "telemetry": leaf_cert["telemetry"],
                 }
@@ -2512,9 +2518,15 @@ class TestMetaCertificateRecursionLimit:
         leaf_cert = build_cert("placeholder")
         cert_path, manifest_path = write_files(manifest, leaf_cert)
 
+        manifest_content = cert_util.BoundedJSONLoader().read_file_text(manifest_path)
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+
         current_node = leaf_cert
         for level in range(7):
             current_node = {
+                "meta_manifest_hash": manifest_hash,
+                "aggregated_signatures": [leaf_cert["signature"]],
+                "total_nodes": 1,
                 "node_certificates": [current_node],
                 "telemetry": leaf_cert["telemetry"],
             }
@@ -2524,6 +2536,42 @@ class TestMetaCertificateRecursionLimit:
         with pytest.raises(CertificateValidationError) as exc_info:
             verify_meta_certificate(current_node, manifest_path, current_depth=0)
         assert "exceeds maximum limit of 5 levels" in str(exc_info.value)
+
+    def test_verify_meta_certificate_delegates_envelope_failures(self, tmp_path):
+        manifest = make_manifest()
+        leaf_cert = build_cert("placeholder")
+        cert_path, manifest_path = write_files(manifest, leaf_cert)
+        pub_key = leaf_cert["public_key"]
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_key
+
+        manifest_content = cert_util.BoundedJSONLoader().read_file_text(manifest_path)
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+
+        # Tampered manifest hash at top-level
+        current_node = {
+            "meta_manifest_hash": "wrong_hash",
+            "aggregated_signatures": [leaf_cert["signature"]],
+            "total_nodes": 1,
+            "node_certificates": [leaf_cert],
+            "telemetry": leaf_cert["telemetry"],
+        }
+
+        from verify_cert import verify_meta_certificate
+
+        try:
+            with mock.patch(
+                "verify_cert.verify_certificate", return_value=leaf_cert
+            ), mock.patch("verify_cert.verify_telemetry_paths"), mock.patch(
+                "verify_cert.check_continuity"
+            ):
+                with pytest.raises(
+                    CertificateValidationError, match="meta_manifest_hash mismatch"
+                ):
+                    verify_meta_certificate(
+                        current_node, manifest_path, current_depth=0
+                    )
+        finally:
+            os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
 
 
 import stat
