@@ -106,9 +106,9 @@ theorem transitive_forced_inclusion {p1 e1 p2 N : ℕ}
 lemma transitive_reach_target_exact {p1 e1 p2 e2 N : ℕ}
   (h_reach : TransitiveReach N p1 e1 p2 e2) :
   p2.Prime ∧ ExactValuation p2 (2 * e2) N := by
-  induction h_reach with
-  | step _ _ _ _ _ _ _ hp2 h_exact2 => exact ⟨hp2, h_exact2⟩
-  | trans _ _ _ _ _ _ _ _ _ ih2 => exact ih2
+  induction h_reach
+  case step hp2 h_exact2 => exact ⟨hp2, h_exact2⟩
+  case trans ih2 => exact ih2
 
 /--
   Transitive reachability soundness theorem:
