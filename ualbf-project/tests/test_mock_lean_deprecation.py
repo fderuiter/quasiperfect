@@ -135,3 +135,47 @@ def test_build_rs_succeeds_and_purges_ir_when_lean_sysroot_dummy():
                 shutil.rmtree(ualbf_dir)
             if ualbf_backup and ualbf_backup.exists():
                 shutil.copytree(ualbf_backup, ualbf_dir)
+
+
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
+def test_build_rs_fails_when_lean_sysroot_missing():
+    """
+    Test that rust-engine/build.rs fails immediately with a descriptive fatal error
+    when LEAN_SYSROOT is unset, lean is absent from PATH, and no mock mode is specified.
+    """
+    project_dir = Path(__file__).parent.parent
+    rust_engine_dir = project_dir / "rust-engine"
+
+    env = os.environ.copy()
+    env.pop("MOCK_LEAN", None)
+    env.pop("LEAN_SYSROOT", None)
+
+    # Filter PATH to ensure no lean binary is accessible
+    new_path_parts = []
+    for part in env.get("PATH", "").split(":"):
+        if not os.path.exists(os.path.join(part, "lean")):
+            new_path_parts.append(part)
+    env["PATH"] = ":".join(new_path_parts)
+
+    # Touch build.rs to force build script rerun
+    build_rs_path = rust_engine_dir / "build.rs"
+    if build_rs_path.exists():
+        build_rs_path.touch()
+
+    res = subprocess.run(
+        ["cargo", "check"],
+        cwd=str(rust_engine_dir),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode != 0
+    assert (
+        "Lean toolchain or sysroot not found" in res.stderr
+        or "Lean toolchain or sysroot not found" in res.stdout
+    )
+
