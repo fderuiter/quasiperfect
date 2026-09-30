@@ -57,7 +57,11 @@ pub(crate) fn compute_asymptotic_abundance(p_u128: u128) -> u128 {
     }
 }
 
-pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult {
+pub fn phase1_global_annihilation_sieve(
+    limit: usize,
+    max_e: u32,
+    target_bound: Uint,
+) -> SieveResult {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
     let phase1_start = std::time::Instant::now();
     let sieve = Sieve::new(limit);
@@ -141,9 +145,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     let sigma_cache_mu: Mutex<SigmaCache> = Mutex::new(HashMap::new());
     let total_factor_ns = AtomicU64::new(0);
 
-    let min_prefix_prod = Uint::from_u64(188_000_000_000);
-    let max_bound =
-        Uint::from_u32(10).pow(crate::manifest_constants::TARGET_MAX_LOG10) / min_prefix_prod;
+    let max_bound = target_bound;
 
     let mut valid_components: Vec<PrimePower> = primes
         .chunks(64)
@@ -409,6 +411,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
 mod tests {
     use super::*;
     use crate::math_utils::quick_factor_u256;
+    use proptest::prelude::*;
 
     #[test]
     #[cfg_attr(unverified_build, ignore)]
@@ -416,7 +419,9 @@ mod tests {
         crate::lean_ffi::initialize_lean_runtime();
         let limit = 50;
         let max_e = 2;
-        let result = phase1_global_annihilation_sieve(limit, max_e);
+        let target_bound =
+            Uint::from_u32(10).pow(crate::policy::get_safe_config().target_max_log10);
+        let result = phase1_global_annihilation_sieve(limit, max_e, target_bound);
 
         assert!(!result.components.is_empty());
         for comp in result.components {
@@ -430,6 +435,37 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_parameterized_sieve_target_bound_completeness() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let limit = 100;
+        let max_e = 2;
+
+        // Custom target bound log10 = 10 (target_bound = 10^10)
+        let custom_target_log10 = 10u32;
+        let custom_target_bound = Uint::from_u32(10).pow(custom_target_log10);
+
+        let result = phase1_global_annihilation_sieve(limit, max_e, custom_target_bound);
+
+        // Verify all retained components have val <= custom_target_bound
+        for comp in &result.components {
+            assert!(
+                comp.val <= custom_target_bound,
+                "Component {}^2e = {} exceeds target_bound {}",
+                comp.p,
+                comp.val,
+                custom_target_bound
+            );
+        }
+
+        // Verify component 17^2 = 289 <= 10^10 is present
+        let has_17_squared = result.components.iter().any(|c| c.p == 17 && c.two_e == 2);
+        assert!(
+            has_17_squared,
+            "Candidate component 17^2 should be present in valid_components"
+        );
     }
 
     #[test]
@@ -548,6 +584,56 @@ mod tests {
         // Very large prime candidate p = u128::MAX
         let p_max = u128::MAX;
         assert_eq!(compute_asymptotic_abundance(p_max), base + 1);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn prop_get_sieve_index_and_check_sieve_bit_bounds(
+            p_mod_8 in any::<usize>(),
+            max_e in any::<u32>(),
+            e in any::<u32>(),
+        ) {
+            let idx_opt = get_sieve_index(p_mod_8, max_e, e);
+            if let Some(idx) = idx_opt {
+                let term1 = p_mod_8.checked_mul((max_e as usize).saturating_add(1));
+                if let Some(t1) = term1 {
+                    prop_assert_eq!(idx, t1 + e as usize);
+                }
+            }
+
+            let bitset = vec![0u64; 16];
+            let bit_res = check_sieve_bit(&bitset, p_mod_8, max_e, e);
+            if let Some(idx) = idx_opt {
+                let block = idx / 64;
+                if block < bitset.len() {
+                    prop_assert_eq!(bit_res, Some(false));
+                } else {
+                    prop_assert_eq!(bit_res, None);
+                }
+            } else {
+                prop_assert_eq!(bit_res, None);
+            }
+        }
+
+        #[test]
+        fn prop_compute_asymptotic_abundance(
+            p in any::<u128>(),
+        ) {
+            let res = compute_asymptotic_abundance(p);
+            if p <= 1 {
+                prop_assert_eq!(res, 0);
+            } else {
+                let base = num_bigint::BigUint::from(1u128 << 64);
+                let p_big = num_bigint::BigUint::from(p);
+                let den = &p_big - num_bigint::BigUint::from(1u32);
+                let num = &p_big * &base;
+                let expected_ceil = (&num + &den - num_bigint::BigUint::from(1u32)) / &den;
+                let expected_u128 = u128::try_from(expected_ceil).unwrap();
+                prop_assert_eq!(res, expected_u128, "compute_asymptotic_abundance overflow/mismatch for p = {}", p);
+            }
+        }
     }
 }
 
