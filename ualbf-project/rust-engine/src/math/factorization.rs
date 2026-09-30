@@ -61,13 +61,58 @@ impl FactorizationResult {
 
 pub struct TrialSieve {
     pub small_primes: Vec<u64>,
+    pub spf: Vec<u32>,
 }
 
 impl TrialSieve {
     pub fn new(limit: u64) -> Self {
         let sieve = primal::Sieve::new(limit as usize);
         let small_primes: Vec<u64> = sieve.primes_from(2).map(|p| p as u64).collect();
-        TrialSieve { small_primes }
+
+        // SPF lookup table up to min(limit, 10_000_000)
+        let spf_limit = (limit as usize).min(10_000_000);
+        let mut spf = vec![0u32; spf_limit + 1];
+        if spf_limit >= 2 {
+            for i in 2..=spf_limit {
+                spf[i] = i as u32;
+            }
+            let mut i = 2;
+            while i * i <= spf_limit {
+                if spf[i] == i as u32 {
+                    let mut j = i * i;
+                    while j <= spf_limit {
+                        if spf[j] == j as u32 {
+                            spf[j] = i as u32;
+                        }
+                        j += i;
+                    }
+                }
+                i += 1;
+            }
+        }
+
+        TrialSieve { small_primes, spf }
+    }
+
+    /// Retrieve prime factors using SPF table for small n (<= 10^7) in O(1) time.
+    pub fn get_spf_factors(&self, mut n: u64) -> Option<Vec<u64>> {
+        if n <= 1 || (n as usize) >= self.spf.len() {
+            return None;
+        }
+        let mut factors = Vec::new();
+        while n > 1 && (n as usize) < self.spf.len() {
+            let p = self.spf[n as usize] as u64;
+            if p == 0 {
+                return None;
+            }
+            factors.push(p);
+            n /= p;
+        }
+        if n == 1 {
+            Some(factors)
+        } else {
+            None
+        }
     }
 
     pub fn trial_factor_only(&self, mut n: Uint) -> (smallvec::SmallVec<[Uint; 8]>, Uint) {
@@ -75,80 +120,152 @@ impl TrialSieve {
             return (smallvec::SmallVec::new(), Uint::one());
         }
         let mut factors = smallvec::SmallVec::<[Uint; 8]>::new();
-        for &p in &self.small_primes {
-            let p_u = Uint::from_u128((p) as u128);
-            if p_u * p_u > n {
-                break;
+
+        if let Some(mut n64) = n.try_as_u64() {
+            // Fast-path: O(1) factor retrieval via SPF lookup table
+            if let Some(spf_facs) = self.get_spf_factors(n64) {
+                for p in spf_facs {
+                    factors.push(Uint::from_u64(p));
+                }
+                return (factors, Uint::one());
             }
-            while n % p_u == Uint::zero() {
-                factors.push(p_u);
-                n /= p_u;
+
+            // 64-bit primitive division loop
+            for &p in &self.small_primes {
+                if p * p > n64 {
+                    break;
+                }
+                while n64 % p == 0 {
+                    factors.push(Uint::from_u64(p));
+                    n64 /= p;
+                    if let Some(rem_spf) = self.get_spf_factors(n64) {
+                        for sp in rem_spf {
+                            factors.push(Uint::from_u64(sp));
+                        }
+                        n64 = 1;
+                        break;
+                    }
+                }
+                if n64 == 1 {
+                    break;
+                }
             }
-        }
-        if n > Uint::one() {
-            let limit_u = Uint::from_u128(self.small_primes.last().copied().unwrap_or(2) as u128);
-            if n <= limit_u * limit_u {
-                factors.push(n);
-                (factors, Uint::one())
+
+            if n64 > 1 {
+                let limit = self.small_primes.last().copied().unwrap_or(2);
+                if n64 <= limit * limit {
+                    factors.push(Uint::from_u64(n64));
+                    (factors, Uint::one())
+                } else {
+                    (factors, Uint::from_u64(n64))
+                }
             } else {
-                (factors, n)
+                (factors, Uint::one())
             }
         } else {
-            (factors, Uint::one())
-        }
-    }
+            // n > u64::MAX: Trial division on Uint
+            for &p in &self.small_primes {
+                let p_u = Uint::from_u64(p);
+                if p_u * p_u > n {
+                    break;
+                }
+                while n % p_u == Uint::zero() {
+                    factors.push(p_u);
+                    n /= p_u;
 
-    pub fn factor(&self, mut n: Uint) -> FactorizationResult {
-        if n <= Uint::one() {
-            return FactorizationResult::Complete(smallvec::SmallVec::new());
-        }
-        let mut factors = smallvec::SmallVec::<[Uint; 8]>::new();
-        for &p in &self.small_primes {
-            let p_u = Uint::from_u128((p) as u128);
-            if p_u * p_u > n {
-                break;
-            }
-            while n % p_u == Uint::zero() {
-                factors.push(p_u);
-                n /= p_u;
-            }
-        }
-        if n > Uint::one() {
-            let limit_u = Uint::from_u128(self.small_primes.last().copied().unwrap_or(2) as u128);
-            if n <= limit_u * limit_u {
-                factors.push(n);
-                return FactorizationResult::Complete(factors);
-            } else {
-                let rho_res = rho_factor_u256(n);
-                match rho_res {
-                    FactorizationResult::Complete(v) => {
-                        factors.extend(v);
-                        factors.sort_unstable();
-                        return FactorizationResult::Complete(factors);
-                    }
-                    FactorizationResult::Partial {
-                        known_factors,
-                        remaining,
-                    } => {
-                        factors.extend(known_factors);
-                        factors.sort_unstable();
-                        return FactorizationResult::Partial {
-                            known_factors: factors,
-                            remaining,
-                        };
-                    }
-                    FactorizationResult::Failure(u) => {
-                        factors.sort_unstable();
-                        return FactorizationResult::Partial {
-                            known_factors: factors,
-                            remaining: u,
-                        };
+                    if let Some(mut n64) = n.try_as_u64() {
+                        if let Some(spf_facs) = self.get_spf_factors(n64) {
+                            for sp in spf_facs {
+                                factors.push(Uint::from_u64(sp));
+                            }
+                            return (factors, Uint::one());
+                        }
+
+                        for &p2 in &self.small_primes {
+                            if p2 * p2 > n64 {
+                                break;
+                            }
+                            while n64 % p2 == 0 {
+                                factors.push(Uint::from_u64(p2));
+                                n64 /= p2;
+                                if let Some(rem_spf) = self.get_spf_factors(n64) {
+                                    for sp in rem_spf {
+                                        factors.push(Uint::from_u64(sp));
+                                    }
+                                    n64 = 1;
+                                    break;
+                                }
+                            }
+                            if n64 == 1 {
+                                break;
+                            }
+                        }
+
+                        if n64 > 1 {
+                            let limit = self.small_primes.last().copied().unwrap_or(2);
+                            if n64 <= limit * limit {
+                                factors.push(Uint::from_u64(n64));
+                                return (factors, Uint::one());
+                            } else {
+                                return (factors, Uint::from_u64(n64));
+                            }
+                        } else {
+                            return (factors, Uint::one());
+                        }
                     }
                 }
             }
+
+            if n > Uint::one() {
+                let limit_u = Uint::from_u64(self.small_primes.last().copied().unwrap_or(2));
+                if n <= limit_u * limit_u {
+                    factors.push(n);
+                    (factors, Uint::one())
+                } else {
+                    (factors, n)
+                }
+            } else {
+                (factors, Uint::one())
+            }
         }
-        factors.sort_unstable();
-        FactorizationResult::Complete(factors)
+    }
+
+    pub fn factor(&self, n: Uint) -> FactorizationResult {
+        if n <= Uint::one() {
+            return FactorizationResult::Complete(smallvec::SmallVec::new());
+        }
+        let (mut factors, remaining) = self.trial_factor_only(n);
+        if remaining > Uint::one() {
+            let rho_res = rho_factor_u256(remaining);
+            match rho_res {
+                FactorizationResult::Complete(v) => {
+                    factors.extend(v);
+                    factors.sort_unstable();
+                    FactorizationResult::Complete(factors)
+                }
+                FactorizationResult::Partial {
+                    known_factors,
+                    remaining: rem,
+                } => {
+                    factors.extend(known_factors);
+                    factors.sort_unstable();
+                    FactorizationResult::Partial {
+                        known_factors: factors,
+                        remaining: rem,
+                    }
+                }
+                FactorizationResult::Failure(u) => {
+                    factors.sort_unstable();
+                    FactorizationResult::Partial {
+                        known_factors: factors,
+                        remaining: u,
+                    }
+                }
+            }
+        } else {
+            factors.sort_unstable();
+            FactorizationResult::Complete(factors)
+        }
     }
 }
 

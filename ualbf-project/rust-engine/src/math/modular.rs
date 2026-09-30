@@ -46,6 +46,34 @@ pub fn mul_mod_u512(mut a: Uint, mut b: Uint, m: Uint) -> Uint {
         return prod % m;
     }
 
+    // Fast path 1: Operands fit within native u128
+    if let Some(m_128) = m.try_as_u128() {
+        let a_128 = a.as_u128();
+        let b_128 = b.as_u128();
+        return Uint::from_u128(mul_mod_u128(a_128, b_128, m_128));
+    }
+
+    // Fast path 2: Operands fit within 256-bit U256
+    let u256_max_as_512 =
+        <Uint as bnum::cast::CastFrom<bnum::types::U256>>::cast_from(bnum::types::U256::MAX);
+    if m <= u256_max_as_512 {
+        let a_256 = <bnum::types::U256 as bnum::cast::CastFrom<Uint>>::cast_from(a);
+        let b_256 = <bnum::types::U256 as bnum::cast::CastFrom<Uint>>::cast_from(b);
+        let m_256 = <bnum::types::U256 as bnum::cast::CastFrom<Uint>>::cast_from(m);
+        if let Some(prod_256) = a_256.checked_mul(b_256) {
+            let res_256 = prod_256 % m_256;
+            return <Uint as bnum::cast::CastFrom<bnum::types::U256>>::cast_from(res_256);
+        } else {
+            // Product exceeds 256 bits, but fits within Uint (U512)
+            let a_512 = <Uint as bnum::cast::CastFrom<bnum::types::U256>>::cast_from(a_256);
+            let b_512 = <Uint as bnum::cast::CastFrom<bnum::types::U256>>::cast_from(b_256);
+            let m_512 = <Uint as bnum::cast::CastFrom<bnum::types::U256>>::cast_from(m_256);
+            let res_512 = (a_512 * b_512) % m_512;
+            return res_512;
+        }
+    }
+
+    // Fallback: Modulus exceeds 256 bits
     let a_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(a);
     let b_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(b);
     let m_1024 = <bnum::types::U1024 as bnum::cast::CastFrom<Uint>>::cast_from(m);
