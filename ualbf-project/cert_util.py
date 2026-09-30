@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 try:
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
     _HAS_CRYPTOGRAPHY = True
 except ImportError:
     Ed25519PrivateKey = None  # type: ignore
@@ -825,7 +826,9 @@ def create_signed_test_cert(
         map_obj["path_ranges"] = tel["path_ranges"]
 
     if not _HAS_CRYPTOGRAPHY or Ed25519PrivateKey is None:
-        raise ImportError("cryptography package is required for creating signed test certificates.")
+        raise ImportError(
+            "cryptography package is required for creating signed test certificates."
+        )
 
     priv = Ed25519PrivateKey.generate()
     pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()  # type: ignore[arg-type]
