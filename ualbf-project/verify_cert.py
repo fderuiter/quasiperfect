@@ -655,6 +655,7 @@ def verify_certificate(
             file=sys.stderr,
         )
         sys.exit(1)
+    assert coverage_gaps == 0, f"math_interruptions must be 0, got {coverage_gaps}"
 
     # Verify logic hash if we have the rust-engine/src directory
     rust_src_dir = os.path.join(
@@ -896,6 +897,16 @@ def verify_telemetry_paths(certs_list: list) -> None:
     all_path_ranges = []
     for i, cert in enumerate(certs_list):
         tel = cert.get("telemetry", {})
+        math_interruptions = tel.get("math_interruptions", 0)
+        if math_interruptions > 0:
+            print(
+                f"ERROR: Search coverage is incomplete: certificate {i} has {math_interruptions} math interruption(s).",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        assert (
+            math_interruptions == 0
+        ), f"math_interruptions must be 0 in certificate {i}, got {math_interruptions}"
         if "path_ranges" not in tel and "inner_paths" not in tel:
             print(
                 f"ERROR: Inner telemetry path ranges are missing from certificate {i}."
@@ -1276,6 +1287,15 @@ if __name__ == "__main__":
         agg_tel["math_interruptions"] = sum(
             c["telemetry"]["math_interruptions"] for c in loaded_certs
         )
+        if agg_tel["math_interruptions"] > 0:
+            print(
+                f"ERROR: Aggregated certificate set contains {agg_tel['math_interruptions']} math interruption(s). Rejecting master certificate aggregation.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        assert (
+            agg_tel["math_interruptions"] == 0
+        ), f"Aggregated math_interruptions must be 0, got {agg_tel['math_interruptions']}"
 
         agg_sigs = [c["signature"] for c in loaded_certs]
 

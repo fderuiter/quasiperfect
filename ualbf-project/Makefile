@@ -16,9 +16,9 @@ export PYTHONUNBUFFERED=1
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit mock-ui verification-lib check verify-sync check-core check-python check-paper
+.PHONY: all lean rust clean audit verification-lib check verify-sync check-core check-python check-paper
 
-all: verification-lib mock-ui lean rust
+all: verification-lib lean rust
 
 audit:
 	python3 auditor.py
@@ -28,7 +28,7 @@ check: check-core check-python check-paper
 check-core:
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
-	cargo llvm-cov --workspace --fail-under-functions 80 --summary-only --cobertura --output-path coverage.xml --ignore-filename-regex "(generated|metal_reflection|verification_cli|distributed|main\.rs)"
+	cargo llvm-cov --workspace --fail-under-functions 80 --summary-only --cobertura --output-path coverage.xml --ignore-filename-regex "(generated|verification_cli|distributed|main\.rs)"
 	./scripts/check_lean_fmt.sh
 	./scripts/check-code-quality.sh
 
@@ -67,17 +67,9 @@ verification-lib:
 	 cp ../target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || \
 	 cp verification-lib/target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || true
 
-mock-ui:
-	mkdir -p build/mock-bin
-	printf '#!/usr/bin/env bash\nexit 0\n' > build/mock-bin/node
-	printf '#!/usr/bin/env bash\nexit 0\n' > build/mock-bin/npx
-	printf '#!/usr/bin/env bash\necho "Mocking npm command: $$@"\nmkdir -p dist build/js js\necho "module.exports = {};" > dist/index.js\necho "module.exports = {};" > build/js/index.js\necho "module.exports = {};" > js/index.js\necho "module.exports = {};" > index.js\nexit 0\n' > build/mock-bin/npm
-	chmod +x build/mock-bin/node build/mock-bin/npx build/mock-bin/npm
-	@echo "Mock UI setup complete (using mock npm in PATH)"
-
-lean: verification-lib mock-ui
+lean: verification-lib
 	./scripts/export_lean_specs.py
-	cd lean4-proofs && CPATH="../verification-lib/include:../target/include:$$CPATH" PATH="$$(cd ../build/mock-bin && pwd):$$PATH" lake build UALBF validator
+	cd lean4-proofs && CPATH="../verification-lib/include:../target/include:$$CPATH" lake build UALBF validator
 
 rust: lean
 	./scripts/export_lean_specs.py
