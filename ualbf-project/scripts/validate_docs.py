@@ -769,11 +769,16 @@ def main():
     if filtered_args:
         pr_files_path = os.path.abspath(filtered_args[0])
 
-    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    manifest_path = os.path.join(repo_root, "docs_manifest.json")
-    if not os.path.exists(manifest_path):
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    cwd_root = os.getcwd()
+    if os.path.exists(os.path.join(cwd_root, "docs_manifest.json")):
+        repo_root = cwd_root
         manifest_path = os.path.join(repo_root, "docs_manifest.json")
+    else:
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        manifest_path = os.path.join(repo_root, "docs_manifest.json")
+        if not os.path.exists(manifest_path):
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            manifest_path = os.path.join(repo_root, "docs_manifest.json")
 
     if not os.path.exists(manifest_path):
         print(
