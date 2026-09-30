@@ -406,6 +406,11 @@ pub fn phase2_and_4_fused(
             ap,
             rp,
             bp,
+            math_interruptions: math_interruptions.load(Ordering::Relaxed),
+            range: crate::distributed::RangeWorkUnit {
+                start_bound: vec![],
+                end_bound: vec![],
+            },
         });
     }
     DfsTelemetry {
