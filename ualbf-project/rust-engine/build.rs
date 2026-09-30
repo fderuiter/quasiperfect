@@ -813,9 +813,30 @@ fn main() {
         }
     }
 
-    if lean_sysroot.is_empty() || lean_sysroot == "DUMMY" {
+    if lean_sysroot.is_empty() {
+        if is_mock {
+            lean_sysroot = "DUMMY".to_string();
+        } else {
+            panic!(
+                "FATAL: Lean toolchain or sysroot not found! LEAN_SYSROOT is unset and 'lean' is absent from PATH. Automatic fallback to unverified dummy FFI stubs is disabled."
+            );
+        }
+    }
+
+    if lean_sysroot != "DUMMY" && !is_mock {
+        let sysroot_path = PathBuf::from(&lean_sysroot);
+        let include_path = sysroot_path.join("include");
+        if !sysroot_path.exists() || !include_path.exists() {
+            panic!(
+                "FATAL: LEAN_SYSROOT='{}' is invalid or does not contain an 'include' directory.",
+                lean_sysroot
+            );
+        }
+    }
+
+    if lean_sysroot == "DUMMY" {
         println!(
-            "cargo:warning=Lean sysroot not found. Building with dummy FFI (unverified_build)."
+            "cargo:warning=Explicit mock Lean configuration active (MOCK_LEAN=1 / LEAN_SYSROOT=DUMMY). Building with dummy FFI stubs (unverified_build)."
         );
         println!("cargo:rustc-cfg=unverified_build");
 

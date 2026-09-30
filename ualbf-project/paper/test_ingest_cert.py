@@ -17,6 +17,9 @@ import tempfile
 import types
 import unittest
 from unittest import mock
+import pytest  # type: ignore
+
+pytest.importorskip("cryptography")
 
 try:
     importlib.import_module("verification_lib")
