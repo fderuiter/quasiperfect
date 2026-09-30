@@ -1,10 +1,10 @@
-# A script with bad style and formatting to test tiered configurations
-import os, sys
+"""A script with good style and formatting."""
 
-def some_bad_function( x,y ):
-    bad_var = "a" * 200    
-    print(undefined_variable_here)
-    x: int = "not an int"
-    return x
 
-some_bad_function(1, 2)
+def some_bad_function(x: int, y: int) -> int:
+    """A helper function returning sum of x and y."""
+    return x + y
+
+
+if __name__ == "__main__":
+    some_bad_function(1, 2)

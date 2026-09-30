@@ -529,8 +529,12 @@ def validate_env_manifest(repo_root: str) -> bool:
         manifest_path = os.path.join(real_root, "env_manifest.json")
         schema_path = os.path.join(real_root, "env_manifest.schema.json")
         if not os.path.exists(manifest_path):
-            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
-            schema_path = os.path.join(real_root, "ualbf-project", "env_manifest.schema.json")
+            manifest_path = os.path.join(
+                real_root, "ualbf-project", "env_manifest.json"
+            )
+            schema_path = os.path.join(
+                real_root, "ualbf-project", "env_manifest.schema.json"
+            )
 
     if not os.path.exists(manifest_path) or not os.path.exists(schema_path):
         return True
@@ -559,7 +563,9 @@ def validate_env_vars(repo_root: str) -> bool:
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
         if not os.path.exists(manifest_path):
-            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
+            manifest_path = os.path.join(
+                real_root, "ualbf-project", "env_manifest.json"
+            )
 
     if not os.path.exists(manifest_path):
         return True
@@ -660,7 +666,9 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
         if not os.path.exists(manifest_path):
-            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
+            manifest_path = os.path.join(
+                real_root, "ualbf-project", "env_manifest.json"
+            )
 
     if not os.path.exists(manifest_path):
         return True
@@ -810,10 +818,12 @@ def main():
                 continue
             if d.startswith("."):
                 candidate_rel = f"{norm_rel_root}/{d}" if norm_rel_root else d
-                if (
-                    candidate_rel in (".jules", ".agents", ".jules/skills", ".agents/skills")
-                    or candidate_rel.startswith(allowed_dot_prefixes)
-                ):
+                if candidate_rel in (
+                    ".jules",
+                    ".agents",
+                    ".jules/skills",
+                    ".agents/skills",
+                ) or candidate_rel.startswith(allowed_dot_prefixes):
                     pruned_dirs.append(d)
             else:
                 pruned_dirs.append(d)
@@ -821,7 +831,9 @@ def main():
 
         for f in files:
             if f.endswith(".md"):
-                rel_path = os.path.relpath(os.path.join(root_dir, f), repo_root).replace("\\", "/")
+                rel_path = os.path.relpath(
+                    os.path.join(root_dir, f), repo_root
+                ).replace("\\", "/")
                 filtered_md_files.append(rel_path)
 
     # Check that all registered manifest entries exist on disk

@@ -270,9 +270,7 @@ def generate_c_schema_header(schema, repo_root, schema_hash):
             "#    define _Static_assert(expr, msg) __extension__ _Static_assert(expr, msg)\n"
         )
         f.write("#  else\n")
-        f.write(
-            "#    define SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b) a ## b\n"
-        )
+        f.write("#    define SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b) a ## b\n")
         f.write(
             "#    define SCHEMA_STATIC_ASSERT_CONCAT(a, b) SCHEMA_STATIC_ASSERT_CONCAT_IMPL(a, b)\n"
         )
@@ -406,16 +404,14 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         )
 
         crt_modulus_product = bounds["crt_obstruction"]["modulus_product"]
-        crt_moduli = bounds["crt_obstruction"]["moduli"]
 
-        prime_split_threshold = (
-            bounds["search_bounds"].get("prime_split_threshold", {}).get("value", 61)
-        )
         target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
         trial_division_limit = (
-            bounds["search_bounds"].get("trial_division_limit", {}).get("value", 10000000)
+            bounds["search_bounds"]
+            .get("trial_division_limit", {})
+            .get("value", 10000000)
         )
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
@@ -1028,7 +1024,9 @@ def main():
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
         trial_division_limit = (
-            bounds["search_bounds"].get("trial_division_limit", {}).get("value", 10000000)
+            bounds["search_bounds"]
+            .get("trial_division_limit", {})
+            .get("value", 10000000)
         )
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][

@@ -1,9 +1,0 @@
-[tool.black]
-force-exclude = '.*'
-
-[tool.mypy]
-ignore_errors = true
-
-[tool.ruff.lint]
-select = []
-ignore = ["ALL"]

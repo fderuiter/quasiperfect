@@ -26,9 +26,7 @@ if script_dir not in sys.path:
 if paper_dir not in sys.path:
     sys.path.insert(0, paper_dir)
 
-import env_util  # noqa: E402
 import cert_util  # noqa: E402
-import hash_util  # noqa: E402
 import ingest_cert  # noqa: E402
 import validate_paper  # noqa: E402
 
@@ -139,9 +137,7 @@ def verify_paper_macro_sync(
     # Generate expected macros in a temporary directory to verify on-disk files without mutating workspace
     with tempfile.TemporaryDirectory() as tmp_dir:
         generate_paper_macros(manifest_path, bounds_path, tmp_dir)
-        with open(
-            os.path.join(tmp_dir, "telemetry.tex"), "r", encoding="utf-8"
-        ) as f:
+        with open(os.path.join(tmp_dir, "telemetry.tex"), "r", encoding="utf-8") as f:
             expected_telemetry = f.read()
         with open(
             os.path.join(tmp_dir, "verification_manifest.tex"),
