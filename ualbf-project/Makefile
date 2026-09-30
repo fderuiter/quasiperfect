@@ -16,23 +16,26 @@ export PYTHONUNBUFFERED=1
 # IMPORTANT: Lean must be built BEFORE Rust, as the Rust engine
 # links against the Lean C-IR static library produced by `lake build`.
 
-.PHONY: all lean rust clean audit verification-lib check verify-sync check-core check-python check-paper
+.PHONY: all lean rust clean audit verification-lib check verify-sync check-core check-python check-paper help
 
-all: verification-lib lean rust
+all: verification-lib lean rust ## Build Lean proofs, then Rust engine
 
-audit:
+help: ## Display available targets and descriptions
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*##[ ]*"}; {printf "%-18s %s\n", $$1, $$2}'
+
+audit: ## Run safety and proof audit checks
 	python3 auditor.py
 
-check: check-core check-python check-paper
+check: check-core check-python check-paper ## Runs check-core, check-python, and check-paper targets
 
-check-core:
+check-core: ## Runs Rust formatting and Clippy, and Lean formatting
 	cargo fmt --check
 	cargo clippy --workspace -- -D warnings
 	cargo llvm-cov --workspace --fail-under-functions 80 --summary-only --cobertura --output-path coverage.xml --ignore-filename-regex "(generated|verification_cli|distributed|main\.rs)"
 	./scripts/check_lean_fmt.sh
 	./scripts/check-code-quality.sh
 
-check-python: verification-lib
+check-python: verification-lib ## Runs Python style checks, type-checking, doc validation, and unit tests
 	python3 scripts/check_literals.py
 	python3 verify_metadata.py
 	black --check .
@@ -42,10 +45,10 @@ check-python: verification-lib
 	python3 scripts/validate_tuning_guide.py
 	python3 -m pytest tests paper
 
-check-paper: verification-lib
+check-paper: verification-lib ## Verifies paper unit tests and LaTeX macro synchronization
 	python3 scripts/verify_paper_sync.py
 
-verify-sync: verification-lib
+verify-sync: verification-lib ## Verify generated specifications alignment and workspace cleanliness
 	./scripts/export_lean_specs.py
 	python3 auditor.py
 	@if [ -n "$$(git status --porcelain --untracked-files=no)" ]; then \
@@ -67,17 +70,17 @@ verification-lib:
 	 cp ../target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || \
 	 cp verification-lib/target/release/libverification_lib.dylib ./verification_lib.so 2>/dev/null || true
 
-lean: verification-lib
+lean: verification-lib ## Build only Lean (requires mathlib)
 	./scripts/export_lean_specs.py
 	cd lean4-proofs && CPATH="../verification-lib/include:../target/include:$$CPATH" lake build UALBF validator
 
-rust: lean
+rust: lean ## Build only Rust (requires prior `make lean`)
 	./scripts/export_lean_specs.py
 	python3 auditor.py
 	echo "Building WITH signing capabilities (Verified Build)"; \
 	cd rust-engine && cargo build --release --features signing;
 
 
-clean:
+clean: ## Clean both Lean and Rust build artifacts
 	cd lean4-proofs && lake clean
 	cd rust-engine && cargo clean
