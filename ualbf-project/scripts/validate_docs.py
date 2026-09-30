@@ -960,8 +960,6 @@ def main():
                     print(f"Authoritative document modified: {f}")
                     authoritative_touched = True
             elif f.endswith(".md") or f.endswith(".tex"):
-                if os.path.basename(f) in generated_tex_names:
-                    continue
                 print(
                     f"Error: PR introduces a documentation file '{f}' not registered in docs_manifest.json.",
                     file=sys.stderr,
