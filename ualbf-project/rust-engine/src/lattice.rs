@@ -68,19 +68,17 @@ pub fn compute_target_log_and_epsilon_float(
     n_l: &crate::types::Uint,
 ) -> (Float, Float) {
     const PRECISION: u32 = 256;
-    let s_int = uint_to_rug_integer(s_l);
-    let n_int = uint_to_rug_integer(n_l);
+    let rat = accumulators_to_rational(s_l, n_l);
 
-    if n_int == 0 || s_int == 0 {
+    if *rat.numer() == 0 || *rat.denom() == 0 {
         return (Float::with_val(PRECISION, 0), Float::with_val(PRECISION, 0));
     }
 
-    let rat = Rational::from((s_int, n_int.clone()));
     let a_curr_flt = Float::with_val(PRECISION, &rat);
     let ln_2 = Float::with_val(PRECISION, 2).ln();
     let target_log_flt = ln_2 - a_curr_flt.ln();
 
-    let n_flt = Float::with_val(PRECISION, &n_int);
+    let n_flt = Float::with_val(PRECISION, rat.denom());
     let inv_2n_flt = Float::with_val(PRECISION, 0.5) / &n_flt;
     let epsilon_flt = inv_2n_flt.ln_1p();
 
@@ -461,5 +459,124 @@ mod tests {
         // without producing NaN or overflowing.
         let pruned = lll_prune_decision(&curr, &components);
         assert!(pruned, "Deep node with S_l > 2 * N_l must be pruned");
+    }
+
+    #[test]
+    fn test_u512_exceeding_2_to_53_rational_abundance() {
+        // Values > 2^53 loss of precision test
+        // 2^60 + 1 = 1152921504606846977
+        let n_val = (Uint::one() << 60) + Uint::from_u32(100);
+        let s_val = (Uint::one() << 60) + Uint::from_u32(101);
+
+        let rat = accumulators_to_rational(&s_val, &n_val);
+        let expected_s = uint_to_rug_integer(&s_val);
+        let expected_n = uint_to_rug_integer(&n_val);
+
+        assert_eq!(*rat.numer(), expected_s);
+        assert_eq!(*rat.denom(), expected_n);
+
+        // 512-bit large state variable > 2^256
+        let n_512 = (Uint::one() << 300) + Uint::from_u64(987654321);
+        let s_512 = (Uint::one() << 300) + Uint::from_u64(123456789);
+
+        let rat_512 = accumulators_to_rational(&s_512, &n_512);
+        assert_eq!(*rat_512.numer(), uint_to_rug_integer(&s_512));
+        assert_eq!(*rat_512.denom(), uint_to_rug_integer(&n_512));
+
+        let (target_log_flt, epsilon_flt) = compute_target_log_and_epsilon_float(&s_512, &n_512);
+        assert!(
+            !target_log_flt.is_nan(),
+            "target_log_flt for 512-bit int must not be NaN"
+        );
+        assert!(
+            !epsilon_flt.is_nan(),
+            "epsilon_flt for 512-bit int must not be NaN"
+        );
+    }
+
+    #[test]
+    fn test_uint_to_rug_integer_zero_string_formatting() {
+        let test_cases = vec![
+            Uint::from_u32(0),
+            Uint::from_u32(1),
+            Uint::from_u64(u64::MAX),
+            Uint::from_u128(u128::MAX),
+            Uint::one() << 256,
+            (Uint::one() << 511) - Uint::one(),
+        ];
+
+        for u in test_cases {
+            let rug_int = uint_to_rug_integer(&u);
+            let bytes = u.to_le_bytes();
+            let expected_rug = Integer::from_digits(&bytes, Order::Lsf);
+            assert_eq!(rug_int, expected_rug);
+        }
+    }
+
+    #[test]
+    fn test_no_improper_branch_pruning_near_boundary() {
+        crate::lean_ffi::initialize_lean_runtime();
+
+        // Exact boundary: S_l = 2 * N_l (abundancy = 2 exactly)
+        let n_l = Uint::one() << 128;
+        let s_l = n_l * Uint::from_u32(2);
+
+        let curr = Prefix {
+            n_l,
+            s_l,
+            last_idx: 0,
+            factors: vec![3, 5],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: vec![0b1].into(),
+            sigma_mod24: 1,
+        };
+
+        let components = vec![PrimePower {
+            p: 7,
+            two_e: 2,
+            val: crate::types::Uint::from_u32(49),
+            sigma: crate::types::Uint::from_u32(57),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp: (57u128 << 64) / 49,
+        }];
+
+        // S_l == 2 * N_l must NOT trigger the S_l > 2 * N_l pruning rule
+        let s_int = uint_to_rug_integer(&curr.s_l);
+        let n_int = uint_to_rug_integer(&curr.n_l);
+        let two_n = Integer::from(2 * &n_int);
+        assert!(
+            !(s_int > two_n),
+            "S_l == 2 * N_l must not exceed 2 * N_l in exact integer comparison"
+        );
+    }
+
+    #[test]
+    fn test_rational_abundance_benchmark_and_allocations() {
+        let n_val = (Uint::one() << 200) + Uint::from_u64(123456789);
+        let s_val = (Uint::one() << 200) + Uint::from_u64(987654321);
+
+        let start = std::time::Instant::now();
+        let iterations = 10_000;
+        let mut sink_target = 0.0_f64;
+        let mut sink_eps = 0.0_f64;
+
+        for _ in 0..iterations {
+            let (target_log, epsilon) = compute_target_log_and_epsilon(&s_val, &n_val);
+            sink_target += target_log;
+            sink_eps += epsilon;
+        }
+
+        let elapsed = start.elapsed();
+        println!(
+            "Executed {} abundance evaluations in {:?} ({:.2} ns/eval)",
+            iterations,
+            elapsed,
+            elapsed.as_nanos() as f64 / iterations as f64
+        );
+
+        assert!(!sink_target.is_nan());
+        assert!(!sink_eps.is_nan());
     }
 }
