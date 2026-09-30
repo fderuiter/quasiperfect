@@ -753,6 +753,13 @@ fn main() {
         "Sieve: limit={}, max_exponent={}, prefix_stop={}",
         sieve_limit, max_exponent, prefix_stop
     );
+    // The DFS only extends prefixes from the Phase 1 component list, so a run covers
+    // N built from p^(2e) with p < sieve_limit and e <= max_exponent. Say so (#565).
+    println!(
+        "Search scope: only N whose prime powers p^(2e) have p < {} and e <= {}. \
+         This run is NOT an exhaustive search of the target interval.",
+        sieve_limit, max_exponent
+    );
 
     let (euler_num, euler_den) = lean_ffi::get_euler_ceiling();
     println!(
