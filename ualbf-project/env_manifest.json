@@ -76,8 +76,8 @@
       "true",
       "false"
     ],
-    "status": "active",
-    "description": "Bypasses certificate verification during CI paper macro generation when set to 1."
+    "status": "deprecated",
+    "description": "Deprecated bypass flag for CI paper macro generation; execution is halted if detected."
   },
   "UALBF_IN_STAGING_WORKSPACE": {
     "type": "boolean",
@@ -151,6 +151,13 @@
     "allowed_values": null,
     "status": "active",
     "description": "Lower bound log10 exponent for search space (N > 10^min)."
+  },
+  "UALBF_TRIAL_DIVISION_LIMIT": {
+    "type": "integer",
+    "default": 10000000,
+    "allowed_values": null,
+    "status": "active",
+    "description": "Trial division search limit used when attempting small prime factor discovery during search branch expansion."
   },
   "UALBF_TRUSTED_PUBLIC_KEY": {
     "type": "string",

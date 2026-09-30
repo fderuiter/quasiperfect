@@ -74,6 +74,9 @@ def compute_transport_layout(fields, schema):
                 c_inner, _, _ = map_rust_type_to_c_info(inner)
                 transport_fields.append((fname, f"const {c_inner}*", 8, 8))
                 transport_fields.append((f"{fname}_len", "size_t", 8, 8))
+            elif rust_t == "BitSet":
+                transport_fields.append((fname, "const uint64_t*", 8, 8))
+                transport_fields.append((f"{fname}_len", "size_t", 8, 8))
             else:
                 c_type, size, align = map_rust_type_to_c_info(rust_t)
                 transport_fields.append((fname, c_type, size, align))
@@ -100,9 +103,10 @@ def generate_rust_types(schema, repo_root, schema_hash):
     with open(rust_path, "w", encoding="utf-8") as f:
         f.write("// AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.\n\n")
         f.write(f'pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str = "{schema_hash}";\n\n')
+        f.write("use crate::state::BitSet;\n")
         f.write("use crate::types::Uint;\n")
-        f.write("use smallvec::SmallVec;\n")
-        f.write("use serde::{Serialize, Deserialize};\n\n")
+        f.write("use serde::{Deserialize, Serialize};\n")
+        f.write("use smallvec::SmallVec;\n\n")
 
         for struct_name, struct_def in schema.items():
             if "fields" not in struct_def:
@@ -183,6 +187,9 @@ def generate_rust_types(schema, repo_root, schema_hash):
                             inner = rust_t.replace("Vec<", "").replace(">", "")
                             f.write(f"    pub {field['name']}: *const {inner},\n")
                             f.write(f"    pub {field['name']}_len: usize,\n")
+                        elif rust_t == "BitSet":
+                            f.write(f"    pub {field['name']}: *const u64,\n")
+                            f.write(f"    pub {field['name']}_len: usize,\n")
                         else:
                             f.write(f"    pub {field['name']}: {rust_t},\n")
                 f.write("}\n\n")
@@ -212,7 +219,7 @@ def generate_rust_types(schema, repo_root, schema_hash):
                             )
                     else:
                         rust_t = field["rust_type"]
-                        if "Vec<" in rust_t:
+                        if "Vec<" in rust_t or rust_t == "BitSet":
                             f.write(
                                 f"            {field['name']}: self.{field['name']}.as_ptr(),\n"
                             )
@@ -407,6 +414,9 @@ def generate_verus_specs(bounds, repo_root, bounds_hash):
         target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
+        trial_division_limit = (
+            bounds["search_bounds"].get("trial_division_limit", {}).get("value", 10000000)
+        )
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
             "value"
@@ -438,6 +448,7 @@ verus! {{
     pub open spec fn lean_target_min_log10() -> nat {{ {target_min_log10} }}
     pub open spec fn lean_target_max_log10() -> nat {{ {target_max_log10} }}
     pub open spec fn lean_sieve_limit() -> nat {{ {sieve_limit} }}
+    pub open spec fn lean_trial_division_limit() -> nat {{ {trial_division_limit} }}
     pub open spec fn lean_max_exponent() -> nat {{ {max_exponent} }}
     pub open spec fn lean_prefix_stop_threshold() -> nat {{ {prefix_stop_threshold} }}
     pub open spec fn lean_pollard_rho_iteration_limit() -> nat {{ {pollard_rho_iteration_limit} }}
@@ -498,6 +509,10 @@ verus! {{
 
     pub proof fn prove_sieve_limit_equivalence()
         ensures (crate::manifest_constants::SIEVE_LIMIT as nat) == lean_sieve_limit()
+    {{}}
+
+    pub proof fn prove_trial_division_limit_equivalence()
+        ensures (crate::manifest_constants::TRIAL_DIVISION_LIMIT as nat) == lean_trial_division_limit()
     {{}}
 
     pub proof fn prove_max_exponent_equivalence()
@@ -649,8 +664,10 @@ macro_rules
 
     with open(lean_generated_path, "w", encoding="utf-8") as f:
         f.write(f"""import Mathlib.Data.UInt
+import Mathlib.Tactic.Ring
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 set_option linter.all false
+set_option exponentiation.threshold 512
 
 namespace UALBF.FFI
 
@@ -672,9 +689,15 @@ instance : Inhabited U512 where
 def fromU512Fast (u : U512) : Nat :=
   {from_u512_fast_expr}
 
-@[implemented_by fromU512Fast]
 def fromU512 (u : U512) : Nat :=
   {from_u512_expr}
+
+set_option exponentiation.threshold 512 in
+@[csimp] theorem fromU512_eq_fromU512Fast : @fromU512 = @fromU512Fast := by
+  funext u
+  unfold fromU512 fromU512Fast
+  simp only [Nat.shiftLeft_eq]
+  ring
 
 def toU512 (n : Nat) : U512 :=
 {to_u512_expr}
@@ -1004,6 +1027,9 @@ def main():
         target_min_log10 = bounds["search_bounds"]["target_min_log10"]["value"]
         target_max_log10 = bounds["search_bounds"]["target_max_log10"]["value"]
         sieve_limit = bounds["search_bounds"]["sieve_limit"]["value"]
+        trial_division_limit = (
+            bounds["search_bounds"].get("trial_division_limit", {}).get("value", 10000000)
+        )
         max_exponent = bounds["search_bounds"]["max_exponent"]["value"]
         prefix_stop_threshold = bounds["search_bounds"]["prefix_stop_threshold"][
             "value"
@@ -1068,6 +1094,8 @@ pub const TARGET_MAX_LOG10: u32 = {target_max_log10};
 #[cfg(not(verus_keep_ghost))]
 pub const SIEVE_LIMIT: usize = {sieve_limit};
 #[cfg(not(verus_keep_ghost))]
+pub const TRIAL_DIVISION_LIMIT: usize = {trial_division_limit};
+#[cfg(not(verus_keep_ghost))]
 pub const MAX_EXPONENT: u32 = {max_exponent};
 #[cfg(not(verus_keep_ghost))]
 pub const PREFIX_STOP_THRESHOLD: u64 = {prefix_stop_threshold};
@@ -1120,6 +1148,7 @@ verus! {{
     pub const TARGET_MIN_LOG10: u32 = {target_min_log10};
     pub const TARGET_MAX_LOG10: u32 = {target_max_log10};
     pub const SIEVE_LIMIT: usize = {sieve_limit};
+    pub const TRIAL_DIVISION_LIMIT: usize = {trial_division_limit};
     pub const MAX_EXPONENT: u32 = {max_exponent};
     pub const PREFIX_STOP_THRESHOLD: u64 = {prefix_stop_threshold};
     pub const POLLARD_RHO_ITERATION_LIMIT: u32 = {pollard_rho_iteration_limit};
@@ -1161,6 +1190,7 @@ verus! {{
 #define TARGET_MIN_LOG10 {target_min_log10}
 #define TARGET_MAX_LOG10 {target_max_log10}
 #define SIEVE_LIMIT {sieve_limit}
+#define TRIAL_DIVISION_LIMIT {trial_division_limit}
 #define MAX_EXPONENT {max_exponent}
 #define PREFIX_STOP_THRESHOLD {prefix_stop_threshold}
 #define POLLARD_RHO_ITERATION_LIMIT {pollard_rho_iteration_limit}
@@ -1201,6 +1231,7 @@ def EULER_CEILING_DEN : Nat := {euler_den}
 def TARGET_MIN_LOG10 : Nat := {target_min_log10}
 def TARGET_MAX_LOG10 : Nat := {target_max_log10}
 def SIEVE_LIMIT : Nat := {sieve_limit}
+def TRIAL_DIVISION_LIMIT : Nat := {trial_division_limit}
 def MAX_EXPONENT : Nat := {max_exponent}
 def PREFIX_STOP_THRESHOLD : Nat := {prefix_stop_threshold}
 def POLLARD_RHO_ITERATION_LIMIT : Nat := {pollard_rho_iteration_limit}

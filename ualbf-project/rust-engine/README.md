@@ -4,6 +4,9 @@ A high-performance algorithmic engine for analyzing odd quasiperfect numbers and
 
 This tool leverages state-of-the-art computational number theory, including Legendre-Cattaneo Sieving, Pollard's Rho Factorization, Miller-Rabin Primality Testing, and the Tonelli-Shanks algorithm across composite moduli. 
 
+> [!WARNING]
+> **Coverage is incomplete.** The engine is an engineering prototype. It only considers primes below 250,000 with exponent 2e ≤ 8, its CDG forced-cascade pruning rule reads a Lean theorem about primes dividing σ(N) as if it forced those primes into N, several pruning bounds only account for components in its own list, and the exact ray-casting stage (Phase 4) has never run. A run that finds no quasiperfect number does not establish a lower bound on N.
+
 > [!NOTE]
 > **Recent Optimization**: The engine has been structurally upgraded to utilize **lock-free parallel execution via Rayon** across all initialization phases. Previous single-threaded bottlenecks have been completely eliminated, ensuring the engine optimally saturates all CPU cores from the first evaluation log.
 

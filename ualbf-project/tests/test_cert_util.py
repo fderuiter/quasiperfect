@@ -10,6 +10,7 @@ Covers:
 import hashlib
 import json
 import os
+from unittest.mock import patch
 import pytest  # type: ignore
 
 pytest.importorskip("cryptography")
@@ -310,6 +311,58 @@ class TestBoundedJSONLoaderUnit:
         with pytest.raises(CertificateValidationError, match="nesting depth"):
             loader.loads(json.dumps(obj))
 
+    def test_prescan_raises_before_json_loads(self):
+        loader = BoundedJSONLoader(max_depth=3)
+        payload = '{"a": {"b": {"c": {"d": 1}}}}'
+        with patch("json.loads") as mock_json_loads:
+            with pytest.raises(
+                CertificateValidationError, match="nesting depth"
+            ):
+                loader.loads(payload)
+            mock_json_loads.assert_not_called()
+
+    def test_prescan_brackets_inside_strings_ignored(self):
+        loader = BoundedJSONLoader(max_depth=3)
+        payload = '{"key": "[[[[[[[[[[ bracket ]]]]]]]]]]"}'
+        parsed = loader.loads(payload)
+        assert parsed == {"key": "[[[[[[[[[[ bracket ]]]]]]]]]]"}
+
+    def test_prescan_escaped_characters_in_strings(self):
+        loader = BoundedJSONLoader(max_depth=3)
+        payload = '{"key": "escaped \\" [bracket] \\\\"}'
+        parsed = loader.loads(payload)
+        assert parsed["key"] == 'escaped " [bracket] \\'
+
+    def test_prescan_bytes_and_bytearray(self):
+        loader = BoundedJSONLoader(max_depth=2)
+        valid_bytes = b'{"a": {"b": 1}}'
+        valid_bytearray = bytearray(b'{"a": {"b": 1}}')
+        assert loader.loads(valid_bytes) == {"a": {"b": 1}}
+        assert loader.loads(valid_bytearray) == {"a": {"b": 1}}
+
+        invalid_bytes = b'{"a": {"b": {"c": 1}}}'
+        invalid_bytearray = bytearray(b'{"a": {"b": {"c": 1}}}')
+        with patch("json.loads") as mock_json_loads:
+            with pytest.raises(CertificateValidationError, match="nesting depth"):
+                loader.loads(invalid_bytes)
+            with pytest.raises(CertificateValidationError, match="nesting depth"):
+                loader.loads(invalid_bytearray)
+            mock_json_loads.assert_not_called()
+
+    def test_loads_encoding_kwarg(self):
+        loader = BoundedJSONLoader()
+        assert loader.loads('{"a": 1}', encoding="utf-8") == {"a": 1}
+        assert loader.loads(b'{"a": 1}', encoding="utf-8") == {"a": 1}
+
+    def test_prescan_deeply_nested_adversarial_payload(self):
+        loader = BoundedJSONLoader(max_depth=10)
+        # Payload with depth 200 within 10MB limit
+        payload = "[" * 200 + "1" + "]" * 200
+        with patch("json.loads") as mock_json_loads:
+            with pytest.raises(CertificateValidationError, match="nesting depth"):
+                loader.loads(payload)
+            mock_json_loads.assert_not_called()
+
     def test_depth_verification_list_and_dict(self):
         loader = BoundedJSONLoader(max_depth=3)
         # depth 3: dict -> list -> dict -> int
@@ -412,6 +465,33 @@ class TestLiveCertificateValidation:
     ):
         cert, pub_hex, sig_hex, manifest_path = make_valid_manifest_and_cert(tmp_path)
         cert["signature"] = "unverified_signature"
+        cert_file = tmp_path / "cert.json"
+        cert_file.write_text(json.dumps(cert), encoding="utf-8")
+
+        monkeypatch.setenv("UALBF_PROOF_MANIFEST", manifest_path)
+        monkeypatch.setenv("UALBF_TRUSTED_PUBLIC_KEY", pub_hex)
+        with pytest.raises(CertificateValidationError, match="Validation failed"):
+            load_and_validate_cert(str(cert_file))
+
+    def test_load_and_validate_cert_empty_signature_raises(
+        self, tmp_path, monkeypatch
+    ):
+        cert, pub_hex, sig_hex, manifest_path = make_valid_manifest_and_cert(tmp_path)
+        cert["signature"] = ""
+        cert_file = tmp_path / "cert.json"
+        cert_file.write_text(json.dumps(cert), encoding="utf-8")
+
+        monkeypatch.setenv("UALBF_PROOF_MANIFEST", manifest_path)
+        monkeypatch.setenv("UALBF_TRUSTED_PUBLIC_KEY", pub_hex)
+        with pytest.raises(CertificateValidationError, match="Validation failed"):
+            load_and_validate_cert(str(cert_file))
+
+    def test_load_and_validate_cert_unsigned_forged_payload_raises(
+        self, tmp_path, monkeypatch
+    ):
+        cert, pub_hex, sig_hex, manifest_path = make_valid_manifest_and_cert(tmp_path)
+        # Forged payload modifying telemetry
+        cert["telemetry"]["total_branches_searched"] = 99999999
         cert_file = tmp_path / "cert.json"
         cert_file.write_text(json.dumps(cert), encoding="utf-8")
 
@@ -582,7 +662,9 @@ class TestVerifyManifestChainAndVerusHelpers:
         bounds_file = tmp_path / "bounds.json"
         bounds_file.write_text("{}", encoding="utf-8")
 
-        with pytest.raises(CertificateValidationError, match="Proof manifest .* not found"):
+        with pytest.raises(
+            CertificateValidationError, match="Proof manifest .* not found"
+        ):
             cert_util.verify_manifest_chain({}, str(missing_proof), str(bounds_file))
 
     def test_verify_manifest_chain_mismatched_manifest_hash(self, tmp_path):
@@ -602,12 +684,16 @@ class TestVerifyManifestChainAndVerusHelpers:
         bounds_file.write_text('{"real": "data"}', encoding="utf-8")
 
         proof_file = tmp_path / "proof.json"
-        proof_file.write_text('{"bounds_manifest_hash": "wrong_bounds_hash"}', encoding="utf-8")
+        proof_file.write_text(
+            '{"bounds_manifest_hash": "wrong_bounds_hash"}', encoding="utf-8"
+        )
 
         cert_hash = hashlib.sha256(proof_file.read_bytes()).hexdigest()
         cert = {"manifest_hash": cert_hash}
 
-        with pytest.raises(CertificateValidationError, match="Bounds manifest hash mismatch"):
+        with pytest.raises(
+            CertificateValidationError, match="Bounds manifest hash mismatch"
+        ):
             cert_util.verify_manifest_chain(cert, str(proof_file), str(bounds_file))
 
     def test_get_verus_proof_hashes(self, tmp_path):
@@ -615,10 +701,14 @@ class TestVerifyManifestChainAndVerusHelpers:
         rust_dir.mkdir()
 
         verus_proofs = rust_dir / "verus_proofs.rs"
-        verus_proofs.write_text("pub fn test_proof() {\n    let a = 1;\n}\n", encoding="utf-8")
+        verus_proofs.write_text(
+            "pub fn test_proof() {\n    let a = 1;\n}\n", encoding="utf-8"
+        )
 
         lean_export = rust_dir / "lean_export.rs"
-        lean_export.write_text("pub spec fn test_export() -> bool {\n    true\n}\n", encoding="utf-8")
+        lean_export.write_text(
+            "pub spec fn test_export() -> bool {\n    true\n}\n", encoding="utf-8"
+        )
 
         hashes = cert_util.get_verus_proof_hashes(str(rust_dir))
         assert "test_proof" in hashes
@@ -648,9 +738,229 @@ class TestVerifyManifestChainAndVerusHelpers:
         thm["checksum"] = expected
 
         # Explicit flag
-        assert cert_util.verify_theorem_checksum(thm, allow_missing_sources=True) is True
+        assert (
+            cert_util.verify_theorem_checksum(thm, allow_missing_sources=True) is True
+        )
 
         # Environment variable override
         monkeypatch.setenv("UALBF_ALLOW_MISSING_SOURCES", "1")
         assert cert_util.verify_theorem_checksum(thm) is True
 
+
+class TestVerifyMetaCertificateEnvelope:
+    def _create_setup(self, tmp_path):
+        manifest_content = json.dumps({"theorems": [], "proof_files": []})
+        manifest_file = tmp_path / "proof_manifest.json"
+        manifest_file.write_text(manifest_content, encoding="utf-8")
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+
+        leaf1 = {
+            "signature": "sig_leaf_1",
+            "telemetry": {
+                "target_min_log10": 30,
+                "target_max_log10": 35,
+                "total_branches_searched": 100,
+                "abundance_pruned": 10,
+                "raycast_pruned": 5,
+                "phase2_execution_time_ms": 1000,
+                "total_execution_time_ms": 1100,
+                "math_interruptions": 1,
+            },
+        }
+        leaf2 = {
+            "signature": "sig_leaf_2",
+            "telemetry": {
+                "target_min_log10": 35,
+                "target_max_log10": 40,
+                "total_branches_searched": 200,
+                "abundance_pruned": 20,
+                "raycast_pruned": 15,
+                "phase2_execution_time_ms": 2000,
+                "total_execution_time_ms": 2200,
+                "math_interruptions": 2,
+            },
+        }
+        verified_leaves = [leaf1, leaf2]
+
+        meta_cert = {
+            "meta_manifest_hash": manifest_hash,
+            "aggregated_signatures": ["sig_leaf_1", "sig_leaf_2"],
+            "total_nodes": 2,
+            "telemetry": {
+                "target_min_log10": 30,
+                "target_max_log10": 40,
+                "total_branches_searched": 300,
+                "abundance_pruned": 30,
+                "raycast_pruned": 20,
+                "phase2_execution_time_ms": 3000,
+                "total_execution_time_ms": 3300,
+                "math_interruptions": 3,
+            },
+        }
+
+        return meta_cert, str(manifest_file), verified_leaves
+
+    def test_valid_meta_certificate_envelope_passes(self, tmp_path):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        res = cert_util.verify_meta_certificate_envelope(
+            meta_cert, manifest_path, verified_leaves
+        )
+        assert res == meta_cert
+
+    def test_non_dict_meta_cert_data_raises(self, tmp_path):
+        _, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        with pytest.raises(CertificateValidationError, match="must be a dictionary"):
+            cert_util.verify_meta_certificate_envelope(
+                "invalid_data", manifest_path, verified_leaves
+            )
+
+    @pytest.mark.parametrize(
+        "missing_key",
+        ["meta_manifest_hash", "aggregated_signatures", "telemetry", "total_nodes"],
+    )
+    def test_missing_required_top_level_keys_raises(self, tmp_path, missing_key):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        del meta_cert[missing_key]
+        with pytest.raises(
+            CertificateValidationError,
+            match=f"missing required top-level key '{missing_key}'",
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    @pytest.mark.parametrize(
+        "key, bad_val, err_pattern",
+        [
+            ("meta_manifest_hash", 12345, "must be of type str"),
+            ("aggregated_signatures", "not_a_list", "must be of type list"),
+            ("telemetry", [1, 2, 3], "must be of type dict"),
+            ("total_nodes", "2", "must be of type int"),
+            ("total_nodes", True, "must be an integer, got bool"),
+        ],
+    )
+    def test_invalid_top_level_key_types_raises(
+        self, tmp_path, key, bad_val, err_pattern
+    ):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        meta_cert[key] = bad_val
+        with pytest.raises(CertificateValidationError, match=err_pattern):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    def test_missing_manifest_file_raises(self, tmp_path):
+        meta_cert, _, verified_leaves = self._create_setup(tmp_path)
+        missing_manifest = str(tmp_path / "nonexistent.json")
+        with pytest.raises(
+            CertificateValidationError, match="Proof manifest file not found"
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, missing_manifest, verified_leaves
+            )
+
+    def test_meta_manifest_hash_mismatch_raises(self, tmp_path):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        meta_cert["meta_manifest_hash"] = "0" * 64
+        with pytest.raises(
+            CertificateValidationError, match="Top-level meta_manifest_hash mismatch"
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    def test_empty_leaf_certificates_list_raises(self, tmp_path):
+        meta_cert, manifest_path, _ = self._create_setup(tmp_path)
+        meta_cert["total_nodes"] = 0
+        meta_cert["aggregated_signatures"] = []
+        with pytest.raises(
+            CertificateValidationError, match="empty leaf certificate array"
+        ):
+            cert_util.verify_meta_certificate_envelope(meta_cert, manifest_path, [])
+
+    def test_total_nodes_mismatch_raises(self, tmp_path):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        meta_cert["total_nodes"] = 99
+        with pytest.raises(
+            CertificateValidationError, match="total_nodes .* does not match"
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    def test_aggregated_signatures_length_mismatch_raises(self, tmp_path):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        meta_cert["aggregated_signatures"] = ["sig_leaf_1"]
+        with pytest.raises(
+            CertificateValidationError,
+            match="aggregated_signatures length .* does not match",
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    def test_aggregated_signatures_element_mismatch_raises(self, tmp_path):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        meta_cert["aggregated_signatures"] = ["sig_leaf_1", "WRONG_SIG"]
+        with pytest.raises(
+            CertificateValidationError,
+            match="does not match leaf certificate signature",
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    @pytest.mark.parametrize(
+        "field, tampered_val",
+        [
+            ("target_min_log10", 0),
+            ("target_max_log10", 100),
+            ("total_branches_searched", 9999),
+            ("abundance_pruned", 0),
+            ("raycast_pruned", 1),
+            ("phase2_execution_time_ms", 500),
+            ("total_execution_time_ms", 99999),
+            ("math_interruptions", 0),
+        ],
+    )
+    def test_telemetry_reaggregation_mismatch_raises(
+        self, tmp_path, field, tampered_val
+    ):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        meta_cert["telemetry"][field] = tampered_val
+        with pytest.raises(
+            CertificateValidationError,
+            match=f"Top-level telemetry field '{field}' mismatch",
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    def test_leaf_missing_telemetry_dict_raises(self, tmp_path):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        del verified_leaves[0]["telemetry"]
+        with pytest.raises(
+            CertificateValidationError, match="missing a valid 'telemetry' dictionary"
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    def test_leaf_missing_required_telemetry_field_raises(self, tmp_path):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        del verified_leaves[0]["telemetry"]["raycast_pruned"]
+        with pytest.raises(
+            CertificateValidationError, match="missing required field 'raycast_pruned'"
+        ):
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+
+    def test_bypass_env_var_disallowed_raises_exit(self, tmp_path, monkeypatch):
+        meta_cert, manifest_path, verified_leaves = self._create_setup(tmp_path)
+        monkeypatch.setenv("UALBF_SKIP_VALIDATION", "1")
+        with pytest.raises(SystemExit) as exc_info:
+            cert_util.verify_meta_certificate_envelope(
+                meta_cert, manifest_path, verified_leaves
+            )
+        assert exc_info.value.code == 1

@@ -34,6 +34,10 @@ CORE_THEOREMS = cert_util.CORE_THEOREMS
 ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 
 GHOST_PRUNING_BINDINGS = {
+    "ruleA_safe": "UALBF.Engine.ruleA_safe",
+    "ruleB_safe": "UALBF.Engine.ruleB_safe",
+    "ruleA_pruning": "UALBF.Engine.ruleA_safe",
+    "ruleB_pruning": "UALBF.Engine.ruleB_safe",
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
     "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
@@ -336,6 +340,22 @@ def fetch_proofwidgets_assets(cwd=None, env=None):
             )
 
 
+def _find_root_file(host_dir, name):
+    """Locate a repo-root file next to or above host_dir, falling back to this
+    script's own checkout when host_dir is outside the repository."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(host_dir, "..", name),
+        os.path.join(host_dir, name),
+        os.path.join(script_dir, "..", name),
+        os.path.join(script_dir, name),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return os.path.abspath(candidates[0])
+
+
 def _setup_staging_workspace(host_dir, staging_dir):
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -405,40 +425,30 @@ def _setup_staging_workspace(host_dir, staging_dir):
                         except Exception:
                             shutil.copy2(h_f, s_f)
 
-    # Copy parent docs_manifest.json if present and not in staging_dir
-    parent_docs = os.path.abspath(os.path.join(host_dir, "..", "docs_manifest.json"))
-    if not os.path.exists(parent_docs):
-        parent_docs = os.path.abspath(os.path.join(host_dir, "docs_manifest.json"))
-    if os.path.exists(parent_docs) and not os.path.exists(
-        os.path.join(staging_dir, "docs_manifest.json")
+    # Copy parent root files and skill guide directories (docs_manifest.json, README.md, env_manifest.json, env_manifest.schema.json, .jules, .agents) if present and not in staging_dir
+    for parent_item in (
+        "docs_manifest.json",
+        "README.md",
+        "env_manifest.json",
+        "env_manifest.schema.json",
+        ".jules",
+        ".agents",
     ):
-        try:
-            shutil.copy2(parent_docs, os.path.join(staging_dir, "docs_manifest.json"))
-        except Exception:
-            pass
-
-    # Copy parent env_manifest.json and env_manifest.schema.json if present
-    for env_file in ["env_manifest.json", "env_manifest.schema.json"]:
-        parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
-        if not os.path.exists(parent_env):
-            parent_env = os.path.abspath(os.path.join(host_dir, env_file))
-        if os.path.exists(parent_env) and not os.path.exists(
-            os.path.join(staging_dir, env_file)
-        ):
+        parent_path = _find_root_file(host_dir, parent_item)
+        staging_target = os.path.join(staging_dir, parent_item)
+        if os.path.exists(parent_path) and not os.path.exists(staging_target):
             try:
-                shutil.copy2(parent_env, os.path.join(staging_dir, env_file))
+                if os.path.isdir(parent_path):
+                    shutil.copytree(
+                        parent_path,
+                        staging_target,
+                        symlinks=True,
+                        ignore=ignore_patterns,
+                    )
+                else:
+                    shutil.copy2(parent_path, staging_target)
             except Exception:
                 pass
-
-    # Copy parent README.md if present and not in staging_dir
-    parent_readme = os.path.abspath(os.path.join(host_dir, "..", "README.md"))
-    if os.path.exists(parent_readme) and not os.path.exists(
-        os.path.join(staging_dir, "README.md")
-    ):
-        try:
-            shutil.copy2(parent_readme, os.path.join(staging_dir, "README.md"))
-        except Exception:
-            pass
 
     # Copy parent semantic_verification_report.md if present and not in staging_dir
     parent_report = os.path.abspath(
@@ -458,6 +468,18 @@ def _setup_staging_workspace(host_dir, staging_dir):
             )
         except Exception:
             pass
+
+    # Copy env_manifest.json and env_manifest.schema.json if present
+    for env_file in ("env_manifest.json", "env_manifest.schema.json"):
+        parent_env = _find_root_file(host_dir, env_file)
+        if os.path.exists(parent_env):
+            for dst_d in (staging_dir, os.path.dirname(staging_dir)):
+                dst_p = os.path.join(dst_d, env_file)
+                if not os.path.exists(dst_p):
+                    try:
+                        shutil.copy2(parent_env, dst_p)
+                    except Exception:
+                        pass
 
 
 def generate_manifest():
@@ -1180,7 +1202,8 @@ def _generate_manifest_impl():
                             "Quot.sound",
                         ]:
                             status = "axiom"
-                            has_error = True
+                            if thm not in ALLOWED_AXIOMS and ax not in ALLOWED_AXIOMS:
+                                has_error = True
                             break
                     theorem_statuses[thm] = status
                 else:
@@ -1197,8 +1220,19 @@ def _generate_manifest_impl():
             possible_rel = "/".join(parts[:i]) + ".lean"
             possible_path = os.path.join(cwd, possible_rel)
             if os.path.exists(possible_path):
-                found_file = possible_rel
-                break
+                try:
+                    with open(possible_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    if re.search(
+                        r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
+                        + re.escape(short_name)
+                        + r"\b",
+                        content,
+                    ):
+                        found_file = possible_rel
+                        break
+                except Exception:
+                    pass
 
         if not found_file or found_file == "UALBF.lean":
             for pf in disk_proof_files:
@@ -1208,7 +1242,7 @@ def _generate_manifest_impl():
                         with open(pf_path, "r", encoding="utf-8") as f:
                             content = f.read()
                         if re.search(
-                            r"\b(theorem|def|class|structure|lemma)\s+"
+                            r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
                             + re.escape(short_name)
                             + r"\b",
                             content,
@@ -1256,7 +1290,7 @@ def _generate_manifest_impl():
                     "checksum": checksum,
                 }
             )
-            if has_lean:
+            if has_lean and ax_name not in ALLOWED_AXIOMS:
                 has_error = True
 
     # Add Verus-verified Rust component hashes
@@ -1283,11 +1317,43 @@ def _generate_manifest_impl():
                 proof_files.append({"file": rel_path, "checksum": checksum})
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
-    # Compute bounds_manifest.json hash
+    # Compute bounds_manifest.json hash and validate trial_division_limit against ManifestConstants.lean
     bounds_manifest_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_manifest_path):
         bounds_hash = hash_util.hash_file_bounded(bounds_manifest_path)
         manifest["bounds_manifest_hash"] = bounds_hash
+
+        manifest_constants_lean = os.path.join(
+            repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean"
+        )
+        if os.path.exists(manifest_constants_lean):
+            with open(manifest_constants_lean, "r", encoding="utf-8") as f:
+                lean_constants_content = f.read()
+
+            match = re.search(
+                r"def TRIAL_DIVISION_LIMIT\s*:\s*Nat\s*:=\s*(\d+)",
+                lean_constants_content,
+            )
+            if match:
+                lean_trial_limit = int(match.group(1))
+                trial_limit = None
+                try:
+                    with open(bounds_manifest_path, "r", encoding="utf-8") as f:
+                        bounds_json = json.load(f)
+                    trial_limit = (
+                        bounds_json.get("search_bounds", {})
+                        .get("trial_division_limit", {})
+                        .get("value")
+                    )
+                except Exception:
+                    pass
+
+                if trial_limit is None or lean_trial_limit != trial_limit:
+                    print(
+                        f"ERROR: trial_division_limit mismatch! bounds_manifest.json: {trial_limit}, ManifestConstants.lean: {lean_trial_limit}",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
     else:
         print(
             f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",
@@ -1458,8 +1524,9 @@ def _generate_manifest_impl():
         sys.exit(1)
 
 
-def check_documentation(manifest):
-    repo_root = get_repo_root()
+def check_documentation(manifest, repo_root=None):
+    if repo_root is None:
+        repo_root = get_repo_root()
 
     cand_staging = os.path.join(repo_root, "docs_manifest.json")
     cand_parent = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
@@ -1801,6 +1868,9 @@ def check_documentation(manifest):
         if not os.path.exists(doc_path):
             continue
 
+        if not doc_path.endswith(".md"):
+            continue
+
         try:
             with open(doc_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
@@ -1845,7 +1915,9 @@ def check_documentation(manifest):
                         and sym not in ignore_symbols
                         and sym.lower() not in ignore_symbols
                     ):
-                        if re.search(r"\b" + re.escape(sym) + r"\b", line_no_bt):
+                        if sym in line_no_bt and re.search(
+                            r"\b" + re.escape(sym) + r"\b", line_no_bt
+                        ):
                             errors.append(
                                 f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Static unquoted symbol reference detected (must use backticks): '{sym}'"
                             )

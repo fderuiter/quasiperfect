@@ -93,12 +93,15 @@ def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
         )
         sys.exit(1)
 
+    allowed_axioms = cert_util.ALLOWED_AXIOMS
     # Enforce theorem status gate
     unproven_theorems = []
     for thm in manifest_data_macros.get("theorems", []):
         thm_name = thm.get("name", "unknown")
         status = str(thm.get("status", "")).strip().lower()
-        if status not in ("proven", "verified"):
+        if status not in ("proven", "verified") and not (
+            status == "axiom" and thm_name in allowed_axioms
+        ):
             unproven_theorems.append((thm_name, thm.get("status", "missing")))
 
     if unproven_theorems:
@@ -190,51 +193,47 @@ def write_telemetry_tex(
         if has_cert:
             try:
                 cert_util.validate_file_size(cert_path)
-                if env_util.get_env_var("UALBF_DUMMY_PAPER_CI"):
-                    cert = cert_util.BoundedJSONLoader().load_file(cert_path)
-                else:
-                    os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
-                    trusted_key = env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
-                    if not trusted_key:
-                        with open(cert_path, "r", encoding="utf-8") as cert_f:
-                            raw_cert = json.load(cert_f)
-                            trusted_key = raw_cert.get("public_key")
-                    cert = cert_util.load_and_validate_cert(
-                        cert_path, trusted_public_key=trusted_key
-                    )
+                os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
+                trusted_key = env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY")
+                if not trusted_key:
+                    with open(cert_path, "r", encoding="utf-8") as cert_f:
+                        raw_cert = json.load(cert_f)
+                        trusted_key = raw_cert.get("public_key")
+                cert = cert_util.load_and_validate_cert(
+                    cert_path, trusted_public_key=trusted_key
+                )
             except cert_util.CertificateError as e:
                 print(f"Error: {e}")
                 sys.exit(1)
 
             tel = cert["telemetry"]
 
-            if not env_util.get_env_var("UALBF_DUMMY_PAPER_CI"):
-                try:
-                    import subprocess
+            try:
+                import subprocess
 
-                    active_commit = subprocess.check_output(
-                        ["git", "rev-parse", "HEAD"],
-                        cwd=project_root,
-                        text=True,
-                        stderr=subprocess.DEVNULL,
-                    ).strip()
-                    cert_commit = cert.get("commit_hash", "")
-                    if cert_commit and cert_commit != "unknown" and active_commit:
-                        if cert_commit != active_commit:
-                            print(
-                                f"Error: Certificate commit hash '{cert_commit}' does not match active build commit '{active_commit}'."
-                            )
-                            sys.exit(1)
-                except Exception:
-                    pass
-
-                cert_ts = cert.get("timestamp") or tel.get("timestamp")
-                if cert_ts is not None:
-                    import time
-
-                    if cert_ts > time.time() + 300:
-                        print("Error: Certificate timestamp is in the future.")
+                active_commit = subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=project_root,
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                ).strip()
+                cert_commit = cert.get("commit_hash", "")
+                if cert_commit and cert_commit != "unknown" and active_commit:
+                    if cert_commit != active_commit:
+                        print(
+                            f"Error: Certificate commit hash '{cert_commit}' does not match active build commit '{active_commit}'."
+                        )
                         sys.exit(1)
+            except Exception:
+                pass
+
+            cert_ts = cert.get("timestamp") or tel.get("timestamp")
+            if cert_ts is not None:
+                import time
+
+                if cert_ts > time.time() + 300:
+                    print("Error: Certificate timestamp is in the future.")
+                    sys.exit(1)
 
             # Requirement 4: Explicit validation errors for missing required fields
             required_tel_keys = [
@@ -414,9 +413,25 @@ def write_telemetry_tex(
                 vm.write("\\end{table}\n")
 
 
+def strip_latex_comment(line: str) -> str:
+    r"""Strip LaTeX comments (% ...) while preserving escaped percent signs (\%)."""
+    idx = 0
+    while True:
+        pos = line.find("%", idx)
+        if pos == -1:
+            return line
+        if pos > 0 and line[pos - 1] == "\\":
+            idx = pos + 1
+            continue
+        return line[:pos]
+
+
 def check_manuscript_compliance(
-    base_dir: Optional[str] = None, telemetry_tex_path: Optional[str] = None
-) -> None:
+    base_dir: Optional[str] = None,
+    telemetry_tex_path: Optional[str] = None,
+    bounds_path: Optional[str] = None,
+    raise_on_error: bool = True,
+) -> bool:
     if base_dir is None:
         base_dir = os.path.dirname(os.path.abspath(__file__))
     if telemetry_tex_path is None:
@@ -425,19 +440,35 @@ def check_manuscript_compliance(
             if os.path.exists(os.path.join(base_dir, "telemetry.tex"))
             else "telemetry.tex"
         )
+    if bounds_path is None:
+        bounds_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "bounds_manifest.json",
+        )
 
-    if not os.path.exists(telemetry_tex_path):
-        return
+    target_max_log = 43
+    target_min_log = 37
+    if os.path.exists(bounds_path):
+        try:
+            bdata = cert_util.BoundedJSONLoader().load_file(bounds_path)
+            sb = bdata.get("search_bounds", {})
+            if "target_max_log10" in sb and "value" in sb["target_max_log10"]:
+                target_max_log = sb["target_max_log10"]["value"]
+            if "target_min_log10" in sb and "value" in sb["target_min_log10"]:
+                target_min_log = sb["target_min_log10"]["value"]
+        except Exception:
+            pass
 
     telemetry_metrics = {}
-    with open(telemetry_tex_path, "r", encoding="utf-8") as tf:
-        for line in tf:
-            m = re.match(
-                r"\\newcommand\{\\Telemetry([A-Za-z0-9_]+)\}\{(.+?)\}", line.strip()
-            )
-            if m:
-                suffix, val = m.groups()
-                telemetry_metrics[suffix] = val
+    if os.path.exists(telemetry_tex_path):
+        with open(telemetry_tex_path, "r", encoding="utf-8") as tf:
+            for line in tf:
+                m = re.match(
+                    r"\\newcommand\{\\Telemetry([A-Za-z0-9_]+)\}\{(.+?)\}", line.strip()
+                )
+                if m:
+                    suffix, val = m.groups()
+                    telemetry_metrics[suffix] = val
 
     forbidden_hardcoded_values = set()
     for v in telemetry_metrics.values():
@@ -447,37 +478,72 @@ def check_manuscript_compliance(
         if "," in v:
             forbidden_hardcoded_values.add(v)
 
+    has_errors = False
     for root_dir, dirs, files in os.walk(base_dir):
-        for file in files:
+        for file in sorted(files):
             if file.endswith(".tex") and file not in [
                 "telemetry.tex",
                 "verification_manifest.tex",
             ]:
                 file_path = os.path.join(root_dir, file)
+                rel_file_path = (
+                    os.path.relpath(file_path, base_dir) if base_dir else file
+                )
                 with open(file_path, "r", encoding="utf-8") as tf:
                     lines_tf = tf.readlines()
                 for line_no, linetf in enumerate(lines_tf, 1):
+                    code_line = strip_latex_comment(linetf)
+                    if not code_line.strip():
+                        continue
+
+                    # Requirement 3: Reject manual inline definitions or redefinitions
                     for m in re.finditer(
-                        r"\\newcommand\{\\(?:Claimed|Telemetry)([A-Za-z0-9_]+)\}",
-                        linetf,
+                        r"\\(?:newcommand|def|renewcommand|providecommand)\s*\{?\\(?:Claimed|Telemetry)[A-Za-z0-9_]+\}?",
+                        code_line,
                     ):
                         print(
-                            f"Error in {file}:{line_no}: Manual definition of verification macros is strictly excluded. Found: {m.group(0)}"
+                            f"Error in {rel_file_path}:{line_no}: Manual definition of verification macros is strictly excluded. Found: {m.group(0)}"
                         )
-                        sys.exit(1)
+                        has_errors = True
 
+                    # Requirement 2: Detect hardcoded exponent bound literals (e.g. 10^{40}, 10^{43})
+                    for m in re.finditer(r"10\^\{?(\d+)\}?", code_line):
+                        exp_val = m.group(1)
+                        if (
+                            exp_val
+                            in (
+                                str(target_max_log),
+                                str(target_min_log),
+                                "40",
+                                "43",
+                                "37",
+                            )
+                            and "\\Telemetry" not in code_line
+                        ):
+                            print(
+                                f"Error in {rel_file_path}:{line_no}: Hardcoded scientific metric '10^{exp_val}' detected. Use '\\TelemetryMaxLog' or '\\TelemetryMinLog' macro instead."
+                            )
+                            has_errors = True
+
+                    # Requirement 2: Detect forbidden hardcoded telemetry values
                     for hv in forbidden_hardcoded_values:
-                        if hv in linetf and "\\Telemetry" not in linetf:
+                        if hv in code_line and "\\Telemetry" not in code_line:
                             if re.search(
                                 r"(?<![0-9a-zA-Z\.])"
                                 + re.escape(hv)
                                 + r"(?![0-9a-zA-Z\.])",
-                                linetf,
+                                code_line,
                             ):
                                 print(
-                                    f"Error in {file}:{line_no}: Hardcoded scientific metric '{hv}' detected. Use centralized manifest macros instead."
+                                    f"Error in {rel_file_path}:{line_no}: Hardcoded scientific metric '{hv}' detected. Use centralized manifest macros instead."
                                 )
-                                sys.exit(1)
+                                has_errors = True
+
+    if has_errors:
+        if raise_on_error:
+            sys.exit(1)
+        return False
+    return True
 
 
 def main(

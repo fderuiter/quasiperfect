@@ -6,16 +6,16 @@
       "justification": "Engine bound matches the formal proof 15-factor lower bound exactly.",
       "is_axiomatic": false,
       "citation": {
-        "author": "Prasad, V. Siva Rama and Sunitha, T.",
-        "year": "2022",
-        "title": "On the Number of Prime Factors of Quasiperfect Numbers",
-        "identifier": "Journal of Discrete Mathematical Sciences and Cryptography"
+        "author": "Prasad, V. Siva Rama and Sunitha, C.",
+        "year": "2017",
+        "title": "On quasiperfect numbers",
+        "identifier": "Notes on Number Theory and Discrete Mathematics 23(3)"
       }
     },
     "div_5_coprime_3": {
-      "proof_bound": 11,
+      "proof_bound": 7,
       "engine_justified_gap": 0,
-      "justification": "Proven bound for QPNs divisible by 5 but coprime to 3.",
+      "justification": "Hagis & Cohen (1982) prove every quasiperfect number has at least 7 distinct prime factors; proved in Lean for this case (qpn_div_5_coprime_3_omega_bound) by the abundancy argument 5/4 * 7/6 * 11/10 * 13/12 * 17/16 * 19/18 < 2. A stronger bound for this case is not established, so the engine does not prune on one.",
       "is_axiomatic": false,
       "citation": {
         "author": "Hagis & Cohen",
@@ -63,6 +63,10 @@
     },
     "prime_split_threshold": {
       "value": 61,
+      "is_axiomatic": false
+    },
+    "trial_division_limit": {
+      "value": 10000000,
       "is_axiomatic": false
     },
     "pollard_rho": {
@@ -372,7 +376,7 @@
       19
     ],
     "is_axiomatic": false,
-    "justification": "Touchard's theorem implies quasiperfect numbers are congruent to 3 or 19 modulo 24.",
+    "justification": "A quasiperfect number N is an odd square, so N is congruent to 1 or 9 modulo 24 and sigma(N) = 2N + 1 is congruent to 3 or 19 modulo 24 (Touchard-style congruence argument).",
     "citation": {
       "author": "Touchard, Jacques",
       "year": "1953",

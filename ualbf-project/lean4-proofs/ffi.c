@@ -1,6 +1,5 @@
 #include <lean/lean.h>
 #include <stdbool.h>
-#include "verification_ffi.h"
 #include "schema_generated.h"
 #include "verification_lib.h"
 

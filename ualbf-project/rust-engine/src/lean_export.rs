@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "fdcf8413ff4a158e5ee25bec3f9fbc2cf2c700366ed205a0cb54ae558de304df";
+    "f6d7058bacf4ab4e4cb8c93dc725f34d085c52f0ab6c29be68f97547887c5903";
 
 use vstd::prelude::*;
 
@@ -9,14 +9,15 @@ verus! {
     pub open spec fn lean_prime_split_threshold() -> nat { 61 }
     pub open spec fn lean_prasad_sunitha_bound() -> nat { 15 }
     pub open spec fn lean_prasad_sunitha_combined() -> nat { 15 }
-    pub open spec fn lean_div_5_coprime_3_bound() -> nat { 11 }
-    pub open spec fn lean_div_5_coprime_3_combined() -> nat { 11 }
+    pub open spec fn lean_div_5_coprime_3_bound() -> nat { 7 }
+    pub open spec fn lean_div_5_coprime_3_combined() -> nat { 7 }
     pub open spec fn lean_hagis1982_combined() -> nat { 7 }
     pub open spec fn lean_qpn_totient_bound_num() -> nat { 20442 }
     pub open spec fn lean_qpn_totient_bound_den() -> nat { 10000 }
     pub open spec fn lean_target_min_log10() -> nat { 37 }
     pub open spec fn lean_target_max_log10() -> nat { 43 }
     pub open spec fn lean_sieve_limit() -> nat { 250000 }
+    pub open spec fn lean_trial_division_limit() -> nat { 10000000 }
     pub open spec fn lean_max_exponent() -> nat { 4 }
     pub open spec fn lean_prefix_stop_threshold() -> nat { 100000000000 }
     pub open spec fn lean_pollard_rho_iteration_limit() -> nat { 1000000 }
@@ -77,6 +78,10 @@ verus! {
 
     pub proof fn prove_sieve_limit_equivalence()
         ensures (crate::manifest_constants::SIEVE_LIMIT as nat) == lean_sieve_limit()
+    {}
+
+    pub proof fn prove_trial_division_limit_equivalence()
+        ensures (crate::manifest_constants::TRIAL_DIVISION_LIMIT as nat) == lean_trial_division_limit()
     {}
 
     pub proof fn prove_max_exponent_equivalence()

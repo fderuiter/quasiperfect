@@ -96,7 +96,18 @@ mod tests {
         assert!(!c2_above.is_valid_mod_8());
         assert!(!c5_above.is_valid_mod_8());
 
+        // Boundary u128 values
         assert!(!u128::MAX.is_valid_mod_8()); // u128::MAX % 8 == 7
+        assert!((u128::MAX - 6).is_valid_mod_8()); // % 8 == 1
+        assert!((u128::MAX - 4).is_valid_mod_8()); // % 8 == 3
+        assert!(!(u128::MAX - 2).is_valid_mod_8()); // % 8 == 5
+
+        // High bit shift tests
+        let high_val = (1u128 << 100);
+        assert!((high_val + 1).is_valid_mod_8());
+        assert!((high_val + 3).is_valid_mod_8());
+        assert!(!(high_val + 5).is_valid_mod_8());
+        assert!(!(high_val + 7).is_valid_mod_8());
     }
 
     #[test]
@@ -132,5 +143,18 @@ mod tests {
         assert!(!c0_above.is_valid_mod_8());
         assert!(!c2_above.is_valid_mod_8());
         assert!(!c5_above.is_valid_mod_8());
+
+        // Uint MAX boundary values
+        assert!(!Uint::MAX.is_valid_mod_8()); // Uint::MAX % 8 == 7
+        assert!((Uint::MAX - Uint::from_u64(6)).is_valid_mod_8()); // % 8 == 1
+        assert!((Uint::MAX - Uint::from_u64(4)).is_valid_mod_8()); // % 8 == 3
+        assert!(!(Uint::MAX - Uint::from_u64(2)).is_valid_mod_8()); // % 8 == 5
+
+        // Uint with high limbs set
+        let high_uint: Uint = Uint::from_u64(1) << 200;
+        assert!((high_uint + Uint::from_u64(1)).is_valid_mod_8());
+        assert!((high_uint + Uint::from_u64(3)).is_valid_mod_8());
+        assert!(!(high_uint + Uint::from_u64(5)).is_valid_mod_8());
+        assert!(!(high_uint + Uint::from_u64(7)).is_valid_mod_8());
     }
 }

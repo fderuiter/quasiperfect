@@ -36,8 +36,12 @@ class TestEnvManifestAndUtil(unittest.TestCase):
         manifest_path = os.path.join(self.repo_root, "env_manifest.json")
         schema_path = os.path.join(self.repo_root, "env_manifest.schema.json")
 
-        self.assertTrue(os.path.exists(manifest_path), "env_manifest.json must exist at repo root")
-        self.assertTrue(os.path.exists(schema_path), "env_manifest.schema.json must exist at repo root")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(self.repo_root, "ualbf-project", "env_manifest.json")
+            schema_path = os.path.join(self.repo_root, "ualbf-project", "env_manifest.schema.json")
+
+        self.assertTrue(os.path.exists(manifest_path), "env_manifest.json must exist")
+        self.assertTrue(os.path.exists(schema_path), "env_manifest.schema.json must exist")
 
         manifest, schema = env_util.load_manifest_and_schema(manifest_path, schema_path)
         self.assertIsInstance(manifest, dict)
@@ -69,14 +73,14 @@ class TestEnvManifestAndUtil(unittest.TestCase):
             os.environ,
             {
                 "UALBF_MAX_CERT_SIZE_MB": "25.5",
-                "UALBF_DUMMY_PAPER_CI": "1",
+                "MOCK_LEAN": "1",
                 "UALBF_SIEVE_LIMIT": "500000",
                 "UALBF_TRUSTED_PUBLIC_KEY": "1234567890abcdef",
             },
             clear=True,
         ):
             self.assertEqual(env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB"), 25.5)
-            self.assertTrue(env_util.get_env_var("UALBF_DUMMY_PAPER_CI"))
+            self.assertTrue(env_util.get_env_var("MOCK_LEAN"))
             self.assertEqual(env_util.get_env_var("UALBF_SIEVE_LIMIT"), 500000)
             self.assertEqual(env_util.get_env_var("UALBF_TRUSTED_PUBLIC_KEY"), "1234567890abcdef")
 
@@ -94,7 +98,7 @@ class TestEnvManifestAndUtil(unittest.TestCase):
             env_util.get_env_var("NON_EXISTENT_VAR_12345")
 
     def test_deprecated_flags_halt_execution(self):
-        for deprecated_flag in ["ALLOW_UNVERIFIED_BUILD", "UALBF_SKIP_VALIDATION"]:
+        for deprecated_flag in ["ALLOW_UNVERIFIED_BUILD", "UALBF_SKIP_VALIDATION", "UALBF_DUMMY_PAPER_CI"]:
             with mock.patch.dict(os.environ, {deprecated_flag: "1"}, clear=True):
                 with self.assertRaises(SystemExit) as cm:
                     env_util.check_deprecated_env_vars()

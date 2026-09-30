@@ -81,6 +81,14 @@ extern "C" {
     pub fn rs_lean_box_uint32(v: u32) -> *mut lean_object;
     pub fn rs_lean_box_bool(v: bool) -> *mut lean_object;
     pub fn rs_lean_box_unit() -> *mut lean_object;
+    #[cfg(unverified_build)]
+    pub fn make_some(val: *mut lean_object) -> *mut lean_object;
+    pub fn ualbf_mod_inverse_raw(
+        a_limbs: *const u64,
+        a_neg: u8,
+        m_limbs: *const u64,
+        out_limbs: *mut u64,
+    ) -> bool;
 }
 
 include!("ffi_generated.rs");
@@ -227,7 +235,7 @@ pub fn alloc_u512(data: crate::lean_ffi::U512Data) -> *mut lean_object {
 }
 
 pub fn get_u512_ptr(obj: *mut lean_object) -> Option<&'static crate::lean_ffi::U512Data> {
-    if obj.is_null() {
+    if obj.is_null() || unsafe { rs_lean_is_scalar(obj) } {
         return None;
     }
     initialize_lean_runtime();
@@ -540,9 +548,28 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
 
 pub fn check_crt_1155(z_val: &Uint, x_l_val: &Uint) -> bool {
     initialize_lean_runtime();
-    let z_obj = z_val.to_lean();
-    let x_l_obj = x_l_val.to_lean();
-    unsafe { ualbf_check_crt_1155(z_obj.as_ptr(), x_l_obj.as_ptr()) != 0 }
+    let z_words = bytes_to_words::<64, 8>(&z_val.to_le_bytes());
+    let xl_words = bytes_to_words::<64, 8>(&x_l_val.to_le_bytes());
+    unsafe {
+        ualbf_check_crt_1155_limbs(
+            z_words[0],
+            z_words[1],
+            z_words[2],
+            z_words[3],
+            z_words[4],
+            z_words[5],
+            z_words[6],
+            z_words[7],
+            xl_words[0],
+            xl_words[1],
+            xl_words[2],
+            xl_words[3],
+            xl_words[4],
+            xl_words[5],
+            xl_words[6],
+            xl_words[7],
+        ) != 0
+    }
 }
 
 pub fn get_baseline_min_prime_factors() -> usize {
@@ -671,17 +698,18 @@ pub fn compute_sigma_checked(p: u64, pow: u32) -> Option<Uint> {
 
 pub fn compute_mod_inverse(a_abs: &Uint, a_neg: bool, m: &Uint) -> Option<Uint> {
     initialize_lean_runtime();
+    let a_words = bytes_to_words::<64, 8>(&a_abs.to_le_bytes());
+    let m_words = bytes_to_words::<64, 8>(&m.to_le_bytes());
+    let mut out_words = [0u64; 8];
+
     unsafe {
-        let a_obj = a_abs.to_lean();
-        let m_obj = m.to_lean();
-
-        let opt_obj = ualbf_mod_inverse(a_obj.as_ptr(), if a_neg { 1 } else { 0 }, m_obj.as_ptr());
-
-        if !is_none(opt_obj) {
-            let obj = get_some(opt_obj);
-            let w = get_u512(obj).copied().unwrap_or(ZERO_U512);
-            rs_lean_dec(opt_obj);
-            let b = words_to_bytes::<8, 64>(&w);
+        if ualbf_mod_inverse_raw(
+            a_words.as_ptr(),
+            if a_neg { 1 } else { 0 },
+            m_words.as_ptr(),
+            out_words.as_mut_ptr(),
+        ) {
+            let b = words_to_bytes::<8, 64>(&out_words);
             Some(Uint::from_le_slice(&b).unwrap())
         } else {
             if m <= &Uint::one() {
@@ -969,7 +997,11 @@ mod tests {
         let _guard = ENV_LOCK.lock().unwrap();
         setup();
         let value = get_div_5_coprime_3_bound();
-        assert_eq!(value, 11, "expected div_5_coprime_3_bound to match 11");
+        assert_eq!(
+            value,
+            crate::manifest_constants::DIV_5_COPRIME_3_PROOF_BOUND as usize,
+            "expected div_5_coprime_3_bound to match the manifest proof bound"
+        );
     }
 
     /// Repeated calls to get_baseline_min_prime_factors must return the same value,
@@ -1200,7 +1232,10 @@ mod tests {
         setup();
         std::env::remove_var("UALBF_PROOF_MODE");
         let div_5_bound_axiomatic = get_div_5_coprime_3_bound();
-        assert_eq!(div_5_bound_axiomatic, 11);
+        assert_eq!(
+            div_5_bound_axiomatic,
+            crate::manifest_constants::DIV_5_COPRIME_3_PROOF_BOUND as usize
+        );
 
         std::env::set_var("UALBF_PROOF_MODE", "pure");
         let div_5_bound_pure = get_div_5_coprime_3_bound();
@@ -1230,6 +1265,91 @@ mod tests {
         for h in handles {
             let thread_hash = h.join().expect("Thread panicked");
             assert_eq!(thread_hash, hash1);
+        }
+    }
+
+    #[test]
+    fn test_get_u512_ptr_scalar_and_null_safety() {
+        setup();
+
+        // 1. Null pointer
+        let null_obj: *mut lean_object = std::ptr::null_mut();
+        assert_eq!(get_u512_ptr(null_obj), None);
+        assert_eq!(rust_u512_get_w0(null_obj), 0);
+        assert_eq!(rust_u512_get_w1(null_obj), 0);
+        assert_eq!(rust_u512_get_w2(null_obj), 0);
+        assert_eq!(rust_u512_get_w3(null_obj), 0);
+        assert_eq!(rust_u512_get_w4(null_obj), 0);
+        assert_eq!(rust_u512_get_w5(null_obj), 0);
+        assert_eq!(rust_u512_get_w6(null_obj), 0);
+        assert_eq!(rust_u512_get_w7(null_obj), 0);
+
+        // 2. Scalar handles (lean_box(0) == 1, tagged scalars with LSB set)
+        let scalar_obj_0: *mut lean_object = 1 as *mut lean_object;
+        assert_eq!(get_u512_ptr(scalar_obj_0), None);
+        assert_eq!(rust_u512_get_w0(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w1(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w2(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w3(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w4(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w5(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w6(scalar_obj_0), 0);
+        assert_eq!(rust_u512_get_w7(scalar_obj_0), 0);
+
+        let scalar_obj_42: *mut lean_object = ((42 << 1) | 1) as *mut lean_object;
+        assert_eq!(get_u512_ptr(scalar_obj_42), None);
+        assert_eq!(rust_u512_get_w0(scalar_obj_42), 0);
+        assert_eq!(rust_u512_get_w7(scalar_obj_42), 0);
+
+        // 3. Valid allocated U512 object
+        let data: crate::lean_ffi::U512Data = [10, 20, 30, 40, 50, 60, 70, 80];
+        let valid_obj = alloc_u512(data);
+        assert!(valid_obj != std::ptr::null_mut());
+        let ptr_res = get_u512_ptr(valid_obj);
+        assert_eq!(ptr_res, Some(&data));
+
+        assert_eq!(rust_u512_get_w0(valid_obj), 10);
+        assert_eq!(rust_u512_get_w1(valid_obj), 20);
+        assert_eq!(rust_u512_get_w2(valid_obj), 30);
+        assert_eq!(rust_u512_get_w3(valid_obj), 40);
+        assert_eq!(rust_u512_get_w4(valid_obj), 50);
+        assert_eq!(rust_u512_get_w5(valid_obj), 60);
+        assert_eq!(rust_u512_get_w6(valid_obj), 70);
+        assert_eq!(rust_u512_get_w7(valid_obj), 80);
+    }
+
+    #[test]
+    #[cfg(unverified_build)]
+    fn test_dummy_ffi_reference_counting_and_deallocation() {
+        setup();
+        // 1. Test basic alloc and dec
+        let u = Uint::from_u64(12345);
+        let wrapper = u.to_lean();
+        assert!(!wrapper.as_ptr().is_null());
+
+        // 2. Test make_some and constructor dec
+        let raw_u512 = alloc_u512(ZERO_U512);
+        unsafe {
+            rs_lean_inc(raw_u512);
+            let opt = make_some(raw_u512);
+            assert!(!is_none(opt));
+            let inner = get_some(opt);
+            assert_eq!(inner, raw_u512);
+            rs_lean_dec(opt); // Drops opt and decrements raw_u512
+            rs_lean_dec(raw_u512); // Drops raw_u512 finalizer
+        }
+
+        // 3. Test 100,000 iterations of compute_sigma_checked and compute_mod_inverse
+        for i in 1..=100_000 {
+            let res = compute_sigma_checked((i % 100) + 2, 3);
+            assert!(res.is_some());
+
+            let a = Uint::from_u64(i as u64);
+            let m = Uint::from_u64(1000000007);
+            let inv = compute_mod_inverse(&a, false, &m);
+            if i % 1000000007 != 0 {
+                assert!(inv.is_some());
+            }
         }
     }
 }

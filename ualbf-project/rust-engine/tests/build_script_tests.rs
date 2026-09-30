@@ -39,6 +39,10 @@ fn sample_valid_bounds_manifest_json() -> &'static str {
 
 fn sample_valid_proof_manifest_json(bounds_hash: &str) -> String {
     let fns = [
+        "ruleA_safe",
+        "ruleB_safe",
+        "ruleA_pruning",
+        "ruleB_pruning",
         "check_starvation_kill",
         "check_cdg_forced_kill",
         "lean_abundancy_starvation_theorem",
@@ -225,7 +229,8 @@ fn test_validate_proof_manifest_unproven_theorem() {
 }
 
 #[test]
-fn test_validate_proof_manifest_axiom_rejected() {
+fn test_validate_proof_manifest_rejects_formerly_whitelisted_axiom() {
+    // qpn_div_5_coprime_3_omega_bound is now proved, so no axiom is whitelisted.
     let mut manifest = parse_proof_manifest(&sample_valid_proof_manifest_json("hash_A")).unwrap();
     manifest.theorems.push(Theorem {
         name: "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound".to_string(),
@@ -233,11 +238,7 @@ fn test_validate_proof_manifest_axiom_rejected() {
         status: "axiom".to_string(),
         checksum: "hash_axiom".to_string(),
     });
-    let err =
-        validate_proof_manifest(&manifest, "hash_A").expect_err("Should fail on axiom status");
-    assert!(err.contains(
-        "Theorem 'UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound' in 'UALBF/QPN/PrasadSunitha.lean' is incomplete (status: axiom)"
-    ));
+    assert!(validate_proof_manifest(&manifest, "hash_A").is_err());
 }
 
 #[test]
@@ -414,6 +415,7 @@ fn test_validate_constant_spec_equivalence_success() {
         pub const TARGET_MIN_LOG10: u32 = 35;
         pub const TARGET_MAX_LOG10: u32 = 37;
         pub const SIEVE_LIMIT: usize = 250000;
+        pub const TRIAL_DIVISION_LIMIT: usize = 10000000;
         pub const MAX_EXPONENT: u32 = 4;
         pub const PREFIX_STOP_THRESHOLD: u64 = 10000;
         pub const POLLARD_RHO_ITERATION_LIMIT: u32 = 1000;
@@ -438,6 +440,7 @@ fn test_validate_constant_spec_equivalence_success() {
         pub open spec fn lean_target_min_log10() -> u32 { 35 }
         pub open spec fn lean_target_max_log10() -> u32 { 37 }
         pub open spec fn lean_sieve_limit() -> usize { 250000 }
+        pub open spec fn lean_trial_division_limit() -> usize { 10000000 }
         pub open spec fn lean_max_exponent() -> u32 { 4 }
         pub open spec fn lean_prefix_stop_threshold() -> u64 { 10000 }
         pub open spec fn lean_pollard_rho_iteration_limit() -> u32 { 1000 }

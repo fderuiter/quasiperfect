@@ -434,7 +434,7 @@ STANDARD_ENV_VARS = {
 class EnvVarASTVisitor(ast.NodeVisitor):
     def __init__(self, filename: str):
         self.filename = filename
-        self.env_vars = []  # (lineno, var_name)
+        self.env_vars: list[tuple[int, str]] = []  # (lineno, var_name)
 
     def visit_Subscript(self, node: ast.Subscript):
         if isinstance(node.value, ast.Attribute) and isinstance(
@@ -501,13 +501,9 @@ class EnvVarASTVisitor(ast.NodeVisitor):
 
     def visit_Compare(self, node: ast.Compare):
         if len(node.ops) == 1 and isinstance(node.ops[0], (ast.In, ast.NotIn)):
-            if isinstance(node.left, ast.Constant) and isinstance(
-                node.left.value, str
-            ):
+            if isinstance(node.left, ast.Constant) and isinstance(node.left.value, str):
                 comp = node.comparators[0]
-                if isinstance(comp, ast.Attribute) and isinstance(
-                    comp.value, ast.Name
-                ):
+                if isinstance(comp, ast.Attribute) and isinstance(comp.value, ast.Name):
                     if comp.value.id == "os" and comp.attr == "environ":
                         self.env_vars.append((node.lineno, node.left.value))
         self.generic_visit(node)
@@ -532,6 +528,9 @@ def validate_env_manifest(repo_root: str) -> bool:
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
         schema_path = os.path.join(real_root, "env_manifest.schema.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
+            schema_path = os.path.join(real_root, "ualbf-project", "env_manifest.schema.json")
 
     if not os.path.exists(manifest_path) or not os.path.exists(schema_path):
         return True
@@ -539,7 +538,9 @@ def validate_env_manifest(repo_root: str) -> bool:
     try:
         env_util.load_manifest_and_schema(manifest_path, schema_path)
     except Exception as e:
-        print(f"Error validating env_manifest.json against schema: {e}", file=sys.stderr)
+        print(
+            f"Error validating env_manifest.json against schema: {e}", file=sys.stderr
+        )
         return False
 
     return True
@@ -557,6 +558,8 @@ def validate_env_vars(repo_root: str) -> bool:
     if not os.path.exists(manifest_path):
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
 
     if not os.path.exists(manifest_path):
         return True
@@ -594,11 +597,18 @@ def validate_env_vars(repo_root: str) -> bool:
             if not file.endswith(".py"):
                 continue
             # Skip test files and env_util.py itself
-            if file.startswith("test_") or file.endswith("_test.py") or file in ("env_util.py",):
+            if (
+                file.startswith("test_")
+                or file.endswith("_test.py")
+                or file in ("env_util.py",)
+            ):
                 continue
 
             rel_file = os.path.relpath(os.path.join(root_dir, file), repo_root)
-            if any(part in exclude_dirs or part == "tests" for part in rel_file.split(os.sep)):
+            if any(
+                part in exclude_dirs or part == "tests"
+                for part in rel_file.split(os.sep)
+            ):
                 continue
 
             full_path = os.path.join(root_dir, file)
@@ -610,7 +620,10 @@ def validate_env_vars(repo_root: str) -> bool:
                 visitor.visit(tree)
 
                 for line_no, var_name in visitor.env_vars:
-                    if var_name not in registered_vars and var_name not in STANDARD_ENV_VARS:
+                    if (
+                        var_name not in registered_vars
+                        and var_name not in STANDARD_ENV_VARS
+                    ):
                         unregistered_findings.append((rel_file, line_no, var_name))
             except Exception:
                 pass
@@ -621,7 +634,10 @@ def validate_env_vars(repo_root: str) -> bool:
             file=sys.stderr,
         )
         for rel_f, line_no, var_name in unregistered_findings:
-            print(f"  - {rel_f}:{line_no}: Unregistered environment variable '{var_name}'", file=sys.stderr)
+            print(
+                f"  - {rel_f}:{line_no}: Unregistered environment variable '{var_name}'",
+                file=sys.stderr,
+            )
         print(
             "\nRemedy: Register missing environment variables in env_manifest.json and document active ones in TCB.md / README.md.",
             file=sys.stderr,
@@ -643,6 +659,8 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
     if not os.path.exists(manifest_path):
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
 
     if not os.path.exists(manifest_path):
         return True
@@ -683,6 +701,51 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
     return True
 
 
+def validate_auditor_doc_checks(repo_root: str) -> bool:
+    """
+    Perform auditor documentation checks against proof_manifest.json, verifying backticked
+    code symbols, unquoted static symbols, and Lean theorem proof statuses in authoritative documentation.
+    """
+    proof_manifest_path = os.path.join(repo_root, "proof_manifest.json")
+    if not os.path.exists(proof_manifest_path):
+        proof_manifest_path = os.path.join(
+            repo_root, "ualbf-project", "proof_manifest.json"
+        )
+
+    if not os.path.exists(proof_manifest_path):
+        print(
+            f"Warning: proof_manifest.json not found at {proof_manifest_path}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    try:
+        with open(proof_manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as e:
+        print(
+            f"Warning: Failed to load proof_manifest.json: {e}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    ualbf_project_dir = os.path.dirname(scripts_dir)
+    if ualbf_project_dir not in sys.path:
+        sys.path.insert(0, ualbf_project_dir)
+
+    try:
+        import auditor
+
+        return auditor.check_documentation(manifest, repo_root=repo_root)
+    except Exception as e:
+        print(
+            f"Error executing auditor documentation verification: {e}",
+            file=sys.stderr,
+        )
+        return False
+
+
 def main():
     args = sys.argv[1:]
     check_specs = False
@@ -700,6 +763,9 @@ def main():
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     manifest_path = os.path.join(repo_root, "docs_manifest.json")
+    if not os.path.exists(manifest_path):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        manifest_path = os.path.join(repo_root, "docs_manifest.json")
 
     if not os.path.exists(manifest_path):
         print(
@@ -714,11 +780,7 @@ def main():
             print(f"Error: Invalid JSON in docs_manifest.json - {e}", file=sys.stderr)
             sys.exit(1)
 
-    # Change to repo root to find all .md files with relative paths
-    os.chdir(repo_root)
-    all_md_files = glob.glob("**/*.md", recursive=True)
-
-    # Filter out common build, hidden, and virtual environment directories
+    # Find all .md files in the repository, whitelisting .jules/skills/ and .agents/skills/ hidden directories
     exclude_exact = {
         "target",
         "node_modules",
@@ -735,17 +797,32 @@ def main():
         "lake-manifest",
         "site-packages",
     }
+    allowed_dot_prefixes = (".jules/skills/", ".agents/skills/")
+
     filtered_md_files = []
-    for md_file in all_md_files:
-        parts = md_file.split(os.sep)
-        if not any(
-            part.startswith(".")
-            or part.startswith("result")
-            or part.startswith("lake-")
-            or part in exclude_exact
-            for part in parts
-        ):
-            filtered_md_files.append(md_file)
+    for root_dir, dirs, files in os.walk(repo_root):
+        rel_root = os.path.relpath(root_dir, repo_root)
+        norm_rel_root = "" if rel_root == "." else rel_root.replace("\\", "/")
+
+        pruned_dirs = []
+        for d in dirs:
+            if d in exclude_exact or d.startswith("result") or d.startswith("lake-"):
+                continue
+            if d.startswith("."):
+                candidate_rel = f"{norm_rel_root}/{d}" if norm_rel_root else d
+                if (
+                    candidate_rel in (".jules", ".agents", ".jules/skills", ".agents/skills")
+                    or candidate_rel.startswith(allowed_dot_prefixes)
+                ):
+                    pruned_dirs.append(d)
+            else:
+                pruned_dirs.append(d)
+        dirs[:] = pruned_dirs
+
+        for f in files:
+            if f.endswith(".md"):
+                rel_path = os.path.relpath(os.path.join(root_dir, f), repo_root).replace("\\", "/")
+                filtered_md_files.append(rel_path)
 
     # Check that all registered manifest entries exist on disk
     missing_registered = []
@@ -765,7 +842,7 @@ def main():
     # Check if all .md files are registered in manifest
     unregistered = []
     for md_file in filtered_md_files:
-        if md_file not in manifest:
+        if md_file not in manifest and f"ualbf-project/{md_file}" not in manifest:
             unregistered.append(md_file)
 
     if unregistered:
@@ -781,19 +858,76 @@ def main():
         )
         sys.exit(1)
 
+    # Check if all .tex files in paper/ are registered in manifest
+    # Paths are taken relative to the repository root, like the manifest keys,
+    # so the result does not depend on the directory the script runs from.
+    all_tex_files = [
+        os.path.relpath(p, repo_root)
+        for p in glob.glob(os.path.join(repo_root, "**", "*.tex"), recursive=True)
+    ]
+    filtered_tex_files = []
+    generated_tex_names = {"telemetry.tex", "verification_manifest.tex"}
+    for tex_file in all_tex_files:
+        parts = tex_file.split(os.sep)
+        if not any(
+            part.startswith(".")
+            or part.startswith("_")
+            or part.startswith("result")
+            or part.startswith("lake-")
+            or part in exclude_exact
+            for part in parts
+        ):
+            if os.path.basename(tex_file) in generated_tex_names:
+                continue
+            filtered_tex_files.append(tex_file.replace("\\", "/"))
+
+    unregistered_tex = []
+    for tex_file in filtered_tex_files:
+        if tex_file not in manifest:
+            unregistered_tex.append(tex_file)
+
+    if unregistered_tex:
+        print(
+            "Error: The following LaTeX paper files are not registered in docs_manifest.json:",
+            file=sys.stderr,
+        )
+        for f in unregistered_tex:
+            print(f"  - {f}", file=sys.stderr)
+        print(
+            "\nPlease add them to docs_manifest.json with their authority level ('authoritative' or 'informal').",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     # Validate relative links and section anchors across registered documentation
     registered_files = list(manifest.keys())
     if not validate_markdown_links(repo_root, registered_files):
         print("Documentation link/anchor validation failed.", file=sys.stderr)
         sys.exit(1)
 
-    # Run tuning guide parameter validation against bounds and profile manifests
+    # Perform auditor documentation verification against proof_manifest.json
+    if not validate_auditor_doc_checks(repo_root):
+        print("Auditor documentation verification failed.", file=sys.stderr)
+        sys.exit(1)
+
+    # Run paper source validation
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
+    import validate_paper
+
+    paper_dir = os.path.join(repo_root, "ualbf-project", "paper")
+    if os.path.exists(paper_dir):
+        if not validate_paper.validate_paper_sources(paper_dir, repo_root):
+            print("Error: Paper validation failed.", file=sys.stderr)
+            sys.exit(1)
+
+    # Run tuning guide parameter validation against bounds and profile manifests
     from validate_tuning_guide import validate_tuning_guide
 
     ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    if not os.path.exists(ualbf_project_dir):
+        ualbf_project_dir = repo_root
     if not validate_tuning_guide(ualbf_project_dir):
         sys.exit(1)
 
@@ -825,7 +959,7 @@ def main():
                 if manifest[f] == "authoritative":
                     print(f"Authoritative document modified: {f}")
                     authoritative_touched = True
-            elif f.endswith(".md"):
+            elif f.endswith(".md") or f.endswith(".tex"):
                 print(
                     f"Error: PR introduces a documentation file '{f}' not registered in docs_manifest.json.",
                     file=sys.stderr,

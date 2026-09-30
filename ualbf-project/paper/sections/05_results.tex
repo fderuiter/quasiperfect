@@ -4,42 +4,63 @@
 \section{Results}
 \label{sec:results}
 
-The UALBF computational engine is designed to seamlessly integrate
-formal proofs into a continuous search pipeline, successfully
-verifying that any quasiperfect number~$N$ must exceed the targeted
-bound of $10^{\TelemetryMaxLog}$.
-This represents a significant improvement over the
-historical Hagis--Cohen bound of $10^{\TelemetryMinLog}$.  The verification strategy
-pairs the highly parallel, lock-free Rust search engine with formally
-verified constraints from Lean~4.  Crucially, the engine maps
-mathematical lemmas directly to algorithmic components: the Lean
-soundness proof
-\texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} formally
-guarantees the correctness of the Rust
+This section reports what the prototype search engine did and what
+it does not establish.  The Lean~4 library proves individual lemmas
+that the engine's pruning rules are meant to rely on; for example,
+\texttt{rust\_\allowbreak{}sieve\_\allowbreak{}soundness} justifies the
+mod-8 rule used by the Rust
 \texttt{generate\_\allowbreak{}illegal\_\allowbreak{}z\_\allowbreak{}valuations}
-sieve.  To ensure strict methodological correctness, the engine is
-engineered entirely free of integer overflow bugs, utilizing up to
-128-bit modular arithmetic verified via Lean FFI, and avoiding data
-races through a lock-free concurrency model.
+sieve.  No theorem states that the search as a whole is complete, and
+the search does not prove any lower bound on quasiperfect numbers.  The
+strongest bound we are aware of is $N > 10^{45}$, due to
+Alekseyev~\cite{alekseyev2026}; earlier, Hagis and
+Cohen~\cite{hagis1982} showed $N > 10^{35}$.
 
 
 %% -------------------------------------------------------------------
-\subsection{Targeted Computational Bounds}
+\subsection{Search Coverage and Known Limitations}
 \label{subsec:bounds_achieved}
 
-Through exhaustive prefix enumeration and exact ray-casting, the UALBF
-engine successfully establishes the advanced lower bound $N > 10^{\TelemetryMaxLog}$.
-This result rigorously extends the previous lower bound of $10^{\TelemetryMinLog}$
-set by Hagis and Cohen.
-Furthermore, in accordance with the theoretical framework, we
-dynamically enforce the Prasad--Sunitha bound: any candidate prefix
-disjoint from $\{3, 5\}$ must possess at least \TelemetryPrasadSunithaBound\ distinct prime
-factors ($\omega(N) \ge \TelemetryPrasadSunithaBound$) to satisfy the required abundancy index.
-For prefixes containing both 3 and~5, the legacy bound of
-$\omega(N) \ge \TelemetryHagisBaselineMinPrimeFactors$ continues to govern.
+The engine was configured to search up to $10^{\TelemetryMaxLog}$, but
+this target is not a result.  The coverage of the search is incomplete
+for the following reasons.
+\begin{enumerate}
+  \item \textbf{Bounded component list.}  Phase~1 only generates prime
+    powers $p^{2e}$ with $p < 250{,}000$ and $2e \le 8$
+    (\cref{subsec:global_sieve}).  Any QPN with a prime factor of at
+    least $250{,}000$, or with a prime appearing to an exponent above~8,
+    lies outside the search.
+  \item \textbf{Misapplied forced-inclusion rule.}  The cyclotomic
+    dependency graph (CDG) ``forced cascade'' treats certain primes as
+    components that must appear in~$N$, and prunes a branch when those
+    components cannot be added or would push the abundancy past the
+    target.  The Lean theorems
+    it cites (\texttt{forced\_\allowbreak{}inclusion} and
+    \texttt{transitive\_\allowbreak{}forced\_\allowbreak{}inclusion} in
+    \texttt{CyclotomicGraph.lean}) show that certain primes divide
+    $\sigma(N)$, not that they divide~$N$.  Since
+    $\gcd(N, \sigma(N)) = 1$ for a QPN, such primes in fact cannot
+    divide~$N$, so this rule has no formal justification and can
+    discard valid branches.
+  \item \textbf{Pruning bounds relative to the list.}  Several pruning
+    bounds, including the suffix-starvation bound, compute the maximum
+    achievable abundancy only from components in the engine's finite
+    list (\cref{subsec:dfs_prefix}).  They are therefore not valid for
+    an arbitrary~$N$ whose factors lie outside that list.
+  \item \textbf{Ray-casting did not run.}  The exact ray-casting stage
+    (\cref{subsec:ray_casting}) was not exercised; every branch
+    recorded in the telemetry was terminated by an earlier pruning
+    rule.
+\end{enumerate}
 
-To formalise the empirical rigour of this framework, the full
-computation was executed locally.  The hardware environment and physical
+For branches whose prefix is disjoint from $\{3, 5\}$ the engine
+applies the Prasad--Sunitha bound~\cite{prasad_sunitha}
+($\omega(N) \ge \TelemetryPrasadSunithaBound$), which is proved in
+Lean.  For prefixes containing both 3 and~5, the bound
+$\omega(N) \ge \TelemetryHagisBaselineMinPrimeFactors$ of Hagis and
+Cohen is used.
+
+The computation was executed locally.  The hardware environment and physical
 execution telemetry metrics are detailed in \cref{tab:hardware_specs}.
 
 \begin{table}[htbp]
@@ -55,22 +76,22 @@ execution telemetry metrics are detailed in \cref{tab:hardware_specs}.
         Phase 2 (DFS Traversal) Time & $\approx \TelemetryPhaseTwoTime$ seconds \\
         Phase 1 Eliminations & \TelemetryPhaseOnePruned\ components pruned \\
         Phase 2 Checks & \TelemetryPhaseTwoBranches\ branches evaluated \\
-        Formal Certificate Hash & \TelemetryCertHash \\
+        Run Certificate Hash & \TelemetryCertHash \\
         \hline
     \end{tabular} }
-    \caption{Hardware Specifications and Monolithic Search Telemetry.}
+    \caption{Hardware specifications and search telemetry.}
     \label{tab:hardware_specs}
 \end{table}
 
-As demonstrated in \cref{tab:hardware_specs}, the true computational sink
+As shown in \cref{tab:hardware_specs}, the main cost
 is the up-front Phase~1 integer factorization---specifically computing exact
 cyclotomic sums and running the Elliptic Curve Method (ECM) factorization on
 tens of thousands of massive $\sigma(p^{2e})$ values before the DFS even starts.
 The combinatorial DFS tree traversal (Phase~2) is not the bottleneck; at approximately
 \TelemetryNodesPerSec\ nodes per second, it efficiently leverages these precomputations
-to process the search space. The efficiency of this Phase~2 traversal is
-fundamentally derived from Starvation Pruning, which acted as the
-primary driver for search space reduction.  The distribution of branch
+to process the search space.  Most Phase~2 branches were terminated
+by starvation pruning, which, as noted above, is only valid relative to
+the engine's component list.  The distribution of branch
 terminations is outlined in \cref{tab:pruning_stats}.
 
 \begin{table}[htbp]
@@ -89,17 +110,8 @@ terminations is outlined in \cref{tab:pruning_stats}.
   \label{tab:pruning_stats}
 \end{table}
 
-As shown in the telemetry, while our framework fully formalizes and
-implements algebraic ray-casting (AMBS) for deeper horizons, it was
-functionally inactive during the $10^{\TelemetryMaxLog}$ search. Shallow structural
-traps caused by abundancy constraints completely exhausted the search
-space before any deep-horizon ray-casting algorithms could activate.
-
-Throughout the monolithic execution targeting $10^{\TelemetryMaxLog}$, the lock-free
-telemetry subsystem maintained absolute operational stability.  The
-parallel orchestrator systematically mapped the search tree, recording
-zero runtime panics, zero mathematical overflows, and zero unchecked
-algebraic state violations.  This zero-panic execution telemetry, fused
-with the overarching Lean~4 FFI soundness certificates, assures that no
-branches were unscientifically skipped, solidifying a fully formally verified
-$10^{\TelemetryMaxLog}$ computational bound.
+The telemetry records no runtime panics or overflows during the run.
+This shows that the prototype executed without crashing; it does not
+show that the search covered every candidate below
+$10^{\TelemetryMaxLog}$, for the reasons listed in
+\cref{subsec:bounds_achieved}.

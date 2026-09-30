@@ -19,18 +19,32 @@ _SCHEMA_CACHE: Optional[Dict[str, Any]] = None
 
 
 def find_repo_root(start_dir: Optional[Path] = None) -> Path:
-    """Finds the repository root containing env_manifest.json."""
+    """Finds the repository root containing env_manifest.json or docs_manifest.json or proof_manifest.json."""
     current = Path(start_dir or Path(__file__)).resolve()
     if current.is_file():
         current = current.parent
 
     for p in [current] + list(current.parents):
+        if (p / "env_manifest.json").exists():
+            return p
+
+    search_dirs = [current] + list(current.parents)
+    try:
+        cwd = Path.cwd().resolve()
+        if cwd not in search_dirs:
+            search_dirs.extend([cwd] + list(cwd.parents))
+    except Exception:
+        pass
+
+    for p in search_dirs:
         if (
             (p / "env_manifest.json").exists()
             or (p / "docs_manifest.json").exists()
+            or (p / "proof_manifest.json").exists()
             or (p / "bounds_manifest.json").exists()
         ):
             return p
+
     return current
 
 
@@ -44,13 +58,19 @@ def load_manifest_and_schema(
         return _MANIFEST_CACHE, _SCHEMA_CACHE
 
     repo_root = find_repo_root()
+    script_parent = Path(__file__).resolve().parent
 
     if not manifest_path:
         possible_manifests = [
             repo_root / "env_manifest.json",
+            script_parent / "env_manifest.json",
+            script_parent.parent / "env_manifest.json",
             repo_root / "ualbf-project" / "env_manifest.json",
             repo_root.parent / "env_manifest.json",
+            Path.cwd() / "env_manifest.json",
+            Path.cwd().parent / "env_manifest.json",
         ]
+
         m_path = next((p for p in possible_manifests if p.exists()), None)
         if not m_path:
             raise FileNotFoundError("env_manifest.json not found in repository root.")
@@ -60,12 +80,19 @@ def load_manifest_and_schema(
     if not schema_path:
         possible_schemas = [
             repo_root / "env_manifest.schema.json",
+            script_parent / "env_manifest.schema.json",
+            script_parent.parent / "env_manifest.schema.json",
             repo_root / "ualbf-project" / "env_manifest.schema.json",
             repo_root.parent / "env_manifest.schema.json",
+            Path.cwd() / "env_manifest.schema.json",
+            Path.cwd().parent / "env_manifest.schema.json",
         ]
+
         s_path = next((p for p in possible_schemas if p.exists()), None)
         if not s_path:
-            raise FileNotFoundError("env_manifest.schema.json not found in repository root.")
+            raise FileNotFoundError(
+                "env_manifest.schema.json not found in repository root."
+            )
     else:
         s_path = Path(schema_path)
 
@@ -99,20 +126,30 @@ def validate_manifest_schema(manifest: Dict[str, Any], schema: Dict[str, Any]) -
 
         for req in ["type", "default", "status", "description"]:
             if req not in val:
-                raise ValueError(f"Manifest entry for '{key}' missing required property '{req}'.")
+                raise ValueError(
+                    f"Manifest entry for '{key}' missing required property '{req}'."
+                )
 
         if val["type"] not in valid_types:
-            raise ValueError(f"Manifest entry for '{key}' has invalid type '{val['type']}'.")
+            raise ValueError(
+                f"Manifest entry for '{key}' has invalid type '{val['type']}'."
+            )
 
         if val["status"] not in valid_statuses:
-            raise ValueError(f"Manifest entry for '{key}' has invalid status '{val['status']}'.")
+            raise ValueError(
+                f"Manifest entry for '{key}' has invalid status '{val['status']}'."
+            )
 
         if not isinstance(val["description"], str):
-            raise ValueError(f"Manifest entry for '{key}' description must be a string.")
+            raise ValueError(
+                f"Manifest entry for '{key}' description must be a string."
+            )
 
         allowed = val.get("allowed_values")
         if allowed is not None and not isinstance(allowed, (list, tuple)):
-            raise ValueError(f"Manifest entry for '{key}' allowed_values must be a list or null.")
+            raise ValueError(
+                f"Manifest entry for '{key}' allowed_values must be a list or null."
+            )
 
 
 def check_deprecated_env_vars() -> None:
@@ -162,17 +199,23 @@ def get_env_var(name: str, default: Any = None) -> Any:
             elif lower in ("0", "false", "no", "n", "off", ""):
                 return False
             else:
-                raise ValueError(f"Invalid boolean value for environment variable '{name}': '{raw_val}'")
+                raise ValueError(
+                    f"Invalid boolean value for environment variable '{name}': '{raw_val}'"
+                )
         elif var_type == "integer":
             try:
                 return int(raw_val)
             except ValueError:
-                raise ValueError(f"Invalid integer value for environment variable '{name}': '{raw_val}'")
+                raise ValueError(
+                    f"Invalid integer value for environment variable '{name}': '{raw_val}'"
+                )
         elif var_type == "float":
             try:
                 return float(raw_val)
             except ValueError:
-                raise ValueError(f"Invalid float value for environment variable '{name}': '{raw_val}'")
+                raise ValueError(
+                    f"Invalid float value for environment variable '{name}': '{raw_val}'"
+                )
         else:
             return raw_val
 
@@ -189,7 +232,10 @@ def require_env_var(name: str) -> Any:
     """
     check_deprecated_env_vars()
     if name not in os.environ or not str(os.environ[name]).strip():
-        print(f"Error: Required environment variable '{name}' is not set.", file=sys.stderr)
+        print(
+            f"Error: Required environment variable '{name}' is not set.",
+            file=sys.stderr,
+        )
         raise ValueError(f"Required environment variable '{name}' is not set.")
     return get_env_var(name)
 

@@ -614,7 +614,8 @@ fn main() {
             panic!("FATAL: Checksum mismatch for theorem {}. The proof manifest has been tampered with.", thm.name);
         }
 
-        if thm.status != "proven" {
+        // No Lean axioms are whitelisted, so an axiom is as incomplete as a sorry.
+        if thm.status == "sorry" || thm.status == "unverified" || thm.status == "axiom" {
             println!(
                 "ERROR: Theorem '{}' in '{}' is incomplete (status: {}).",
                 thm.name, thm.file, thm.status
@@ -628,6 +629,10 @@ fn main() {
 
     // --- Ghost Pruning Assumption Binding Validation ---
     let required_ghost_functions = [
+        "ruleA_safe",
+        "ruleB_safe",
+        "ruleA_pruning",
+        "ruleB_pruning",
         "check_starvation_kill",
         "check_cdg_forced_kill",
         "lean_abundancy_starvation_theorem",
@@ -969,14 +974,10 @@ fn main() {
     };
 
     #[cfg(not(feature = "signing"))]
-    let (signature_hex, public_key_hex) = {
-        println!(
-            "ERROR: Refusing to sign certificate. Signing is unavailable in unverified builds."
+    let (signature_hex, public_key_hex): (String, String) = {
+        panic!(
+            "ERROR: Refusing to generate certificate. Certificate generation requires the 'signing' feature flag."
         );
-        (
-            "unverified_signature".to_string(),
-            "unverified_public_key".to_string(),
-        )
     };
 
     let telemetry = SearchTelemetry {

@@ -27,6 +27,8 @@ paper_dir = os.path.dirname(os.path.abspath(__file__))
 if paper_dir not in sys.path:
     sys.path.insert(0, paper_dir)
 
+import cert_util  # noqa: E402
+import hash_util  # noqa: E402
 import ingest_cert  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -34,8 +36,35 @@ import ingest_cert  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-def _minimal_cert(extra_telemetry=None):
-    """Return a minimal valid certificate dict accepted by ingest_cert.py."""
+def _minimal_cert(
+    manifest_hash=None,
+    verified_logic_hash=None,
+    extra_telemetry=None,
+    commit_hash=None,
+):
+    """Return an Ed25519-signed test certificate dict accepted by ingest_cert.py."""
+    if manifest_hash is None:
+        manifest_hash = (
+            "fd91aafa6031fa4a084064097548449b4cca658d991183d2817115dc0c51233b"
+        )
+    if verified_logic_hash is None:
+        if cert_util._has_verification_lib and cert_util.hash_tcb:
+            verified_logic_hash = cert_util.hash_tcb(ingest_cert.project_root)
+        else:
+            verified_logic_hash = "1234567890abcdef1234567890abcdef"
+    if commit_hash is None:
+        try:
+            import subprocess
+
+            commit_hash = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=ingest_cert.project_root,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        except Exception:
+            commit_hash = "unknown"
+
     tel = {
         "phase1_execution_time_ms": 100,
         "phase2_execution_time_ms": 5000,
@@ -47,11 +76,36 @@ def _minimal_cert(extra_telemetry=None):
     }
     if extra_telemetry:
         tel.update(extra_telemetry)
+
+    map_obj = {
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": verified_logic_hash,
+        "total_branches_searched": tel["total_branches_searched"],
+        "target_min_log10": tel["target_min_log10"],
+        "target_max_log10": tel["target_max_log10"],
+        "trace_hash": tel.get("trace_hash", ""),
+        "factorization_depth": tel.get("factorization_depth", 0),
+    }
+    if "path_ranges" in tel:
+        map_obj["path_ranges"] = tel["path_ranges"]
+
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+    priv = Ed25519PrivateKey.generate()
+    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+    payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+    sig_hex = priv.sign(payload.encode("utf-8")).hex()
+
+    os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
+
     return {
-        "manifest_hash": "fd91aafa6031fa4a084064097548449b4cca658d991183d2817115dc0c51233b",
-        "verified_logic_hash": "1234567890abcdef1234567890abcdef",
-        "public_key": "deadbeefdeadbeef",
-        "signature": "cafebabecafebabecafebabe",
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": verified_logic_hash,
+        "public_key": pub_hex,
+        "signature": sig_hex,
+        "commit_hash": commit_hash,
+        "engine_version": "1.0.0",
         "telemetry": tel,
     }
 
@@ -165,6 +219,7 @@ class TestCollisionDetection(unittest.TestCase):
             mock_verif.check_path_continuity = lambda x: "{}"
             mock_verif.compute_verus_hashes = lambda x: {}
             orig_verif = sys.modules.get("verification_lib")
+            orig_cert = sys.modules.get("cert_util")
             sys.modules["verification_lib"] = mock_verif
 
             try:
@@ -213,7 +268,10 @@ class TestCollisionDetection(unittest.TestCase):
                     os.environ["UALBF_CERT_PATH"] = orig_env
                 if root_dir in sys.path:
                     sys.path.remove(root_dir)
-                sys.modules.pop("cert_util", None)
+                if orig_cert is not None:
+                    sys.modules["cert_util"] = orig_cert
+                else:
+                    sys.modules.pop("cert_util", None)
 
 
 class TestManifestStatusGate(unittest.TestCase):
@@ -221,15 +279,19 @@ class TestManifestStatusGate(unittest.TestCase):
         bounds_path = os.path.join(root_dir, "bounds_manifest.json")
         manifest_path = os.path.join(root_dir, "proof_manifest.json")
         cert_path = os.path.join(paper_dir, "cert.json")
+
+        mbytes = cert_util.BoundedJSONLoader().read_file_bytes(manifest_path)
+        mhash = hash_util.hash_bytes(mbytes)
+
         if not os.path.exists(cert_path):
             with open(cert_path, "w", encoding="utf-8") as f:
-                json.dump(_minimal_cert(), f)
+                json.dump(_minimal_cert(manifest_hash=mhash), f)
 
         orig_env = os.environ.copy()
         orig_cwd = os.getcwd()
 
         mock_verif = types.ModuleType("verification_lib")
-        mock_verif.validate_certificate = lambda x: x
+        mock_verif.validate_certificate = lambda x: json.loads(x)
         mock_verif.hash_tcb = lambda: "tcb_hash"
         mock_verif.hash_extension_tcb = lambda: "ext_hash"
         mock_verif.check_path_continuity = lambda x: "{}"
@@ -240,7 +302,6 @@ class TestManifestStatusGate(unittest.TestCase):
         try:
             os.environ.pop("UALBF_PROOF_MANIFEST", None)
             os.environ["UALBF_CERT_PATH"] = cert_path
-            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
             if env_vars:
                 os.environ.update(env_vars)
 
@@ -369,7 +430,11 @@ class TestManifestStatusGate(unittest.TestCase):
 
     def test_deprecated_bypass_flags_halt_execution(self):
         """Passing deprecated bypass flags triggers immediate rejection."""
-        for flag in ["ALLOW_UNVERIFIED_BUILD", "UALBF_SKIP_VALIDATION"]:
+        for flag in [
+            "ALLOW_UNVERIFIED_BUILD",
+            "UALBF_SKIP_VALIDATION",
+            "UALBF_DUMMY_PAPER_CI",
+        ]:
             with tempfile.TemporaryDirectory() as root_dir:
                 paper_dir = self._setup_environment(
                     root_dir,
@@ -471,8 +536,7 @@ class TestTelemetryMathAndHalts(unittest.TestCase):
         with open(manifest_path, "wb") as f:
             f.write(manifest_bytes)
 
-        cert = _minimal_cert(cert_extra)
-        cert["manifest_hash"] = manifest_hash
+        cert = _minimal_cert(manifest_hash=manifest_hash, extra_telemetry=cert_extra)
         cert_path = os.path.join(paper_dir, "cert.json")
         with open(cert_path, "w", encoding="utf-8") as f:
             json.dump(cert, f)
@@ -483,12 +547,6 @@ class TestTelemetryMathAndHalts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root_dir:
             paper_dir = os.path.join(root_dir, "paper")
             os.makedirs(paper_dir, exist_ok=True)
-            cert = _minimal_cert()
-            del cert["telemetry"]["phase2_execution_time_ms"]
-            cert_path = os.path.join(paper_dir, "cert.json")
-            with open(cert_path, "w", encoding="utf-8") as f:
-                json.dump(cert, f)
-
             bounds_path = os.path.join(root_dir, "bounds_manifest.json")
             with open(bounds_path, "w", encoding="utf-8") as f:
                 json.dump(
@@ -510,54 +568,51 @@ class TestTelemetryMathAndHalts(unittest.TestCase):
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump({"status": "verified", "theorems": []}, f)
 
-            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
-            try:
-                with self.assertRaises(SystemExit) as cm:
-                    ingest_cert.write_telemetry_tex(
-                        cert_path=cert_path,
-                        manifest_path=manifest_path,
-                        bounds_path=bounds_path,
-                        output_dir=paper_dir,
-                    )
-                self.assertEqual(cm.exception.code, 1)
-            finally:
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+            mbytes = cert_util.BoundedJSONLoader().read_file_bytes(manifest_path)
+            mhash = hash_util.hash_bytes(mbytes)
+
+            cert = _minimal_cert(manifest_hash=mhash)
+            del cert["telemetry"]["phase2_execution_time_ms"]
+            cert_path = os.path.join(paper_dir, "cert.json")
+            with open(cert_path, "w", encoding="utf-8") as f:
+                json.dump(cert, f)
+
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.write_telemetry_tex(
+                    cert_path=cert_path,
+                    manifest_path=manifest_path,
+                    bounds_path=bounds_path,
+                    output_dir=paper_dir,
+                )
+            self.assertEqual(cm.exception.code, 1)
 
     def test_bounds_exceeded_halts(self):
         with tempfile.TemporaryDirectory() as root_dir:
             paper_dir, bounds_path, manifest_path, cert_path = self._create_env(
                 root_dir, cert_extra={"bounds_exceeded": True}
             )
-            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
-            try:
-                with self.assertRaises(SystemExit) as cm:
-                    ingest_cert.write_telemetry_tex(
-                        cert_path=cert_path,
-                        manifest_path=manifest_path,
-                        bounds_path=bounds_path,
-                        output_dir=paper_dir,
-                    )
-                self.assertEqual(cm.exception.code, 1)
-            finally:
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.write_telemetry_tex(
+                    cert_path=cert_path,
+                    manifest_path=manifest_path,
+                    bounds_path=bounds_path,
+                    output_dir=paper_dir,
+                )
+            self.assertEqual(cm.exception.code, 1)
 
     def test_math_interruptions_halts(self):
         with tempfile.TemporaryDirectory() as root_dir:
             paper_dir, bounds_path, manifest_path, cert_path = self._create_env(
                 root_dir, cert_extra={"math_interruptions": 3}
             )
-            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
-            try:
-                with self.assertRaises(SystemExit) as cm:
-                    ingest_cert.write_telemetry_tex(
-                        cert_path=cert_path,
-                        manifest_path=manifest_path,
-                        bounds_path=bounds_path,
-                        output_dir=paper_dir,
-                    )
-                self.assertEqual(cm.exception.code, 1)
-            finally:
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.write_telemetry_tex(
+                    cert_path=cert_path,
+                    manifest_path=manifest_path,
+                    bounds_path=bounds_path,
+                    output_dir=paper_dir,
+                )
+            self.assertEqual(cm.exception.code, 1)
 
     def test_telemetry_math_successful_write(self):
         with tempfile.TemporaryDirectory() as root_dir:
@@ -569,25 +624,17 @@ class TestTelemetryMathAndHalts(unittest.TestCase):
                     "phase2_execution_time_ms": 2000,
                 },
             )
-            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
-            try:
-                ingest_cert.write_telemetry_tex(
-                    cert_path=cert_path,
-                    manifest_path=manifest_path,
-                    bounds_path=bounds_path,
-                    output_dir=paper_dir,
-                )
-                tex_content = open(os.path.join(paper_dir, "telemetry.tex")).read()
-                self.assertIn(
-                    "\\newcommand{\\TelemetryPhaseTwoTime}{2.00}", tex_content
-                )
-                self.assertIn("\\newcommand{\\TelemetryPruned}{1,000}", tex_content)
-                self.assertIn(
-                    "\\newcommand{\\TelemetryAbundancePct}{80.0}", tex_content
-                )
-                self.assertIn("\\newcommand{\\TelemetryRaycastPct}{20.0}", tex_content)
-            finally:
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+            ingest_cert.write_telemetry_tex(
+                cert_path=cert_path,
+                manifest_path=manifest_path,
+                bounds_path=bounds_path,
+                output_dir=paper_dir,
+            )
+            tex_content = open(os.path.join(paper_dir, "telemetry.tex")).read()
+            self.assertIn("\\newcommand{\\TelemetryPhaseTwoTime}{2.00}", tex_content)
+            self.assertIn("\\newcommand{\\TelemetryPruned}{1,000}", tex_content)
+            self.assertIn("\\newcommand{\\TelemetryAbundancePct}{80.0}", tex_content)
+            self.assertIn("\\newcommand{\\TelemetryRaycastPct}{20.0}", tex_content)
 
 
 class TestChainOfTrust(unittest.TestCase):
@@ -617,26 +664,21 @@ class TestChainOfTrust(unittest.TestCase):
             with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump({"status": "verified", "theorems": []}, f)
 
-            cert = _minimal_cert()
-            cert["manifest_hash"] = (
-                "0000000000000000000000000000000000000000000000000000000000000000"
+            cert = _minimal_cert(
+                manifest_hash="0000000000000000000000000000000000000000000000000000000000000000"
             )
             cert_path = os.path.join(paper_dir, "cert.json")
             with open(cert_path, "w", encoding="utf-8") as f:
                 json.dump(cert, f)
 
-            os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
-            try:
-                with self.assertRaises(SystemExit) as cm:
-                    ingest_cert.write_telemetry_tex(
-                        cert_path=cert_path,
-                        manifest_path=manifest_path,
-                        bounds_path=bounds_path,
-                        output_dir=paper_dir,
-                    )
-                self.assertEqual(cm.exception.code, 1)
-            finally:
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.write_telemetry_tex(
+                    cert_path=cert_path,
+                    manifest_path=manifest_path,
+                    bounds_path=bounds_path,
+                    output_dir=paper_dir,
+                )
+            self.assertEqual(cm.exception.code, 1)
 
 
 class TestCheckManuscriptCompliance(unittest.TestCase):
@@ -655,6 +697,76 @@ class TestCheckManuscriptCompliance(unittest.TestCase):
                     base_dir=tmp_dir, telemetry_tex_path=telemetry_path
                 )
             self.assertEqual(cm.exception.code, 1)
+
+    def test_commented_violations_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryPhaseTwoTime}{2.00}\n")
+
+            commented_tex = os.path.join(tmp_dir, "commented_section.tex")
+            with open(commented_tex, "w", encoding="utf-8") as f:
+                f.write("% \\newcommand{\\ClaimedPhaseTwoTime}{2.00}\n")
+                f.write("% Hardcoded bound 10^{40}\n")
+                f.write("Valid prose text with \\TelemetryMaxLog.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertTrue(ok)
+
+    def test_hardcoded_exponent_bound_detected(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+
+            bad_tex = os.path.join(tmp_dir, "bad_bound.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("Pushed the lower bound to $10^{40}$.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertFalse(ok)
+
+    def test_def_redefinition_detected(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+
+            bad_tex = os.path.join(tmp_dir, "def_redef.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("\\def\\TelemetryMaxLog{43}\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertFalse(ok)
+
+    def test_valid_macro_usage_passes(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+
+            good_tex = os.path.join(tmp_dir, "good_section.tex")
+            with open(good_tex, "w", encoding="utf-8") as f:
+                f.write("Pushed lower bound to $10^{\\TelemetryMaxLog}$.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertTrue(ok)
 
 
 class TestIngestCertFileSizeLimit(unittest.TestCase):
@@ -718,15 +830,15 @@ class TestCertPathFallback(unittest.TestCase):
                 f.write(manifest_bytes)
 
             cert = _minimal_cert(
-                {
+                manifest_hash=manifest_hash,
+                extra_telemetry={
                     "phase1_execution_time_ms": 100,
                     "phase2_execution_time_ms": 2000,
                     "total_branches_searched": 1000,
                     "abundance_pruned": 800,
                     "raycast_pruned": 200,
-                }
+                },
             )
-            cert["manifest_hash"] = manifest_hash
 
             cert_path = os.path.join(paper_dir, "formal_certificate.json")
             with open(cert_path, "w", encoding="utf-8") as f:
@@ -735,7 +847,6 @@ class TestCertPathFallback(unittest.TestCase):
             orig_env = os.environ.get("UALBF_CERT_PATH")
             try:
                 os.environ.pop("UALBF_CERT_PATH", None)
-                os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
                 ingest_cert.write_telemetry_tex(
                     cert_path=None,
                     manifest_path=manifest_path,
@@ -750,7 +861,6 @@ class TestCertPathFallback(unittest.TestCase):
                     os.environ["UALBF_CERT_PATH"] = orig_env
                 else:
                     os.environ.pop("UALBF_CERT_PATH", None)
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
 
 
 if __name__ == "__main__":

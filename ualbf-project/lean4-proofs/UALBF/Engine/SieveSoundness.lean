@@ -154,7 +154,7 @@ theorem rust_sieve_soundness_mod_5 {N p e : ℕ}
   ¬ ExactValuation p (2*e) N :=
   rust_sieve_soundness_generic 5 (S := ModularSieve5) h_qpn h_mod5 hp_prime h_bad_mod
 
-theorem passes_raycast_sieve_spec (z pe pe1 : ℕ) (hpe : 0 < pe) (hpe1 : 0 < pe1) :
+theorem passes_raycast_sieve_spec (z pe pe1 : ℕ) (_hpe : 0 < pe) (_hpe1 : 0 < pe1) :
     ¬ (z % pe = 0 ∧ z % pe1 ≠ 0) ↔ (z % pe ≠ 0 ∨ z % pe1 = 0) := by
   tauto
 

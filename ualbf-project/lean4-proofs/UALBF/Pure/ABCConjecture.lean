@@ -1,6 +1,8 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.Data.Rat.Defs
-import UALBF.Basic
+import Mathlib.Tactic.Linarith
+import Mathlib.Data.Nat.PrimeFin
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 
 namespace UALBF.Pure.ABCConjecture
 
@@ -28,17 +30,16 @@ theorem derive_conjectural_ceiling
   have h_abc_inst := h_abc a b c ha hb h_coprime h_sum
   exact le_trans h_abc_inst h_bound
 
-/-- Soundness of pruning based on the conjectural ceiling.
-    If N > 10^30, then N cannot be a QPN under the ABC Conjecture. -/
-theorem qpn_conjectural_pruning_sound
+/-- Size exclusion based on the conjectural ceiling.
+    Derives a contradiction if lower bound N > 10^30 conflicts with the upper bound. -/
+theorem conjectural_ceiling_size_exclusion
     (ε : ℚ) (K : ℚ)
     (h_abc : ABCConjectureStatement ε K)
     (a b : ℕ) (ha : a > 0) (hb : b > 0) (h_coprime : Nat.Coprime a b)
     (h_bound : K ^ (1 + ε).den * (radical (a * b * (a + b)) : ℚ) ^ (1 + ε).num.natAbs ≤ (10^30 : ℚ) ^ (1 + ε).den)
     (N : ℕ) (h_sum : a + b = N)
     (h_gt : (N : ℚ) ^ (1 + ε).den > (10^30 : ℚ) ^ (1 + ε).den) :
-    ¬ IsQuasiperfect N := by
-  intro h_qpn
+    False := by
   have h_bound' : K ^ (1 + ε).den * (radical (a * b * N) : ℚ) ^ (1 + ε).num.natAbs ≤ (10^30 : ℚ) ^ (1 + ε).den := by
     rw [← h_sum]
     exact h_bound
@@ -46,4 +47,3 @@ theorem qpn_conjectural_pruning_sound
   linarith
 
 end UALBF.Pure.ABCConjecture
-
