@@ -1929,7 +1929,17 @@ def check_documentation(manifest, repo_root=None):
 
                 for bt in re.findall(r"`([^`]+)`", line):
                     if "/" in bt or bt.endswith(
-                        (".rs", ".md", ".lean", ".json", ".c", ".h", ".toml", ".tex", ".py")
+                        (
+                            ".rs",
+                            ".md",
+                            ".lean",
+                            ".json",
+                            ".c",
+                            ".h",
+                            ".toml",
+                            ".tex",
+                            ".py",
+                        )
                     ):
                         target = bt.split("#")[0].split(":")[0]
                         if not target:
@@ -1951,7 +1961,10 @@ def check_documentation(manifest, repo_root=None):
                         is_qualified = "." in clean_bt or "::" in clean_bt
                         if is_qualified:
                             parts = re.split(r"::|\.", clean_bt)
-                            if any(p in ignore_symbols or p.lower() in ignore_symbols for p in parts):
+                            if any(
+                                p in ignore_symbols or p.lower() in ignore_symbols
+                                for p in parts
+                            ):
                                 continue
 
                             dot_path = clean_bt.replace("::", ".")
