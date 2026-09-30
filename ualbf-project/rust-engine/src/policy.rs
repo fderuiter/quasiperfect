@@ -92,10 +92,7 @@ where
 
     // Check for deprecated GPU-related CLI arguments or environment variables
     for arg in args_vec.iter().skip(1) {
-        if (arg.contains("gpu") || arg.contains("GPU"))
-            && arg != "--allow-unverified-gpu"
-            && !arg.starts_with("--allow-unverified-gpu=")
-        {
+        if arg.contains("gpu") || arg.contains("GPU") {
             eprintln!(
                 "WARNING: Runtime flag '{}' is deprecated. The unverified GPU path has been eliminated; all calculations now run securely on the CPU.",
                 arg
@@ -103,7 +100,7 @@ where
         }
     }
     for (key, _val) in vars_map.iter() {
-        if key.contains("GPU") && key != "UALBF_ALLOW_UNVERIFIED_GPU" {
+        if key.contains("GPU") {
             eprintln!(
                 "WARNING: Environment variable '{}' is deprecated. The unverified GPU path has been eliminated; all calculations now run securely on the CPU.",
                 key
@@ -371,9 +368,7 @@ where
 
     let verify_sidecar = get_opt("--verify-sidecar", "UALBF_VERIFY_SIDECAR");
 
-    let allow_unverified_gpu = get_opt("--allow-unverified-gpu", "UALBF_ALLOW_UNVERIFIED_GPU")
-        .map(|v| v == "1" || v.to_lowercase() == "true")
-        .unwrap_or(false);
+    let allow_unverified_gpu = false;
 
     let config = EngineConfig {
         target_min_log10,
@@ -602,12 +597,12 @@ mod tests {
             vec!["engine".to_string(), "--allow-unverified-gpu".to_string()],
             vec![],
         );
-        assert!(flag_cfg.allow_unverified_gpu);
+        assert!(!flag_cfg.allow_unverified_gpu);
 
         let env_cfg = parse_config_from(
             vec!["engine".to_string()],
             vec![("UALBF_ALLOW_UNVERIFIED_GPU".to_string(), "1".to_string())],
         );
-        assert!(env_cfg.allow_unverified_gpu);
+        assert!(!env_cfg.allow_unverified_gpu);
     }
 }
