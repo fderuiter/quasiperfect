@@ -80,7 +80,7 @@ The Lean 4 library formally verifies the results below. The Rust search is an en
 quasipolynomials/
 └── ualbf-project/
     ├── Makefile                # Monorepo build orchestrator
-    ├── TODO.md                 # Development notes
+    ├── TODO.md                 # Project status; open work lives in GitHub issues
     ├── lean4-proofs/           # Lean 4 formal proof library
     │   ├── UALBF.lean          # Root import file
     │   ├── lakefile.lean       # Lake build configuration
