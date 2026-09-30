@@ -152,6 +152,48 @@ def test_concurrent_audit_staging_isolation():
     assert len(staging_dirs) == 2
 
 
+def test_staging_workspace_env_manifest_self_contained_and_doc_checks():
+    """
+    Verify that _setup_staging_workspace copies env_manifest.json and env_manifest.schema.json
+    into staging_dir without polluting /tmp, and check_documentation passes for TCB.md
+    when run inside the staging workspace.
+    """
+    project_dir = Path(__file__).parent.parent.resolve()
+    manifest_path = project_dir / "proof_manifest.json"
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    # Clean up any residual /tmp/env_manifest.json to ensure test isolation
+    if os.path.exists("/tmp/env_manifest.json"):
+        try:
+            os.remove("/tmp/env_manifest.json")
+        except Exception:
+            pass
+    if os.path.exists("/tmp/env_manifest.schema.json"):
+        try:
+            os.remove("/tmp/env_manifest.schema.json")
+        except Exception:
+            pass
+
+    staging_dir = f"/tmp/ualbf_audit_{uuid.uuid4().hex}"
+    try:
+        auditor._setup_staging_workspace(str(project_dir), staging_dir)
+
+        # Assert manifest files were copied into staging workspace
+        assert os.path.exists(os.path.join(staging_dir, "env_manifest.json"))
+        assert os.path.exists(os.path.join(staging_dir, "env_manifest.schema.json"))
+
+        # Assert parent directory /tmp was not polluted
+        assert not os.path.exists("/tmp/env_manifest.json")
+        assert not os.path.exists("/tmp/env_manifest.schema.json")
+
+        # Assert check_documentation passes in staging_dir
+        assert auditor.check_documentation(manifest, repo_root=staging_dir) is True
+    finally:
+        if os.path.exists(staging_dir):
+            shutil.rmtree(staging_dir, ignore_errors=True)
+
+
 def test_check_documentation_verus_and_module_qualification():
     """
     Verify that auditor.check_documentation correctly recognizes Verus spec/proof
