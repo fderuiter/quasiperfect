@@ -92,8 +92,13 @@ def _minimal_cert(
     if "path_ranges" in tel:
         map_obj["path_ranges"] = tel["path_ranges"]
 
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # type: ignore
+        Ed25519PrivateKey,
+    )
+    from cryptography.hazmat.primitives.serialization import (  # type: ignore
+        Encoding,
+        PublicFormat,
+    )
 
     priv = Ed25519PrivateKey.generate()
     pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
@@ -728,11 +733,79 @@ class TestCheckManuscriptCompliance(unittest.TestCase):
 
             bad_tex = os.path.join(tmp_dir, "bad_bound.tex")
             with open(bad_tex, "w", encoding="utf-8") as f:
-                f.write("Pushed the lower bound to $10^{40}$.\n")
+                f.write("Pushed the lower bound to $10^{43}$.\n")
 
             ok = ingest_cert.check_manuscript_compliance(
                 base_dir=tmp_dir,
                 telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertFalse(ok)
+
+    def test_telemetry_macro_on_same_line_does_not_bypass_hardcoded_metric(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+                f.write("\\newcommand{\\TelemetryPhaseTwoTime}{2.00}\n")
+
+            bad_tex = os.path.join(tmp_dir, "bypass_attempt.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("The bound is $10^{43}$ (see \\TelemetryMaxLog).\n")
+                f.write("Runtime was 2.00s (see \\TelemetryPhaseTwoTime).\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                raise_on_error=False,
+            )
+            self.assertFalse(ok)
+
+    def test_dynamic_bounds_from_bounds_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            bounds_path = os.path.join(tmp_dir, "bounds_manifest.json")
+            bounds_data = {
+                "omega_bounds": {},
+                "euler_ceiling": 100,
+                "search_bounds": {
+                    "target_max_log10": {"value": 50},
+                    "target_min_log10": {"value": 30},
+                },
+            }
+            with open(bounds_path, "w", encoding="utf-8") as f:
+                json.dump(bounds_data, f)
+
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{50}\n")
+
+            bad_tex = os.path.join(tmp_dir, "custom_bound.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("Pushed bound to $10^{50}$.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                bounds_path=bounds_path,
+                raise_on_error=False,
+            )
+            self.assertFalse(ok)
+
+    def test_missing_bounds_manifest_fallback_to_telemetry_tex(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            nonexistent_bounds = os.path.join(tmp_dir, "nonexistent.json")
+            telemetry_path = os.path.join(tmp_dir, "telemetry.tex")
+            with open(telemetry_path, "w", encoding="utf-8") as f:
+                f.write("\\newcommand{\\TelemetryMaxLog}{43}\n")
+
+            bad_tex = os.path.join(tmp_dir, "fallback_bound.tex")
+            with open(bad_tex, "w", encoding="utf-8") as f:
+                f.write("Pushed bound to $10^{43}$.\n")
+
+            ok = ingest_cert.check_manuscript_compliance(
+                base_dir=tmp_dir,
+                telemetry_tex_path=telemetry_path,
+                bounds_path=nonexistent_bounds,
                 raise_on_error=False,
             )
             self.assertFalse(ok)
