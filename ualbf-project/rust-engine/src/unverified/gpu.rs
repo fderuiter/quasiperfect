@@ -185,6 +185,9 @@ pub fn get_component_hashes(p: u64, two_e: u32) -> (u64, u64) {
     (hash1, hash2)
 }
 
+#[deprecated(
+    note = "Unverified GPU sieve routines are deprecated; engine uses pure Lean-verified CPU execution."
+)]
 pub fn run_gpu_sieve_and_generate_witnesses(
     components: &[crate::types::PrimePower],
     num_bits: u64,
@@ -621,6 +624,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_gpu_witness_verification_valid_records() {
         let components = vec![
             make_test_component(3, 2),
