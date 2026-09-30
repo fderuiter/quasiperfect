@@ -52,6 +52,7 @@ All build tools, certificate verification scripts, and paper generation utilitie
 | `UALBF_PREFIX_STOP_THRESHOLD` | integer | `100000000000` | Active | DFS search threshold where prefix construction stops when n_L exceeds this value |
 | `UALBF_PROOF_MANIFEST` | path | `null` | Active | Custom path to the proof manifest JSON file containing theorem verification checksums |
 | `UALBF_SIEVE_LIMIT` | integer | `250000` | Active | Number of primes evaluated in Phase 1 CRT tensor sieve |
+| `UALBF_TRIAL_DIVISION_LIMIT` | integer | `10000000` | Active | Trial division search limit used for small prime factor discovery during search branch expansion |
 | `UALBF_TARGET_MAX_LOG10` | integer | `37` | Active | Upper bound log10 exponent for search space (N < 10^max) |
 | `UALBF_TARGET_MIN_LOG10` | integer | `35` | Active | Lower bound log10 exponent for search space (N > 10^min) |
 | `UALBF_TRUSTED_PUBLIC_KEY` | string | `null` | Active | Hex-encoded Ed25519 public key pinned for formal certificate signature verification |
