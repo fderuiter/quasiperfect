@@ -92,6 +92,19 @@ def generate_paper_macros(
                 os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = orig_trusted_key
 
 
+# Macros whose value depends on the commit being checked. A tracked file cannot
+# contain its own commit hash, so these are left out of the comparison.
+VOLATILE_MACROS = ("TelemetryCommitHash",)
+
+
+def _strip_volatile_macros(tex: str) -> str:
+    return "\n".join(
+        line
+        for line in tex.splitlines()
+        if not any(f"\\newcommand{{\\{m}}}" in line for m in VOLATILE_MACROS)
+    )
+
+
 def verify_paper_macro_sync(
     manifest_path: Optional[str] = None,
     bounds_path: Optional[str] = None,
@@ -154,7 +167,9 @@ def verify_paper_macro_sync(
     manifest_data = cert_util.BoundedJSONLoader().load_file(manifest_path)
     mismatches = []
 
-    if on_disk_telemetry != expected_telemetry:
+    if _strip_volatile_macros(on_disk_telemetry) != _strip_volatile_macros(
+        expected_telemetry
+    ):
         mismatches.append(
             f"telemetry.tex at {telemetry_path} differs from expected macros generated from {manifest_path}."
         )
