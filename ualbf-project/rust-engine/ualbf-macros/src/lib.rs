@@ -183,8 +183,14 @@ inline bool ualbf_check_dusart_bound(RNS512 s_l, RNS512 n_l, uint64_t p_last, ui
             if p_last < validity_threshold {
                 return false;
             }
-            let den_p_last = dusart_den.checked_mul(p_last).unwrap_or(u64::MAX);
-            let factor_num = den_p_last.checked_add(dusart_num).unwrap_or(u64::MAX);
+            let den_p_last = match dusart_den.checked_mul(p_last) {
+                Some(v) => v,
+                None => return false,
+            };
+            let factor_num = match den_p_last.checked_add(dusart_num) {
+                Some(v) => v,
+                None => return false,
+            };
             let factor_den = den_p_last;
 
             let factor_num_u = crate::types::Uint::from_u64(factor_num);
@@ -192,14 +198,17 @@ inline bool ualbf_check_dusart_bound(RNS512 s_l, RNS512 n_l, uint64_t p_last, ui
             let target_num_u = crate::types::Uint::from_u64(target_num);
             let target_den_u = crate::types::Uint::from_u64(target_den);
 
-            let lhs = s_l.checked_mul(factor_num_u)
-                .and_then(|x| x.checked_mul(target_den_u))
-                .unwrap_or(crate::types::Uint::MAX);
-            let rhs = n_l.checked_mul(factor_den_u)
-                .and_then(|x| x.checked_mul(target_num_u))
-                .unwrap_or(crate::types::Uint::MAX);
+            let lhs_opt = s_l
+                .checked_mul(factor_num_u)
+                .and_then(|x| x.checked_mul(target_den_u));
+            let rhs_opt = n_l
+                .checked_mul(factor_den_u)
+                .and_then(|x| x.checked_mul(target_num_u));
 
-            lhs < rhs
+            match (lhs_opt, rhs_opt) {
+                (Some(lhs), Some(rhs)) => lhs < rhs,
+                _ => false,
+            }
         }
     };
 
