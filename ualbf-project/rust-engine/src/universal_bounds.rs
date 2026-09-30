@@ -6,6 +6,71 @@ universal_pruning_bounds!();
 mod tests {
     use super::*;
     use crate::types::Uint;
+    use proptest::prelude::*;
+
+    #[test]
+    fn test_cpu_check_euler_ceiling_below() {
+        // num / den = 20000 / 10000 = 2.0 < 20442 / 10000 = 2.0442
+        // Below ceiling condition -> returns true
+        let num = Uint::from_u64(20000);
+        let den = Uint::from_u64(10000);
+        let euler_num = Uint::from_u64(20442);
+        let euler_den = Uint::from_u64(10000);
+
+        assert!(cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
+    }
+
+    #[test]
+    fn test_cpu_check_euler_ceiling_exact() {
+        // num / den = 20442 / 10000 == 20442 / 10000
+        // Exact ceiling condition -> returns false
+        let num = Uint::from_u64(20442);
+        let den = Uint::from_u64(10000);
+        let euler_num = Uint::from_u64(20442);
+        let euler_den = Uint::from_u64(10000);
+
+        assert!(!cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
+    }
+
+    #[test]
+    fn test_cpu_check_euler_ceiling_above() {
+        // num / den = 21000 / 10000 = 2.1 > 20442 / 10000 = 2.0442
+        // Above ceiling condition -> returns false
+        let num = Uint::from_u64(21000);
+        let den = Uint::from_u64(10000);
+        let euler_num = Uint::from_u64(20442);
+        let euler_den = Uint::from_u64(10000);
+
+        assert!(!cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
+    }
+
+    proptest! {
+        #[test]
+        fn test_cpu_check_euler_ceiling_property(
+            num_raw in 1u64..=1_000_000_000u64,
+            den_raw in 1u64..=1_000_000_000u64,
+            euler_num_raw in 1u64..=1_000_000_000u64,
+            euler_den_raw in 1u64..=1_000_000_000u64,
+        ) {
+            let num = Uint::from_u64(num_raw);
+            let den = Uint::from_u64(den_raw);
+            let euler_num = Uint::from_u64(euler_num_raw);
+            let euler_den = Uint::from_u64(euler_den_raw);
+
+            let result = cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den);
+            let lhs = num_raw as u128 * euler_den_raw as u128;
+            let rhs = den_raw as u128 * euler_num_raw as u128;
+            let expected = lhs < rhs;
+
+            prop_assert_eq!(result, expected);
+
+            if lhs >= rhs {
+                prop_assert!(!result, "False positive pruning when ratio >= ceiling");
+            } else {
+                prop_assert!(result, "Expected pruning decision when ratio < ceiling");
+            }
+        }
+    }
 
     #[test]
     fn test_cpu_check_dusart_bound_below_threshold() {
