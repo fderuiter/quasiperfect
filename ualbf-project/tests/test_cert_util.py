@@ -315,9 +315,7 @@ class TestBoundedJSONLoaderUnit:
         loader = BoundedJSONLoader(max_depth=3)
         payload = '{"a": {"b": {"c": {"d": 1}}}}'
         with patch("json.loads") as mock_json_loads:
-            with pytest.raises(
-                CertificateValidationError, match="nesting depth"
-            ):
+            with pytest.raises(CertificateValidationError, match="nesting depth"):
                 loader.loads(payload)
             mock_json_loads.assert_not_called()
 
@@ -473,9 +471,7 @@ class TestLiveCertificateValidation:
         with pytest.raises(CertificateValidationError, match="Validation failed"):
             load_and_validate_cert(str(cert_file))
 
-    def test_load_and_validate_cert_empty_signature_raises(
-        self, tmp_path, monkeypatch
-    ):
+    def test_load_and_validate_cert_empty_signature_raises(self, tmp_path, monkeypatch):
         cert, pub_hex, sig_hex, manifest_path = make_valid_manifest_and_cert(tmp_path)
         cert["signature"] = ""
         cert_file = tmp_path / "cert.json"
@@ -764,7 +760,7 @@ class TestVerifyMetaCertificateEnvelope:
                 "raycast_pruned": 5,
                 "phase2_execution_time_ms": 1000,
                 "total_execution_time_ms": 1100,
-                "math_interruptions": 1,
+                "math_interruptions": 0,
             },
         }
         leaf2 = {
@@ -777,7 +773,7 @@ class TestVerifyMetaCertificateEnvelope:
                 "raycast_pruned": 15,
                 "phase2_execution_time_ms": 2000,
                 "total_execution_time_ms": 2200,
-                "math_interruptions": 2,
+                "math_interruptions": 0,
             },
         }
         verified_leaves = [leaf1, leaf2]
@@ -794,7 +790,7 @@ class TestVerifyMetaCertificateEnvelope:
                 "raycast_pruned": 20,
                 "phase2_execution_time_ms": 3000,
                 "total_execution_time_ms": 3300,
-                "math_interruptions": 3,
+                "math_interruptions": 0,
             },
         }
 
@@ -920,7 +916,7 @@ class TestVerifyMetaCertificateEnvelope:
             ("raycast_pruned", 1),
             ("phase2_execution_time_ms", 500),
             ("total_execution_time_ms", 99999),
-            ("math_interruptions", 0),
+            ("math_interruptions", 999),
         ],
     )
     def test_telemetry_reaggregation_mismatch_raises(

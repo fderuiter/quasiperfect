@@ -403,6 +403,17 @@ pub fn validate_certificate<'py>(
         .as_object()
         .ok_or_else(|| PyValueError::new_err("Invalid 'telemetry' object"))?;
 
+    let math_interruptions = telemetry
+        .get("math_interruptions")
+        .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)))
+        .unwrap_or(0);
+    if math_interruptions > 0 {
+        return Err(PyValueError::new_err(format!(
+            "ERROR: Certificate contains non-zero math_interruptions ({})",
+            math_interruptions
+        )));
+    }
+
     // Extract signed fields
     let manifest_hash = obj
         .get("manifest_hash")
@@ -561,7 +572,26 @@ pub struct ContinuityResult {
 }
 
 pub fn compute_path_continuity(path_ranges_json: &str) -> Result<String, String> {
-    let mut ranges: Vec<RangeWorkUnit> = serde_json::from_str(path_ranges_json)
+    let val: serde_json::Value = serde_json::from_str(path_ranges_json)
+        .map_err(|e| format!("Failed to parse path ranges JSON: {}", e))?;
+    if let Some(arr) = val.as_array() {
+        for item in arr {
+            if let Some(m) = item.get("math_interruptions") {
+                let count = m
+                    .as_u64()
+                    .or_else(|| m.as_i64().map(|i| i as u64))
+                    .unwrap_or(0);
+                if count > 0 {
+                    return Err(format!(
+                        "Validation error: path range contains non-zero math_interruptions ({})",
+                        count
+                    ));
+                }
+            }
+        }
+    }
+
+    let mut ranges: Vec<RangeWorkUnit> = serde_json::from_value(val)
         .map_err(|e| format!("Failed to parse path ranges JSON: {}", e))?;
 
     // Sort ranges lexicographically by start_bound, then by end_bound
@@ -1016,6 +1046,18 @@ pub extern "C" fn verify_certificate(
             }
         };
 
+        let math_interruptions = telemetry
+            .get("math_interruptions")
+            .and_then(|v| v.as_u64().or_else(|| v.as_i64().map(|i| i as u64)))
+            .unwrap_or(0);
+        if math_interruptions > 0 {
+            write_error(&format!(
+                "ERROR: Certificate contains non-zero math_interruptions ({})",
+                math_interruptions
+            ));
+            return std::ptr::null_mut();
+        }
+
         let manifest_hash = obj
             .get("manifest_hash")
             .and_then(|v| v.as_str())
@@ -1335,6 +1377,16 @@ mod tests {
         let res_empty: ContinuityResult = serde_json::from_str(&empty_json).unwrap();
         assert!(!res_empty.is_continuous);
         assert_eq!(res_empty.gaps.len(), 1);
+    }
+
+    #[test]
+    fn test_path_continuity_rejects_math_interruptions() {
+        let input_with_interruptions = r#"[
+            {"start_bound": [], "end_bound": [10], "math_interruptions": 1}
+        ]"#;
+        let res = compute_path_continuity(input_with_interruptions);
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("non-zero math_interruptions"));
     }
 
     #[test]

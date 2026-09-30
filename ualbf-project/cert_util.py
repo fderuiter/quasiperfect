@@ -979,6 +979,11 @@ def verify_meta_certificate_envelope(
     for f in sum_fields:
         expected_telemetry[f] = sum(t[f] for t in leaf_tels)
 
+    if expected_telemetry.get("math_interruptions", 0) > 0:
+        raise CertificateValidationError(
+            f"Meta-certificate envelope contains non-zero math_interruptions ({expected_telemetry['math_interruptions']})."
+        )
+
     top_telemetry = meta_cert_data["telemetry"]
     for field, expected_val in expected_telemetry.items():
         if field not in top_telemetry:
