@@ -23,10 +23,10 @@ Instead of probabilistic sufficiency assumptions, the framework employs a hybrid
 - **Inputs Equal to or Exceeding 2^64 (Larger Candidate Primes):**
   Inputs at or above this boundary cannot be verified solely using probabilistic Miller-Rabin checks. Instead, they are subjected to a rigorous certificate-backed verification pathway. The 20-base Miller-Rabin check is used strictly as a fast, non-binding pre-filter to reject composite candidates. Any candidate that passes this pre-filter must be validated using a mathematically rigorous, verified Pocklington certificate via `generate_and_verify_pocklington` for absolute certitude. This certificate-backed pathway is the mandatory mechanism for all inputs equal to or exceeding 2^64.
 
-## 4. GPU Sieve Backends and Witness Verification Gateway
-The CRT tensor sieve has optional Metal and OpenCL backends in `rust-engine/src/unverified/gpu.rs`. They sit outside the formally verified TCB.
-- **Current State:** Both hardware backends are compiled only behind a `gpu` Cargo feature, which `rust-engine/Cargo.toml` does not currently declare. Standard builds therefore use `DummyGpuPipeline`, which returns an empty bitmap, and every sieve decision is made by the CPU (Rayon) path. No GPU code runs in CI or in published certificates.
-- **Verification Status:** If a hardware backend is enabled (it also requires `UALBF_ALLOW_UNVERIFIED_GPU`), each eliminated component is emitted as a `GpuBloomWitness`. A host-side gateway re-checks every witness against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` before any candidate is pruned, and halts GPU execution on the first failure.
+## 4. CRT Tensor Sieve and Witness Verification Gateway
+The parallel CPU CRT tensor sieve lives in `rust-engine/src/unverified/gpu.rs` and sits outside the formally verified TCB.
+- **Current State:** Legacy hardware OpenCL and Metal GPU kernel backends have been completely removed from the repository. All CRT tensor sieve bitset generation and component filtering are performed by the parallel CPU (Rayon) engine.
+- **Verification Status:** Each evaluated component produces a `GpuBloomWitness` record. A host-side witness verification gateway re-checks every witness against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` before any candidate is pruned, and halts execution on any witness failure.
 
 ## 4b. LLL Lattice Prune
 The optional log-abundancy lattice prune lives in `rust-engine/src/lattice.rs`. It is outside the formally verified TCB.
