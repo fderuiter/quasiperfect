@@ -646,9 +646,17 @@ pub fn run_worker(
                 total_branches += count.load(Ordering::Relaxed);
                 total_abundance_pruned += abundance_pruned.load(Ordering::Relaxed);
                 total_raycast_pruned += pruned_count.load(Ordering::Relaxed);
-                total_math_interruptions += math_interruptions.load(Ordering::Relaxed);
+                let unit_math_interruptions = math_interruptions.load(Ordering::Relaxed);
+                total_math_interruptions += unit_math_interruptions;
                 total_boundary_pruned += boundary_pruned.load(Ordering::Relaxed);
-                explored_ranges.push(range_bound.clone());
+                if unit_math_interruptions == 0 {
+                    explored_ranges.push(range_bound.clone());
+                } else {
+                    eprintln!(
+                        "Work unit interrupted due to {} mathematical evaluation error(s); range completion aborted.",
+                        unit_math_interruptions
+                    );
+                }
                 let rep = Message::Event(crate::events::SearchEvent::DFSComplete {
                     total_branches: count.into_inner(),
                     ap: abundance_pruned.into_inner(),
