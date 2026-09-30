@@ -417,23 +417,6 @@ pub fn initialize_lean_runtime() {
     if IS_LEAN_THREAD_INIT.with(|init| init.get()) {
         return;
     }
-    let state = LEAN_INIT_STATE.load(std::sync::atomic::Ordering::Acquire);
-    if state == 2 {
-        unsafe {
-            lean_initialize_thread();
-        }
-        IS_LEAN_THREAD_INIT.with(|init| init.set(true));
-        return;
-    }
-
-    if state == 1 {
-        unsafe {
-            lean_initialize_thread();
-        }
-        IS_LEAN_THREAD_INIT.with(|init| init.set(true));
-        return;
-    }
-
     match LEAN_INIT_STATE.compare_exchange(
         0,
         1,
@@ -449,10 +432,18 @@ pub fn initialize_lean_runtime() {
             rs_lean_dec(res);
             LEAN_INIT_STATE.store(2, std::sync::atomic::Ordering::Release);
         },
-        Err(_) => unsafe {
-            lean_initialize_thread();
+        Err(_) => {
+            // Another thread is initializing the runtime and the UALBF module.
+            // Calling into Lean before it finishes would read uninitialized
+            // module state, so wait until it is done.
+            while LEAN_INIT_STATE.load(std::sync::atomic::Ordering::Acquire) != 2 {
+                std::thread::yield_now();
+            }
+            unsafe {
+                lean_initialize_thread();
+            }
             IS_LEAN_THREAD_INIT.with(|init| init.set(true));
-        },
+        }
     }
 }
 
@@ -535,12 +526,15 @@ pub fn verify_identity_lean(n_l: &Uint, x_l_abs: &Uint, x_l_neg: bool, s_l: &Uin
     let x_l_obj = x_l_abs.to_lean();
     let s_l_obj = s_l.to_lean();
 
+    // The compiled Lean export consumes its object arguments (it decrements
+    // them before returning), so ownership passes to Lean here. Keeping the
+    // wrappers alive would decrement each object a second time.
     unsafe {
         let ok = ualbf_verify_identity(
-            n_l_obj.as_ptr(),
-            x_l_obj.as_ptr(),
+            n_l_obj.into_raw(),
+            x_l_obj.into_raw(),
             if x_l_neg { 1 } else { 0 },
-            s_l_obj.as_ptr(),
+            s_l_obj.into_raw(),
         );
         ok != 0
     }
@@ -841,7 +835,8 @@ pub fn run_cyclotomic_differential_fuzzing() {
             for d in 1..=15 {
                 let ffi_res = unsafe {
                     let p_obj = p.to_lean();
-                    let opt_obj = ualbf_cyclotomic_eval_pub(d, p_obj.as_ptr());
+                    // Lean consumes `p`; see verify_identity_lean.
+                    let opt_obj = ualbf_cyclotomic_eval_pub(d, p_obj.into_raw());
                     if !is_none(opt_obj) {
                         let obj = get_some(opt_obj);
                         let w = get_u512(obj).copied().unwrap_or(ZERO_U512);
