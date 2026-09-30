@@ -1,5 +1,5 @@
 #![allow(warnings)]
-// build.rs — Compile Lean 4 C-IR into libUALBF.a, then link it with the Lean runtime.
+// build.rs — Compile the Lean 4 C-IR for UALBF and link it with the Lean runtime.
 #![allow(dead_code, clippy::needless_borrows_for_generic_args)]
 
 use serde::Deserialize;
@@ -584,6 +584,48 @@ pub fn validate_verus_hashes(
 
 /// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
 /// library when available, and emits Cargo directives to link the Lean runtime and trigger reruns.
+/// Links libstdc++ and records its directory as a runtime search path.
+/// Under `nix develop` the compiler's libstdc++ lives in the Nix store,
+/// which the system loader does not search, so test binaries failed to
+/// start with "libstdc++.so.6: cannot open shared object file".
+fn link_stdcxx() {
+    println!("cargo:rustc-link-lib=dylib=stdc++");
+    let compiler = cc::Build::new().get_compiler();
+    let Ok(output) = Command::new(compiler.path())
+        .arg("-print-file-name=libstdc++.so")
+        .output()
+    else {
+        return;
+    };
+    let path = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
+    // Without a match the compiler echoes the bare file name back.
+    if !output.status.success() || !path.is_absolute() {
+        return;
+    }
+    // The unversioned name may be a symlink into another directory; search
+    // both its own directory and that of the file it resolves to.
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    for candidate in [Some(path.clone()), path.canonicalize().ok()]
+        .into_iter()
+        .flatten()
+    {
+        if let Some(dir) = candidate.parent() {
+            if !dirs.iter().any(|d| d == dir) {
+                dirs.push(dir.to_path_buf());
+            }
+        }
+    }
+    for dir in dirs {
+        println!("cargo:rustc-link-search=native={}", dir.display());
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir.display());
+    }
+}
+
+/// Static library `lake build UALBF:static` writes. Lake prefixes the package
+/// name, so the archive is `libualbf_UALBF.a`, not `libUALBF.a`.
+const PREBUILT_LEAN_LIB_NAME: &str = "ualbf_UALBF";
+const PREBUILT_LEAN_LIB_FILE: &str = ".lake/build/lib/libualbf_UALBF.a";
+
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let check_literals_script = PathBuf::from(&manifest_dir).join("../scripts/check_literals.py");
@@ -730,7 +772,7 @@ fn main() {
         && ualbf_ir_dir
             .read_dir()
             .map_or(false, |mut entries| entries.next().is_some())
-        && lean_project.join(".lake/build/lib/libUALBF.a").exists();
+        && lean_project.join(PREBUILT_LEAN_LIB_FILE).exists();
 
     if !has_prebuilt {
         if ualbf_ir_dir.exists() {
@@ -780,13 +822,15 @@ fn main() {
         let mut builder = cc::Build::new();
         builder.warnings(false).opt_level(2);
         builder.file("src/unverified/dummy_ffi.c");
-        builder.compile("UALBF");
+        // Named so that no verified build can pick it up: a stale archive in
+        // OUT_DIR from an earlier dummy build must never satisfy a Lean link.
+        builder.compile("ualbf_dummy_ffi");
 
         let target = env::var("TARGET").unwrap_or_default();
         if target.contains("apple") {
             println!("cargo:rustc-link-lib=dylib=c++");
         } else {
-            println!("cargo:rustc-link-lib=dylib=stdc++");
+            link_stdcxx();
         }
 
         println!("cargo:rerun-if-changed=src/unverified/dummy_ffi.c");
@@ -1068,7 +1112,18 @@ fn main() {
     let lean_root_lib = PathBuf::from(&lean_sysroot).join("lib");
     println!("cargo:rustc-link-search=native={}", lean_root_lib.display());
 
-    println!("cargo:rustc-link-lib=static=UALBF");
+    // The dummy FFI build writes its archive into the same OUT_DIR. Remove any
+    // copy left by an earlier unverified build (including the old libUALBF.a
+    // name) so its no-op Lean runtime stubs cannot shadow the real runtime.
+    for stale in ["libualbf_dummy_ffi.a", "libUALBF.a"] {
+        let _ = fs::remove_file(PathBuf::from(&out_dir).join(stale));
+    }
+
+    // Without a prebuilt library, the UALBF C-IR was compiled into
+    // libualbf_shims above; only the prebuilt path needs Lake's archive.
+    if has_prebuilt {
+        println!("cargo:rustc-link-lib=static={}", PREBUILT_LEAN_LIB_NAME);
+    }
     println!("cargo:rustc-link-lib=static=Init");
     println!("cargo:rustc-link-lib=static=leanrt");
 
@@ -1080,7 +1135,7 @@ fn main() {
     if target.contains("apple") {
         println!("cargo:rustc-link-lib=dylib=c++");
     } else {
-        println!("cargo:rustc-link-lib=dylib=stdc++");
+        link_stdcxx();
     }
 
     // --- Git Commit Hash ---

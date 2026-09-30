@@ -200,8 +200,10 @@ void* ualbf_compute_sigma(uint64_t p, uint64_t pow) {
     return make_some(u512_obj);
 }
 
+/* Like the compiled Lean export, consumes its object argument. */
 void* ualbf_cyclotomic_eval_pub(uint32_t d, void* p) {
-    (void)d; (void)p;
+    (void)d;
+    if (p) rs_lean_dec(p);
     uint64_t* u512_data = (uint64_t*)malloc(64);
     if (!u512_data) return NULL;
     memset(u512_data, 0, 64);
@@ -291,7 +293,14 @@ bool ualbf_mod_inverse_raw(const uint64_t a_limbs[8], uint8_t a_neg, const uint6
     return false;
 }
 
-uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) { (void)n_l; (void)x_l_abs; (void)x_l_neg; (void)s_l; return 1; }
+/* Like the compiled Lean export, consumes its object arguments. */
+uint8_t ualbf_verify_identity(void* n_l, void* x_l_abs, uint8_t x_l_neg, void* s_l) {
+    (void)x_l_neg;
+    if (n_l) rs_lean_dec(n_l);
+    if (x_l_abs) rs_lean_dec(x_l_abs);
+    if (s_l) rs_lean_dec(s_l);
+    return 1;
+}
 
 uint8_t ualbf_check_crt_1155(void* z_val, void* x_l_val) {
     uint64_t* z_data = (uint64_t*)rs_lean_get_external_data(z_val);
