@@ -37,6 +37,8 @@ pub enum SearchEvent {
         ap: usize,
         rp: usize,
         bp: usize,
+        math_interruptions: usize,
+        range: crate::distributed::RangeWorkUnit,
     },
     RaycastDeferred {
         rem_str: String,
@@ -128,6 +130,11 @@ mod tests {
             ap: 1200,
             rp: 300,
             bp: 15,
+            math_interruptions: 42,
+            range: crate::distributed::RangeWorkUnit {
+                start_bound: vec![1, 2],
+                end_bound: vec![3, 4],
+            },
         };
         assert_roundtrip(event);
     }

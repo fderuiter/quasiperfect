@@ -612,6 +612,7 @@ mod tests {
 mod additional_tests {
     use super::*;
     use num_traits::Bounded;
+    use proptest::prelude::*;
 
     #[test]
     fn test_isqrt_uint_max() {
@@ -876,5 +877,42 @@ mod additional_tests {
             cap1, cap2,
             "Thread-local candidate vector pool capacity must be retained across execution steps without reallocation"
         );
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn prop_isqrt_uint(
+            n_u in any::<u128>(),
+        ) {
+            let n = Uint::from_u128(n_u);
+            let r = isqrt_uint(n);
+            let r_sq = r * r;
+            let r_plus_1 = r + Uint::one();
+            let next_sq = r_plus_1 * r_plus_1;
+
+            prop_assert!(r_sq <= n, "r^2 <= n failed for n = {}", n);
+            prop_assert!(n < next_sq, "n < (r+1)^2 failed for n = {}", n);
+        }
+
+        #[test]
+        fn prop_isqrt_int(
+            n_val in any::<i128>(),
+        ) {
+            let n = Int::from_str_radix(&n_val.to_string(), 10).unwrap();
+            let r_opt = isqrt(n);
+            if n_val < 0 {
+                prop_assert_eq!(r_opt, None);
+            } else {
+                let r = r_opt.expect("isqrt should return Some for non-negative i128");
+                let r_sq = r * r;
+                let r_plus_1 = r + Int::one();
+                let next_sq = r_plus_1 * r_plus_1;
+
+                prop_assert!(r_sq <= n, "r^2 <= n failed for n = {}", n);
+                prop_assert!(n < next_sq, "n < (r+1)^2 failed for n = {}", n);
+            }
+        }
     }
 }
