@@ -454,3 +454,86 @@ fn test_raw_limb_ffi_parity() {
     let xl = Uint::from_u64(144);
     assert!(crate::lean_ffi::check_crt_1155(&z, &xl));
 }
+
+#[test]
+fn test_mul_mod_fast_paths_comprehensive() {
+    // 128-bit fast path
+    let a_128 = Uint::from_u128(123456789012345678901234567890_u128);
+    let b_128 = Uint::from_u128(987654321098765432109876543210_u128);
+    let m_128 = Uint::from_u128(1000000000000000000000000000007_u128);
+    let res_256 = mul_mod_u256(a_128, b_128, m_128);
+    let res_512 = mul_mod_u512(a_128, b_128, m_128);
+    let expected_128 = mul_mod_u128(a_128.as_u128(), b_128.as_u128(), m_128.as_u128());
+    assert_eq!(res_256, Uint::from_u128(expected_128));
+    assert_eq!(res_512, Uint::from_u128(expected_128));
+
+    // 256-bit fast path (product exceeds 256 bits but fits in 512 bits)
+    let a_256 = Uint::one() << 200;
+    let b_256 = Uint::one() << 200;
+    let m_256 = (Uint::one() << 250) + Uint::from_u64(1);
+    let res_256_path = mul_mod_u256(a_256, b_256, m_256);
+    // (2^200 * 2^200) % (2^250 + 1) = 2^400 % (2^250 + 1)
+    // 2^250 = -1 (mod 2^250 + 1) => 2^400 = 2^150 * (2^250) = -2^150 = m_256 - 2^150
+    let expected_256 = m_256 - (Uint::one() << 150);
+    assert_eq!(res_256_path, expected_256);
+
+    // Operands > 256 bits (uses U1024 fallback)
+    let a_512 = Uint::one() << 300;
+    let b_512 = Uint::one() << 300;
+    let m_512 = (Uint::one() << 500) + Uint::from_u64(1);
+    let res_512_path = mul_mod_u512(a_512, b_512, m_512);
+    let expected_512 = m_512 - (Uint::one() << 100);
+    assert_eq!(res_512_path, expected_512);
+
+    // Edge case: m = 1
+    assert_eq!(mul_mod_u256(a_256, b_256, Uint::one()), Uint::zero());
+    assert_eq!(mul_mod_u512(a_256, b_256, Uint::one()), Uint::zero());
+}
+
+#[test]
+fn test_trial_sieve_spf_and_primitive_division() {
+    let limit = 10_000_000u64;
+    let trial_sieve = TrialSieve::new(limit);
+
+    // Verify SPF array size and memory limit (< 40 MB)
+    assert_eq!(trial_sieve.spf.len(), 10_000_001);
+    let memory_bytes = trial_sieve.spf.len() * std::mem::size_of::<u32>();
+    assert!(
+        memory_bytes <= 40 * 1024 * 1024,
+        "SPF array memory {} bytes exceeds 40 MB!",
+        memory_bytes
+    );
+
+    // Test O(1) factor retrieval for small inputs
+    let facs_12 = trial_sieve.get_spf_factors(12).unwrap();
+    assert_eq!(facs_12, vec![2, 2, 3]);
+
+    let facs_1k = trial_sieve.get_spf_factors(1000).unwrap();
+    assert_eq!(facs_1k, vec![2, 2, 2, 5, 5, 5]);
+
+    let facs_million = trial_sieve.get_spf_factors(1_000_000).unwrap();
+    assert_eq!(facs_million, vec![2, 2, 2, 2, 2, 2, 5, 5, 5, 5, 5, 5]);
+
+    let facs_prime = trial_sieve.get_spf_factors(9_999_991).unwrap();
+    assert_eq!(facs_prime, vec![9_999_991]);
+
+    // Test TrialSieve::trial_factor_only with SPF fast path
+    let (uint_facs_12, rem_12) = trial_sieve.trial_factor_only(Uint::from_u64(12));
+    assert_eq!(rem_12, Uint::one());
+    let u64_facs_12: Vec<u64> = uint_facs_12.iter().map(|f| f.as_u64()).collect();
+    assert_eq!(u64_facs_12, vec![2, 2, 3]);
+
+    // Test trial division for u64 inputs > 10^7
+    let big_composite = Uint::from_u64(10_000_019 * 2);
+    let (uint_facs_bc, rem_bc) = trial_sieve.trial_factor_only(big_composite);
+    assert_eq!(rem_bc, Uint::one());
+    let u64_facs_bc: Vec<u64> = uint_facs_bc.iter().map(|f| f.as_u64()).collect();
+    assert_eq!(u64_facs_bc, vec![2, 10_000_019]);
+
+    // Test 512-bit input that reduces to 64-bit during trial division
+    let uint_512_val = (Uint::one() << 100) * Uint::from_u64(12); // divisible by 2^102 * 3
+    let (facs_512, rem_512) = trial_sieve.trial_factor_only(uint_512_val);
+    assert!(facs_512.len() >= 2);
+    let prod: Uint = facs_512.iter().copied().fold(Uint::one(), |acc, x| acc * x) * rem_512;
+    assert_eq!(prod, uint_512_val);
+}
