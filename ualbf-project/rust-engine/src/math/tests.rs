@@ -1,6 +1,7 @@
 use super::*;
 use crate::types::{Int, Uint};
 use crate::types::{IntExt, UintExt};
+use proptest::prelude::*;
 use std::collections::HashMap;
 
 #[test]
@@ -536,4 +537,129 @@ fn test_trial_sieve_spf_and_primitive_division() {
     assert!(facs_512.len() >= 2);
     let prod: Uint = facs_512.iter().copied().fold(Uint::one(), |acc, x| acc * x) * rem_512;
     assert_eq!(prod, uint_512_val);
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    #[test]
+    fn prop_mul_mod_u128(
+        a in any::<u128>(),
+        b in any::<u128>(),
+        m in 1u128..=u128::MAX,
+    ) {
+        let res = mul_mod_u128(a, b, m);
+        let expected = if m == 1 {
+            0
+        } else {
+            let a_big = num_bigint::BigUint::from(a);
+            let b_big = num_bigint::BigUint::from(b);
+            let m_big = num_bigint::BigUint::from(m);
+            u128::try_from((a_big * b_big) % m_big).unwrap()
+        };
+        prop_assert_eq!(res, expected);
+        prop_assert_eq!(mul_mod_u128(a, b, m), mul_mod_u128(b, a, m));
+    }
+
+    #[test]
+    fn prop_modpow_u256(
+        base_u in any::<u128>(),
+        exp_u in 0u64..10000u64,
+        m_u in 1u128..=u128::MAX,
+    ) {
+        let base = Uint::from_u128(base_u);
+        let exp = Uint::from_u64(exp_u);
+        let modulus = Uint::from_u128(m_u);
+        let res = modpow_u256(base, exp, modulus);
+        if modulus <= Uint::one() {
+            prop_assert_eq!(res, Uint::zero());
+        } else {
+            let base_big = num_bigint::BigUint::from(base_u);
+            let exp_big = num_bigint::BigUint::from(exp_u);
+            let m_big = num_bigint::BigUint::from(m_u);
+            let expected_big = base_big.modpow(&exp_big, &m_big);
+            let expected_u128 = u128::try_from(expected_big).unwrap();
+            prop_assert_eq!(res, Uint::from_u128(expected_u128));
+        }
+    }
+
+    #[test]
+    fn prop_mod_inverse_u512_identity(
+        a_u in 1u128..=u128::MAX,
+        m_u in 2u128..=u128::MAX,
+    ) {
+        let a = Uint::from_u128(a_u);
+        let m = Uint::from_u128(m_u);
+        let g = gcd_u256(a, m);
+        let inv_opt = mod_inverse_u512(a, m);
+        if g == Uint::one() {
+            let inv = inv_opt.expect("Inverse must exist for coprime a and m");
+            prop_assert!(inv < m, "a_inv must be less than m");
+            let prod_mod = mul_mod_u512(a, inv, m);
+            prop_assert_eq!(prod_mod, Uint::one(), "Modular inverse identity (a * a_inv) % m == 1 failed");
+        } else {
+            prop_assert_eq!(inv_opt, None, "Inverse should not exist when gcd(a, m) > 1");
+        }
+    }
+
+    #[test]
+    fn prop_tonelli_shanks_quadratic_residue(
+        p_idx in 0usize..1000usize,
+        x_raw in any::<u64>(),
+    ) {
+        let primes = [
+            3u64, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,
+            79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151,
+            10007, 10009, 1000003, 1000033, 1000000007, 206158430209
+        ];
+        let p_val = primes[p_idx % primes.len()];
+        let p = Int::from_u64(p_val);
+        let x = Int::from_u64(x_raw % p_val);
+        let n = mul_mod_u256(x.as_uint(), x.as_uint(), p.as_uint()).as_int();
+
+        if let Some(r) = tonelli_shanks(n, p) {
+            let sq = mul_mod_u256(r.as_uint(), r.as_uint(), p.as_uint()).as_int();
+            prop_assert_eq!(sq, n, "Tonelli-Shanks output r^2 % p must equal n % p");
+        } else {
+            prop_assert!(false, "Tonelli-Shanks failed for valid quadratic residue n = x^2 mod p");
+        }
+    }
+
+    #[test]
+    fn prop_sigma_cached_multiplicativity(
+        p_idx1 in 0usize..500usize,
+        p_idx2 in 0usize..500usize,
+        pow1 in 1u32..=5u32,
+        pow2 in 1u32..=5u32,
+    ) {
+        let primes = [
+            2u64, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+            73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151
+        ];
+        let p1_val = primes[p_idx1 % primes.len()];
+        let p2_val = primes[p_idx2 % primes.len()];
+        if p1_val != p2_val {
+            let cache = HashMap::new();
+            let sig1 = sigma_cached(&cache, Uint::from_u64(p1_val), pow1);
+            let sig2 = sigma_cached(&cache, Uint::from_u64(p2_val), pow2);
+
+            let combined_sigma = sig1 * sig2;
+
+            let mut sum = Uint::zero();
+            let mut p1_p = Uint::one();
+            let p1_u = Uint::from_u64(p1_val);
+            let p2_u = Uint::from_u64(p2_val);
+
+            for _ in 0..=pow1 {
+                let mut p2_p = Uint::one();
+                for _ in 0..=pow2 {
+                    sum += p1_p * p2_p;
+                    p2_p *= p2_u;
+                }
+                p1_p *= p1_u;
+            }
+
+            prop_assert_eq!(combined_sigma, sum, "sigma_cached multiplicativity failed for coprime inputs");
+        }
+    }
 }
