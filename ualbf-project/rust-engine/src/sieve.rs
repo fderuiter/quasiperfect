@@ -411,6 +411,7 @@ pub fn phase1_global_annihilation_sieve(
 mod tests {
     use super::*;
     use crate::math_utils::quick_factor_u256;
+    use proptest::prelude::*;
 
     #[test]
     #[cfg_attr(unverified_build, ignore)]
@@ -590,22 +591,44 @@ mod tests {
         crate::lean_ffi::initialize_lean_runtime();
         let limit = 50;
         let max_e = 2;
-        let result = phase1_global_annihilation_sieve(limit, max_e);
+        let target_bound = Uint::from_u128(u128::MAX);
+        let result = phase1_global_annihilation_sieve(limit, max_e, target_bound);
 
-        assert!(!result.components.is_empty(), "Phase 1 sieve should retain valid candidate components");
+        assert!(
+            !result.components.is_empty(),
+            "Phase 1 sieve should retain valid candidate components"
+        );
 
         // Check specific known valid candidate prime powers (e.g. p = 7, 2e = 4 and p = 17, 2e = 2)
-        let p7_retained = result.components.iter().any(|comp| comp.p == 7 && comp.two_e == 4);
-        assert!(p7_retained, "Valid candidate component p=7, 2e=4 must be retained in sieve result");
+        let p7_retained = result
+            .components
+            .iter()
+            .any(|comp| comp.p == 7 && comp.two_e == 4);
+        assert!(
+            p7_retained,
+            "Valid candidate component p=7, 2e=4 must be retained in sieve result"
+        );
 
-        let p17_retained = result.components.iter().any(|comp| comp.p == 17 && comp.two_e == 2);
-        assert!(p17_retained, "Valid candidate component p=17, 2e=2 must be retained in sieve result");
+        let p17_retained = result
+            .components
+            .iter()
+            .any(|comp| comp.p == 17 && comp.two_e == 2);
+        assert!(
+            p17_retained,
+            "Valid candidate component p=17, 2e=2 must be retained in sieve result"
+        );
 
         // Verify all retained components satisfy candidate inclusion invariants
         for comp in &result.components {
             assert!(comp.p > 1, "Prime base must be > 1");
-            assert!(comp.two_e >= 2 && comp.two_e % 2 == 0, "Exponent two_e must be even and >= 2");
-            assert!(comp.abundance_fp > (1u128 << 64), "Abundance ratio must exceed 1.0 (in 2^64 fixed point)");
+            assert!(
+                comp.two_e >= 2 && comp.two_e % 2 == 0,
+                "Exponent two_e must be even and >= 2"
+            );
+            assert!(
+                comp.abundance_fp > (1u128 << 64),
+                "Abundance ratio must exceed 1.0 (in 2^64 fixed point)"
+            );
 
             let fact_res = quick_factor_u256(comp.sigma);
             let factors = fact_res.factors();
@@ -614,8 +637,61 @@ mod tests {
                 assert!(
                     q_mod_8 != 5 && q_mod_8 != 7,
                     "Candidate p={} 2e={} has invalid prime factor q={} mod 8 = {}",
-                    comp.p, comp.two_e, q, q_mod_8
+                    comp.p,
+                    comp.two_e,
+                    q,
+                    q_mod_8
                 );
+            }
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(256))]
+
+        #[test]
+        fn prop_get_sieve_index_and_check_sieve_bit_bounds(
+            p_mod_8 in any::<usize>(),
+            max_e in any::<u32>(),
+            e in any::<u32>(),
+        ) {
+            let idx_opt = get_sieve_index(p_mod_8, max_e, e);
+            if let Some(idx) = idx_opt {
+                let term1 = p_mod_8.checked_mul((max_e as usize).saturating_add(1));
+                if let Some(t1) = term1 {
+                    prop_assert_eq!(idx, t1 + e as usize);
+                }
+            }
+
+            let bitset = vec![0u64; 16];
+            let bit_res = check_sieve_bit(&bitset, p_mod_8, max_e, e);
+            if let Some(idx) = idx_opt {
+                let block = idx / 64;
+                if block < bitset.len() {
+                    prop_assert_eq!(bit_res, Some(false));
+                } else {
+                    prop_assert_eq!(bit_res, None);
+                }
+            } else {
+                prop_assert_eq!(bit_res, None);
+            }
+        }
+
+        #[test]
+        fn prop_compute_asymptotic_abundance(
+            p in any::<u128>(),
+        ) {
+            let res = compute_asymptotic_abundance(p);
+            if p <= 1 {
+                prop_assert_eq!(res, 0);
+            } else {
+                let base = num_bigint::BigUint::from(1u128 << 64);
+                let p_big = num_bigint::BigUint::from(p);
+                let den = &p_big - num_bigint::BigUint::from(1u32);
+                let num = &p_big * &base;
+                let expected_ceil = (&num + &den - num_bigint::BigUint::from(1u32)) / &den;
+                let expected_u128 = u128::try_from(expected_ceil).unwrap();
+                prop_assert_eq!(res, expected_u128, "compute_asymptotic_abundance overflow/mismatch for p = {}", p);
             }
         }
     }
