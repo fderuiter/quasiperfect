@@ -6,13 +6,8 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 try:
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # type: ignore
-        Ed25519PrivateKey,
-    )
-    from cryptography.hazmat.primitives.serialization import (  # type: ignore
-        Encoding,
-        PublicFormat,
-    )
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
     _HAS_CRYPTOGRAPHY = True
 except ImportError:

@@ -907,13 +907,23 @@ def verify_telemetry_paths(certs_list: list) -> None:
         assert (
             math_interruptions == 0
         ), f"math_interruptions must be 0 in certificate {i}, got {math_interruptions}"
-        if "path_ranges" not in tel and "inner_paths" not in tel:
+        if (
+            "path_ranges" not in tel
+            and "inner_paths" not in tel
+            and "explored_ranges" not in tel
+        ):
             print(
                 f"ERROR: Inner telemetry path ranges are missing from certificate {i}."
             )
             sys.exit(1)
         path_ranges = (
-            tel.get("path_ranges") if "path_ranges" in tel else tel.get("inner_paths")
+            tel.get("path_ranges")
+            if "path_ranges" in tel
+            else (
+                tel.get("inner_paths")
+                if "inner_paths" in tel
+                else tel.get("explored_ranges")
+            )
         )
         if not isinstance(path_ranges, list):
             print(

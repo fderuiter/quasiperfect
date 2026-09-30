@@ -122,8 +122,9 @@ pub fn generate_work_units(
     }
 
     let mut paths: Vec<Vec<u64>> = units.into_iter().map(|u| u.factors).collect();
-    // Sort paths lexicographically just in case
+    // Sort paths lexicographically and deduplicate
     paths.sort();
+    paths.dedup();
 
     let mut ranges = Vec::new();
     if paths.is_empty() {
@@ -279,12 +280,25 @@ fn save_checkpoint(
     }
 }
 
-pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
+pub fn run_controller(
+    addr: &str,
+    units: Vec<RangeWorkUnit>,
+) -> (crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>) {
     let listener = match TcpListener::bind(addr) {
         Ok(l) => l,
         Err(e) => {
             eprintln!("Failed to bind controller to {}: {}", addr, e);
-            return;
+            return (
+                crate::dfs_tree::DfsTelemetry {
+                    total_branches: 0,
+                    abundance_pruned: 0,
+                    raycast_pruned: 0,
+                    search_space_density: 0.0,
+                    math_interruptions: 0,
+                    boundary_pruned: 0,
+                },
+                Vec::new(),
+            );
         }
     };
 
@@ -308,6 +322,20 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
         total_units
     );
 
+    if total_units == 0 {
+        return (
+            crate::dfs_tree::DfsTelemetry {
+                total_branches: 0,
+                abundance_pruned: 0,
+                raycast_pruned: 0,
+                search_space_density: 0.0,
+                math_interruptions: 0,
+                boundary_pruned: 0,
+            },
+            Vec::new(),
+        );
+    }
+
     // After constructing the initial queue, save the new schema immediately to persist the updated state
     if is_new_or_legacy {
         let queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
@@ -316,13 +344,23 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
     }
 
     let completed = Arc::new(AtomicUsize::new(0));
+    let is_finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let total_branches_acc = Arc::new(AtomicUsize::new(0));
+    let ap_acc = Arc::new(AtomicUsize::new(0));
+    let rp_acc = Arc::new(AtomicUsize::new(0));
+    let bp_acc = Arc::new(AtomicUsize::new(0));
+    let math_interruptions_acc = Arc::new(AtomicUsize::new(0));
+    let completed_ranges = Arc::new(Mutex::new(Vec::<RangeWorkUnit>::new()));
 
     let active_workers_monitor = Arc::clone(&active_workers);
     let work_queue_monitor = Arc::clone(&work_queue);
     let checkpoint_path_monitor = checkpoint_path.to_string();
+    let is_finished_monitor = Arc::clone(&is_finished);
+
     std::thread::spawn(move || {
         let timeout = Duration::from_secs(heartbeat_timeout);
-        loop {
+        while !is_finished_monitor.load(Ordering::Relaxed) {
             std::thread::sleep(Duration::from_secs(1));
             let now = Instant::now();
             let mut to_remove = Vec::new();
@@ -356,101 +394,160 @@ pub fn run_controller(addr: &str, units: Vec<RangeWorkUnit>) {
         }
     });
 
-    for stream in listener.incoming() {
-        if let Ok(stream) = stream {
-            let work_queue = Arc::clone(&work_queue);
-            let completed = Arc::clone(&completed);
-            let active_workers = Arc::clone(&active_workers);
-            let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
-            let checkpoint_path_clone = checkpoint_path.to_string();
+    listener.set_nonblocking(true).ok();
 
-            thread::spawn(move || {
-                let mut reader = match stream.try_clone() {
-                    Ok(r) => r,
-                    Err(_) => return,
-                };
-                let stream_mutex = Arc::new(Mutex::new(stream));
+    while !is_finished.load(Ordering::Relaxed) {
+        match listener.accept() {
+            Ok((stream, _)) => {
+                let work_queue = Arc::clone(&work_queue);
+                let completed = Arc::clone(&completed);
+                let active_workers = Arc::clone(&active_workers);
+                let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
+                let checkpoint_path_clone = checkpoint_path.to_string();
+                let is_finished_worker = Arc::clone(&is_finished);
 
-                loop {
-                    match recv_message::<_, Message>(&mut reader) {
-                        Ok(msg) => match msg {
-                            Message::RequestWork => {
-                                let mut queue =
-                                    work_queue.lock().unwrap_or_else(|e| e.into_inner());
-                                let work = queue.pop();
-                                let mut workers =
-                                    active_workers.lock().unwrap_or_else(|e| e.into_inner());
-                                if let Some(ref w) = work {
-                                    workers.insert(
-                                        worker_id,
-                                        ActiveWorkerState {
-                                            active_task: w.clone(),
-                                            last_heartbeat: Instant::now(),
-                                        },
-                                    );
-                                }
-                                save_checkpoint(&checkpoint_path_clone, &queue, &workers);
-                                drop(workers);
-                                drop(queue);
+                let total_branches_acc = Arc::clone(&total_branches_acc);
+                let ap_acc = Arc::clone(&ap_acc);
+                let rp_acc = Arc::clone(&rp_acc);
+                let bp_acc = Arc::clone(&bp_acc);
+                let math_interruptions_acc = Arc::clone(&math_interruptions_acc);
+                let completed_ranges = Arc::clone(&completed_ranges);
 
-                                let reply = Message::WorkUnit(work);
-                                if send_message(&stream_mutex, &reply).is_err() {
-                                    break;
-                                }
-                            }
-                            Message::Heartbeat => {
-                                let mut workers =
-                                    active_workers.lock().unwrap_or_else(|e| e.into_inner());
-                                if let Some(state) = workers.get_mut(&worker_id) {
-                                    state.last_heartbeat = Instant::now();
-                                }
-                            }
-                            Message::WorkUnit(_) => {}
-                            Message::Event(event) => {
-                                if let Ok(event_json) = serde_json::to_string(&event) {
-                                    println!("{}", event_json);
-                                }
-                                if let crate::events::SearchEvent::DFSComplete { .. } = event {
+                thread::spawn(move || {
+                    let mut reader = match stream.try_clone() {
+                        Ok(r) => r,
+                        Err(_) => return,
+                    };
+                    let stream_mutex = Arc::new(Mutex::new(stream));
+
+                    loop {
+                        match recv_message::<_, Message>(&mut reader) {
+                            Ok(msg) => match msg {
+                                Message::RequestWork => {
                                     let mut queue =
                                         work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                    let work = queue.pop();
                                     let mut workers =
                                         active_workers.lock().unwrap_or_else(|e| e.into_inner());
-                                    if workers.remove(&worker_id).is_some() {
-                                        let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                        save_checkpoint(&checkpoint_path_clone, &queue, &workers);
-                                        if c >= total_units {
-                                            if let Ok(p4_json) = serde_json::to_string(
-                                                &crate::events::SearchEvent::Phase {
-                                                    phase: 4,
-                                                    name: "All work units completed".to_string(),
-                                                },
-                                            ) {
-                                                println!("{}", p4_json);
+                                    if let Some(ref w) = work {
+                                        workers.insert(
+                                            worker_id,
+                                            ActiveWorkerState {
+                                                active_task: w.clone(),
+                                                last_heartbeat: Instant::now(),
+                                            },
+                                        );
+                                    }
+                                    save_checkpoint(&checkpoint_path_clone, &queue, &workers);
+                                    drop(workers);
+                                    drop(queue);
+
+                                    let reply = Message::WorkUnit(work);
+                                    if send_message(&stream_mutex, &reply).is_err() {
+                                        break;
+                                    }
+                                }
+                                Message::Heartbeat => {
+                                    let mut workers =
+                                        active_workers.lock().unwrap_or_else(|e| e.into_inner());
+                                    if let Some(state) = workers.get_mut(&worker_id) {
+                                        state.last_heartbeat = Instant::now();
+                                    }
+                                }
+                                Message::WorkUnit(_) => {}
+                                Message::Event(event) => {
+                                    if let Ok(event_json) = serde_json::to_string(&event) {
+                                        println!("{}", event_json);
+                                    }
+                                    if let crate::events::SearchEvent::DFSComplete {
+                                        total_branches,
+                                        ap,
+                                        rp,
+                                        bp,
+                                        math_interruptions,
+                                        range,
+                                    } = event
+                                    {
+                                        let mut queue =
+                                            work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                        let mut workers = active_workers
+                                            .lock()
+                                            .unwrap_or_else(|e| e.into_inner());
+                                        if workers.remove(&worker_id).is_some() {
+                                            total_branches_acc
+                                                .fetch_add(total_branches, Ordering::Relaxed);
+                                            ap_acc.fetch_add(ap, Ordering::Relaxed);
+                                            rp_acc.fetch_add(rp, Ordering::Relaxed);
+                                            bp_acc.fetch_add(bp, Ordering::Relaxed);
+                                            math_interruptions_acc
+                                                .fetch_add(math_interruptions, Ordering::Relaxed);
+                                            {
+                                                let mut ranges = completed_ranges
+                                                    .lock()
+                                                    .unwrap_or_else(|e| e.into_inner());
+                                                ranges.push(range);
                                             }
-                                            std::process::exit(0);
+
+                                            let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                                            save_checkpoint(
+                                                &checkpoint_path_clone,
+                                                &queue,
+                                                &workers,
+                                            );
+                                            if c >= total_units {
+                                                if let Ok(p4_json) = serde_json::to_string(
+                                                    &crate::events::SearchEvent::Phase {
+                                                        phase: 4,
+                                                        name: "All work units completed"
+                                                            .to_string(),
+                                                    },
+                                                ) {
+                                                    println!("{}", p4_json);
+                                                }
+                                                is_finished_worker.store(true, Ordering::SeqCst);
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        },
-                        Err(_) => break, // Socket error or peer disconnected cleanly
+                            },
+                            Err(_) => break, // Socket error or peer disconnected cleanly
+                        }
                     }
-                }
 
-                // Connection closed unexpectedly
-                let mut queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
-                let mut workers = active_workers.lock().unwrap_or_else(|e| e.into_inner());
-                if let Some(state) = workers.remove(&worker_id) {
-                    println!(
-                        "Worker {} disconnected unexpectedly. Recovering task.",
-                        worker_id
-                    );
-                    queue.push(state.active_task);
-                    save_checkpoint(&checkpoint_path_clone, &queue, &workers);
-                }
-            });
+                    // Connection closed unexpectedly
+                    let mut queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                    let mut workers = active_workers.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(state) = workers.remove(&worker_id) {
+                        println!(
+                            "Worker {} disconnected unexpectedly. Recovering task.",
+                            worker_id
+                        );
+                        queue.push(state.active_task);
+                        save_checkpoint(&checkpoint_path_clone, &queue, &workers);
+                    }
+                });
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(e) => {
+                eprintln!("Controller accept error: {}", e);
+                break;
+            }
         }
     }
+
+    let ranges = std::mem::take(&mut *completed_ranges.lock().unwrap_or_else(|e| e.into_inner()));
+    let tel = crate::dfs_tree::DfsTelemetry {
+        total_branches: total_branches_acc.load(Ordering::Relaxed),
+        abundance_pruned: ap_acc.load(Ordering::Relaxed),
+        raycast_pruned: rp_acc.load(Ordering::Relaxed),
+        search_space_density: 0.0,
+        math_interruptions: math_interruptions_acc.load(Ordering::Relaxed),
+        boundary_pruned: bp_acc.load(Ordering::Relaxed),
+    };
+
+    (tel, ranges)
 }
 
 pub fn run_worker(
@@ -662,6 +759,8 @@ pub fn run_worker(
                     ap: abundance_pruned.into_inner(),
                     rp: pruned_count.into_inner(),
                     bp: boundary_pruned.into_inner(),
+                    math_interruptions: math_interruptions.into_inner(),
+                    range: range_bound.clone(),
                 });
                 if send_message(&stream_mutex, &rep).is_err() {
                     eprintln!("Failed to send DFSComplete event to controller.");
@@ -1019,5 +1118,81 @@ mod tests {
         }
 
         server_thread.join().unwrap();
+    }
+
+    #[test]
+    fn test_run_controller_telemetry_and_ranges() {
+        let _ = fs::remove_file("checkpoint.json");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
+        let unit1 = RangeWorkUnit {
+            start_bound: vec![1],
+            end_bound: vec![2],
+        };
+        let unit2 = RangeWorkUnit {
+            start_bound: vec![2],
+            end_bound: vec![3],
+        };
+
+        let addr_clone = addr.clone();
+        let controller_handle =
+            thread::spawn(move || run_controller(&addr_clone, vec![unit1, unit2]));
+
+        thread::sleep(Duration::from_millis(50));
+
+        let client = TcpStream::connect(&addr).unwrap();
+        let mut client_reader = client.try_clone().unwrap();
+        let client_mutex = Arc::new(Mutex::new(client));
+
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg1: Message = recv_message(&mut client_reader).unwrap();
+        let work1 = match msg1 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 100,
+                ap: 10,
+                rp: 5,
+                bp: 2,
+                math_interruptions: 1,
+                range: work1,
+            }),
+        )
+        .unwrap();
+
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg2: Message = recv_message(&mut client_reader).unwrap();
+        let work2 = match msg2 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 200,
+                ap: 20,
+                rp: 10,
+                bp: 4,
+                math_interruptions: 3,
+                range: work2,
+            }),
+        )
+        .unwrap();
+
+        let (telemetry, ranges) = controller_handle.join().unwrap();
+        assert_eq!(telemetry.total_branches, 300);
+        assert_eq!(telemetry.abundance_pruned, 30);
+        assert_eq!(telemetry.raycast_pruned, 15);
+        assert_eq!(telemetry.boundary_pruned, 6);
+        assert_eq!(telemetry.math_interruptions, 4);
+        assert_eq!(ranges.len(), 2);
+        let _ = fs::remove_file("checkpoint.json");
     }
 }
