@@ -27,10 +27,10 @@ jobs:
     name: Core Nix Verification Gating
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Nix
-        uses: cachix/install-nix-action@v25
+        uses: cachix/install-nix-action@v31
         with:
           nix_path: nixpkgs=flake:nixpkgs
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload Compiled PDF
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: compiled-paper
           path: main.pdf
@@ -79,10 +79,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: core-gating
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Nix
-        uses: cachix/install-nix-action@v25
+        uses: cachix/install-nix-action@v31
         with:
           nix_path: nixpkgs=flake:nixpkgs
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -105,10 +105,10 @@ jobs:
       SSL_CERT_FILE: "/etc/ssl/certs/ca-certificates.crt"
       GIT_SSL_CAINFO: "/etc/ssl/certs/ca-certificates.crt"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Nix (Linux)
-        uses: cachix/install-nix-action@v25
+        uses: cachix/install-nix-action@v31
         with:
           nix_path: nixpkgs=flake:nixpkgs
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload Rust Coverage Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-coverage-xml
           path: ualbf-project/coverage.xml
@@ -173,10 +173,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [core-gating, verify-verus]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Nix (Linux)
-        uses: cachix/install-nix-action@v25
+        uses: cachix/install-nix-action@v31
         with:
           nix_path: nixpkgs=flake:nixpkgs
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -184,7 +184,7 @@ jobs:
             sandbox = true
 
       - name: Cache Pip Packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         continue-on-error: true
         with:
           path: ~/.cache/pip
@@ -203,7 +203,7 @@ jobs:
 
       - name: Upload Python Coverage Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-coverage-xml
           path: ualbf-project/coverage.xml
@@ -214,10 +214,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: core-gating
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Nix (Linux)
-        uses: cachix/install-nix-action@v25
+        uses: cachix/install-nix-action@v31
         with:
           nix_path: nixpkgs=flake:nixpkgs
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
