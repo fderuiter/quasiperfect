@@ -275,7 +275,6 @@ fn test_solve_crt_negative_residues_and_normalization() {
     assert_eq!((res % m2 + m2) % m2, Int::from_u32(5));
 }
 
-#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_basic() {
     crate::lean_ffi::initialize_lean_runtime();
@@ -287,7 +286,6 @@ fn test_hensels_lift_basic() {
     assert_eq!(lifted, Int::from_u128(10));
 }
 
-#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_k3() {
     crate::lean_ffi::initialize_lean_runtime();
@@ -321,7 +319,6 @@ fn test_quick_factor_u256_large_composite_remainder() {
     }
 }
 
-#[cfg_attr(unverified_build, ignore)]
 #[test]
 fn test_hensels_lift_residue_failure() {
     crate::lean_ffi::initialize_lean_runtime();

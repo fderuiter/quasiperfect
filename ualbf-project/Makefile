@@ -43,7 +43,7 @@ check-python: verification-lib ## Runs Python style checks, type-checking, doc v
 	mypy .
 	python3 scripts/validate_docs.py --check-specs
 	python3 scripts/validate_tuning_guide.py
-	LEAN_SYSROOT=DUMMY python3 -m pytest tests paper
+	python3 -m pytest tests paper
 
 check-paper: verification-lib ## Verifies paper unit tests and LaTeX macro synchronization
 	python3 scripts/verify_paper_sync.py

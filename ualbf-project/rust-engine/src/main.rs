@@ -810,7 +810,6 @@ fn main() {
         suffix_abundance[k] = lean_ffi::get_static_suffix_bound(k as u32);
     }
 
-    #[cfg(not(unverified_build))]
     {
         println!("Executing Startup Invariant Validation checks on FFI bounds sequence...");
         if let Err(err_msg) = validate_suffix_bounds_sequence(&suffix_abundance) {

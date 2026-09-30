@@ -2381,9 +2381,8 @@ mod tests {
         assert_eq!(a, b, "get_div_5_coprime_3_bound must be idempotent");
     }
 
-    /// The dummy FFI stubs (dummy_ffi.c) export 7 for the baseline minimum prime
-    /// factors.  This test verifies the value propagates correctly through the
-    /// OnceLock layer.
+    /// The Lean FFI exports the baseline minimum prime factors. This test verifies
+    /// the value propagates correctly through the OnceLock layer.
     #[test]
     fn test_get_min_prime_factors_matches_ffi_value() {
         crate::lean_ffi::initialize_lean_runtime();
@@ -2396,7 +2395,7 @@ mod tests {
         );
     }
 
-    /// The dummy FFI stubs (dummy_ffi.c) export 15 for the Prasad-Sunitha bound.
+    /// The Lean FFI exports the Prasad-Sunitha bound.
     /// This test verifies the value propagates correctly through the OnceLock layer.
     #[test]
     fn test_get_prasad_sunitha_bound_matches_ffi_value() {
@@ -2410,7 +2409,7 @@ mod tests {
         );
     }
 
-    /// The dummy FFI stubs (dummy_ffi.c) export 11 for the div-5-coprime-3 bound.
+    /// The Lean FFI exports the div-5-coprime-3 bound.
     /// This test verifies the value propagates correctly through the OnceLock layer.
     #[test]
     fn test_get_div_5_coprime_3_bound_matches_ffi_value() {

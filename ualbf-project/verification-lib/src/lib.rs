@@ -14,7 +14,6 @@ pub const CORE_TCB_FILES: &[&str] = &[
     "verus_proofs.rs",
     "manifest_constants.rs",
     "lean_ffi.rs",
-    "unverified/dummy_ffi.c",
     "../../proof_manifest.json",
     "../build.rs",
     "../../bounds_manifest.json",
@@ -65,7 +64,6 @@ macro_rules! compute_core_tcb_hash_at_compile_time {
         logic_hasher.update(include_bytes!("verus_proofs.rs"));
         logic_hasher.update(include_bytes!("manifest_constants.rs"));
         logic_hasher.update(include_bytes!("lean_ffi.rs"));
-        logic_hasher.update(include_bytes!("unverified/dummy_ffi.c"));
 
         let manifest_bytes = include_bytes!("../../proof_manifest.json");
         let manifest_str = String::from_utf8_lossy(manifest_bytes);
