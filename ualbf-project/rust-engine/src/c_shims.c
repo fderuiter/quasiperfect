@@ -1,4 +1,9 @@
+/* lean.h defines lean_string_cstr as static inline, so it has no linkable
+   symbol. Rename the inline copy here and export a real lean_string_cstr
+   below for the Rust extern declaration in lean_ffi.rs. */
+#define lean_string_cstr ualbf_lean_string_cstr_inline
 #include <lean/lean.h>
+#undef lean_string_cstr
 #include <stdbool.h>
 
 extern bool rs_lean_is_scalar(void* obj) {
@@ -61,3 +66,25 @@ extern bool ualbf_mod_inverse_raw(const uint64_t a_limbs[8], uint8_t a_neg, cons
     return true;
 }
 
+
+/* Out-of-line wrappers for lean.h's static inline helpers, which have no
+   linkable symbol in the verified (real Lean) build. */
+extern const char* lean_string_cstr(void* str) {
+    return ualbf_lean_string_cstr_inline((lean_object*)str);
+}
+
+extern void* rs_lean_io_result_mk_ok(void* a) {
+    return lean_io_result_mk_ok((lean_object*)a);
+}
+
+extern void* rs_lean_box_uint32(uint32_t v) {
+    return lean_box_uint32(v);
+}
+
+extern void* rs_lean_box_bool(bool v) {
+    return lean_box(v ? 1 : 0);
+}
+
+extern void* rs_lean_box_unit(void) {
+    return lean_box(0);
+}
