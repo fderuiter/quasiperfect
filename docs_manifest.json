@@ -135,6 +135,5 @@
   "ualbf-project/paper/sections/05_results.tex": "authoritative",
   "ualbf-project/paper/sections/06_conclusion.tex": "authoritative",
   "ualbf-project/paper/sections/07_appendix.tex": "authoritative",
-  "ualbf-project/paper/telemetry.tex": "informal",
-  "ualbf-project/paper/verification_manifest.tex": "informal"
+  "ualbf-project/paper/telemetry.tex": "informal"
 }
