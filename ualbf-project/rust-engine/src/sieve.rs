@@ -57,7 +57,11 @@ pub(crate) fn compute_asymptotic_abundance(p_u128: u128) -> u128 {
     }
 }
 
-pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult {
+pub fn phase1_global_annihilation_sieve(
+    limit: usize,
+    max_e: u32,
+    target_bound: Uint,
+) -> SieveResult {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
     let phase1_start = std::time::Instant::now();
     let sieve = Sieve::new(limit);
@@ -141,9 +145,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
     let sigma_cache_mu: Mutex<SigmaCache> = Mutex::new(HashMap::new());
     let total_factor_ns = AtomicU64::new(0);
 
-    let min_prefix_prod = Uint::from_u64(188_000_000_000);
-    let max_bound =
-        Uint::from_u32(10).pow(crate::manifest_constants::TARGET_MAX_LOG10) / min_prefix_prod;
+    let max_bound = target_bound;
 
     let mut valid_components: Vec<PrimePower> = primes
         .chunks(64)
@@ -416,7 +418,9 @@ mod tests {
         crate::lean_ffi::initialize_lean_runtime();
         let limit = 50;
         let max_e = 2;
-        let result = phase1_global_annihilation_sieve(limit, max_e);
+        let target_bound =
+            Uint::from_u32(10).pow(crate::policy::get_safe_config().target_max_log10);
+        let result = phase1_global_annihilation_sieve(limit, max_e, target_bound);
 
         assert!(!result.components.is_empty());
         for comp in result.components {
@@ -430,6 +434,37 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_parameterized_sieve_target_bound_completeness() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let limit = 100;
+        let max_e = 2;
+
+        // Custom target bound log10 = 10 (target_bound = 10^10)
+        let custom_target_log10 = 10u32;
+        let custom_target_bound = Uint::from_u32(10).pow(custom_target_log10);
+
+        let result = phase1_global_annihilation_sieve(limit, max_e, custom_target_bound);
+
+        // Verify all retained components have val <= custom_target_bound
+        for comp in &result.components {
+            assert!(
+                comp.val <= custom_target_bound,
+                "Component {}^2e = {} exceeds target_bound {}",
+                comp.p,
+                comp.val,
+                custom_target_bound
+            );
+        }
+
+        // Verify component 17^2 = 289 <= 10^10 is present
+        let has_17_squared = result.components.iter().any(|c| c.p == 17 && c.two_e == 2);
+        assert!(
+            has_17_squared,
+            "Candidate component 17^2 should be present in valid_components"
+        );
     }
 
     #[test]
