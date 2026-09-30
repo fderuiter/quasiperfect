@@ -35,6 +35,7 @@ lake-packages/
 # LaTeX
 *.aux
 main.log
+ualbf-project/paper/main.pdf
 *.out
 *.blg
 *.bbl

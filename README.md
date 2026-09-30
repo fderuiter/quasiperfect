@@ -268,7 +268,7 @@ Requires Python 3 (standard library only).
 
 ### Research Paper (LaTeX)
 
-Located in `ualbf-project/paper/`. The compiled PDF is at `paper/main.pdf`.
+Located in `ualbf-project/paper/`. The PDF is not committed, so it cannot fall out of date with the sources. The Core Nix Verification Gating job in CI builds it from the current sources and uploads it as the compiled-paper artifact of each run.
 
 | Section | Content |
 |---|---|
