@@ -1119,7 +1119,8 @@ pub fn check_and_evaluate_node(
                             target_log,
                             epsilon,
                         },
-                        verification_status: "approximate bound",
+                        verification_status:
+                            "unproven: LLL lattice bound (lattice feature, not formally verified)",
                     },
                 );
             }
