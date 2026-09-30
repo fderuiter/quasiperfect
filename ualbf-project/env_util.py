@@ -238,3 +238,12 @@ def require_env_var(name: str) -> Any:
         )
         raise ValueError(f"Required environment variable '{name}' is not set.")
     return get_env_var(name)
+
+
+def validate_environment() -> None:
+    """Validates active environment variables against env_manifest.json specifications."""
+    check_deprecated_env_vars()
+    manifest, _ = load_manifest_and_schema()
+    for name in os.environ:
+        if name in manifest:
+            get_env_var(name)
