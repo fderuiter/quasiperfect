@@ -779,7 +779,8 @@ fn main() {
     let target_bound: Uint = Uint::from_u32(10).pow(target_max_log10);
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
 
-    let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
+    let sieve_result =
+        sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent, target_bound);
     let valid_components = sieve_result.components;
     let sigma_cache = sieve_result.sigma_cache;
 
