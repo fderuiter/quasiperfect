@@ -34,10 +34,10 @@ The framework fuses two traditionally separate concerns:
 | Concern | Tool | Role |
 |---|---|---|
 | **Formal verification** | Lean 4 + Mathlib | Machine-checked mathematical proofs |
-| **Exhaustive computation** | Rust (Rayon, num-bigint) | Lock-free parallel search engine |
+| **Search prototype** | Rust (Rayon, num-bigint) | Lock-free parallel search engine (coverage incomplete; see [Key Results](#key-results)) |
 | **Cross-language bridge** | C FFI | Lean-verified hot-path arithmetic in the Rust engine |
 
-Critical arithmetic routines—128-bit modular inverses and exact σ(p²ᵉ) evaluations—are compiled from Lean code and called at runtime by the Rust engine, so the mathematical guarantees extend all the way into the search loop.
+Critical arithmetic routines—128-bit modular inverses and exact σ(p²ᵉ) evaluations—are compiled from Lean code and called at runtime by the Rust engine, and Lean bridge theorems relate them to the mathematical definitions. This covers those individual routines only: nothing proves that the search as a whole is complete.
 
 ---
 
@@ -52,22 +52,25 @@ where σ denotes the sum-of-divisors function. No such number has ever been foun
 Key historical constraints:
 - **Cattaneo (1951):** Any QPN must be an *odd perfect square*.
 - **Hagis & Cohen (1982):** Any QPN satisfies N > 10³⁵ and has at least 7 distinct prime factors.
+- **Prasad & Sunitha (2017):** Any QPN with gcd(N, 15) = 1 has at least 15 distinct prime factors (*Notes on Number Theory and Discrete Mathematics* 23(3)).
+- **Alekseyev (2026):** No QPN exists below 10⁴⁵ (arXiv:2601.17832).
+- **Toyohara, Tao & Yao (2026):** Claim that every QPN has at least 8 distinct prime factors (arXiv:2608.02066). Treat this as conditional: their enumeration code is not public.
 
 ---
 
 ## Key Results
 
-This project extends and formally verifies the following:
+The Lean 4 library formally verifies the results below. The Rust search is an engineering prototype and does not establish any lower bound on N.
 
 | Result | Description |
 |---|---|
-| **Search toward 10⁴³** | Target of the search engine, not an established result: the sieve covers a bounded prime range and the exact-solving stage has not been run to completion, so no lower bound on N is claimed yet |
+| **Search toward 10⁴³** | Target of the search engine, not an established result. Known gaps: only primes below 250,000 with exponent 2e ≤ 8 are considered; the CDG "forced cascade" pruning rule reads a Lean theorem about primes dividing σ(N) as if it forced those primes into N; several pruning bounds only account for components in the engine's own list; and the exact ray-casting stage has never run. No lower bound on N is claimed |
 | **Odd perfect square** | Mechanically proved in Lean 4: any QPN must be an odd perfect square |
 | **Modulo-8 obstruction** | Formalized Legendre-Cattaneo filter: odd prime factors q of σ(N) satisfy q ≡ 1 or 3 (mod 8) |
 | **ω(N) ≥ 15** | Prasad-Sunitha bound: any QPN with gcd(N, 15) = 1 has at least 15 distinct prime factors |
 | **Abundancy bound** | N/φ(N) < 2.0442 (head-tail path) for QPNs coprime to 15 |
 | **Zsigmondy decomposition** | Full 7-sub-lemma proof of Zsigmondy's theorem, 100% verified in Lean 4/Mathlib |
-| **Formal exhaustion certificate** | `no_solution_no_qpn`: ray-cast exhaustion constitutes a complete non-existence proof for any prefix |
+| **Bipartition congruence lemma** | `no_solution_no_qpn`: a suffix N_R with N_R · 2N_L ≢ −1 (mod σ(N_L)) cannot complete a QPN. This justifies discarding individual suffixes; it does not show that the engine enumerates every admissible suffix |
 
 ---
 
@@ -271,7 +274,7 @@ Located in `ualbf-project/paper/`. The compiled PDF is at `paper/main.pdf`.
 |---|---|
 | Introduction | Problem statement, verification gap, contributions |
 | Math & Formalization | Lean 4 proofs, cyclotomic theory, Zsigmondy decomposition |
-| Bipartition Algorithm | Prefix-suffix DFS, formal exhaustion certificate |
+| Bipartition Algorithm | Prefix-suffix DFS, bipartition congruence lemma |
 | Verified Engine | Rust architecture, FFI bridge, overflow safety |
 | Results | Search coverage to date and hardware telemetry |
 | Conclusion | Outlook for deeper bounds |
@@ -538,6 +541,9 @@ Contributions to UALBF are welcome. Please ensure that all Lean 4 proofs compile
 
 - P. Cattaneo, *"Sui numeri quasiperfetti"*, Bollettino dell'Unione Matematica Italiana, 1951.
 - P. Hagis Jr. & G. L. Cohen, *"Some results concerning quasiperfect numbers"*, Journal of the Australian Mathematical Society, 1982.
+- V. Siva Rama Prasad & C. Sunitha, *"On quasiperfect numbers"*, Notes on Number Theory and Discrete Mathematics 23(3), 2017.
+- M. A. Alekseyev, arXiv:2601.17832, 2026 (no quasiperfect number below 10⁴⁵).
+- Toyohara, Tao & Yao, arXiv:2608.02066, 2026 (claims ω(N) ≥ 8; enumeration code not public).
 - [Mathlib4 documentation](https://leanprover-community.github.io/mathlib4_docs/)
 - [Lean 4 documentation](https://leanprover.github.io/lean4/doc/)
 - See `ualbf-project/paper/references.bib` for the full bibliography.

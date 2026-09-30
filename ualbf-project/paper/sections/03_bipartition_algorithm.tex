@@ -18,7 +18,9 @@ modular inverse; candidates in that class are then enumerated and sieved.
 \subsection{Theoretical Frameworks for Deeper Horizons: Bipartitioning the Search Space}
 \label{subsec:bipartition}
 
-\emph{(Note: We transparently state that at the $10^{\TelemetryMaxLog}$ bound tested in this paper, shallow structural traps entirely exhausted the search space. Consequently, the deeper mathematical frameworks detailed in this section remained inactive during the current empirical run.)}
+\emph{(Note: the ray-casting stage described in this section and in
+\cref{subsec:ray_casting} did not run in the search reported in
+\cref{sec:results}.)}
 
 \begin{definition}[QPN Bipartition]\label{def:bipartition}
 A \textbf{QPN bipartition} of a quasiperfect number $N$ is a triple
@@ -99,7 +101,7 @@ and coprimality checks to each candidate.
 The AMBS target equation~\eqref{eq:ambs-target} also admits a clean
 contrapositive:
 
-\begin{theorem}[Ray-Cast Exhaustion Certificate]\label{thm:no-sol-no-qpn}
+\begin{theorem}[Bipartition Congruence Lemma]\label{thm:no-sol-no-qpn}
 If $N_R \cdot (2\,N_L) \not\equiv -1 \pmod{\sigma(N_L)}$ for all
 valid suffix candidates, then $N = N_L \cdot N_R$ is not quasiperfect.
 \end{theorem}
@@ -112,17 +114,15 @@ But every valid suffix candidate fails this congruence by hypothesis,
 so the QPN hypothesis implies a contradiction.
 \end{proof}
 
-\cref{thm:no-sol-no-qpn} is the formal certificate that the Rust engine's
-ray-cast exhaustion constitutes a {\em complete} non-existence proof:
-when the engine enumerates all representatives in the residue class
-$z \equiv r \pmod{\sigma(N_L)}$ within the search bounds and none
-satisfies all divisibility constraints, the prefix $N_L$ is formally
-proven to be incompatible with any QPN\@.  In the Lean formalisation,
-this is
+In the Lean formalisation, \cref{thm:no-sol-no-qpn} is
 \texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn}
-in \texttt{Bipartition.lean}---the mathematical proof that the Rust
-ray-cast is a complete, rigorous exhaustion of the search space, not
-merely a heuristic search.
+in \texttt{Bipartition.lean}.  It justifies discarding any suffix that
+fails the congruence~\eqref{eq:ambs-target}.  It says nothing about
+whether the Rust engine actually enumerates every admissible suffix:
+that depends on the search bounds, on the finite list of components
+the engine considers, and on the correctness of the enumeration code,
+none of which is formally verified.  The lemma therefore does not turn
+a ray-cast run into a non-existence proof for a prefix.
 
 
 

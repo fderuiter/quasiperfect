@@ -86,7 +86,7 @@ lean4-proofs/
   Formalizes the Prefix-Suffix bipartition theorems utilized by the Rust backend's depth-first search. Proves the multiplicativity of the Sigma function over the bipartition space, formally validating that because left ($N_L$) and right ($N_R$) sub-trees are coprime, $\sigma(N_L \cdot N_R) = \sigma(N_L) \cdot \sigma(N_R)$.
 
 - **`UALBF/Engine/SieveSoundness.lean`**
-  Provides exact valuation theorems that formally prove the Rust engine's valuation sieve (which discards sub-topologies using divisibility invariants) is mathematically sound. It guarantees that the computational engine mathematically cannot miss a valid QPN.
+  Provides exact valuation theorems that formally prove the Rust engine's valuation sieve (which discards sub-topologies using divisibility invariants) is mathematically sound. This covers the valuation sieve rule only: it does not show that the search as a whole is complete, and other pruning rules in the engine (for example the CDG forced cascade and bounds computed only over the engine's finite component list) are not justified by these theorems.
 
 ---
 

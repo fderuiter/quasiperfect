@@ -6,10 +6,10 @@
       "justification": "Engine bound matches the formal proof 15-factor lower bound exactly.",
       "is_axiomatic": false,
       "citation": {
-        "author": "Prasad, V. Siva Rama and Sunitha, T.",
-        "year": "2022",
-        "title": "On the Number of Prime Factors of Quasiperfect Numbers",
-        "identifier": "Journal of Discrete Mathematical Sciences and Cryptography"
+        "author": "Prasad, V. Siva Rama and Sunitha, C.",
+        "year": "2017",
+        "title": "On quasiperfect numbers",
+        "identifier": "Notes on Number Theory and Discrete Mathematics 23(3)"
       }
     },
     "div_5_coprime_3": {

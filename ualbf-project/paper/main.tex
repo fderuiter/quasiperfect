@@ -36,30 +36,30 @@
 This paper presents the Unified Algebraic-Lattice Bipartition Framework
 (UALBF), a formal-verification and computational
 approach to the quasiperfect number (QPN) problem. Using Lean~4,
-we mechanically verify that every QPN is an odd perfect square and
+we mechanically verify that every QPN is an odd perfect square
+(a result of Cattaneo) and
 establish a modulo-8 obstruction on prime factors of $\sigma(N)$.
 We prove the abundancy index $H(N)$ is bounded by the Euler
 totient ratio $N/\varphi(N)$, decomposed into $H(N)$ times a correction
 factor $C < 1.022$. This leverages pure-$\mathbb{Q}$ telescoping-sum identities
 (the 61/60 tail bound) without real-analysis imports. The chain
-tightly bounds $N/\varphi(N) < 2.0442$ for QPNs coprime to~15 with $N > 10^{\TelemetryMinLog}$.
+bounds $N/\varphi(N) < 2.0442$ for QPNs coprime to~15.
 
 We further formalise the Prasad--Sunitha bound $\omega(N)\ge 15$ for
 $\gcd(N,15)=1$, and a fully decomposed structural proof of Zsigmondy's
 theorem via seven modular sub-lemmas, isolating analytic ingredients
 into independently verified theorems.
 
-These certified bounds drive a highly concurrent Rust engine.
-Starvation Pruning serves as the engine's primary efficiency driver,
-dynamically truncating the search space when target abundancy becomes
-unreachable. We certify the formal contrapositive guaranteeing that
-exhaustive enumeration constitutes a complete non-existence proof.
-While our framework implements ray-casting for deeper horizons,
-this feature was functionally inactive during our search;
-shallow structural traps completely exhausted the space before
-deep-horizon algorithms could activate. By integrating formal
-deduction with high-performance execution, we successfully
-push the lower bound for quasiperfect numbers to $10^{\TelemetryMaxLog}$.
+These lemmas are used by a parallel Rust search engine, which we
+describe as an engineering prototype. Its coverage is incomplete:
+it only considers primes below 250{,}000 with exponents $2e \le 8$,
+one pruning rule treats primes that a Lean theorem shows divide
+$\sigma(N)$ as if they had to divide~$N$, several pruning bounds only account for
+components in its finite list, and its exact ray-casting stage did
+not run. The Lean library proves individual pruning lemmas; nothing
+proves that the search as a whole is complete, and this paper does
+not establish any new lower bound on quasiperfect numbers. The
+strongest bound we are aware of is $N > 10^{45}$ (Alekseyev, 2026).
 \end{abstract}
 
 

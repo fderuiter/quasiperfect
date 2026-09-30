@@ -4,34 +4,39 @@
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-The Unified Algebraic-Lattice Bipartition Framework (UALBF) provides a
-rigorous, computationally tractable methodology for analysing the
-quasiperfect number problem.  By formally verifying foundational
-properties---such as parity constraints, the modulo-8 obstruction,
-the Prasad--Sunitha bound, and the 2.0442 correction factor
-bound---within the Lean~4 theorem prover, we have established a
-mechanically verified foundation for aggressively pruning the search
-space.  These algebraic constraints, combined with cyclotomic
-decompositions and formal exhaustion certificates, provide multiple
-independent avenues for branch elimination.
+The Unified Algebraic-Lattice Bipartition Framework (UALBF) combines a
+Lean~4 library of results about quasiperfect numbers with a prototype
+Rust search engine.  The Lean library verifies that a QPN is an odd
+perfect square~\cite{cattaneo1951}, the modulo-8 obstruction on primes
+dividing $\sigma(N)$, the Prasad--Sunitha bound~\cite{prasad_sunitha},
+the 2.0442 totient-ratio bound for QPNs coprime to~15, the cyclotomic
+and Zsigmondy lemmas, and the multiplicativity of~$\sigma$ over a
+prefix--suffix bipartition.  Each of these is a standalone lemma that
+can justify a particular pruning step.
 
-The integration of this formal core with a highly concurrent, lock-free
-Rust engine---employing cyclotomic sieve decomposition and $\mathcal{O}(1)$
-ray-cast sieving---has definitively
-pushed the lower bound for quasiperfect numbers to $N > 10^{\TelemetryMaxLog}$, with
-an empirically verified zero-panic telemetry. As detailed in \cref{app:tcb} and \cref{app:verification}, the overarching claim of end-to-end correctness is contextualized by explicitly defining the Trusted Computing Base (TCB) boundaries. By establishing a fully verified Pocklington primality testing pipeline with zero unverified assumptions, acknowledging the unverified Lean-to-Rust FFI boundary, and deploying a CPU-bound verification model encompassing Verus specifications and property-based testing for RNS512 arithmetic, we assert that the computational exhaustive search remains robustly guided by formal methods while transparently disclosing its verification limits.
+The search engine is not a proof.  It only considers primes below
+$250{,}000$ with exponents $2e \le 8$, its CDG forced-cascade rule
+misreads a Lean theorem about primes dividing $\sigma(N)$ as forcing
+primes into~$N$, several of its pruning bounds only account for
+components in its finite list, and its exact ray-casting stage did not
+run (\cref{subsec:bounds_achieved}).  No theorem states that the search
+as a whole is complete, and we claim no lower bound on quasiperfect
+numbers; the strongest bound we are aware of is
+$N > 10^{45}$~\cite{alekseyev2026}.
+As detailed in \cref{app:tcb} and \cref{app:verification}, the
+Lean-to-Rust FFI boundary is also unverified and forms part of the
+Trusted Computing Base.
 
-The success of the Lean/Rust architecture highlights a powerful
-paradigm for future mathematical investigations: bridging the gap
-between absolute, mechanically checked formal truth and raw, parallel
-computational power.  This model eliminates the ``verification gap''
-inherent in unverified heuristic programming, ensuring that
-optimisation artifacts or integer overflows cannot compromise the
-integrity of mathematical bounds.
-
-Future work will focus on three fronts:
+Future work will focus on the following:
 
 \begin{enumerate}
+  \item \textbf{Soundness of the Search:}
+    Removing or correctly justifying the CDG forced-cascade rule,
+    making every pruning bound valid for components outside the
+    engine's list, handling primes above the sieve limit and larger
+    exponents, and stating in Lean what a completed search would
+    prove.
+
   \item \textbf{Deep Formalisation of Divisibility Chains:}
     Formalising generalised modulo-3 and modulo-9 constraints in
     Lean~4 to further restrict permissible suffix structures for
@@ -48,6 +53,5 @@ Future work will focus on three fronts:
     shallower depths.
 \end{enumerate}
 
-By continuing to iteratively tighten the formally verified bounds and
-parallelising the remaining computational search space, we aim to
-definitively resolve the quasiperfect number hypothesis.
+Only after these gaps are closed could a run of the engine support a
+claim about the non-existence of quasiperfect numbers in a range.

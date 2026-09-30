@@ -62,9 +62,8 @@ pairs its \texttt{\_lo}/\texttt{\_hi} word outputs with a dedicated
 \end{itemize}
 The Rust engine reads \texttt{\_lo}/\texttt{\_hi} only when the
 corresponding \texttt{\_ok} flag is non-zero, guaranteeing that
-no modulo-truncated garbage enters the search arithmetic.  A future
-extension of the search bounds beyond~$10^{\TelemetryMaxLog}$ is therefore
-automatically guarded by these sentinels. (See \cref{app:verification} for an exhaustive technical appendix detailing the low-level execution invariants, specifically the Pocklington primality testing and RNS512 arithmetic models used within the computational engine.)
+no modulo-truncated garbage enters the search arithmetic, including
+if the search bounds are raised. (See \cref{app:verification} for an exhaustive technical appendix detailing the low-level execution invariants, specifically the Pocklington primality testing and RNS512 arithmetic models used within the computational engine.)
 
 This architecture integrates the FFI bridge as an executable boundary atop our
 stratified four-layer Lean formalisation (\cref{sec:math_foundations}): the executable
@@ -97,10 +96,14 @@ For each odd prime~$p$ up to 250{,}000 and exponent
 $2e \in \{2, 4, 6, 8\}$, the engine computes $\sigma(p^{2e})$ using the
 formally verified Lean FFI (\texttt{compute\_\allowbreak{}sigma}) and
 factors it using cyclotomic polynomial decomposition.
+Prime powers outside this range (primes $p \ge 250{,}000$, or
+exponents $2e > 8$) are never generated, so the search does not
+consider any $N$ with such a component; this is a limitation of
+coverage, not something the Lean library justifies.
 
 \paragraph{Cyclotomic decomposition for efficient factorisation.}
 Rather than factoring the full value $\sigma(p^{2e})$ directly---which
-can exceed $10^{\TelemetryMaxLog}$---the engine exploits the cyclotomic expansion of
+can exceed $2^{128}$---the engine exploits the cyclotomic expansion of
 \cref{lem:cyclotomic-expansion}.  The routine
 \texttt{factor\_\allowbreak{}sigma\_\allowbreak{}cyclotomic} computes
 each cyclotomic factor $\Phi_d(p)$ for $d \mid (2e+1)$, $d > 1$, via
@@ -166,17 +169,20 @@ restore on pop) and drives several pruning mechanisms:
     can reach~2, where $\texttt{suffix\_\allowbreak{}abundance}[i]$ is
     a precomputed array storing the maximum achievable abundancy product
     from the remaining components.  If not, the branch is pruned
-    (justified by \cref{thm:starvation}).
+    (\cref{thm:starvation}).  The precomputed array only accounts for
+    components in the engine's finite list, so this pruning is sound
+    only relative to that list, not for arbitrary~$N$.
 
   \item \textbf{Ray-Cast Space Exhaustion:}
-    When a prefix magnitude intersects the stopping threshold, the engine delegates the terminal subspace entirely to the exact ray-casting subroutine. Because ray-casting rigorously enumerates and exhausts all valid suffix candidates up to the global limit, the DFS branch is immediately pruned and returns. This prevents the sequence from redundantly appending primes to spawn sub-prefixes within an already-solved search space.
+    When a prefix magnitude reaches the stopping threshold, the engine is designed to hand the remaining subspace to the exact ray-casting subroutine and stop extending that prefix.  The branch is then only as complete as the ray-cast enumeration, which is not formally verified and did not run in the search reported in \cref{sec:results}.
 \end{itemize}
 
 %% -------------------------------------------------------------------
 \subsection{Theoretical Frameworks for Deeper Horizons: Orchestration and Ray-Casting}
 \label{subsec:ray_casting}
 
-\emph{(Note: We transparently state that at the $10^{\TelemetryMaxLog}$ bound tested in this paper, shallow structural traps entirely exhausted the search space. Consequently, the deeper computational frameworks detailed in this section remained inactive during the current empirical run.)}
+\emph{(Note: the ray-casting stage described in this section did not
+run in the search reported in \cref{sec:results}.)}
 
 The ray-cast strategy serves as the core enumeration engine of the
 UALBF\@.  Given a prefix~$N_L$, the algorithm must find valid suffix
@@ -250,8 +256,7 @@ within the proof environment. These verified bounds are passed via the FFI
 boundary to the Rust execution engine. The Rust engine then uses these bounds
 to safely drive its high-performance pruning engine, automatically elevating
 the minimum required distinct prime factors from the baseline of~\TelemetryHagisBaselineMinPrimeFactors\
-up to~\TelemetryPrasadSunithaBound. This interaction drastically accelerates the search by
-instantly rejecting branches that cannot possibly reach the required abundancy index.
+up to~\TelemetryPrasadSunithaBound. This lets the engine reject such branches earlier.
 
 
 This component heavily relies on our core software dependencies, specifically Lean 4~\cite{moura2021}, Mathlib~\cite{mathlib2020}, Rayon~\cite{rayon2024}, bnum~\cite{bnum2024}, and ed25519-dalek~\cite{ed25519dalek2024}.
