@@ -29,8 +29,9 @@ The CRT tensor sieve has optional Metal and OpenCL backends in `rust-engine/src/
 - **Verification Status:** If a hardware backend is enabled (it also requires `UALBF_ALLOW_UNVERIFIED_GPU`), each eliminated component is emitted as a `GpuBloomWitness`. A host-side gateway re-checks every witness against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` before any candidate is pruned, and halts GPU execution on the first failure.
 
 ## 4a. Trusted Mathematical Axioms
-One literature result is assumed rather than proved in Lean, and it is the only entry in the ALLOWED_AXIOMS whitelist in cert_util.py:
-- `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (`UALBF/QPN/PrasadSunitha.lean`): a quasiperfect number divisible by 5 and coprime to 3 has at least 7 distinct prime factors. This is the general bound of Hagis and Cohen (1982); the search engine does not prune on any stronger, unproven bound for this case. It is marked `is_axiomatic: true` in `bounds_manifest.json`, and the auditor rejects any other axiom.
+No mathematical results are assumed as Lean axioms. The ALLOWED_AXIOMS whitelist in cert_util.py is empty, and the auditor and `rust-engine/build.rs` reject any theorem whose status is `axiom`. The last former axiom, `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (a quasiperfect number coprime to 3 has at least 7 distinct prime factors, the Hagis and Cohen (1982) bound), is now proved in `UALBF/QPN/PrasadSunitha.lean`.
+
+Some pruning rules still depend on assumptions that are not Lean theorems. Each trace event names the theorem behind its prune (`lean: ...`) or says what is assumed (`conditional:`, `partial:`, `unproven:`), and the ray-casting phase counts every abandoned prefix in `math_interruptions`, which `verify_cert.py` rejects as incomplete coverage.
 
 ## 5. Build Environment Variables & Verification Configuration
 

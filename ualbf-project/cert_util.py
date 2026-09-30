@@ -568,8 +568,8 @@ def load_and_validate_cert(cert_path, trusted_public_key=None):
 
 
 CORE_THEOREMS = [
-    "UALBF.Engine.SearchMonad.ruleA_safe",
-    "UALBF.Engine.SearchMonad.ruleB_safe",
+    "UALBF.Engine.ruleA_safe",
+    "UALBF.Engine.ruleB_safe",
     "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
     "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
@@ -577,7 +577,6 @@ CORE_THEOREMS = [
     "UALBF.Engine.Bipartition.prefix_sigma_coprime",
     "UALBF.Engine.Bipartition.ambs_suffix_target",
     "UALBF.Engine.Bipartition.no_solution_no_qpn",
-    "UALBF.Engine.Bipartition.root_partition_complete_coverage",
     "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
     "UALBF.QPN.AbundancyBound.qpn_totient_bound",
     "UALBF.QPN.AbundancyBound.abundancy_starvation",
@@ -606,7 +605,6 @@ CORE_THEOREMS = [
     "UALBF.FFI.U512.w7_mk",
     "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
     "UALBF.Pure.ABCConjecture.conjectural_ceiling_size_exclusion",
-    "UALBF.QPN.ABCConjecture.qpn_conjectural_pruning_sound",
     "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
     "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3",
     "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5",
@@ -647,9 +645,8 @@ CORE_THEOREMS = [
     "UALBF.Pure.Arithmetic.lemma_divisibility_transitive",
 ]
 
-ALLOWED_AXIOMS = {
-    "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound",
-}
+# No Lean axioms are whitelisted: any `axiom` reached by a core theorem fails the audit.
+ALLOWED_AXIOMS: set[str] = set()
 
 
 import time_utils

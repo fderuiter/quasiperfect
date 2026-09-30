@@ -229,7 +229,8 @@ fn test_validate_proof_manifest_unproven_theorem() {
 }
 
 #[test]
-fn test_validate_proof_manifest_whitelisted_axiom() {
+fn test_validate_proof_manifest_rejects_formerly_whitelisted_axiom() {
+    // qpn_div_5_coprime_3_omega_bound is now proved, so no axiom is whitelisted.
     let mut manifest = parse_proof_manifest(&sample_valid_proof_manifest_json("hash_A")).unwrap();
     manifest.theorems.push(Theorem {
         name: "UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound".to_string(),
@@ -237,7 +238,7 @@ fn test_validate_proof_manifest_whitelisted_axiom() {
         status: "axiom".to_string(),
         checksum: "hash_axiom".to_string(),
     });
-    assert!(validate_proof_manifest(&manifest, "hash_A").is_ok());
+    assert!(validate_proof_manifest(&manifest, "hash_A").is_err());
 }
 
 #[test]

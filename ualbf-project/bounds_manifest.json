@@ -15,8 +15,8 @@
     "div_5_coprime_3": {
       "proof_bound": 7,
       "engine_justified_gap": 0,
-      "justification": "Hagis & Cohen (1982) prove every quasiperfect number has at least 7 distinct prime factors; assumed here as a whitelisted Lean axiom. A stronger bound for this case is not established in the cited source, so the engine does not prune on one.",
-      "is_axiomatic": true,
+      "justification": "Hagis & Cohen (1982) prove every quasiperfect number has at least 7 distinct prime factors; proved in Lean for this case (qpn_div_5_coprime_3_omega_bound) by the abundancy argument 5/4 * 7/6 * 11/10 * 13/12 * 17/16 * 19/18 < 2. A stronger bound for this case is not established, so the engine does not prune on one.",
+      "is_axiomatic": false,
       "citation": {
         "author": "Hagis & Cohen",
         "year": "1982",
