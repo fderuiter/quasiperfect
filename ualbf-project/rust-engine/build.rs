@@ -584,6 +584,43 @@ pub fn validate_verus_hashes(
 
 /// Build script entry point that locates a Lean sysroot, compiles generated Lean C-IR into a static
 /// library when available, and emits Cargo directives to link the Lean runtime and trigger reruns.
+/// Links libstdc++ and records its directory as a runtime search path.
+/// Under `nix develop` the compiler's libstdc++ lives in the Nix store,
+/// which the system loader does not search, so test binaries failed to
+/// start with "libstdc++.so.6: cannot open shared object file".
+fn link_stdcxx() {
+    println!("cargo:rustc-link-lib=dylib=stdc++");
+    let compiler = cc::Build::new().get_compiler();
+    let Ok(output) = Command::new(compiler.path())
+        .arg("-print-file-name=libstdc++.so")
+        .output()
+    else {
+        return;
+    };
+    let path = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
+    // Without a match the compiler echoes the bare file name back.
+    if !output.status.success() || !path.is_absolute() {
+        return;
+    }
+    // The unversioned name may be a symlink into another directory; search
+    // both its own directory and that of the file it resolves to.
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    for candidate in [Some(path.clone()), path.canonicalize().ok()]
+        .into_iter()
+        .flatten()
+    {
+        if let Some(dir) = candidate.parent() {
+            if !dirs.iter().any(|d| d == dir) {
+                dirs.push(dir.to_path_buf());
+            }
+        }
+    }
+    for dir in dirs {
+        println!("cargo:rustc-link-search=native={}", dir.display());
+        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", dir.display());
+    }
+}
+
 /// Static library `lake build UALBF:static` writes. Lake prefixes the package
 /// name, so the archive is `libualbf_UALBF.a`, not `libUALBF.a`.
 const PREBUILT_LEAN_LIB_NAME: &str = "ualbf_UALBF";
@@ -793,7 +830,7 @@ fn main() {
         if target.contains("apple") {
             println!("cargo:rustc-link-lib=dylib=c++");
         } else {
-            println!("cargo:rustc-link-lib=dylib=stdc++");
+            link_stdcxx();
         }
 
         println!("cargo:rerun-if-changed=src/unverified/dummy_ffi.c");
@@ -1098,7 +1135,7 @@ fn main() {
     if target.contains("apple") {
         println!("cargo:rustc-link-lib=dylib=c++");
     } else {
-        println!("cargo:rustc-link-lib=dylib=stdc++");
+        link_stdcxx();
     }
 
     // --- Git Commit Hash ---
