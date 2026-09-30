@@ -26,7 +26,6 @@ pub mod verus_proofs;
 
 mod distributed;
 mod math_utils;
-pub mod metal_reflection;
 mod policy;
 mod raycast;
 mod schema_generated;
