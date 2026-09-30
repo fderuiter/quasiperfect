@@ -40,7 +40,7 @@ check-python: verification-lib
 	mypy .
 	python3 scripts/validate_docs.py --check-specs
 	python3 scripts/validate_tuning_guide.py
-	LEAN_SYSROOT=DUMMY python3 -m pytest tests paper
+	python3 -m pytest tests paper
 
 check-paper: verification-lib
 	python3 scripts/verify_paper_sync.py

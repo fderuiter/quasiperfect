@@ -81,8 +81,6 @@ extern "C" {
     pub fn rs_lean_box_uint32(v: u32) -> *mut lean_object;
     pub fn rs_lean_box_bool(v: bool) -> *mut lean_object;
     pub fn rs_lean_box_unit() -> *mut lean_object;
-    #[cfg(unverified_build)]
-    pub fn make_some(val: *mut lean_object) -> *mut lean_object;
     pub fn ualbf_mod_inverse_raw(
         a_limbs: *const u64,
         a_neg: u8,
@@ -353,7 +351,6 @@ pub fn run_runtime_parity_check() {
         std::process::exit(1);
     }
     // 0. Verify manifest hash parity
-    #[cfg(not(unverified_build))]
     {
         let expected_hash = crate::manifest_constants::MANIFEST_HASH;
         let actual_hash = get_logic_hash();
@@ -396,7 +393,6 @@ pub fn run_runtime_parity_check() {
     }
 
     // 2. Validate fixed-point scaling factor
-    #[cfg(not(unverified_build))]
     {
         let expected_k0 = 1u128 << 64;
         let expected_k1 = ((1u128 << 64) as f64 * 3.0 / 2.0).ceil() as u128;
@@ -828,7 +824,6 @@ pub fn run_cyclotomic_differential_fuzzing() {
         }
     }
 
-    #[cfg(not(unverified_build))]
     {
         for p_val in 2..=50 {
             let p = Uint::from_u64(p_val as u64);
@@ -1044,7 +1039,6 @@ mod tests {
     /// k=0 means no primes accumulated; the bound is just ceil(2^64), which as
     /// a u128 value equals 2^64.
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k0() {
         setup();
         let bound = get_static_suffix_bound(0);
@@ -1055,8 +1049,6 @@ mod tests {
     /// k=1: only the first odd prime (3) is collected.
     /// bound = ceil(2^64 * 3/2) = ceil(27670116110564327424.0) = 27670116110564327424
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k1() {
         setup();
         let bound = get_static_suffix_bound(1);
@@ -1069,7 +1061,6 @@ mod tests {
     /// k=2: primes [3, 5].
     /// bound = ceil(2^64 * 3/2 * 5/4)
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k2() {
         setup();
         let bound = get_static_suffix_bound(2);
@@ -1080,7 +1071,6 @@ mod tests {
 
     /// k=3: primes [3, 5, 7].
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k3() {
         setup();
         let bound = get_static_suffix_bound(3);
@@ -1092,7 +1082,6 @@ mod tests {
     /// The function skips 2 (starts at 3) so collected primes are odd primes.
     /// For k=4, primes should be [3, 5, 7, 11].
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_k4_uses_odd_primes_starting_at_3() {
         setup();
         let bound = get_static_suffix_bound(4);
@@ -1122,7 +1111,6 @@ mod tests {
     /// Each factor p/(p-1) is strictly > 1 for any prime p >= 2, so bounds are
     /// strictly increasing.
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_static_suffix_bound_strictly_increasing_for_k_gt_0() {
         setup();
         for k in 1..=6u32 {
@@ -1190,7 +1178,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     #[should_panic(expected = "compute_sigma overflow")]
     fn test_compute_sigma_overflow_sentinel() {
         setup();
@@ -1311,41 +1298,6 @@ mod tests {
         assert_eq!(rust_u512_get_w5(valid_obj), 60);
         assert_eq!(rust_u512_get_w6(valid_obj), 70);
         assert_eq!(rust_u512_get_w7(valid_obj), 80);
-    }
-
-    #[test]
-    #[cfg(unverified_build)]
-    fn test_dummy_ffi_reference_counting_and_deallocation() {
-        setup();
-        // 1. Test basic alloc and dec
-        let u = Uint::from_u64(12345);
-        let wrapper = u.to_lean();
-        assert!(!wrapper.as_ptr().is_null());
-
-        // 2. Test make_some and constructor dec
-        let raw_u512 = alloc_u512(ZERO_U512);
-        unsafe {
-            rs_lean_inc(raw_u512);
-            let opt = make_some(raw_u512);
-            assert!(!is_none(opt));
-            let inner = get_some(opt);
-            assert_eq!(inner, raw_u512);
-            rs_lean_dec(opt); // Drops opt and decrements raw_u512
-            rs_lean_dec(raw_u512); // Drops raw_u512 finalizer
-        }
-
-        // 3. Test 100,000 iterations of compute_sigma_checked and compute_mod_inverse
-        for i in 1..=100_000 {
-            let res = compute_sigma_checked((i % 100) + 2, 3);
-            assert!(res.is_some());
-
-            let a = Uint::from_u64(i as u64);
-            let m = Uint::from_u64(1000000007);
-            let inv = compute_mod_inverse(&a, false, &m);
-            if i % 1000000007 != 0 {
-                assert!(inv.is_some());
-            }
-        }
     }
 }
 

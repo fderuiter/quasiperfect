@@ -414,7 +414,6 @@ mod tests {
     use proptest::prelude::*;
 
     #[test]
-    #[cfg_attr(unverified_build, ignore)]
     fn test_phase1_sieve_logic() {
         crate::lean_ffi::initialize_lean_runtime();
         let limit = 50;

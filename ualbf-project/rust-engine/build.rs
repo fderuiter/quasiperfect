@@ -813,51 +813,11 @@ fn main() {
         }
     }
 
-    if lean_sysroot.is_empty() {
-        if is_mock {
-            lean_sysroot = "DUMMY".to_string();
-        } else {
-            panic!(
-                "FATAL: Lean toolchain or sysroot not found! LEAN_SYSROOT is unset and 'lean' is absent from PATH. Automatic fallback to unverified dummy FFI stubs is disabled."
-            );
-        }
-    }
-
-    if lean_sysroot != "DUMMY" && !is_mock {
-        let sysroot_path = PathBuf::from(&lean_sysroot);
-        let include_path = sysroot_path.join("include");
-        if !sysroot_path.exists() || !include_path.exists() {
-            panic!(
-                "FATAL: LEAN_SYSROOT='{}' is invalid or does not contain an 'include' directory.",
-                lean_sysroot
-            );
-        }
-    }
-
-    if lean_sysroot == "DUMMY" {
-        println!(
-            "cargo:warning=Explicit mock Lean configuration active (MOCK_LEAN=1 / LEAN_SYSROOT=DUMMY). Building with dummy FFI stubs (unverified_build)."
+    if lean_sysroot.is_empty() || lean_sysroot == "DUMMY" {
+        panic!(
+            "FATAL: Lean sysroot not found or set to DUMMY (LEAN_SYSROOT='{}'). Verified Lean toolchain is required.",
+            lean_sysroot
         );
-        println!("cargo:rustc-cfg=unverified_build");
-
-        let mut builder = cc::Build::new();
-        builder.warnings(false).opt_level(2);
-        builder.file("src/unverified/dummy_ffi.c");
-        // Named so that no verified build can pick it up: a stale archive in
-        // OUT_DIR from an earlier dummy build must never satisfy a Lean link.
-        builder.compile("ualbf_dummy_ffi");
-
-        let target = env::var("TARGET").unwrap_or_default();
-        if target.contains("apple") {
-            println!("cargo:rustc-link-lib=dylib=c++");
-        } else {
-            link_stdcxx();
-        }
-
-        println!("cargo:rerun-if-changed=src/unverified/dummy_ffi.c");
-        println!("cargo:rerun-if-changed=src/c_shims.c");
-        println!("cargo:rerun-if-changed=../bounds_manifest.json");
-        return;
     }
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");
