@@ -56,15 +56,13 @@
     "prime_factor_list": "TUNING.md",
     "static_suffix_bounds": "TUNING.md",
     "search_bounds.prime_split_threshold.value": "TUNING.md",
+    "search_bounds.trial_division_limit.value": "TUNING.md",
     "conjectural_bounds.active": "TUNING.md",
     "conjectural_bounds.target_max_log10_ceiling": "TUNING.md",
     "touchard_mod_24.modulus": "TUNING.md",
     "touchard_mod_24.residues": "TUNING.md",
     "crt_obstruction.moduli": "TUNING.md",
     "crt_obstruction.modulus_product": "TUNING.md",
-    "dusart_bounds.num": "TUNING.md",
-    "dusart_bounds.den": "TUNING.md",
-    "dusart_bounds.validity_threshold": "TUNING.md",
     "lattice_precision_tolerance": "TUNING.md",
     "lattice_target_penalty_base": "TUNING.md"
   }

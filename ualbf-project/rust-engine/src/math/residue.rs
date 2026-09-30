@@ -32,11 +32,7 @@ impl IsValidMod8 for u128 {
     fn is_valid_mod_8(&self) -> bool {
         let r = (self & 7) as u8;
         if r == 1 || r == 3 {
-            if *self <= u64::MAX as u128 {
-                check_mod_8(*self as u64)
-            } else {
-                true
-            }
+            check_mod_8(*self as u64)
         } else {
             false
         }
@@ -48,11 +44,8 @@ impl IsValidMod8 for Uint {
     fn is_valid_mod_8(&self) -> bool {
         let r = self.to_le_bytes()[0] & 7;
         if r == 1 || r == 3 {
-            if *self <= Uint::from_u64(u64::MAX) {
-                check_mod_8(self.as_u64())
-            } else {
-                true
-            }
+            let low_word = u64::from_le_bytes(self.to_le_bytes()[..8].try_into().unwrap());
+            check_mod_8(low_word)
         } else {
             false
         }

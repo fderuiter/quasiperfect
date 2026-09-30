@@ -138,8 +138,11 @@
             echo "Cleaning up compiled files to prevent store path leaks..."
             # Delete all compiled files except those in mathlib (which are from cache and safe)
             find .lake -type f \( -name '*.olean' -o -name '*.ilean' -o -name '*.c' -o -name '*.o' \) | grep -v "\.lake/packages/mathlib" | xargs rm -f || true
-            find .lake -type f -name '*.trace*' -delete || true
-            find .lake -type f -name '*.hash' -delete || true
+            # Keep ProofWidgets' widget build traces: without them lake re-runs
+            # `npm install` downstream (no npm in the sandbox) and ProofWidgets'
+            # errorOnBuild guard rejects rebuilding the vendored JS bundle.
+            find .lake -type f -name '*.trace*' -not -path '*/proofwidgets/widget/*' -delete || true
+            find .lake -type f -name '*.hash' -not -path '*/proofwidgets/widget/*' -delete || true
             find .lake -type f -name '*.setup.json' -delete || true
             find .lake -name 'lake-manifest.json.tmp' -delete || true
 
@@ -159,7 +162,7 @@
           dontFixup = true;
           outputHashAlgo = "sha256";
           outputHashMode = "recursive";
-          outputHash = "sha256-F6HVHlsx7+pWPA6nXbdFVRQoqLEYYkcQK4Fyw1fDtno=";
+          outputHash = "sha256-fPol3uoBBgJ0Z+DA7oQwxQOjvbQ2yjSYBayp08xYDXQ=";
         };
 
         leanPkg = pkgs.stdenv.mkDerivation {
@@ -201,13 +204,14 @@
           pname = "verification-lib";
           version = "0.1.0";
           src = pkgs.lib.cleanSourceWith {
-            src = ./ualbf-project;
+            src = ./.;
             filter = path: type:
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest\\.json|env_manifest\\.schema\\.json)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|verification-lib.*|rust-engine.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*|docs_manifest.*)$" p != null || type == "directory";
           };
+          sourceRoot = "source/ualbf-project";
           buildAndTestSubdir = "verification-lib";
 
           cargoBuildFlags = [ "-p" "verification-lib" ];
@@ -261,15 +265,15 @@
           pname = "ualbf-engine";
           version = "0.1.0";
           src = pkgs.lib.cleanSourceWith {
-            src = ./ualbf-project;
+            src = ./.;
             filter = path: type:
               let 
                 p = toString path;
               in
-                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|env_manifest\\.json|env_manifest\\.schema\\.json|lean4-proofs.*)$" p != null || type == "directory";
+                builtins.match ".*(Cargo\\.toml|Cargo\\.lock|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*|docs_manifest.*|lean4-proofs.*)$" p != null || type == "directory";
           };
 
-          sourceRoot = "source/rust-engine";
+          sourceRoot = "source/ualbf-project/rust-engine";
 
           cargoLock = {
             lockFile = ./ualbf-project/Cargo.lock;
@@ -329,7 +333,16 @@
           rust-literals = pkgs.stdenv.mkDerivation {
             pname = "rust-literals-check";
             version = "0.1.0";
-            src = ./ualbf-project;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let 
+                  p = toString path;
+                in
+                  builtins.match ".*(ualbf-project.*|env_manifest\\.json|env_manifest\\.schema\\.json|docs_manifest\\.json)$" p != null || type == "directory";
+            };
+
+            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ pkgs.python3 ];
 
@@ -347,11 +360,20 @@
           latex-paper = pkgs.stdenv.mkDerivation {
             pname = "latex-paper-check";
             version = "0.1.0";
-            src = ./.;
+            src = pkgs.lib.cleanSourceWith {
+              src = ./.;
+              filter = path: type:
+                let 
+                  p = toString path;
+                in
+                  builtins.match ".*(paper.*|rust-engine.*|verification-lib.*|scripts.*|bounds_manifest\\.json|proof_manifest\\.json|schema_manifest\\.json|env_manifest.*|docs_manifest.*|.*\\.py|.*\\.json)$" p != null || type == "directory";
+            };
+            sourceRoot = "source/ualbf-project";
 
             nativeBuildInputs = [ 
               pkgs.python3 
               pkgs.python3Packages.pygments 
+              pkgs.python3Packages.cryptography
               (if pkgs ? texliveFull then pkgs.texliveFull else pkgs.texlive.combined.scheme-full)
               pkgs.gnumake 
               pkgs.which
@@ -359,7 +381,6 @@
 
             buildPhase = ''
               export HOME=$TMPDIR
-              cd ualbf-project
               echo "Setting up verification-lib..."
               cp ${verificationLib}/lib/libverification_lib.so ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.dylib ./verification_lib.so || cp ${verificationLib}/lib/libverification_lib.* ./verification_lib.so
               
@@ -368,45 +389,29 @@
               sed -i 's/parser = self._parser_class(\*\*kwargs)/kwargs.pop("color", None); parser = self._parser_class(\*\*kwargs)/g' paper/argparse.py
               export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
 
-              echo "Generating dummy certificate..."
+              echo "Generating test certificate..."
               python3 -c '
-import json, hashlib
-with open("proof_manifest.json", "rb") as f:
-    manifest_hash = hashlib.sha256(f.read()).hexdigest()
-with open("bounds_manifest.json", "r") as f:
-    bounds = json.load(f)
-cert = {
-    "manifest_hash": manifest_hash,
-    "verified_logic_hash": "dummy",
-    "telemetry": {
-        "phase1_execution_time_ms": 0,
-        "phase2_execution_time_ms": 1000,
-        "total_branches_searched": 10,
-        "abundance_pruned": 0,
-        "raycast_pruned": 0,
-        "target_min_log10": bounds["search_bounds"]["target_min_log10"]["value"],
-        "target_max_log10": bounds["search_bounds"]["target_max_log10"]["value"],
-        "phase1_pruned": 0
-    },
-    "engine_version": "dummy",
-    "commit_hash": "dummy"
-}
-with open("dummy_cert.json", "w") as f:
+import json, cert_util
+cert, pub_hex = cert_util.create_signed_test_cert("proof_manifest.json", "bounds_manifest.json")
+with open("test_cert.json", "w") as f:
     json.dump(cert, f)
+with open("pubkey.txt", "w") as f:
+    f.write(pub_hex)
 '
-              export UALBF_CERT_PATH=$PWD/dummy_cert.json
-              export UALBF_DUMMY_PAPER_CI=1
+              export UALBF_CERT_PATH=$PWD/test_cert.json
+              export UALBF_TRUSTED_PUBLIC_KEY=$(cat pubkey.txt)
               export PYTHONPATH=$PWD:$PWD/paper:$PYTHONPATH
               
               echo "Compiling LaTeX paper..."
               cd paper
               make all
-              cd ../..
+              cd ..
+              cd ..
             '';
 
             installPhase = ''
               mkdir -p $out
-              cp ualbf-project/paper/main.pdf $out/ || cp paper/main.pdf $out/
+              cp ualbf-project/paper/main.pdf $out/
               touch $out/success
             '';
           };

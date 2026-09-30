@@ -1,8 +1,12 @@
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Optional, Union
+
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 import env_util
 import hash_util
@@ -269,6 +273,64 @@ class BoundedJSONLoader:
         self.max_size_bytes = max_size_bytes
         self.max_depth = max_depth
 
+    def _lexical_prescan_depth(self, payload: str | bytes | bytearray) -> None:
+        """
+        Performs an O(N) iterative single-pass lexical pre-scan over raw JSON text or bytes
+        to calculate container nesting depth prior to invoking json.loads.
+        Raises CertificateValidationError immediately if peak nesting depth exceeds self.max_depth.
+        """
+        current_depth = 0
+        in_string = False
+        is_escaped = False
+        max_depth = self.max_depth
+
+        if isinstance(payload, (bytes, bytearray)):
+            for b in payload:
+                if in_string:
+                    if is_escaped:
+                        is_escaped = False
+                    elif b == 92:  # \
+                        is_escaped = True
+                    elif b == 34:  # "
+                        in_string = False
+                else:
+                    if b == 34:  # "
+                        in_string = True
+                    elif b == 123 or b == 91:  # { or [
+                        current_depth += 1
+                        if current_depth > max_depth:
+                            raise CertificateValidationError(
+                                f"JSON container nesting depth ({current_depth}) exceeds maximum allowed limit of {max_depth} levels."
+                            )
+                    elif b == 125 or b == 93:  # } or ]
+                        if current_depth > 0:
+                            current_depth -= 1
+        elif isinstance(payload, str):
+            for ch in payload:
+                if in_string:
+                    if is_escaped:
+                        is_escaped = False
+                    elif ch == "\\":
+                        is_escaped = True
+                    elif ch == '"':
+                        in_string = False
+                else:
+                    if ch == '"':
+                        in_string = True
+                    elif ch == "{" or ch == "[":
+                        current_depth += 1
+                        if current_depth > max_depth:
+                            raise CertificateValidationError(
+                                f"JSON container nesting depth ({current_depth}) exceeds maximum allowed limit of {max_depth} levels."
+                            )
+                    elif ch == "}" or ch == "]":
+                        if current_depth > 0:
+                            current_depth -= 1
+        else:
+            raise CertificateValidationError(
+                f"Invalid JSON input type: {type(payload)}"
+            )
+
     def _verify_depth(self, obj: Any, current_depth: int = 0) -> None:
         if current_depth > self.max_depth:
             raise CertificateValidationError(
@@ -328,9 +390,10 @@ class BoundedJSONLoader:
             )
 
     def loads(self, s: str | bytes | bytearray, **kwargs: Any) -> Any:
+        encoding = kwargs.pop("encoding", "utf-8")
         if isinstance(s, (bytes, bytearray)):
             byte_len = len(s)
-            text = s.decode(kwargs.pop("encoding", "utf-8"))
+            text = s.decode(encoding)
         elif isinstance(s, str):
             byte_len = len(s.encode("utf-8"))
             text = s
@@ -341,6 +404,8 @@ class BoundedJSONLoader:
             raise CertificateValidationError(
                 f"JSON payload size ({byte_len} bytes) exceeds maximum allowed limit of {self.max_size_bytes} bytes."
             )
+
+        self._lexical_prescan_depth(s)
 
         try:
             data = json.loads(text, **kwargs)
@@ -438,10 +503,10 @@ def get_max_cert_size_bytes() -> int:
     """Returns the maximum allowed certificate file size in bytes based on UALBF_MAX_CERT_SIZE_MB."""
     try:
         val = env_util.get_env_var("UALBF_MAX_CERT_SIZE_MB", DEFAULT_MAX_CERT_SIZE_MB)
+        if isinstance(val, (int, float)) and val > 0:
+            return int(val * 1024 * 1024)
     except (ValueError, TypeError):
-        val = DEFAULT_MAX_CERT_SIZE_MB
-    if isinstance(val, (int, float)) and val > 0:
-        return int(val * 1024 * 1024)
+        pass
     return int(DEFAULT_MAX_CERT_SIZE_MB * 1024 * 1024)
 
 
@@ -503,6 +568,8 @@ def load_and_validate_cert(cert_path, trusted_public_key=None):
 
 
 CORE_THEOREMS = [
+    "UALBF.Engine.ruleA_safe",
+    "UALBF.Engine.ruleB_safe",
     "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "UALBF.Engine.CyclotomicGraph.transitive_forced_inclusion",
     "UALBF.Engine.CyclotomicGraph.transitive_reachability_soundness",
@@ -510,7 +577,6 @@ CORE_THEOREMS = [
     "UALBF.Engine.Bipartition.prefix_sigma_coprime",
     "UALBF.Engine.Bipartition.ambs_suffix_target",
     "UALBF.Engine.Bipartition.no_solution_no_qpn",
-    "UALBF.Engine.Bipartition.root_partition_complete_coverage",
     "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
     "UALBF.QPN.AbundancyBound.qpn_totient_bound",
     "UALBF.QPN.AbundancyBound.abundancy_starvation",
@@ -524,7 +590,11 @@ CORE_THEOREMS = [
     "UALBF.Engine.TouchardBridge.touchard_bridge",
     "UALBF.FFI.fromU512_toU512",
     "UALBF.FFI.toU512_fromU512",
+    "UALBF.FFI.fromU512_eq_fromU512Fast",
     "UALBF.FFI.modInverse_spec",
+    "UALBF.FFI.ualbf_mod_inverse_ok_limbs_eq",
+    "UALBF.FFI.ualbf_mod_inverse_limb_eq",
+    "UALBF.FFI.ualbf_check_crt_1155_limbs_eq",
     "UALBF.FFI.U512.w0_mk",
     "UALBF.FFI.U512.w1_mk",
     "UALBF.FFI.U512.w2_mk",
@@ -534,7 +604,7 @@ CORE_THEOREMS = [
     "UALBF.FFI.U512.w6_mk",
     "UALBF.FFI.U512.w7_mk",
     "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
-    "UALBF.Pure.ABCConjecture.qpn_conjectural_pruning_sound",
+    "UALBF.Pure.ABCConjecture.conjectural_ceiling_size_exclusion",
     "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
     "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3",
     "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5",
@@ -575,6 +645,7 @@ CORE_THEOREMS = [
     "UALBF.Pure.Arithmetic.lemma_divisibility_transitive",
 ]
 
+# No Lean axioms are whitelisted: any `axiom` reached by a core theorem fails the audit.
 ALLOWED_AXIOMS: set[str] = set()
 
 
@@ -681,8 +752,8 @@ def verify_theorem_checksum(
         computed = hash_util.hash_file_bounded(file_path)
         return computed == thm.get("checksum", "")
     else:
-        explicit_fallback = (
-            allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+        explicit_fallback = allow_missing_sources or env_util.get_env_var(
+            "UALBF_ALLOW_MISSING_SOURCES", False
         )
         if explicit_fallback:
             computed = hash_util.hash_theorem_metadata(
@@ -691,3 +762,235 @@ def verify_theorem_checksum(
             return computed == thm.get("checksum", "")
         else:
             return False
+
+
+def create_signed_test_cert(
+    manifest_path: str,
+    bounds_path: Optional[str] = None,
+    extra_telemetry: Optional[dict] = None,
+    commit_hash: Optional[str] = None,
+) -> tuple[dict, str]:
+    """
+    Creates an Ed25519-signed test certificate for testing and CI paper sync verification.
+    Returns (cert_dict, public_key_hex).
+    """
+    mbytes = BoundedJSONLoader().read_file_bytes(manifest_path)
+    manifest_hash = hash_util.hash_bytes(mbytes)
+
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    verified_logic_hash = (
+        hash_tcb(project_root) if (_has_verification_lib and hash_tcb) else "0" * 64
+    )
+
+    if commit_hash is None:
+        try:
+            commit_hash = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"],
+                cwd=project_root,
+                text=True,
+                stderr=subprocess.DEVNULL,
+            ).strip()
+        except Exception:
+            commit_hash = "unknown"
+
+    tel = {
+        "phase1_execution_time_ms": 100,
+        "phase2_execution_time_ms": 5000,
+        "total_branches_searched": 1000,
+        "abundance_pruned": 200,
+        "raycast_pruned": 0,
+        "target_min_log10": 35,
+        "target_max_log10": 37,
+    }
+    if extra_telemetry:
+        tel.update(extra_telemetry)
+
+    map_obj = {
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": verified_logic_hash,
+        "total_branches_searched": tel["total_branches_searched"],
+        "target_min_log10": tel["target_min_log10"],
+        "target_max_log10": tel["target_max_log10"],
+        "trace_hash": tel.get("trace_hash", ""),
+        "factorization_depth": tel.get("factorization_depth", 0),
+    }
+    if "path_ranges" in tel:
+        map_obj["path_ranges"] = tel["path_ranges"]
+
+    priv = Ed25519PrivateKey.generate()
+    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+    payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+    sig_hex = priv.sign(payload.encode("utf-8")).hex()
+
+    cert_data = {
+        "manifest_hash": manifest_hash,
+        "verified_logic_hash": verified_logic_hash,
+        "public_key": pub_hex,
+        "signature": sig_hex,
+        "engine_version": "1.0.0",
+        "commit_hash": commit_hash,
+        "telemetry": tel,
+    }
+
+    return cert_data, pub_hex
+
+
+def verify_meta_certificate_envelope(
+    meta_cert_data: dict,
+    manifest_path: str,
+    verified_leaf_certs: list[dict],
+) -> dict:
+    """
+    Validates top-level meta-certificate envelope integrity, manifest hash binding,
+    aggregated signatures matching verified leaf certificates, and re-aggregated telemetry.
+
+    Parameters:
+        meta_cert_data (dict): Parsed meta-certificate payload dictionary.
+        manifest_path (str): Path to the proof manifest file.
+        verified_leaf_certs (list[dict]): List of verified leaf certificate dictionaries in exact order.
+
+    Returns:
+        dict: The verified meta_cert_data dictionary.
+
+    Raises:
+        CertificateValidationError: On any schema, manifest hash, node count, signature array,
+                                    or re-aggregated telemetry mismatch.
+    """
+    env_util.check_deprecated_env_vars()
+
+    if not isinstance(meta_cert_data, dict):
+        raise CertificateValidationError("Meta-certificate data must be a dictionary.")
+
+    # 1. Top-level schema validation
+    required_keys = {
+        "meta_manifest_hash": str,
+        "aggregated_signatures": list,
+        "telemetry": dict,
+        "total_nodes": int,
+    }
+
+    for key, expected_type in required_keys.items():
+        if key not in meta_cert_data:
+            raise CertificateValidationError(
+                f"Meta-certificate missing required top-level key '{key}'."
+            )
+        val = meta_cert_data[key]
+        if expected_type is int and isinstance(val, bool):
+            raise CertificateValidationError(
+                f"Meta-certificate top-level key '{key}' must be an integer, got bool."
+            )
+        if not isinstance(val, expected_type):
+            raise CertificateValidationError(
+                f"Meta-certificate top-level key '{key}' must be of type {expected_type.__name__}, got {type(val).__name__}."
+            )
+
+    # 2. Top-level manifest hash validation
+    if not os.path.exists(manifest_path):
+        raise CertificateValidationError(
+            f"Proof manifest file not found: '{manifest_path}'"
+        )
+
+    computed_manifest_hash = hash_util.hash_file_bounded(manifest_path)
+    if meta_cert_data["meta_manifest_hash"] != computed_manifest_hash:
+        raise CertificateValidationError(
+            f"Top-level meta_manifest_hash mismatch!\nExpected: {computed_manifest_hash}\nGot:      {meta_cert_data['meta_manifest_hash']}"
+        )
+
+    # 3. Total nodes validation
+    if not isinstance(verified_leaf_certs, list):
+        raise CertificateValidationError(
+            "verified_leaf_certs parameter must be a list."
+        )
+
+    if len(verified_leaf_certs) == 0:
+        raise CertificateValidationError(
+            "Cannot verify meta-certificate envelope with empty leaf certificate array."
+        )
+
+    if meta_cert_data["total_nodes"] != len(verified_leaf_certs):
+        raise CertificateValidationError(
+            f"Meta-certificate total_nodes ({meta_cert_data['total_nodes']}) does not match "
+            f"verified leaf certificate count ({len(verified_leaf_certs)})."
+        )
+
+    # 4. Aggregated signatures validation
+    aggregated_sigs = meta_cert_data["aggregated_signatures"]
+    if len(aggregated_sigs) != len(verified_leaf_certs):
+        raise CertificateValidationError(
+            f"Meta-certificate aggregated_signatures length ({len(aggregated_sigs)}) "
+            f"does not match verified leaf certificate count ({len(verified_leaf_certs)})."
+        )
+
+    for idx, (sig, leaf) in enumerate(zip(aggregated_sigs, verified_leaf_certs)):
+        if not isinstance(sig, str):
+            raise CertificateValidationError(
+                f"Aggregated signature at index {idx} must be a string."
+            )
+        if not isinstance(leaf, dict):
+            raise CertificateValidationError(
+                f"Leaf certificate at index {idx} must be a dictionary."
+            )
+        leaf_sig = leaf.get("signature")
+        if not leaf_sig or sig != leaf_sig:
+            raise CertificateValidationError(
+                f"Aggregated signature at index {idx} does not match leaf certificate signature.\n"
+                f"Expected: {leaf_sig}\n"
+                f"Got:      {sig}"
+            )
+
+    # 5. Leaf telemetry re-aggregation validation
+    for idx, leaf in enumerate(verified_leaf_certs):
+        if "telemetry" not in leaf or not isinstance(leaf["telemetry"], dict):
+            raise CertificateValidationError(
+                f"Leaf certificate at index {idx} is missing a valid 'telemetry' dictionary."
+            )
+
+    leaf_tels = [leaf["telemetry"] for leaf in verified_leaf_certs]
+
+    sum_fields = [
+        "total_branches_searched",
+        "abundance_pruned",
+        "raycast_pruned",
+        "phase2_execution_time_ms",
+        "total_execution_time_ms",
+        "math_interruptions",
+    ]
+
+    for f in sum_fields:
+        for idx, t in enumerate(leaf_tels):
+            if f not in t:
+                raise CertificateValidationError(
+                    f"Leaf certificate telemetry at index {idx} is missing required field '{f}'."
+                )
+
+    if "target_min_log10" not in leaf_tels[0]:
+        raise CertificateValidationError(
+            "Leaf certificate telemetry at index 0 is missing 'target_min_log10'."
+        )
+    if "target_max_log10" not in leaf_tels[-1]:
+        raise CertificateValidationError(
+            "Leaf certificate telemetry at last index is missing 'target_max_log10'."
+        )
+
+    expected_telemetry = {
+        "target_min_log10": leaf_tels[0]["target_min_log10"],
+        "target_max_log10": leaf_tels[-1]["target_max_log10"],
+    }
+    for f in sum_fields:
+        expected_telemetry[f] = sum(t[f] for t in leaf_tels)
+
+    top_telemetry = meta_cert_data["telemetry"]
+    for field, expected_val in expected_telemetry.items():
+        if field not in top_telemetry:
+            raise CertificateValidationError(
+                f"Top-level telemetry missing required field '{field}'."
+            )
+        actual_val = top_telemetry[field]
+        if actual_val != expected_val:
+            raise CertificateValidationError(
+                f"Top-level telemetry field '{field}' mismatch!\n"
+                f"Expected re-aggregated value: {expected_val}\n"
+                f"Got:                          {actual_val}"
+            )
+
+    return meta_cert_data

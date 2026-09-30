@@ -433,3 +433,24 @@ fn test_rho_factor_u256_large_candidate() {
         _ => panic!("Expected partial factorization for 2^300 + 1 exceeding 256-bit limit"),
     }
 }
+
+#[test]
+fn test_raw_limb_ffi_parity() {
+    let a = Uint::from_u64(17);
+    let m = Uint::from_u64(101);
+    let inv = crate::lean_ffi::compute_mod_inverse(&a, false, &m);
+    assert!(inv.is_some());
+    let inv_val = inv.unwrap();
+    assert_eq!((a * inv_val) % m, Uint::one());
+
+    let a_neg = Uint::from_u64(17);
+    let inv_neg = crate::lean_ffi::compute_mod_inverse(&a_neg, true, &m);
+    assert!(inv_neg.is_some());
+    let inv_neg_val = inv_neg.unwrap();
+    let a_effective = m - a_neg;
+    assert_eq!((a_effective * inv_neg_val) % m, Uint::one());
+
+    let z = Uint::from_u64(12);
+    let xl = Uint::from_u64(144);
+    assert!(crate::lean_ffi::check_crt_1155(&z, &xl));
+}

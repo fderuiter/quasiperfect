@@ -434,7 +434,7 @@ STANDARD_ENV_VARS = {
 class EnvVarASTVisitor(ast.NodeVisitor):
     def __init__(self, filename: str):
         self.filename = filename
-        self.env_vars = []  # (lineno, var_name)
+        self.env_vars: list[tuple[int, str]] = []  # (lineno, var_name)
 
     def visit_Subscript(self, node: ast.Subscript):
         if isinstance(node.value, ast.Attribute) and isinstance(
@@ -528,6 +528,9 @@ def validate_env_manifest(repo_root: str) -> bool:
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
         schema_path = os.path.join(real_root, "env_manifest.schema.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
+            schema_path = os.path.join(real_root, "ualbf-project", "env_manifest.schema.json")
 
     if not os.path.exists(manifest_path) or not os.path.exists(schema_path):
         return True
@@ -555,6 +558,8 @@ def validate_env_vars(repo_root: str) -> bool:
     if not os.path.exists(manifest_path):
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
 
     if not os.path.exists(manifest_path):
         return True
@@ -654,6 +659,8 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
     if not os.path.exists(manifest_path):
         real_root = env_util.find_repo_root()
         manifest_path = os.path.join(real_root, "env_manifest.json")
+        if not os.path.exists(manifest_path):
+            manifest_path = os.path.join(real_root, "ualbf-project", "env_manifest.json")
 
     if not os.path.exists(manifest_path):
         return True
@@ -694,6 +701,51 @@ def validate_env_docs_alignment(repo_root: str) -> bool:
     return True
 
 
+def validate_auditor_doc_checks(repo_root: str) -> bool:
+    """
+    Perform auditor documentation checks against proof_manifest.json, verifying backticked
+    code symbols, unquoted static symbols, and Lean theorem proof statuses in authoritative documentation.
+    """
+    proof_manifest_path = os.path.join(repo_root, "proof_manifest.json")
+    if not os.path.exists(proof_manifest_path):
+        proof_manifest_path = os.path.join(
+            repo_root, "ualbf-project", "proof_manifest.json"
+        )
+
+    if not os.path.exists(proof_manifest_path):
+        print(
+            f"Warning: proof_manifest.json not found at {proof_manifest_path}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    try:
+        with open(proof_manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+    except Exception as e:
+        print(
+            f"Warning: Failed to load proof_manifest.json: {e}; skipping symbol and theorem verification.",
+            file=sys.stderr,
+        )
+        return True
+
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    ualbf_project_dir = os.path.dirname(scripts_dir)
+    if ualbf_project_dir not in sys.path:
+        sys.path.insert(0, ualbf_project_dir)
+
+    try:
+        import auditor
+
+        return auditor.check_documentation(manifest, repo_root=repo_root)
+    except Exception as e:
+        print(
+            f"Error executing auditor documentation verification: {e}",
+            file=sys.stderr,
+        )
+        return False
+
+
 def main():
     args = sys.argv[1:]
     check_specs = False
@@ -711,6 +763,9 @@ def main():
 
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     manifest_path = os.path.join(repo_root, "docs_manifest.json")
+    if not os.path.exists(manifest_path):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        manifest_path = os.path.join(repo_root, "docs_manifest.json")
 
     if not os.path.exists(manifest_path):
         print(
@@ -725,11 +780,7 @@ def main():
             print(f"Error: Invalid JSON in docs_manifest.json - {e}", file=sys.stderr)
             sys.exit(1)
 
-    # Change to repo root to find all .md files with relative paths
-    os.chdir(repo_root)
-    all_md_files = glob.glob("**/*.md", recursive=True)
-
-    # Filter out common build, hidden, and virtual environment directories
+    # Find all .md files in the repository, whitelisting .jules/skills/ and .agents/skills/ hidden directories
     exclude_exact = {
         "target",
         "node_modules",
@@ -746,17 +797,32 @@ def main():
         "lake-manifest",
         "site-packages",
     }
+    allowed_dot_prefixes = (".jules/skills/", ".agents/skills/")
+
     filtered_md_files = []
-    for md_file in all_md_files:
-        parts = md_file.split(os.sep)
-        if not any(
-            part.startswith(".")
-            or part.startswith("result")
-            or part.startswith("lake-")
-            or part in exclude_exact
-            for part in parts
-        ):
-            filtered_md_files.append(md_file)
+    for root_dir, dirs, files in os.walk(repo_root):
+        rel_root = os.path.relpath(root_dir, repo_root)
+        norm_rel_root = "" if rel_root == "." else rel_root.replace("\\", "/")
+
+        pruned_dirs = []
+        for d in dirs:
+            if d in exclude_exact or d.startswith("result") or d.startswith("lake-"):
+                continue
+            if d.startswith("."):
+                candidate_rel = f"{norm_rel_root}/{d}" if norm_rel_root else d
+                if (
+                    candidate_rel in (".jules", ".agents", ".jules/skills", ".agents/skills")
+                    or candidate_rel.startswith(allowed_dot_prefixes)
+                ):
+                    pruned_dirs.append(d)
+            else:
+                pruned_dirs.append(d)
+        dirs[:] = pruned_dirs
+
+        for f in files:
+            if f.endswith(".md"):
+                rel_path = os.path.relpath(os.path.join(root_dir, f), repo_root).replace("\\", "/")
+                filtered_md_files.append(rel_path)
 
     # Check that all registered manifest entries exist on disk
     missing_registered = []
@@ -776,7 +842,7 @@ def main():
     # Check if all .md files are registered in manifest
     unregistered = []
     for md_file in filtered_md_files:
-        if md_file not in manifest:
+        if md_file not in manifest and f"ualbf-project/{md_file}" not in manifest:
             unregistered.append(md_file)
 
     if unregistered:
@@ -793,7 +859,12 @@ def main():
         sys.exit(1)
 
     # Check if all .tex files in paper/ are registered in manifest
-    all_tex_files = glob.glob("**/*.tex", recursive=True)
+    # Paths are taken relative to the repository root, like the manifest keys,
+    # so the result does not depend on the directory the script runs from.
+    all_tex_files = [
+        os.path.relpath(p, repo_root)
+        for p in glob.glob(os.path.join(repo_root, "**", "*.tex"), recursive=True)
+    ]
     filtered_tex_files = []
     generated_tex_names = {"telemetry.tex", "verification_manifest.tex"}
     for tex_file in all_tex_files:
@@ -808,7 +879,7 @@ def main():
         ):
             if os.path.basename(tex_file) in generated_tex_names:
                 continue
-            filtered_tex_files.append(tex_file)
+            filtered_tex_files.append(tex_file.replace("\\", "/"))
 
     unregistered_tex = []
     for tex_file in filtered_tex_files:
@@ -834,6 +905,11 @@ def main():
         print("Documentation link/anchor validation failed.", file=sys.stderr)
         sys.exit(1)
 
+    # Perform auditor documentation verification against proof_manifest.json
+    if not validate_auditor_doc_checks(repo_root):
+        print("Auditor documentation verification failed.", file=sys.stderr)
+        sys.exit(1)
+
     # Run paper source validation
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     if scripts_dir not in sys.path:
@@ -850,6 +926,8 @@ def main():
     from validate_tuning_guide import validate_tuning_guide
 
     ualbf_project_dir = os.path.join(repo_root, "ualbf-project")
+    if not os.path.exists(ualbf_project_dir):
+        ualbf_project_dir = repo_root
     if not validate_tuning_guide(ualbf_project_dir):
         sys.exit(1)
 

@@ -1,6 +1,8 @@
 import Mathlib.Data.UInt
+import Mathlib.Tactic.Ring
 -- AUTO-GENERATED from schema_manifest.json. DO NOT EDIT.
 set_option linter.all false
+set_option exponentiation.threshold 512
 
 namespace UALBF.FFI
 
@@ -166,7 +168,6 @@ macro_rules
 def fromU512Fast (u : U512) : Nat :=
   (((u.w0.toNat + (u.w1.toNat <<< 64)) + ((u.w2.toNat + (u.w3.toNat <<< 64)) <<< 128)) + (((u.w4.toNat + (u.w5.toNat <<< 64)) + ((u.w6.toNat + (u.w7.toNat <<< 64)) <<< 128)) <<< 256))
 
-@[implemented_by fromU512Fast]
 def fromU512 (u : U512) : Nat :=
   u.w0.toNat +
   u.w1.toNat * (2 ^ 64) +
@@ -176,6 +177,13 @@ def fromU512 (u : U512) : Nat :=
   u.w5.toNat * (2 ^ 320) +
   u.w6.toNat * (2 ^ 384) +
   u.w7.toNat * (2 ^ 448)
+
+set_option exponentiation.threshold 512 in
+@[csimp] theorem fromU512_eq_fromU512Fast : @fromU512 = @fromU512Fast := by
+  funext u
+  unfold fromU512 fromU512Fast
+  simp only [Nat.shiftLeft_eq]
+  ring
 
 def toU512 (n : Nat) : U512 :=
   U512.mk
@@ -188,6 +196,6 @@ def toU512 (n : Nat) : U512 :=
     ((n / 2^384) % 2^64).toUInt64
     ((n / 2^448) % 2^64).toUInt64
 
-def SCHEMA_MANIFEST_HASH : String := "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb"
+def SCHEMA_MANIFEST_HASH : String := "ce7d8946be98803db0a465b33948d0470229bbcd9c361a79b44319f2e01d7ab6"
 
 end UALBF.FFI

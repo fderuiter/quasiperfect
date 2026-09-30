@@ -23,10 +23,15 @@ Instead of probabilistic sufficiency assumptions, the framework employs a hybrid
 - **Inputs Equal to or Exceeding 2^64 (Larger Candidate Primes):**
   Inputs at or above this boundary cannot be verified solely using probabilistic Miller-Rabin checks. Instead, they are subjected to a rigorous certificate-backed verification pathway. The 20-base Miller-Rabin check is used strictly as a fast, non-binding pre-filter to reject composite candidates. Any candidate that passes this pre-filter must be validated using a mathematically rigorous, verified Pocklington certificate via `generate_and_verify_pocklington` for absolute certitude. This certificate-backed pathway is the mandatory mechanism for all inputs equal to or exceeding 2^64.
 
-## 4. OpenCL/GPU Witness Verification Gateway
-The OpenCL CRT tensor sieve kernel executes modular residue checks and Bloom filter operations on parallel GPU hardware outside the formally verified TCB.
-- **Current State:** To ensure GPU hardware execution cannot bypass formal verification or skip valid search candidates, the OpenCL GPU kernel and host execution pipeline output structured `GpuBloomWitness` certificates for every eliminated component and calculated bit index.
-- **Verification Status:** Before candidate pruning or bitmap modification, a host-side CPU witness verification gateway validates every witness record asynchronously across worker threads against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` in Lean 4. If any GPU witness fails CPU gateway validation, GPU execution is immediately halted and the calculation is flagged in telemetry logs. Thus, all GPU candidate eliminations are formally verified by CPU witness validation before candidate pruning.
+## 4. GPU Sieve Backends and Witness Verification Gateway
+The CRT tensor sieve has optional Metal and OpenCL backends in `rust-engine/src/unverified/gpu.rs`. They sit outside the formally verified TCB.
+- **Current State:** Both hardware backends are compiled only behind a `gpu` Cargo feature, which `rust-engine/Cargo.toml` does not currently declare. Standard builds therefore use `DummyGpuPipeline`, which returns an empty bitmap, and every sieve decision is made by the CPU (Rayon) path. No GPU code runs in CI or in published certificates.
+- **Verification Status:** If a hardware backend is enabled (it also requires `UALBF_ALLOW_UNVERIFIED_GPU`), each eliminated component is emitted as a `GpuBloomWitness`. A host-side gateway re-checks every witness against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` before any candidate is pruned, and halts GPU execution on the first failure.
+
+## 4a. Trusted Mathematical Axioms
+No mathematical results are assumed as Lean axioms. The ALLOWED_AXIOMS whitelist in cert_util.py is empty, and the auditor and `rust-engine/build.rs` reject any theorem whose status is `axiom`. The last former axiom, `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (a quasiperfect number coprime to 3 has at least 7 distinct prime factors, the Hagis and Cohen (1982) bound), is now proved in `UALBF/QPN/PrasadSunitha.lean`.
+
+Some pruning rules still depend on assumptions that are not Lean theorems. Each trace event names the theorem behind its prune (prefixed "lean:") or says what is assumed (prefixed "conditional:", "partial:" or "unproven:"), and the ray-casting phase counts every abandoned prefix in the math_interruptions counter, which verify_cert.py rejects as incomplete coverage.
 
 ## 5. Build Environment Variables & Verification Configuration
 
@@ -48,6 +53,7 @@ All build tools, certificate verification scripts, and paper generation utilitie
 | `UALBF_PREFIX_STOP_THRESHOLD` | integer | `100000000000` | Active | DFS search threshold where prefix construction stops when n_L exceeds this value |
 | `UALBF_PROOF_MANIFEST` | path | `null` | Active | Custom path to the proof manifest JSON file containing theorem verification checksums |
 | `UALBF_SIEVE_LIMIT` | integer | `250000` | Active | Number of primes evaluated in Phase 1 CRT tensor sieve |
+| `UALBF_TRIAL_DIVISION_LIMIT` | integer | `10000000` | Active | Trial division search limit used for small prime factor discovery during search branch expansion |
 | `UALBF_TARGET_MAX_LOG10` | integer | `37` | Active | Upper bound log10 exponent for search space (N < 10^max) |
 | `UALBF_TARGET_MIN_LOG10` | integer | `35` | Active | Lower bound log10 exponent for search space (N > 10^min) |
 | `UALBF_TRUSTED_PUBLIC_KEY` | string | `null` | Active | Hex-encoded Ed25519 public key pinned for formal certificate signature verification |

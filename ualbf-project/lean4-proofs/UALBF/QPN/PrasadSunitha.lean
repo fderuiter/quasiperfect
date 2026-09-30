@@ -393,61 +393,215 @@ theorem val_13_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_13 : 13 ∈ N.primeF
     decide
   exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
 
-theorem val_5_ge_4 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_5 : 5 ∈ N.primeFactors) : N.factorization 5 ≥ 4 := by
-  have h_ge_2 := qpn_factorization_ge_two h_qpn 5 h_5
-  have h_even := qpn_factorization_even h_qpn 5
-  by_contra h_lt
-  push Not at h_lt
-  have h2 : N.factorization 5 = 2 := by
-    rcases h_even with ⟨k, hk⟩
-    omega
-  have hp : Nat.Prime 5 := by decide
-  have hN : N ≠ 0 := h_qpn.1.ne'
-  have h_div : 5 ^ 2 ∣ N := (hp.pow_dvd_iff_le_factorization hN).mpr (by omega)
-  have h_ndiv : ¬ (5 ^ 3 ∣ N) := by
-    intro h
-    have h_le := (hp.pow_dvd_iff_le_factorization hN).mp h
-    omega
-  have h_exact : ExactValuation 5 (2 * 1) N := ⟨h_div, h_ndiv⟩
-  have hq : Nat.Prime 31 := by decide
-  have hq_odd : 31 ≠ 2 := by decide
-  have h_mod : 31 % 8 = 5 ∨ 31 % 8 = 7 := Or.inr (by decide)
-  have h_sigma_eq : sigma (5 ^ 2) = sigma_prime_pow 5 1 := sigma_eq_sigma_prime_pow 5 1 hp
-  have h_div_sig : 31 ∣ sigma (5 ^ (2 * 1)) := by
-    change 31 ∣ sigma (5 ^ 2)
-    rw [h_sigma_eq]
-    decide
-  exact UALBF.Engine.SieveSoundness.rust_sieve_soundness h_qpn hp hq hq_odd h_mod h_div_sig h_exact
+/-- The six smallest primes other than 2 and 3: the extremal prime set for a
+    quasiperfect number divisible by 5 and coprime to 3 with at most 6 prime factors. -/
+noncomputable def P6 : Finset ℕ := {5, 7, 11, 13, 17, 19}
 
-/-- Formally verified bound (Hagis & Cohen 1982): quasiperfect numbers divisible by 5 but coprime to 3 have at least 11 prime factors. -/
-theorem qpn_div_5_coprime_3_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
-    (h_coprime : N.gcd 3 = 1) (h_div_5 : 5 ∈ N.primeFactors) : UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND ≤ N.primeFactors.card := by
-  have _h5_v := val_5_ge_4 h_qpn h_div_5
-  have h_ge7 : ∀ p ∈ N.primeFactors, p ≠ 5 → p ≥ 7 := by
-    intro p hp hp_ne5
-    have h_prime := Nat.prime_of_mem_primeFactors hp
-    have hp_dvd := Nat.dvd_of_mem_primeFactors hp
-    have _p_ne_2 : p ≠ 2 := by
-      rintro rfl
-      have h_even : 2 ∣ N := hp_dvd
-      have hk := (qpn_is_odd_square h_qpn).1.choose_spec
-      have h_not_even := Nat.two_not_dvd_two_mul_add_one (qpn_is_odd_square h_qpn).1.choose
-      rw [← hk] at h_not_even
-      exact h_not_even h_even
-    have _p_ne_3 : p ≠ 3 := by
-      rintro rfl
-      have h3_dvd_gcd : 3 ∣ N.gcd 3 := Nat.dvd_gcd hp_dvd (by decide)
-      rw [h_coprime] at h3_dvd_gcd
-      rcases h3_dvd_gcd with ⟨c, hc⟩
-      omega
-    have _p_ge_2 : p ≥ 2 := h_prime.two_le
+/-- `P6` has exactly six elements. -/
+lemma p6_card : P6.card = 6 := by decide
+
+/-- `∏_{p ∈ P6} p/(p-1) = 5/4 · 7/6 · 11/10 · 13/12 · 17/16 · 19/18 ≈ 1.949 < 2`. -/
+lemma p6_prod_lt_2 : ∏ p ∈ P6, ((p : ℚ) / ((p : ℚ) - 1)) < 2 := by
+  have h_eq : ∏ p ∈ P6, ((p : ℚ) / ((p : ℚ) - 1)) =
+      (5:ℚ)/4 * (7/6) * (11/10) * (13/12) * (17/16) * (19/18) := by
+    unfold P6
+    repeat rw [Finset.prod_insert (by decide)]
+    rw [Finset.prod_singleton]
+    push_cast
+    norm_num
+  rw [h_eq]
+  norm_num
+
+/-- Every prime in `[5, 22]` lies in `P6`. -/
+lemma primes_Icc_5_22_sub_p6 : ∀ p ∈ Finset.Icc 5 22, p.Prime → p ∈ P6 := by
+  decide
+
+/-- If `N` is quasiperfect and coprime to 3, all of its prime factors are at least 5. -/
+lemma qpn_coprime_3_primes_ge_5 {N : ℕ} (h_qpn : IsQuasiperfect N) (h_coprime : N.gcd 3 = 1) :
+    ∀ p ∈ N.primeFactors, p ≥ 5 := by
+  intro p hp
+  have h_prime := Nat.prime_of_mem_primeFactors hp
+  have hp_dvd := Nat.dvd_of_mem_primeFactors hp
+  have h_ne_2 : p ≠ 2 := by
+    rintro rfl
+    obtain ⟨k, hk⟩ := (qpn_is_odd_square h_qpn).1
     omega
+  have h_ne_3 : p ≠ 3 := by
+    rintro rfl
+    have h3 : 3 ∣ N.gcd 3 := Nat.dvd_gcd hp_dvd (dvd_refl 3)
+    rw [h_coprime] at h3
+    omega
+  have h_ne_4 : p ≠ 4 := by rintro rfl; revert h_prime; decide
+  have h_ge_2 := h_prime.two_le
+  omega
+
+/-- Head/tail comparison of Euler-type products: if every element of `S` below `T`
+    lies in `P`, every element of `S` is at least 2, every element of `P` lies in
+    `[2, T - 2]`, and `S.card ≤ P.card`, then `∏_{p ∈ S} p/(p-1) ≤ ∏_{p ∈ P} p/(p-1)`. -/
+lemma prod_ratio_le_of_head_subset (S P : Finset ℕ) (T : ℕ) (hT : T ≥ 2)
+    (hS : ∀ p ∈ S, p ≥ 2) (h_head : ∀ p ∈ S, p ≤ T - 1 → p ∈ P)
+    (hP : ∀ p ∈ P, 2 ≤ p ∧ p ≤ T - 2) (h_card : S.card ≤ P.card) :
+    ∏ p ∈ S, ((p : ℚ) / ((p : ℚ) - 1)) ≤ ∏ p ∈ P, ((p : ℚ) / ((p : ℚ) - 1)) := by
+  have h_nonneg : ∀ p : ℕ, p ≥ 2 → (0 : ℚ) ≤ (p : ℚ) / ((p : ℚ) - 1) := by
+    intro p hp
+    have : (2 : ℚ) ≤ (p : ℚ) := by exact_mod_cast hp
+    apply div_nonneg <;> linarith
+  have hT_nonneg : (0 : ℚ) ≤ (T : ℚ) / ((T : ℚ) - 1) := h_nonneg T hT
+  set head := S.filter (fun p => p ≤ T - 1)
+  set tail := S.filter (fun p => ¬ p ≤ T - 1)
+  have h_head_sub : head ⊆ P := by
+    intro p hp
+    rw [Finset.mem_filter] at hp
+    exact h_head p hp.1 hp.2
+  have h_ht : head.card + tail.card = S.card :=
+    Finset.card_filter_add_card_filter_not (fun p => p ≤ T - 1)
+  have h_sdiff_card : (P \ head).card = P.card - head.card := by
+    rw [Finset.card_sdiff_of_subset h_head_sub]
+  have h_tail_le : tail.card ≤ (P \ head).card := by omega
+  have h_tail_bound : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤
+      ((T : ℚ) / ((T : ℚ) - 1)) ^ tail.card := by
+    rw [← Finset.prod_const]
+    apply Finset.prod_le_prod
+    · intro p hp
+      exact h_nonneg p (hS p (Finset.mem_filter.mp hp).1)
+    · intro p hp
+      have hp_not : ¬ p ≤ T - 1 := (Finset.mem_filter.mp hp).2
+      exact p_div_p_sub_one_le_generic T hT (by omega)
+  have h_pow_mono : ((T : ℚ) / ((T : ℚ) - 1)) ^ tail.card ≤
+      ((T : ℚ) / ((T : ℚ) - 1)) ^ (P \ head).card := by
+    apply pow_le_pow_right₀ _ h_tail_le
+    have h1 : (1 : ℚ) ≤ (T : ℚ) / ((T : ℚ) - 1) := by
+      have : (2 : ℚ) ≤ (T : ℚ) := by exact_mod_cast hT
+      rw [le_div_iff₀ (by linarith)]
+      linarith
+    exact h1
+  have h_sdiff_bound : ((T : ℚ) / ((T : ℚ) - 1)) ^ (P \ head).card ≤
+      ∏ p ∈ P \ head, ((p : ℚ) / ((p : ℚ) - 1)) := by
+    rw [← Finset.prod_const]
+    apply Finset.prod_le_prod
+    · intro _ _
+      exact hT_nonneg
+    · intro p hp
+      have hpP := hP p (Finset.mem_sdiff.mp hp).1
+      exact p_div_p_sub_one_ge_generic T hT hpP.2 hpP.1
+  have h_tail_total : ∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1)) ≤
+      ∏ p ∈ P \ head, ((p : ℚ) / ((p : ℚ) - 1)) :=
+    le_trans h_tail_bound (le_trans h_pow_mono h_sdiff_bound)
+  have h_head_nonneg : (0 : ℚ) ≤ ∏ p ∈ head, ((p : ℚ) / ((p : ℚ) - 1)) := by
+    apply Finset.prod_nonneg
+    intro p hp
+    exact h_nonneg p (hS p (Finset.mem_filter.mp hp).1)
+  calc ∏ p ∈ S, ((p : ℚ) / ((p : ℚ) - 1))
+      = (∏ p ∈ head, ((p : ℚ) / ((p : ℚ) - 1))) * (∏ p ∈ tail, ((p : ℚ) / ((p : ℚ) - 1))) :=
+        (Finset.prod_filter_mul_prod_filter_not S (fun p => p ≤ T - 1) _).symm
+    _ ≤ (∏ p ∈ head, ((p : ℚ) / ((p : ℚ) - 1))) * (∏ p ∈ P \ head, ((p : ℚ) / ((p : ℚ) - 1))) :=
+        mul_le_mul_of_nonneg_left h_tail_total h_head_nonneg
+    _ = (∏ p ∈ P \ head, ((p : ℚ) / ((p : ℚ) - 1))) * (∏ p ∈ head, ((p : ℚ) / ((p : ℚ) - 1))) :=
+        mul_comm _ _
+    _ = ∏ p ∈ P, ((p : ℚ) / ((p : ℚ) - 1)) := Finset.prod_sdiff h_head_sub
+
+/-- For a quasiperfect number `N`, `2 < σ(N)/N ≤ N/φ(N) = ∏_{p ∣ N} p/(p-1)`. -/
+lemma qpn_prod_ratio_gt_two {N : ℕ} (h_qpn : IsQuasiperfect N) :
+    2 < ∏ p ∈ N.primeFactors, ((p : ℚ) / ((p : ℚ) - 1)) := by
+  have h_prime : ∀ p ∈ N.primeFactors, p.Prime := fun p hp => (Nat.mem_primeFactors.mp hp).1
+  have hN_gt1 : N > 1 := by
+    by_contra hle; push Not at hle
+    have hp_cases : N = 0 ∨ N = 1 := by omega
+    rcases hp_cases with rfl | rfl
+    · have h_eq : sigma 0 = 2 * 0 + 1 := h_qpn.2; revert h_eq; decide
+    · have h_eq : sigma 1 = 2 * 1 + 1 := h_qpn.2; revert h_eq; decide
+  have h_decomp := UALBF.Pure.EulerProduct.totient_ratio_decomp hN_gt1
+  have h_abund : abundancy_index N = 2 + 1 / (N : ℚ) := by
+    have hn_cast_ne_zero : (N : ℚ) ≠ 0 := Nat.cast_ne_zero.mpr (Nat.ne_of_gt h_qpn.1)
+    have h_sigma : sigma N = 2 * N + 1 := h_qpn.2
+    unfold abundancy_index
+    rw [h_sigma]
+    push_cast
+    have h_div : (2 * (N : ℚ) + 1) / (N : ℚ) = (2 * (N : ℚ)) / (N : ℚ) + 1 / (N : ℚ) := by ring
+    rw [h_div]
+    congr 1
+    exact mul_div_cancel_right₀ 2 hn_cast_ne_zero
+  have h_corr_ge1 : 1 ≤ ∏ p ∈ N.primeFactors,
+      ((p ^ (N.factorization p + 1) : ℚ) / (p ^ (N.factorization p + 1) - 1)) := by
+    have h1 : (1 : ℚ) = ∏ _p ∈ N.primeFactors, (1 : ℚ) := Finset.prod_const_one.symm
+    rw [h1]
+    apply Finset.prod_le_prod
+    · intro _ _; norm_num
+    · intro p hp
+      have hp_ge2 : p ≥ 2 := (h_prime p hp).two_le
+      have _hp_pow_gt1 : (1 : ℚ) < (p : ℚ) ^ (N.factorization p + 1) := by
+        calc (1 : ℚ) < (p : ℚ) := by exact_mod_cast (show 1 < p by omega)
+             _ = (p : ℚ) ^ 1 := (pow_one _).symm
+             _ ≤ (p : ℚ) ^ (N.factorization p + 1) := by
+               apply pow_le_pow_right₀ (by exact_mod_cast (show 1 ≤ p by omega)); omega
+      rw [le_div_iff₀ (by linarith)]
+      linarith
+  have h_abund_le : abundancy_index N ≤ (N : ℚ) / (N.totient : ℚ) := by
+    rw [h_decomp]
+    have h_abund_pos : 0 ≤ abundancy_index N := by unfold abundancy_index; positivity
+    calc abundancy_index N = abundancy_index N * 1 := by ring
+         _ ≤ _ := mul_le_mul_of_nonneg_left h_corr_ge1 h_abund_pos
+  have h_N_phi : (N : ℚ) / (N.totient : ℚ) = ∏ p ∈ N.primeFactors, ((p : ℚ) / ((p : ℚ) - 1)) := by
+    have hT_pos : (0 : ℚ) < (N.totient : ℚ) := Nat.cast_pos.mpr (Nat.totient_pos.mpr (show 0 < N by omega))
+    have hT_ne_zero : (N.totient : ℚ) ≠ 0 := ne_of_gt hT_pos
+    have h_id := Nat.totient_mul_prod_primeFactors N
+    have h_id_q : (N.totient : ℚ) * (∏ p ∈ N.primeFactors, (p : ℚ)) =
+        (N : ℚ) * (∏ p ∈ N.primeFactors, ((p : ℚ) - 1)) := by
+      have h_cast_pred : (↑(∏ p ∈ N.primeFactors, (p - 1)) : ℚ) =
+          (∏ p ∈ N.primeFactors, ((p : ℚ) - 1)) := by
+        rw [Nat.cast_prod]
+        apply Finset.prod_congr rfl
+        intro p hp
+        have hp_ge : 1 ≤ p := by have := (h_prime p hp).two_le; omega
+        rw [Nat.cast_sub hp_ge, Nat.cast_one]
+      have h_cast_id : (↑(N.totient * ∏ p ∈ N.primeFactors, p) : ℚ) =
+          (↑(N * ∏ p ∈ N.primeFactors, (p - 1)) : ℚ) := by
+        exact_mod_cast h_id
+      rw [Nat.cast_mul, Nat.cast_prod] at h_cast_id
+      rw [Nat.cast_mul, h_cast_pred] at h_cast_id
+      exact h_cast_id
+    have h_prod_pred_ne : (∏ p ∈ N.primeFactors, ((p : ℚ) - 1)) ≠ 0 := by
+      rw [Finset.prod_ne_zero_iff]
+      intro p hp
+      have : (2 : ℚ) ≤ (p : ℚ) := by exact_mod_cast (h_prime p hp).two_le
+      linarith
+    rw [Finset.prod_div_distrib]
+    rw [div_eq_div_iff hT_ne_zero h_prod_pred_ne]
+    linarith [h_id_q]
+  have h_abund_gt_2 : abundancy_index N > 2 := by
+    rw [h_abund]
+    have hN_pos : (0 : ℚ) < (N : ℚ) := by exact_mod_cast (show N > 0 by omega)
+    have _h_inv_pos : (0 : ℚ) < 1 / (N : ℚ) := one_div_pos.mpr hN_pos
+    linarith
+  rw [← h_N_phi]
+  exact lt_of_lt_of_le h_abund_gt_2 h_abund_le
+
+/-- Proved here (not assumed) by the abundancy argument: a quasiperfect number `N`
+    divisible by 5 but coprime to 3 has at least `DIV_5_COPRIME_3_PROOF_BOUND` (= 7)
+    distinct prime factors, matching Hagis & Cohen (1982)'s general bound `ω(N) ≥ 7`.
+    Every prime factor is 5 or at least 7, so if `ω(N) ≤ 6` then
+    `2 < σ(N)/N ≤ ∏_{p ∣ N} p/(p-1) ≤ 5/4 · 7/6 · 11/10 · 13/12 · 17/16 · 19/18 < 2`.
+    (The hypothesis `5 ∈ N.primeFactors` is kept for interface compatibility but is not
+    needed by the proof.) -/
+theorem qpn_div_5_coprime_3_omega_bound {N : ℕ} (h_qpn : IsQuasiperfect N)
+    (h_coprime : N.gcd 3 = 1) (_h_div_5 : 5 ∈ N.primeFactors) : UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND ≤ N.primeFactors.card := by
+  -- `5 ∣ N` is not needed: coprimality to 3 already forces every prime factor to be ≥ 5.
   by_contra h_lt
   push Not at h_lt
   simp only [UALBF.Manifest.DIV_5_COPRIME_3_PROOF_BOUND] at h_lt
-  have h_card5 : 1 ≤ N.primeFactors.card := by
-    exact Finset.card_pos.mpr ⟨5, h_div_5⟩
-  omega
+  have h_ge5 := qpn_coprime_3_primes_ge_5 h_qpn h_coprime
+  have h_le : ∏ p ∈ N.primeFactors, ((p : ℚ) / ((p : ℚ) - 1)) ≤
+      ∏ p ∈ P6, ((p : ℚ) / ((p : ℚ) - 1)) := by
+    apply prod_ratio_le_of_head_subset N.primeFactors P6 23 (by norm_num)
+    · intro p hp; have := h_ge5 p hp; omega
+    · intro p hp hpT
+      exact primes_Icc_5_22_sub_p6 p (Finset.mem_Icc.mpr ⟨h_ge5 p hp, hpT⟩)
+        (Nat.prime_of_mem_primeFactors hp)
+    · decide
+    · rw [p6_card]; omega
+  have := qpn_prod_ratio_gt_two h_qpn
+  have := p6_prod_lt_2
+  linarith
 
 theorem verify_prasad_sunitha {N : ℕ} (h_qpn : IsQuasiperfect N)
     (h_coprime : N.gcd 15 = 1) : UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ N.primeFactors.card :=

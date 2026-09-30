@@ -1,7 +1,7 @@
 // AUTO-GENERATED from Lean metadata. DO NOT EDIT.
 
 pub const EXPORTED_SCHEMA_MANIFEST_HASH: &str =
-    "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb";
+    "ce7d8946be98803db0a465b33948d0470229bbcd9c361a79b44319f2e01d7ab6";
 
 pub const LIMB_COUNT: usize = 8;
 
@@ -25,6 +25,45 @@ extern "C" {
         a_neg: u8,
         m_obj: *mut crate::lean_ffi::lean_object,
     ) -> *mut crate::lean_ffi::lean_object;
+    pub fn ualbf_mod_inverse_ok_limbs(
+        a0: u64,
+        a1: u64,
+        a2: u64,
+        a3: u64,
+        a4: u64,
+        a5: u64,
+        a6: u64,
+        a7: u64,
+        a_neg: u8,
+        m0: u64,
+        m1: u64,
+        m2: u64,
+        m3: u64,
+        m4: u64,
+        m5: u64,
+        m6: u64,
+        m7: u64,
+    ) -> u8;
+    pub fn ualbf_mod_inverse_limb(
+        a0: u64,
+        a1: u64,
+        a2: u64,
+        a3: u64,
+        a4: u64,
+        a5: u64,
+        a6: u64,
+        a7: u64,
+        a_neg: u8,
+        m0: u64,
+        m1: u64,
+        m2: u64,
+        m3: u64,
+        m4: u64,
+        m5: u64,
+        m6: u64,
+        m7: u64,
+        limb_idx: u32,
+    ) -> u64;
     pub fn ualbf_cyclotomic_eval_pub(
         d: u32,
         p: *mut crate::lean_ffi::lean_object,
@@ -53,6 +92,7 @@ extern "C" {
     pub static ualbf_target_min_log10: u32;
     pub static ualbf_target_max_log10: u32;
     pub static ualbf_sieve_limit: u64;
+    pub static ualbf_trial_division_limit: u64;
     pub static ualbf_max_exponent: u32;
     pub static ualbf_prefix_stop_threshold: u64;
     pub static ualbf_raycast_gpu_threshold: u32;
@@ -60,6 +100,24 @@ extern "C" {
     pub fn ualbf_check_crt_1155(
         z_val: *mut crate::lean_ffi::lean_object,
         x_l_val: *mut crate::lean_ffi::lean_object,
+    ) -> u8;
+    pub fn ualbf_check_crt_1155_limbs(
+        z0: u64,
+        z1: u64,
+        z2: u64,
+        z3: u64,
+        z4: u64,
+        z5: u64,
+        z6: u64,
+        z7: u64,
+        xl0: u64,
+        xl1: u64,
+        xl2: u64,
+        xl3: u64,
+        xl4: u64,
+        xl5: u64,
+        xl6: u64,
+        xl7: u64,
     ) -> u8;
     pub static ualbf_logic_hash: *mut crate::lean_ffi::lean_object;
     pub static ualbf_conjectural_active: u32;

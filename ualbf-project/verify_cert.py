@@ -722,8 +722,8 @@ def verify_certificate(
         )
         print("!" * 80 + "\n")
 
-    allow_missing = (
-        allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+    allow_missing = allow_missing_sources or env_util.get_env_var(
+        "UALBF_ALLOW_MISSING_SOURCES", False
     )
     if allow_missing:
         print("\n" + "!" * 80)
@@ -767,6 +767,17 @@ def verify_certificate(
     tel = cert["telemetry"]
 
     print("✓ Cryptographic signature is valid.")
+
+    # Every branch the engine abandoned without a proven prune (arithmetic
+    # overflow, a failed Lean identity check, an interrupted root computation)
+    # is a coverage gap, so the certified range is not fully searched.
+    coverage_gaps = tel.get("math_interruptions", 0)
+    if coverage_gaps:
+        print(
+            f"ERROR: Search coverage is incomplete: {coverage_gaps} branch(es) were abandoned without a proven prune (math_interruptions).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # Verify logic hash if we have the rust-engine/src directory
     rust_src_dir = os.path.join(
@@ -953,10 +964,14 @@ def verify_certificate(
             sys.exit(1)
     print(f"✓ All {len(manifest.get('theorems', []))} theorem checksums verified.")
 
+    allowed_axioms = cert_util.ALLOWED_AXIOMS
     sorries = []
     for thm in manifest.get("theorems", []):
         status = thm.get("status")
-        if status != "proven":
+        is_whitelisted = status == "proven" or (
+            status == "axiom" and thm.get("name") in allowed_axioms
+        )
+        if not is_whitelisted:
             sorries.append(thm)
 
     print("\n--- Manifest Summary ---")
@@ -1227,6 +1242,10 @@ def verify_meta_certificate(
         check_continuity(verified_leaf_certs)
         verify_telemetry_paths(verified_leaf_certs)
 
+    cert_util.verify_meta_certificate_envelope(
+        meta_cert_data, manifest_path, verified_leaf_certs
+    )
+
     print("✓ Meta-certificate signature (composite) verified.")
     return verified_leaf_certs
 
@@ -1276,8 +1295,8 @@ if __name__ == "__main__":
     if min_rigor is None:
         min_rigor = env_util.get_env_var("UALBF_MIN_RIGOR", 0.0)
 
-    allow_missing_sources = (
-        args.allow_missing_sources or os.getenv("UALBF_ALLOW_MISSING_SOURCES") == "1"
+    allow_missing_sources = args.allow_missing_sources or env_util.get_env_var(
+        "UALBF_ALLOW_MISSING_SOURCES", False
     )
 
     certs = args.cert if isinstance(args.cert, list) else [args.cert]

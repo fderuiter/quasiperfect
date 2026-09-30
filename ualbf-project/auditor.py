@@ -34,6 +34,10 @@ CORE_THEOREMS = cert_util.CORE_THEOREMS
 ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 
 GHOST_PRUNING_BINDINGS = {
+    "ruleA_safe": "UALBF.Engine.ruleA_safe",
+    "ruleB_safe": "UALBF.Engine.ruleB_safe",
+    "ruleA_pruning": "UALBF.Engine.ruleA_safe",
+    "ruleB_pruning": "UALBF.Engine.ruleB_safe",
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
     "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
@@ -336,6 +340,22 @@ def fetch_proofwidgets_assets(cwd=None, env=None):
             )
 
 
+def _find_root_file(host_dir, name):
+    """Locate a repo-root file next to or above host_dir, falling back to this
+    script's own checkout when host_dir is outside the repository."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(host_dir, "..", name),
+        os.path.join(host_dir, name),
+        os.path.join(script_dir, "..", name),
+        os.path.join(script_dir, name),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return os.path.abspath(candidates[0])
+
+
 def _setup_staging_workspace(host_dir, staging_dir):
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -405,27 +425,61 @@ def _setup_staging_workspace(host_dir, staging_dir):
                         except Exception:
                             shutil.copy2(h_f, s_f)
 
-    # Copy parent docs_manifest.json if present and not in staging_dir
-    parent_docs = os.path.abspath(os.path.join(host_dir, "..", "docs_manifest.json"))
-    if not os.path.exists(parent_docs):
-        parent_docs = os.path.abspath(os.path.join(host_dir, "docs_manifest.json"))
-    if os.path.exists(parent_docs) and not os.path.exists(
-        os.path.join(staging_dir, "docs_manifest.json")
+    # Copy parent root files and skill guide directories (docs_manifest.json, README.md, env_manifest.json, env_manifest.schema.json, .jules, .agents) if present and not in staging_dir
+    for parent_item in (
+        "docs_manifest.json",
+        "README.md",
+        "env_manifest.json",
+        "env_manifest.schema.json",
+        ".jules",
+        ".agents",
+    ):
+        parent_path = _find_root_file(host_dir, parent_item)
+        staging_target = os.path.join(staging_dir, parent_item)
+        if os.path.exists(parent_path) and not os.path.exists(staging_target):
+            try:
+                if os.path.isdir(parent_path):
+                    shutil.copytree(
+                        parent_path,
+                        staging_target,
+                        symlinks=True,
+                        ignore=ignore_patterns,
+                    )
+                else:
+                    shutil.copy2(parent_path, staging_target)
+            except Exception:
+                pass
+
+    # Copy parent semantic_verification_report.md if present and not in staging_dir
+    parent_report = os.path.abspath(
+        os.path.join(host_dir, "..", "semantic_verification_report.md")
+    )
+    if not os.path.exists(parent_report):
+        parent_report = os.path.abspath(
+            os.path.join(host_dir, "semantic_verification_report.md")
+        )
+    if os.path.exists(parent_report) and not os.path.exists(
+        os.path.join(staging_dir, "semantic_verification_report.md")
     ):
         try:
-            shutil.copy2(parent_docs, os.path.join(staging_dir, "docs_manifest.json"))
+            shutil.copy2(
+                parent_report,
+                os.path.join(staging_dir, "semantic_verification_report.md"),
+            )
         except Exception:
             pass
 
-    # Copy parent README.md if present and not in staging_dir
-    parent_readme = os.path.abspath(os.path.join(host_dir, "..", "README.md"))
-    if os.path.exists(parent_readme) and not os.path.exists(
-        os.path.join(staging_dir, "README.md")
-    ):
-        try:
-            shutil.copy2(parent_readme, os.path.join(staging_dir, "README.md"))
-        except Exception:
-            pass
+    # Copy env_manifest.json and env_manifest.schema.json if present
+    for env_file in ("env_manifest.json", "env_manifest.schema.json"):
+        parent_env = _find_root_file(host_dir, env_file)
+        if os.path.exists(parent_env):
+            for dst_d in (staging_dir, os.path.dirname(staging_dir)):
+                dst_p = os.path.join(dst_d, env_file)
+                if not os.path.exists(dst_p):
+                    try:
+                        shutil.copy2(parent_env, dst_p)
+                    except Exception:
+                        pass
 
 
 def generate_manifest():
@@ -470,6 +524,239 @@ def generate_manifest():
 
         if os.path.exists(staging_dir):
             shutil.rmtree(staging_dir, ignore_errors=True)
+
+
+def verify_cross_language_bindings(bindings, manifest, repo_root):
+    """
+    Verifies symbol existence in Lean ASTs/theorems, Verus proof digests, and Rust source code.
+    Raises ValueError if any referenced symbol does not exist in source code or ASTs.
+    """
+    lean_known_symbols = set()
+    for thm in manifest.get("theorems", []):
+        name = thm.get("name", "")
+        lean_known_symbols.add(name)
+        lean_known_symbols.add(name.split(".")[-1])
+
+    for k in manifest.get("verus_hashes", {}).keys():
+        lean_known_symbols.add(k)
+        lean_known_symbols.add(k.split("::")[-1])
+
+    lean_dir = os.path.join(repo_root, "lean4-proofs")
+    if os.path.exists(lean_dir):
+        for root, _, files in os.walk(lean_dir):
+            if ".lake" in root:
+                continue
+            for f in files:
+                if f.endswith(".lean"):
+                    f_path = os.path.join(root, f)
+                    try:
+                        with open(f_path, "r", encoding="utf-8") as lf:
+                            content = lf.read()
+                        for m in re.findall(
+                            r"\b(?:theorem|def|lemma|class|structure|inductive)\s+([a-zA-Z0-9_]+)",
+                            content,
+                        ):
+                            lean_known_symbols.add(m)
+                        for m in re.findall(r"@\[export\s+([a-zA-Z0-9_]+)\]", content):
+                            lean_known_symbols.add(m)
+                    except Exception:
+                        pass
+
+    verus_known_symbols = set(manifest.get("verus_hashes", {}).keys())
+    for k in list(verus_known_symbols):
+        verus_known_symbols.add(k.split("::")[-1])
+
+    for s in lean_known_symbols:
+        verus_known_symbols.add(s)
+
+    rust_engine_src = os.path.join(repo_root, "rust-engine", "src")
+    if os.path.exists(rust_engine_src):
+        for root, _, files in os.walk(rust_engine_src):
+            for f in files:
+                if f.endswith(".rs"):
+                    f_path = os.path.join(root, f)
+                    try:
+                        with open(f_path, "r", encoding="utf-8") as rf:
+                            rf_content = rf.read()
+                        for m in re.findall(
+                            r"\b(?:fn|struct|enum|trait|mod|type)\s+([a-zA-Z0-9_]+)",
+                            rf_content,
+                        ):
+                            verus_known_symbols.add(m)
+                        for m in re.findall(
+                            r"\b(?:spec|proof|open|closed)\s+fn\s+([a-zA-Z0-9_]+)",
+                            rf_content,
+                        ):
+                            verus_known_symbols.add(m)
+                    except Exception:
+                        pass
+
+    rust_known_symbols = set(verus_known_symbols)
+
+    errors = []
+    for b in bindings:
+        section = b.get("section", "Unknown section")
+        for sym in b.get("lean_symbols", []):
+            if sym not in lean_known_symbols:
+                errors.append(
+                    f"Cross-language binding error in '{section}': Lean symbol '{sym}' not found in Lean ASTs or theorems."
+                )
+
+        for v_id in b.get("verus_identifiers", []):
+            if v_id not in verus_known_symbols:
+                errors.append(
+                    f"Cross-language binding error in '{section}': Verus specification identifier '{v_id}' not found in Verus proof digests or source code."
+                )
+
+        for r_fn in b.get("rust_functions", []):
+            if r_fn not in rust_known_symbols:
+                errors.append(
+                    f"Cross-language binding error in '{section}': Rust function '{r_fn}' not found in Rust source code."
+                )
+
+    if errors:
+        error_msg = "\n".join(errors)
+        print(error_msg, file=sys.stderr)
+        raise ValueError(error_msg)
+
+
+def parse_semantic_verification_report(report_path, manifest=None, repo_root=None):
+    if manifest is None:
+        manifest = {}
+    if repo_root is None:
+        repo_root = get_repo_root()
+
+    with open(report_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    section_blocks = re.split(r"\n(?=##\s+)", content)
+    bindings = []
+
+    thm_checksum_map = {}
+    if manifest and "theorems" in manifest:
+        for t in manifest["theorems"]:
+            thm_checksum_map[t["name"]] = t.get("checksum", "")
+            short_name = t["name"].split(".")[-1]
+            thm_checksum_map[short_name] = t.get("checksum", "")
+
+    verus_hashes = manifest.get("verus_hashes", {}) if manifest else {}
+
+    for block in section_blocks:
+        if not block.strip().startswith("##"):
+            continue
+        lines = block.strip().splitlines()
+        header_line = lines[0]
+        section_title = header_line.lstrip("#").strip()
+
+        lean_symbols = []
+        lean_files = []
+        verus_identifiers = []
+        verus_files = []
+        rust_functions = []
+        rust_files = []
+
+        for line in lines[1:]:
+            line_str = line.strip()
+            if not line_str.startswith("-"):
+                continue
+
+            backticks = re.findall(r"`([^`]+)`", line_str)
+
+            if "**Lean Theorem:**" in line_str or "**Lean FFI:**" in line_str:
+                for bt in backticks:
+                    if bt.endswith(".lean") or "/" in bt:
+                        if bt not in lean_files:
+                            lean_files.append(bt)
+                    else:
+                        if bt not in lean_symbols:
+                            lean_symbols.append(bt)
+            elif "**Verus Specification:**" in line_str:
+                for bt in backticks:
+                    if bt.endswith(".rs") or "/" in bt:
+                        if bt not in verus_files:
+                            verus_files.append(bt)
+                    else:
+                        if bt not in verus_identifiers:
+                            verus_identifiers.append(bt)
+            elif any(
+                k in line_str
+                for k in [
+                    "**Rust Implementation:**",
+                    "**Verified Implementation:**",
+                    "**Runtime Gateway Function:**",
+                    "**Data Integrity:**",
+                ]
+            ):
+                for bt in backticks:
+                    if bt.endswith(".rs") or "/" in bt:
+                        if bt not in rust_files:
+                            rust_files.append(bt)
+                    else:
+                        if bt not in rust_functions:
+                            rust_functions.append(bt)
+
+        component_hashes = {}
+        for sym in lean_symbols:
+            if sym in thm_checksum_map:
+                component_hashes[sym] = thm_checksum_map[sym]
+            else:
+                found_hash = None
+                for l_file in lean_files:
+                    full_p = os.path.join(repo_root, l_file)
+                    if os.path.exists(full_p):
+                        found_hash = hash_util.hash_file_bounded(full_p)
+                        break
+                if found_hash:
+                    component_hashes[sym] = found_hash
+
+        for v_id in verus_identifiers:
+            if v_id in verus_hashes:
+                component_hashes[v_id] = verus_hashes[v_id]
+            else:
+                found_hash = None
+                for v_file in verus_files:
+                    full_p = os.path.join(repo_root, v_file)
+                    if os.path.exists(full_p):
+                        found_hash = hash_util.hash_file_bounded(full_p)
+                        break
+                if found_hash:
+                    component_hashes[v_id] = found_hash
+
+        for r_fn in rust_functions:
+            if r_fn in verus_hashes:
+                component_hashes[r_fn] = verus_hashes[r_fn]
+            else:
+                found_hash = None
+                for r_file in rust_files:
+                    full_p = os.path.join(repo_root, r_file)
+                    if os.path.exists(full_p):
+                        found_hash = hash_util.hash_file_bounded(full_p)
+                        break
+                if found_hash:
+                    component_hashes[r_fn] = found_hash
+
+        file_checksums = {}
+        for f_path in sorted(list(set(lean_files + verus_files + rust_files))):
+            full_p = os.path.join(repo_root, f_path)
+            if os.path.exists(full_p):
+                file_checksums[f_path] = hash_util.hash_file_bounded(full_p)
+
+        binding_tuple = {
+            "section": section_title,
+            "lean_symbols": lean_symbols,
+            "lean_files": lean_files,
+            "verus_identifiers": verus_identifiers,
+            "verus_files": verus_files,
+            "rust_functions": rust_functions,
+            "rust_files": rust_files,
+            "component_hashes": component_hashes,
+            "file_checksums": file_checksums,
+        }
+        bindings.append(binding_tuple)
+
+    verify_cross_language_bindings(bindings, manifest, repo_root)
+
+    return bindings
 
 
 def _generate_manifest_impl():
@@ -915,7 +1202,8 @@ def _generate_manifest_impl():
                             "Quot.sound",
                         ]:
                             status = "axiom"
-                            has_error = True
+                            if thm not in ALLOWED_AXIOMS and ax not in ALLOWED_AXIOMS:
+                                has_error = True
                             break
                     theorem_statuses[thm] = status
                 else:
@@ -932,8 +1220,19 @@ def _generate_manifest_impl():
             possible_rel = "/".join(parts[:i]) + ".lean"
             possible_path = os.path.join(cwd, possible_rel)
             if os.path.exists(possible_path):
-                found_file = possible_rel
-                break
+                try:
+                    with open(possible_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    if re.search(
+                        r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
+                        + re.escape(short_name)
+                        + r"\b",
+                        content,
+                    ):
+                        found_file = possible_rel
+                        break
+                except Exception:
+                    pass
 
         if not found_file or found_file == "UALBF.lean":
             for pf in disk_proof_files:
@@ -943,7 +1242,7 @@ def _generate_manifest_impl():
                         with open(pf_path, "r", encoding="utf-8") as f:
                             content = f.read()
                         if re.search(
-                            r"\b(theorem|def|class|structure|lemma)\s+"
+                            r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
                             + re.escape(short_name)
                             + r"\b",
                             content,
@@ -991,7 +1290,7 @@ def _generate_manifest_impl():
                     "checksum": checksum,
                 }
             )
-            if has_lean:
+            if has_lean and ax_name not in ALLOWED_AXIOMS:
                 has_error = True
 
     # Add Verus-verified Rust component hashes
@@ -1018,11 +1317,43 @@ def _generate_manifest_impl():
                 proof_files.append({"file": rel_path, "checksum": checksum})
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
-    # Compute bounds_manifest.json hash
+    # Compute bounds_manifest.json hash and validate trial_division_limit against ManifestConstants.lean
     bounds_manifest_path = os.path.join(repo_root, "bounds_manifest.json")
     if os.path.exists(bounds_manifest_path):
         bounds_hash = hash_util.hash_file_bounded(bounds_manifest_path)
         manifest["bounds_manifest_hash"] = bounds_hash
+
+        manifest_constants_lean = os.path.join(
+            repo_root, "lean4-proofs", "UALBF", "ManifestConstants.lean"
+        )
+        if os.path.exists(manifest_constants_lean):
+            with open(manifest_constants_lean, "r", encoding="utf-8") as f:
+                lean_constants_content = f.read()
+
+            match = re.search(
+                r"def TRIAL_DIVISION_LIMIT\s*:\s*Nat\s*:=\s*(\d+)",
+                lean_constants_content,
+            )
+            if match:
+                lean_trial_limit = int(match.group(1))
+                trial_limit = None
+                try:
+                    with open(bounds_manifest_path, "r", encoding="utf-8") as f:
+                        bounds_json = json.load(f)
+                    trial_limit = (
+                        bounds_json.get("search_bounds", {})
+                        .get("trial_division_limit", {})
+                        .get("value")
+                    )
+                except Exception:
+                    pass
+
+                if trial_limit is None or lean_trial_limit != trial_limit:
+                    print(
+                        f"ERROR: trial_division_limit mismatch! bounds_manifest.json: {trial_limit}, ManifestConstants.lean: {lean_trial_limit}",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
     else:
         print(
             f"Warning: bounds_manifest.json not found at {bounds_manifest_path}",
@@ -1044,6 +1375,24 @@ def _generate_manifest_impl():
                 file=sys.stderr,
             )
     manifest["ghost_pruning_bindings"] = ghost_bindings
+
+    # Populate cross_language_bindings from semantic_verification_report.md
+    report_path = os.path.join(repo_root, "semantic_verification_report.md")
+    if not os.path.exists(report_path):
+        report_path = os.path.join(cwd, "semantic_verification_report.md")
+
+    if os.path.exists(report_path):
+        try:
+            cross_bindings = parse_semantic_verification_report(
+                report_path, manifest, repo_root
+            )
+            manifest["cross_language_bindings"] = cross_bindings
+        except Exception as e:
+            print(f"Error validating cross_language_bindings: {e}", file=sys.stderr)
+            has_error = True
+            manifest["cross_language_bindings"] = []
+    else:
+        manifest["cross_language_bindings"] = []
 
     # To avoid cyclic hashing (hash changing every time it is injected), we must compute the hash on a deterministic version of the file.
     manifest["verified_logic_hash"] = "0" * 64
@@ -1175,8 +1524,9 @@ def _generate_manifest_impl():
         sys.exit(1)
 
 
-def check_documentation(manifest):
-    repo_root = get_repo_root()
+def check_documentation(manifest, repo_root=None):
+    if repo_root is None:
+        repo_root = get_repo_root()
 
     cand_staging = os.path.join(repo_root, "docs_manifest.json")
     cand_parent = os.path.abspath(os.path.join(repo_root, "..", "docs_manifest.json"))
@@ -1309,6 +1659,17 @@ def check_documentation(manifest):
 
     for fn in manifest.get("ghost_pruning_bindings", {}).keys():
         manifest_symbols.add(fn)
+
+    for binding in manifest.get("cross_language_bindings", []):
+        for sym in binding.get("lean_symbols", []):
+            manifest_symbols.add(sym)
+            manifest_symbols.add(sym.split(".")[-1])
+        for v_id in binding.get("verus_identifiers", []):
+            manifest_symbols.add(v_id)
+            manifest_symbols.add(v_id.split("::")[-1])
+        for r_fn in binding.get("rust_functions", []):
+            manifest_symbols.add(r_fn)
+            manifest_symbols.add(r_fn.split("::")[-1])
 
     strict_manifest_symbols = set()
     for thm_name in CORE_THEOREMS:
@@ -1554,7 +1915,9 @@ def check_documentation(manifest):
                         and sym not in ignore_symbols
                         and sym.lower() not in ignore_symbols
                     ):
-                        if re.search(r"\b" + re.escape(sym) + r"\b", line_no_bt):
+                        if sym in line_no_bt and re.search(
+                            r"\b" + re.escape(sym) + r"\b", line_no_bt
+                        ):
                             errors.append(
                                 f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Static unquoted symbol reference detected (must use backticks): '{sym}'"
                             )
@@ -1636,6 +1999,45 @@ def check_documentation(manifest):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Invalid code symbol: '{bt}'"
                                 )
+
+    report_path = os.path.join(repo_root, "semantic_verification_report.md")
+    if not os.path.exists(report_path):
+        report_path = os.path.join(manifest_dir, "semantic_verification_report.md")
+
+    if os.path.exists(report_path) and "cross_language_bindings" in manifest:
+        manifest_cross = manifest.get("cross_language_bindings", [])
+        try:
+            parsed_cross = parse_semantic_verification_report(
+                report_path, manifest, repo_root
+            )
+            if len(parsed_cross) != len(manifest_cross):
+                errors.append(
+                    f"[DOC CHECK ERROR] semantic_verification_report.md section count ({len(parsed_cross)}) does not match proof_manifest.json cross_language_bindings ({len(manifest_cross)})."
+                )
+            else:
+                for p_item, m_item in zip(parsed_cross, manifest_cross):
+                    if p_item.get("section") != m_item.get("section"):
+                        errors.append(
+                            f"[DOC CHECK ERROR] Cross-language binding section title mismatch: '{p_item.get('section')}' vs '{m_item.get('section')}'"
+                        )
+                    if p_item.get("lean_symbols") != m_item.get("lean_symbols"):
+                        errors.append(
+                            f"[DOC CHECK ERROR] Cross-language binding lean_symbols mismatch in '{p_item.get('section')}': {p_item.get('lean_symbols')} vs {m_item.get('lean_symbols')}"
+                        )
+                    if p_item.get("verus_identifiers") != m_item.get(
+                        "verus_identifiers"
+                    ):
+                        errors.append(
+                            f"[DOC CHECK ERROR] Cross-language binding verus_identifiers mismatch in '{p_item.get('section')}': {p_item.get('verus_identifiers')} vs {m_item.get('verus_identifiers')}"
+                        )
+                    if p_item.get("rust_functions") != m_item.get("rust_functions"):
+                        errors.append(
+                            f"[DOC CHECK ERROR] Cross-language binding rust_functions mismatch in '{p_item.get('section')}': {p_item.get('rust_functions')} vs {m_item.get('rust_functions')}"
+                        )
+        except Exception as ex:
+            errors.append(
+                f"[DOC CHECK ERROR] Error validating semantic_verification_report.md cross-language bindings: {ex}"
+            )
 
     for e in errors:
         print(e, file=sys.stderr)

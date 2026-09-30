@@ -26,7 +26,7 @@ algebraic machinery with the IsQuasiperfect hypothesis.
 - `qpn_factorization_ge_two`: all prime exponents ≥ 2 (since QPN = m²)
 - `correction_factor_bound`: C < 1022/1000 for QPNs coprime to 15
 - `qpn_totient_bound`: N/φ(N) < 2.0442 for large QPNs
-- `abundancy_starvation`: pruning validity for the Rust engine
+- `abundancy_starvation`: conditional pruning lemma (the suffix bound is assumed, not proven)
 -/
 
 namespace UALBF.QPN.AbundancyBound
@@ -346,14 +346,13 @@ theorem abundancy_le_two_not_qpn {N : ℕ} (h : abundancy_index N ≤ 2) :
   linarith
 
 /--
-This is a *conditional pruning certificate*. It formally proves the *logical implication*
-that if a branch's upper bound (the product of a prefix's abundancy and the max possible
-suffix abundancy) is ≤ 2, it is impossible to reach the required abundancy > 2.
+Conditional pruning lemma. If `static_suffix_bound k` really bounds the abundancy of the
+suffix `N_R` (`h_suffix_bound`) and the prefix abundancy times that bound is at most 2,
+then `N` cannot reach abundancy above 2.
 
-Following a CompCert-style trusted boundary design, this theorem resolves the purely
-arithmetic contradiction via `linarith`. The burden of providing a sound `h_prefix_val`
-(i.e., maintaining the runtime invariant that the dynamic prefix and suffix upper bounds
-correctly bound the sequence's true abundancy) is delegated to the lock-free Rust engine.
+Not proven: that the bound the Rust engine uses for `static_suffix_bound k` actually
+satisfies `h_suffix_bound` for every suffix it skips. That invariant is assumed, not
+verified, so a prune justified by this lemma is only as sound as the Rust bound.
 -/
 theorem abundancy_starvation (b : UALBF.Bipartition) (k : ℕ)
   (h_bound : abundancy_index b.N_L * static_suffix_bound k ≤ 2)

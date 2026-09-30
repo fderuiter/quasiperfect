@@ -543,3 +543,37 @@ def test_prime_split_threshold_invalid_composite_fails():
         build_rs_path = project_dir / "rust-engine/build.rs"
         if build_rs_path.exists():
             build_rs_path.touch()
+
+
+def test_trial_division_limit_mismatch_fails_verification():
+    """
+    Test that trial_division_limit mismatch between bounds_manifest.json and ManifestConstants.lean
+    causes verify_metadata.py to detect errors.
+    """
+    from pathlib import Path
+    import verify_metadata
+
+    project_dir = Path(__file__).parent.parent
+    bounds_path = project_dir / "bounds_manifest.json"
+    bounds_backup = bounds_path.read_text(encoding="utf-8")
+
+    try:
+        # Modify trial_division_limit in bounds_manifest.json to 5000000 (differs from 10000000 in ManifestConstants.lean)
+        bounds_data = json.loads(bounds_backup)
+        bounds_data["search_bounds"]["trial_division_limit"]["value"] = 5000000
+        bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
+
+        # Run verify_metadata main function
+        with pytest.raises(SystemExit) as exc_info:
+            verify_metadata.main()
+        assert exc_info.value.code == 1, "verify_metadata should exit with status 1 when trial_division_limit is out of sync"
+
+        # Test missing trial_division_limit
+        del bounds_data["search_bounds"]["trial_division_limit"]
+        bounds_path.write_text(json.dumps(bounds_data, indent=2), encoding="utf-8")
+        with pytest.raises(SystemExit) as exc_info_missing:
+            verify_metadata.main()
+        assert exc_info_missing.value.code == 1, "verify_metadata should exit with status 1 when trial_division_limit is missing"
+
+    finally:
+        bounds_path.write_text(bounds_backup, encoding="utf-8")

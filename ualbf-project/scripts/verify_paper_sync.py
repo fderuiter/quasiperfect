@@ -26,8 +26,8 @@ if script_dir not in sys.path:
 if paper_dir not in sys.path:
     sys.path.insert(0, paper_dir)
 
-import cert_util  # noqa: E402
 import env_util  # noqa: E402
+import cert_util  # noqa: E402
 import hash_util  # noqa: E402
 import ingest_cert  # noqa: E402
 import validate_paper  # noqa: E402
@@ -44,24 +44,9 @@ def run_paper_unit_tests() -> bool:
 
 
 def create_dummy_cert(manifest_path: str, bounds_path: str) -> dict:
-    """Create minimal certificate dictionary aligned with manifest hash."""
-    mbytes = cert_util.BoundedJSONLoader().read_file_bytes(manifest_path)
-    mhash = hash_util.hash_bytes(mbytes)
-    return {
-        "manifest_hash": mhash,
-        "verified_logic_hash": "0" * 64,
-        "public_key": "0" * 32,
-        "signature": "0" * 64,
-        "telemetry": {
-            "phase1_execution_time_ms": 100,
-            "phase2_execution_time_ms": 5000,
-            "total_branches_searched": 1000,
-            "abundance_pruned": 200,
-            "raycast_pruned": 0,
-            "target_min_log10": 35,
-            "target_max_log10": 37,
-        },
-    }
+    """Create signed test certificate dictionary aligned with manifest hash."""
+    cert_data, _ = cert_util.create_signed_test_cert(manifest_path, bounds_path)
+    return cert_data
 
 
 def parse_tex_macros(content: str) -> Dict[str, str]:
@@ -84,25 +69,40 @@ def generate_paper_macros(
 ) -> None:
     """Generate telemetry.tex and verification_manifest.tex in target_dir."""
     with tempfile.TemporaryDirectory() as tmp_cert_dir:
-        dummy_cert_path = os.path.join(tmp_cert_dir, "dummy_cert.json")
-        dummy_cert_data = create_dummy_cert(manifest_path, bounds_path)
-        with open(dummy_cert_path, "w", encoding="utf-8") as f:
-            json.dump(dummy_cert_data, f)
+        test_cert_path = os.path.join(tmp_cert_dir, "test_cert.json")
+        cert_data, pub_hex = cert_util.create_signed_test_cert(
+            manifest_path=manifest_path, bounds_path=bounds_path
+        )
+        with open(test_cert_path, "w", encoding="utf-8") as f:
+            json.dump(cert_data, f)
 
-        orig_dummy = env_util.get_env_var("UALBF_DUMMY_PAPER_CI")
-        os.environ["UALBF_DUMMY_PAPER_CI"] = "1"
+        orig_trusted_key = os.environ.get("UALBF_TRUSTED_PUBLIC_KEY")
+        os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
         try:
             ingest_cert.write_telemetry_tex(
-                cert_path=dummy_cert_path,
+                cert_path=test_cert_path,
                 manifest_path=manifest_path,
                 bounds_path=bounds_path,
                 output_dir=target_dir,
             )
         finally:
-            if orig_dummy is None:
-                os.environ.pop("UALBF_DUMMY_PAPER_CI", None)
+            if orig_trusted_key is None:
+                os.environ.pop("UALBF_TRUSTED_PUBLIC_KEY", None)
             else:
-                os.environ["UALBF_DUMMY_PAPER_CI"] = orig_dummy
+                os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = orig_trusted_key
+
+
+# Macros whose value depends on the commit being checked. A tracked file cannot
+# contain its own commit hash, so these are left out of the comparison.
+VOLATILE_MACROS = ("TelemetryCommitHash",)
+
+
+def _strip_volatile_macros(tex: str) -> str:
+    return "\n".join(
+        line
+        for line in tex.splitlines()
+        if not any(f"\\newcommand{{\\{m}}}" in line for m in VOLATILE_MACROS)
+    )
 
 
 def verify_paper_macro_sync(
@@ -129,21 +129,54 @@ def verify_paper_macro_sync(
     telemetry_path = os.path.join(paper_directory, "telemetry.tex")
     verification_path = os.path.join(paper_directory, "verification_manifest.tex")
 
-    # Ensure TeX macro files exist on disk in paper directory
-    if not os.path.exists(telemetry_path) or not os.path.exists(verification_path):
-        print("LaTeX macro files not found on disk. Generating paper TeX macros...")
-        generate_paper_macros(manifest_path, bounds_path, paper_directory)
+    if not os.path.exists(telemetry_path):
+        print(f"Error: telemetry.tex not found at {telemetry_path}")
+        return False
+    # verification_manifest.tex is a gitignored build output (the paper build
+    # regenerates it), so a fresh checkout has none; it is compared only when present.
+    verification_on_disk = os.path.exists(verification_path)
+
+    # Generate expected macros in a temporary directory to verify on-disk files without mutating workspace
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        generate_paper_macros(manifest_path, bounds_path, tmp_dir)
+        with open(
+            os.path.join(tmp_dir, "telemetry.tex"), "r", encoding="utf-8"
+        ) as f:
+            expected_telemetry = f.read()
+        with open(
+            os.path.join(tmp_dir, "verification_manifest.tex"),
+            "r",
+            encoding="utf-8",
+        ) as f:
+            expected_verification = f.read()
 
     # Read on-disk TeX macro files
     with open(telemetry_path, "r", encoding="utf-8") as f:
         on_disk_telemetry = f.read()
 
-    with open(verification_path, "r", encoding="utf-8") as f:
-        on_disk_verification = f.read()
+    if verification_on_disk:
+        with open(verification_path, "r", encoding="utf-8") as f:
+            on_disk_verification = f.read()
+    else:
+        print(
+            f"Note: {verification_path} not present; checking the generated table instead."
+        )
+        on_disk_verification = expected_verification
 
     disk_macros = parse_tex_macros(on_disk_telemetry)
     manifest_data = cert_util.BoundedJSONLoader().load_file(manifest_path)
     mismatches = []
+
+    if _strip_volatile_macros(on_disk_telemetry) != _strip_volatile_macros(
+        expected_telemetry
+    ):
+        mismatches.append(
+            f"telemetry.tex at {telemetry_path} differs from expected macros generated from {manifest_path}."
+        )
+    if on_disk_verification != expected_verification:
+        mismatches.append(
+            f"verification_manifest.tex at {verification_path} differs from expected macros generated from {manifest_path}."
+        )
 
     # Verify theorems
     for thm in manifest_data.get("theorems", []):
@@ -213,8 +246,35 @@ def verify_paper_macro_sync(
     return True
 
 
+def verify_manuscript_prose_compliance(
+    paper_directory: Optional[str] = None,
+    bounds_path: Optional[str] = None,
+) -> bool:
+    """Verify manuscript prose in paper/sections/ and paper/main.tex for bound compliance."""
+    print("=== Verifying Manuscript Prose Compliance ===")
+    if paper_directory is None:
+        paper_directory = paper_dir
+    if bounds_path is None:
+        bounds_path = os.path.join(project_root, "bounds_manifest.json")
+
+    telemetry_path = os.path.join(paper_directory, "telemetry.tex")
+    return ingest_cert.check_manuscript_compliance(
+        base_dir=paper_directory,
+        telemetry_tex_path=telemetry_path,
+        bounds_path=bounds_path,
+        raise_on_error=False,
+    )
+
+
 def main() -> None:
     """Main CLI entrypoint."""
+    if "--update" in sys.argv:
+        manifest_path = os.path.join(project_root, "proof_manifest.json")
+        bounds_path = os.path.join(project_root, "bounds_manifest.json")
+        print("Generating paper TeX macros on disk...")
+        generate_paper_macros(manifest_path, bounds_path, paper_dir)
+        print("Paper TeX macros generated successfully.")
+
     tests_ok = run_paper_unit_tests()
     if not tests_ok:
         print("\n[FAIL] Paper unit tests failed!")
@@ -223,6 +283,11 @@ def main() -> None:
     sync_ok = verify_paper_macro_sync()
     if not sync_ok:
         print("\n[FAIL] Paper LaTeX macro synchronization failed!")
+        sys.exit(1)
+
+    prose_ok = verify_manuscript_prose_compliance()
+    if not prose_ok:
+        print("\n[FAIL] Manuscript prose compliance checks failed!")
         sys.exit(1)
 
     repo_root = os.path.abspath(os.path.join(project_root, ".."))

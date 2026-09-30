@@ -20,7 +20,7 @@
 #  endif
 #endif
 
-#define EXPORTED_SCHEMA_MANIFEST_HASH "9dee5c21477c18a6ea5bae0f83237dd66f3a8bbc2528ad18724d79074dff9fdb"
+#define EXPORTED_SCHEMA_MANIFEST_HASH "ce7d8946be98803db0a465b33948d0470229bbcd9c361a79b44319f2e01d7ab6"
 
 typedef struct U512Data {
     uint64_t limbs[8];

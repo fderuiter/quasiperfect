@@ -1098,13 +1098,41 @@ def main():
                 )
                 errors += 1
 
-        # 4. Check conjectural bounds constants in ManifestConstants.lean match bounds_manifest.json
+        # 4. Check conjectural and search bounds constants in ManifestConstants.lean match bounds_manifest.json
         manifest_constants_path = os.path.join(
             base_dir, "lean4-proofs", "UALBF", "ManifestConstants.lean"
         )
         if os.path.exists(manifest_constants_path):
             with open(manifest_constants_path, "r", encoding="utf-8") as f:
                 constants_content = f.read()
+
+            # Parse search bounds constants
+            trial_limit_match = re.search(
+                r"def TRIAL_DIVISION_LIMIT\s*:\s*Nat\s*:=\s*(\d+)",
+                constants_content,
+            )
+            if trial_limit_match:
+                lean_trial_limit = int(trial_limit_match.group(1))
+                json_trial_limit = (
+                    bounds_data.get("search_bounds", {})
+                    .get("trial_division_limit", {})
+                    .get("value")
+                )
+                if json_trial_limit is None:
+                    print(
+                        "Error: trial_division_limit missing from bounds_manifest.json search_bounds."
+                    )
+                    errors += 1
+                elif lean_trial_limit != json_trial_limit:
+                    print(
+                        f"Error: TRIAL_DIVISION_LIMIT mismatch! Lean: {lean_trial_limit}, JSON: {json_trial_limit}"
+                    )
+                    errors += 1
+            else:
+                print(
+                    "Error: Could not parse TRIAL_DIVISION_LIMIT from ManifestConstants.lean"
+                )
+                errors += 1
 
             # Parse lean values
             active_match = re.search(
@@ -1175,22 +1203,20 @@ def main():
         if os.path.exists(readme_path):
             with open(readme_path, "r", encoding="utf-8") as f:
                 readme_content = f.read()
-            superscript_pattern = re.compile(r"10([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
-            matches = superscript_pattern.findall(readme_content)
-            found_search_limit_claim = False
+            # Only the search-target row is checked; other powers of ten in the
+            # README (literature bounds such as 10⁴⁵) are citations, not targets.
+            search_target_pattern = re.compile(r"Search toward 10([⁰¹²³⁴⁵⁶⁷⁸⁹]+)")
+            matches = search_target_pattern.findall(readme_content)
             for m in matches:
-                val_str = "".join(SUPERSCRIPTS[c] for c in m)
-                val = int(val_str)
-                if val_str.startswith("4"):
-                    found_search_limit_claim = True
-                    if val != target_max_log10:
-                        print(
-                            f"Error: README.md claims verified search limit of 10^{val}, but bounds_manifest.json target_max_log10 is {target_max_log10}."
-                        )
-                        errors += 1
-            if not found_search_limit_claim:
+                val = int("".join(SUPERSCRIPTS[c] for c in m))
+                if val != target_max_log10:
+                    print(
+                        f"Error: README.md states a search target of 10^{val}, but bounds_manifest.json target_max_log10 is {target_max_log10}."
+                    )
+                    errors += 1
+            if not matches:
                 print(
-                    "Error: Could not find any 10⁴... search limit claim in the root README.md."
+                    'Error: Could not find the "Search toward 10^..." row in the root README.md.'
                 )
                 errors += 1
 

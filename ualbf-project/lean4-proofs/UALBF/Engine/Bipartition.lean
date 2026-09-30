@@ -106,46 +106,34 @@ theorem no_solution_no_qpn (b : UALBF.Bipartition)
   intro h_qpn
   exact h_no_sol (ambs_suffix_target b h_qpn)
 
-/--
-  Root Partition Complete Coverage.
-  Proves that evaluating memory-isolated disjoint root subtrees provides complete
-  coverage of the target search space: if N is quasiperfect, its prefix N_L belongs
-  to the partition set of subtrees.
--/
-theorem root_partition_complete_coverage (subtrees : List (Nat → Prop))
-    (h_cover : ∀ n_L : Nat, ∃ s ∈ subtrees, s n_L)
-    (N : Nat) (h_qpn : IsQuasiperfect N) (b : UALBF.Bipartition) (h_N : b.N = N) :
-    ∃ s ∈ subtrees, s b.N_L := by
-  exact h_cover b.N_L
-
-theorem coprime_multiplicative_nonlinear (prefix suffix prefix_num prefix_den suffix_num suffix_den cand_num cand_den : ℕ)
-    (h1 : prefix_den = prefix)
+theorem coprime_multiplicative_nonlinear («prefix» suffix prefix_num prefix_den suffix_num suffix_den cand_num cand_den : ℕ)
+    (h1 : prefix_den = «prefix»)
     (h2 : suffix_den = suffix)
-    (h3 : cand_den = prefix * suffix)
+    (h3 : cand_den = «prefix» * suffix)
     (h4 : cand_num = prefix_num * suffix_num) :
     cand_num * prefix_den * suffix_den = prefix_num * suffix_num * cand_den := by
   subst h1 h2 h3 h4
   ring
 
-theorem coprime_multiplicative (prefix suffix prefix_num prefix_den suffix_num suffix_den cand_num cand_den : ℕ)
-    (h1 : prefix_den = prefix)
+theorem coprime_multiplicative («prefix» suffix prefix_num prefix_den suffix_num suffix_den cand_num cand_den : ℕ)
+    (h1 : prefix_den = «prefix»)
     (h2 : suffix_den = suffix)
-    (h3 : cand_den = prefix * suffix)
-    (h4 : prefix_num = sigma prefix)
+    (h3 : cand_den = «prefix» * suffix)
+    (h4 : prefix_num = sigma «prefix»)
     (h5 : suffix_num = sigma suffix)
     (h6 : cand_num = sigma cand_den)
-    (h_cop : prefix.Coprime suffix) :
+    (h_cop : «prefix».Coprime suffix) :
     cand_num * prefix_den * suffix_den = prefix_num * suffix_num * cand_den := by
   subst h1 h2 h3 h4 h5 h6
   unfold sigma
   rw [Nat.Coprime.sum_divisors_mul h_cop]
   ring
 
-theorem disjoint_by_construction (prefix suffix new_factor : ℕ)
-    (h1 : prefix.Coprime suffix)
-    (h2 : prefix.Coprime new_factor)
+theorem disjoint_by_construction («prefix» suffix new_factor : ℕ)
+    (h1 : «prefix».Coprime suffix)
+    (h2 : «prefix».Coprime new_factor)
     (h3 : suffix.Coprime new_factor) :
-    prefix.Coprime (suffix * new_factor) ∧ (prefix * new_factor).Coprime suffix := by
+    «prefix».Coprime (suffix * new_factor) ∧ («prefix» * new_factor).Coprime suffix := by
   constructor
   · exact Nat.Coprime.mul_right h1 h2
   · exact Nat.Coprime.mul_left h1 (by rwa [Nat.coprime_comm] at h3)

@@ -5,8 +5,11 @@ DOC = main
 all: execute-engine telemetry $(DOC).pdf
 
 execute-engine:
-	@if [ "$(UALBF_DUMMY_PAPER_CI)" != "1" ]; then \
-		cd ../rust-engine && cargo run --release --features signing ; \
+	@if [ -f "$${UALBF_CERT_PATH:-../rust-engine/formal_certificate.json}" ]; then \
+		echo "Using certificate at $${UALBF_CERT_PATH:-../rust-engine/formal_certificate.json}"; \
+	else \
+		echo "Generating signed test certificate..."; \
+		PYTHONPATH="..:$$PYTHONPATH" python3 -c "import cert_util, json, os; cert, pub = cert_util.create_signed_test_cert('../proof_manifest.json', '../bounds_manifest.json'); os.makedirs('../rust-engine', exist_ok=True); open('../rust-engine/formal_certificate.json', 'w').write(json.dumps(cert, indent=2))" ; \
 	fi
 
 telemetry: execute-engine

@@ -23,14 +23,15 @@ pub fn get_divisors_greater_than_one(n: u32) -> Vec<u32> {
     divisors
 }
 
-/// Derives the forced-candidate sets for each component based on Zsigmondy divisors.
+/// Derives the disjunctive candidate clauses for each component based on Zsigmondy divisors.
 ///
 /// For each component and each divisor d > 1 of (two_e + 1), we collect all component
-/// indices whose prime satisfies p % d == 1.
+/// indices whose prime satisfies p % d == 1 into a separate candidate clause.
 ///
-/// Exposes the forced-candidate sets as Vec<Vec<usize>>, indexed by component position.
-pub fn derive_forced_candidates(components: &[PrimePower]) -> Vec<Vec<usize>> {
-    let mut forced_candidates = vec![Vec::new(); components.len()];
+/// Exposes the disjunctive candidate clauses as Vec<Vec<Vec<usize>>>, indexed by component position
+/// and clause position.
+pub fn derive_disjunctive_clauses(components: &[PrimePower]) -> Vec<Vec<Vec<usize>>> {
+    let mut disjunctive_clauses = vec![Vec::new(); components.len()];
 
     // Build a prime-to-component-index HashMap<u64, Vec<usize>>
     let mut prime_to_component_indices: HashMap<u64, Vec<usize>> = HashMap::new();
@@ -47,29 +48,50 @@ pub fn derive_forced_candidates(components: &[PrimePower]) -> Vec<Vec<usize>> {
         let n = comp.two_e + 1;
         let divisors = get_divisors_greater_than_one(n);
 
-        let mut candidates = Vec::new();
+        let mut clauses = Vec::new();
         for &d in &divisors {
             let d_u64 = d as u64;
+            let mut clause_candidates = Vec::new();
             // Collect component indices whose prime satisfies p % d == 1
             for (&prime, indices) in &prime_to_component_indices {
                 if prime % d_u64 == 1 {
-                    candidates.extend_from_slice(indices);
+                    clause_candidates.extend_from_slice(indices);
                 }
             }
+            clause_candidates.sort_unstable();
+            clause_candidates.dedup();
+            clauses.push(clause_candidates);
         }
 
-        candidates.sort_unstable();
-        candidates.dedup();
-        forced_candidates[i] = candidates;
+        disjunctive_clauses[i] = clauses;
     }
 
-    forced_candidates
+    disjunctive_clauses
+}
+
+/// Derives the flattened forced-candidate sets for each component for backwards compatibility.
+pub fn derive_forced_candidates(components: &[PrimePower]) -> Vec<Vec<usize>> {
+    let clauses = derive_disjunctive_clauses(components);
+    clauses
+        .into_iter()
+        .map(|comp_clauses| {
+            let mut flat = Vec::new();
+            for clause in comp_clauses {
+                flat.extend(clause);
+            }
+            flat.sort_unstable();
+            flat.dedup();
+            flat
+        })
+        .collect()
 }
 
 /// The Component Dependency Graph (CDG) representing directed force relationships
 /// and its strongly connected components (SCCs).
 pub struct Cdg {
-    /// The forced-candidate sets derived from each component.
+    /// Disjunctive candidate clauses per component and divisor.
+    pub disjunctive_clauses: Vec<Vec<Vec<usize>>>,
+    /// The flattened forced-candidate sets derived from each component.
     pub forced_candidates: Vec<Vec<usize>>,
     /// Directed adjacency-list graph representing component forces.
     pub adjacency: Vec<Vec<usize>>,
@@ -161,11 +183,13 @@ fn compute_sccs_iterative(adj: &[Vec<usize>]) -> (Vec<usize>, Vec<Vec<usize>>) {
 impl Cdg {
     /// Builds a new CDG from components, computing adjacency and iterative Tarjan SCCs.
     pub fn new(components: &[PrimePower]) -> Self {
+        let disjunctive_clauses = derive_disjunctive_clauses(components);
         let forced_candidates = derive_forced_candidates(components);
         let adjacency = forced_candidates.clone();
         let (scc_map, scc_components) = compute_sccs_iterative(&adjacency);
 
         Self {
+            disjunctive_clauses,
             forced_candidates,
             adjacency,
             scc_map,
@@ -231,6 +255,33 @@ mod tests {
 
         // For C2: d=2. Candidates should also be [0, 1, 2]
         assert_eq!(forced[2], vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn test_disjunctive_candidate_clauses() {
+        let components = vec![
+            make_dummy_component(3, 2),  // 2e+1 = 3 -> d=3
+            make_dummy_component(7, 1),  // 2e+1 = 2 -> d=2
+            make_dummy_component(13, 1), // 2e+1 = 2 -> d=2
+            make_dummy_component(31, 5), // 2e+1 = 6 -> d=2, 3, 6
+        ];
+
+        let clauses = derive_disjunctive_clauses(&components);
+
+        // C0 (d=3): candidates p % 3 == 1 -> 7 (C1), 13 (C2), 31 (C3) -> [1, 2, 3]
+        assert_eq!(clauses[0], vec![vec![1, 2, 3]]);
+
+        // C1 (d=2): candidates p % 2 == 1 -> 3 (C0), 7 (C1), 13 (C2), 31 (C3) -> [0, 1, 2, 3]
+        assert_eq!(clauses[1], vec![vec![0, 1, 2, 3]]);
+
+        // C3 (d=2, 3, 6):
+        // d=2 -> [0, 1, 2, 3]
+        // d=3 -> 7 % 3 = 1, 13 % 3 = 1, 31 % 3 = 1 -> [1, 2, 3]
+        // d=6 -> 7 % 6 = 1, 13 % 6 = 1, 31 % 6 = 1 -> [1, 2, 3]
+        assert_eq!(clauses[3].len(), 3);
+        assert_eq!(clauses[3][0], vec![0, 1, 2, 3]);
+        assert_eq!(clauses[3][1], vec![1, 2, 3]);
+        assert_eq!(clauses[3][2], vec![1, 2, 3]);
     }
 
     #[test]

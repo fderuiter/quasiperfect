@@ -334,7 +334,7 @@ where
         Some(v) => v.parse::<usize>().expect(
             "FATAL: UALBF_TRIAL_DIVISION_LIMIT / --trial-division-limit must be a valid usize",
         ),
-        None => 10_000_000,
+        None => crate::manifest_constants::TRIAL_DIVISION_LIMIT,
     };
 
     let proof_mode_raw =

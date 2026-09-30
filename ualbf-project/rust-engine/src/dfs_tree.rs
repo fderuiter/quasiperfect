@@ -349,7 +349,7 @@ pub fn phase2_and_4_fused(
                 sf.extend_from_slice(&extra_factors);
                 sf
             },
-            active_mask: backbone.compatibility_matrix[i].clone(),
+            active_mask: backbone.compatibility_matrix[i].clone().into(),
             sigma_mod24: (comp.sigma % Uint::from_u64(24)).as_u32(),
         };
 
@@ -394,8 +394,7 @@ pub fn phase2_and_4_fused(
     let rp = pruned_count.load(Ordering::Relaxed);
     let bp = boundary_pruned.load(Ordering::Relaxed);
     drop(trace_tx);
-    drop(trace_writer.sender);
-    let _ = trace_writer.handle.join();
+    let _ = trace_writer.finish();
     let density = (total_branches as f64) / (total_weight_scaled as f64 + 1.0); // simple proxy for density
     if let Some(r) = reporter {
         let _ = r.send(crate::events::SearchEvent::DFSComplete {
@@ -477,15 +476,18 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::TargetBound,
-                verification_status: "formally verified",
-            });
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::TargetBound,
+                    verification_status: "lean: UALBF.Engine.ruleA_safe",
+                },
+            );
         }
         return false;
     }
@@ -531,17 +533,20 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::Touchard {
-                    sigma_mod24: curr.sigma_mod24,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::Touchard {
+                        sigma_mod24: curr.sigma_mod24,
+                    },
+                    verification_status: "partial: UALBF.QPN.TouchardQPN.qpn_sigma_mod_24 (residue reachability not proven)",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -596,20 +601,23 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::UnconditionalStarvation {
-                    max_allowed,
-                    static_best_remaining,
-                    lhs,
-                    rhs,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::UnconditionalStarvation {
+                        max_allowed,
+                        static_best_remaining,
+                        lhs,
+                        rhs,
+                    },
+                    verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (suffix bound assumed)",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -740,18 +748,21 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::OverflowKill {
-                    s_l_mul: curr.s_l * overflow_den_u,
-                    n_l_mul: curr.n_l * overflow_num_u,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::OverflowKill {
+                        s_l_mul: curr.s_l * overflow_den_u,
+                        n_l_mul: curr.n_l * overflow_num_u,
+                    },
+                    verification_status: "unproven: arithmetic overflow",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -770,20 +781,23 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::EulerCeiling {
-                    num,
-                    den,
-                    euler_num,
-                    euler_den,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::EulerCeiling {
+                        num,
+                        den,
+                        euler_num,
+                        euler_den,
+                    },
+                    verification_status: "unproven: no Lean theorem for the Euler ceiling",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -796,6 +810,8 @@ pub fn check_and_evaluate_node(
         queue.push(last_comp_idx);
         forced_set[last_comp_idx] = true;
 
+        let mut clause_unsatisfiable = false;
+
         while let Some(u) = queue.pop() {
             let scc_id = backbone.scc_map[u];
             for &v in &backbone.scc_components[scc_id] {
@@ -804,12 +820,69 @@ pub fn check_and_evaluate_node(
                     queue.push(v);
                 }
             }
-            for &v in &backbone.forced_candidates[u] {
-                if !forced_set[v] {
-                    forced_set[v] = true;
-                    queue.push(v);
+            for clause in &backbone.disjunctive_clauses[u] {
+                let mut min_candidate = None;
+                let mut min_abundance = u128::MAX;
+
+                for &c in clause {
+                    if c >= curr.last_idx && (curr.active_mask[c / 64] & (1u64 << (c % 64))) != 0 {
+                        let ab = components[c].abundance_fp;
+                        if ab < min_abundance {
+                            min_abundance = ab;
+                            min_candidate = Some(c);
+                        }
+                    }
+                }
+
+                if let Some(c_star) = min_candidate {
+                    if !forced_set[c_star] {
+                        forced_set[c_star] = true;
+                        queue.push(c_star);
+                    }
+                } else {
+                    // Clause has 0 remaining active candidates!
+                    clause_unsatisfiable = true;
+                    break;
                 }
             }
+
+            if clause_unsatisfiable {
+                break;
+            }
+        }
+
+        if clause_unsatisfiable {
+            abundance_pruned.fetch_add(1, Ordering::Relaxed);
+            pruned_count.fetch_add(1, Ordering::Relaxed);
+            if let Some(tx) = trace_tx {
+                let mut f_vec = smallvec::SmallVec::new();
+                f_vec.extend_from_slice(&curr.factors);
+                let topology_manifest = crate::trace::GraphTopologyManifest {
+                    adjacency: backbone.adjacency.clone(),
+                    scc_map: backbone.scc_map.clone(),
+                    scc_components: backbone.scc_components.clone(),
+                    disjunctive_clauses: backbone.disjunctive_clauses.clone(),
+                    forced_candidates: backbone.forced_candidates.clone(),
+                };
+                let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
+                let _ = tx.send(crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::CdgForcedCascade {
+                        forced_num: Uint::MAX,
+                        forced_den: Uint::one() << 64,
+                        lhs: Uint::MAX,
+                        rhs: Uint::zero(),
+                        topology_manifest: Some(topology_manifest),
+                        reachable_paths: None,
+                    },
+                    verification_status: "unproven: CDG cascade (disjunctive clause unsatisfiable)",
+                });
+            }
+            return false;
         }
 
         let mut forced_contributions = Vec::new();
@@ -871,26 +944,30 @@ pub fn check_and_evaluate_node(
                     adjacency: backbone.adjacency.clone(),
                     scc_map: backbone.scc_map.clone(),
                     scc_components: backbone.scc_components.clone(),
+                    disjunctive_clauses: backbone.disjunctive_clauses.clone(),
                     forced_candidates: backbone.forced_candidates.clone(),
                 };
                 let reachable_paths = vec![forced_contributions.clone()];
                 let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-                let _ = tx.send(crate::trace::TraceEvent {
-                    work_unit_id,
-                    step_index,
-                    factors: f_vec,
-                    n_l: curr.n_l,
-                    s_l: curr.s_l,
-                    reason: crate::trace::PruneReason::CdgForcedCascade {
-                        forced_num,
-                        forced_den,
-                        lhs,
-                        rhs,
-                        topology_manifest: Some(topology_manifest),
-                        reachable_paths: Some(reachable_paths),
+                let _ = crate::trace::send_trace_event(
+                    tx,
+                    crate::trace::TraceEvent {
+                        work_unit_id,
+                        step_index,
+                        factors: f_vec,
+                        n_l: curr.n_l,
+                        s_l: curr.s_l,
+                        reason: crate::trace::PruneReason::CdgForcedCascade {
+                            forced_num,
+                            forced_den,
+                            lhs,
+                            rhs,
+                            topology_manifest: Some(topology_manifest),
+                            reachable_paths: Some(reachable_paths),
+                        },
+                        verification_status: "unproven: CDG cascade (graph topology audited)",
                     },
-                    verification_status: "formally verified (graph topology audited)",
-                });
+                );
             }
             return false;
         }
@@ -920,19 +997,22 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::DynamicStarvation {
-                    dynamic_best_achievable_fp,
-                    lhs: lhs_dyn,
-                    rhs: rhs_dyn,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::DynamicStarvation {
+                        dynamic_best_achievable_fp,
+                        lhs: lhs_dyn,
+                        rhs: rhs_dyn,
+                    },
+                    verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -974,19 +1054,22 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::MinFactors {
-                    dynamic_min_factors: baseline_min,
-                    curr_factors: curr.factors.len(),
-                    remaining_components,
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::MinFactors {
+                        dynamic_min_factors: baseline_min,
+                        curr_factors: curr.factors.len(),
+                        remaining_components,
+                    },
+                    verification_status: "conditional: UALBF.QPN.PrasadSunitha omega bounds (component count assumed)",
                 },
-                verification_status: "formally verified",
-            });
+            );
         }
         return false;
     }
@@ -999,18 +1082,8 @@ pub fn check_and_evaluate_node(
                 let mut f_vec = smallvec::SmallVec::new();
                 f_vec.extend_from_slice(&curr.factors);
 
-                let ln_2 = 2.0_f64.ln();
-                let s_l_f64 = curr.s_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let n_l_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let a_curr = s_l_f64 / n_l_f64;
-                let target_log = ln_2 - a_curr.ln();
-
-                let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-                let epsilon = if n_f64 > 0.0 {
-                    (0.5 / n_f64).ln_1p()
-                } else {
-                    0.0
-                };
+                let (target_log, epsilon) =
+                    crate::lattice::compute_target_log_and_epsilon(&curr.s_l, &curr.n_l);
 
                 let mut m = 0;
                 let mask = &curr.active_mask;
@@ -1032,20 +1105,23 @@ pub fn check_and_evaluate_node(
                 }
 
                 let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-                let _ = tx.send(crate::trace::TraceEvent {
-                    work_unit_id,
-                    step_index,
-                    factors: f_vec,
-                    n_l: curr.n_l,
-                    s_l: curr.s_l,
-                    reason: crate::trace::PruneReason::Lll {
-                        m,
-                        shortest_sq_norm: "N/A".to_string(),
-                        target_log,
-                        epsilon,
+                let _ = crate::trace::send_trace_event(
+                    tx,
+                    crate::trace::TraceEvent {
+                        work_unit_id,
+                        step_index,
+                        factors: f_vec,
+                        n_l: curr.n_l,
+                        s_l: curr.s_l,
+                        reason: crate::trace::PruneReason::Lll {
+                            m,
+                            shortest_sq_norm: "N/A".to_string(),
+                            target_log,
+                            epsilon,
+                        },
+                        verification_status: "approximate bound",
                     },
-                    verification_status: "approximate bound",
-                });
+                );
             }
             return false;
         }
@@ -1122,15 +1198,18 @@ pub fn check_and_evaluate_node(
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
             let step_index = step_counter.fetch_add(1, Ordering::Relaxed);
-            let _ = tx.send(crate::trace::TraceEvent {
-                work_unit_id,
-                step_index,
-                factors: f_vec,
-                n_l: curr.n_l,
-                s_l: curr.s_l,
-                reason: crate::trace::PruneReason::Raycast,
-                verification_status: "formally verified",
-            });
+            let _ = crate::trace::send_trace_event(
+                tx,
+                crate::trace::TraceEvent {
+                    work_unit_id,
+                    step_index,
+                    factors: f_vec,
+                    n_l: curr.n_l,
+                    s_l: curr.s_l,
+                    reason: crate::trace::PruneReason::Raycast,
+                    verification_status: "unproven: handed off to ray casting",
+                },
+            );
         }
         phase4_exact_ray_casting(
             curr,
@@ -1262,7 +1341,7 @@ fn explore_prefix_sequential(
         max_idx_5,
         lazy_cache,
         backbone,
-        saved_states: Vec::new(),
+        saved_states: Vec::with_capacity(64),
         dyn_min_factors: 0,
         should_explore_memo: false,
         trace_tx: trace_tx.cloned(),
@@ -1400,9 +1479,8 @@ pub struct DfsContext<'a> {
 
 /// Typed reference wrapper around a validated `DfsContext`.
 /// Encapsulates non-null and alignment checks via `NonNullContext`.
-#[derive(Clone, Copy)]
 pub struct DfsContextRef<'a> {
-    ctx: &'a DfsContext<'a>,
+    ctx: &'a mut DfsContext<'a>,
 }
 
 impl<'a> std::fmt::Debug for DfsContextRef<'a> {
@@ -1422,8 +1500,8 @@ impl<'a> DfsContextRef<'a> {
     /// returning `Some(DfsContextRef)` if valid, or `None` otherwise.
     #[inline(always)]
     pub fn from_handle(handle: u64) -> Option<Self> {
-        let nn = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(handle)?;
-        let ctx = unsafe { nn.as_ref()? };
+        let mut nn = crate::ffi_boundary::NonNullContext::<DfsContext>::from_u64(handle)?;
+        let ctx = unsafe { nn.as_mut()? };
         Some(Self { ctx })
     }
 
@@ -1457,9 +1535,40 @@ impl<'a> DfsContextRef<'a> {
         self.ctx.saved_states.len()
     }
 
+    /// Returns a shared reference to the active BitSet.
+    #[inline(always)]
+    pub fn bit_set(&self) -> &crate::state::BitSet {
+        &self.ctx.curr.active_mask
+    }
+
+    /// Returns a mutable reference to the active BitSet for in-place bit operations.
+    #[inline(always)]
+    pub fn bit_set_mut(&mut self) -> &mut crate::state::BitSet {
+        &mut self.ctx.curr.active_mask
+    }
+
+    /// Mutates the active BitSet in-place with a mask, recording cleared bits in `diff_out`.
+    #[inline(always)]
+    pub fn intersect_bit_set(
+        &mut self,
+        mask: &[u64],
+        diff_out: &mut smallvec::SmallVec<[u64; 16]>,
+    ) {
+        self.ctx
+            .curr
+            .active_mask
+            .intersect_with_undo(mask, diff_out);
+    }
+
+    /// Reverts a bit set intersection in-place using the recorded cleared bits.
+    #[inline(always)]
+    pub fn undo_intersect_bit_set(&mut self, diff: &[u64]) {
+        self.ctx.curr.active_mask.undo_intersect(diff);
+    }
+
     /// Returns a direct shared reference to the underlying `DfsContext`.
     #[inline(always)]
-    pub fn get_ref(&self) -> &'a DfsContext<'a> {
+    pub fn get_ref(&self) -> &DfsContext<'a> {
         self.ctx
     }
 }
@@ -1585,7 +1694,10 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
                     return false;
                 }
             }
-            dfs_ctx.saved_states.push(dfs_ctx.curr.capture_state());
+            let row = &dfs_ctx.backbone.compatibility_matrix[i];
+            dfs_ctx
+                .saved_states
+                .push(dfs_ctx.curr.capture_state_and_intersect(row));
             dfs_ctx.curr.n_l = next_n_l;
             dfs_ctx.curr.s_l = next_s_l;
             let comp_sigma_mod24 = (comp.sigma % Uint::from_u64(24)).as_u32();
@@ -1720,7 +1832,7 @@ mod tests {
             factors: vec![],
             sigma_factors: vec![],
             sigma_factors_u64: vec![],
-            active_mask: vec![],
+            active_mask: crate::state::BitSet::new(),
             sigma_mod24: (s_l % 24) as u32,
         }
     }
@@ -2690,7 +2802,7 @@ mod tests {
         }
 
         let mut curr = make_prefix(1, 1, 0);
-        curr.active_mask = vec![0x3FFu64]; // bits 0 to 9 set
+        curr.active_mask = vec![0x3FFu64].into(); // bits 0 to 9 set
 
         let tb = Uint::from_u128(u128::MAX);
 
@@ -2734,7 +2846,7 @@ mod tests {
         }
 
         let mut curr = make_prefix(1, 1, 0);
-        curr.active_mask = vec![0x3FFu64]; // bits 0 to 9 set
+        curr.active_mask = vec![0x3FFu64].into(); // bits 0 to 9 set
 
         let tb = Uint::from_u128(u128::MAX);
 
@@ -2787,7 +2899,7 @@ mod tests {
         // Since factors are empty, 5 is absent.
         // Thus, the Hagis-Cohen bound of 11 should be used.
         let mut curr = make_prefix(25, 27, 4);
-        curr.active_mask = vec![0x3FF; 1]; // All active up to index 9
+        curr.active_mask = vec![0x3FF; 1].into(); // All active up to index 9
         with_dfs_ctx!(
             curr = curr,
             components = &comps,
@@ -2802,7 +2914,7 @@ mod tests {
                     ctx.trace_tx = Some(tx);
                     let should_explore = __rust_dfs_check_evaluate(ptr, 0);
                     // Since remaining factors count (length) is short (factors is empty, so len=0),
-                    // it should be pruned because 0 < 11 (the bound).
+                    // it should be pruned because 0 < DIV_5_COPRIME_3_BOUND.
                     assert!(!should_explore);
                     if let Ok(event) = rx.try_recv() {
                         match event.reason {
@@ -2810,7 +2922,11 @@ mod tests {
                                 dynamic_min_factors,
                                 ..
                             } => {
-                                assert_eq!(dynamic_min_factors, 11, "Expected Hagis-Cohen bound of 11 when factor 3 is starved and factor 5 is absent");
+                                assert_eq!(
+                                    dynamic_min_factors,
+                                    crate::manifest_constants::DIV_5_COPRIME_3_BOUND as usize,
+                                    "Expected the div-5/coprime-3 manifest bound when factor 3 is starved"
+                                );
                             }
                             crate::trace::PruneReason::TargetBound => {
                                 panic!("Case 1: Pruned by TargetBound")
@@ -2853,7 +2969,7 @@ mod tests {
         // And last_idx (4) > max_idx_5 (3) => starved.
         // Thus, Prasad-Sunitha bound of 15 should be used.
         let mut curr = make_prefix(25, 27, 4);
-        curr.active_mask = vec![0x3FF; 1];
+        curr.active_mask = vec![0x3FF; 1].into();
         with_dfs_ctx!(
             curr = curr,
             components = &comps,
@@ -2917,7 +3033,7 @@ mod tests {
         // And last_idx (4) <= max_idx_5 (10) => NOT starved.
         // Thus, baseline min factor (9) should be used.
         let mut curr = make_prefix(25, 27, 4);
-        curr.active_mask = vec![0x3FF; 1];
+        curr.active_mask = vec![0x3FF; 1].into();
         with_dfs_ctx!(
             curr = curr,
             components = &comps,
@@ -2975,6 +3091,43 @@ mod tests {
                 }
             }
         );
+    }
+
+    #[test]
+    fn test_dfs_context_ref_methods() {
+        let comps = vec![];
+        let mut curr = make_prefix(25, 27, 4);
+        curr.active_mask = vec![0b1111].into();
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = Uint::from_u64(1000),
+            max_idx_3 = usize::MAX,
+            max_idx_5 = usize::MAX,
+            saved_states = vec![],
+            |ptr| {
+                let mut ctx_ref = DfsContextRef::from_handle(ptr).expect("Valid handle");
+                assert_eq!(ctx_ref.last_idx(), 4);
+                assert_eq!(ctx_ref.n_l(), Uint::from_u64(25));
+                assert_eq!(ctx_ref.s_l(), Uint::from_u64(27));
+                assert_eq!(ctx_ref.factors(), &[] as &[u64]);
+                assert_eq!(ctx_ref.saved_states_len(), 0);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b1111]);
+
+                let mut diff = smallvec::SmallVec::new();
+                ctx_ref.intersect_bit_set(&[0b0011], &mut diff);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b0011]);
+
+                ctx_ref.undo_intersect_bit_set(&diff);
+                assert_eq!(ctx_ref.bit_set().blocks, vec![0b1111]);
+
+                let _mut_ref = ctx_ref.bit_set_mut();
+                let _ref_back = ctx_ref.get_ref();
+            }
+        );
+
+        let limit = get_conjectural_limit();
+        assert!(limit > Uint::from_u64(0));
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

@@ -8,6 +8,8 @@ To transparently align the formal claims of this manuscript with the software's 
     \item \textbf{Unverified FFI Boundary:} The Foreign Function Interface (FFI) boundary between the Lean 4 formalization and the Rust execution engine is unverified. While the Rust engine trusts the semantics exported via Lean's \texttt{@[export]} pragmas (such as the C-compatible data serialization), the bridging logic itself is not mechanically checked and forms a boundary in the TCB.
     
     \item \textbf{Inactive GPU Pipeline Status:} The highly parallelized batch-factorization GPU Pollard's Rho pipeline, implemented in Apple Metal, is completely bypassed in the active verified paths. High-performance execution relies entirely on sequential CPU loops, leaving the GPU pipelines unverified and unused in QPN search invariants.
+
+    \item \textbf{Search Completeness Not Proven:} The Lean library proves individual pruning lemmas, but no theorem states that the search as a whole covers every candidate in its target range. The known coverage gaps are listed in \cref{subsec:bounds_achieved}.
 \end{enumerate}
 
 \section{Exhaustive Verification of Low-Level Computational Primitives}

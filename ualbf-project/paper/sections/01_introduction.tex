@@ -5,15 +5,20 @@
 \label{sec:intro}
 
 A quasiperfect number (QPN) is a positive integer~$N$ whose sum of
-divisors satisfies $\sigma(N) = 2N + 1$.  While no such numbers have
-been found, their existence has been heavily constrained by decades of
-mathematical research.  Cattaneo (1951) demonstrated that any QPN must
-be an odd perfect square~\cite{cattaneo1951}.  Subsequent computational
-and analytical efforts by Hagis and Cohen (1982) established that a QPN
-must be greater than $10^{\TelemetryMinLog}$ and contain at least seven distinct prime
-factors~\cite{hagis1982}.  Despite these bounds, closing the search
-space remains computationally difficult due to combinatorial explosions
-in possible prime factorizations.
+divisors satisfies $\sigma(N) = 2N + 1$.  No such number is known.
+Cattaneo (1951) showed that any QPN must be an odd perfect
+square~\cite{cattaneo1951}.  Hagis and Cohen (1982) showed that a QPN
+satisfies $N > 10^{35}$ and has at least seven distinct prime
+factors~\cite{hagis1982}.  Prasad and Sunitha (2017) showed that a QPN
+with $\gcd(N,15)=1$ has at least fifteen distinct prime
+factors~\cite{prasad_sunitha}.  More recently, Alekseyev (2026) showed
+that there is no QPN below $10^{45}$~\cite{alekseyev2026}, and
+Toyohara, Tao and Yao (2026) claim that every QPN has at least eight
+distinct prime factors~\cite{toyohara_tao_yao2026}; the latter result
+should be treated as conditional until their enumeration code is made
+public.  Pushing these bounds further by computation is difficult
+because the number of possible prime factorisations grows
+combinatorially.
 
 \paragraph{The verification gap.}
 The central obstacle confronting modern computational attacks on the QPN
@@ -81,28 +86,27 @@ In this paper, we present the following core contributions:
     tail for the unified 2.0442 Euler ceiling theorem, requiring no real-analysis imports
     (\cref{subsec:correction_factor_standalone}).
 
-  \item \textbf{Formal Exhaustion Certificate:}
+  \item \textbf{Bipartition Congruence Lemma:}
     We prove the contrapositive
     \texttt{no\_\allowbreak{}solution\_\allowbreak{}no\_\allowbreak{}qpn}:
-    if the Rust engine's ray-cast exhausts all candidate suffixes
-    without finding $\sigma(N)=2N+1$, then $N$ is formally proven
-    non-quasiperfect for the given prefix
-    (\cref{subsec:bipartition}).
+    if a suffix $N_R$ fails the congruence
+    $N_R \cdot 2N_L \equiv -1 \pmod{\sigma(N_L)}$, then
+    $N_L N_R$ is not quasiperfect (\cref{subsec:bipartition}).  This is
+    a lemma about a single prefix--suffix pair; it does not show that
+    the Rust engine enumerates every admissible suffix.
 
   \item \textbf{Theoretical Framework for Deeper Horizons: Exact Valuation Ray-Cast Strategy:}
     We introduce a ray-cast algorithm in Rust whose \emph{targeting
     step}---computing the unique residue class of $N_R$ modulo
     $\sigma(N_L)$ via a single modular inverse---runs in
     $\mathcal{O}(1)$ time. Candidates along the resulting arithmetic
-    progression are then enumerated. However, we transparently note that for the
-    $10^{\TelemetryMaxLog}$ bound, shallow structural traps completely exhausted the
-    search space before this deep-horizon algorithm could activate
-    (\cref{sec:computational_methodology}).
+    progression are then enumerated.  This stage did not run in the
+    search reported here (\cref{sec:computational_methodology}).
 
-  \item \textbf{Extended Computational Bounds:}
-    We successfully push the lower bounds for QPNs to $N > 10^{\TelemetryMaxLog}$,
-    empirically validating our theoretical framework without
-    encountering false positives (\cref{sec:results}).
+  \item \textbf{Prototype Search Engine:}
+    We describe a prototype Lean/Rust search engine and list the
+    reasons its coverage is incomplete (\cref{sec:results}).  The search
+    does not establish a lower bound on quasiperfect numbers.
 \end{itemize}
 
 
@@ -131,7 +135,7 @@ positive integer satisfying
 
 No quasiperfect number has ever been found.  Cattaneo~\cite{cattaneo1951}
 showed that any QPN must be an odd perfect square, and Hagis and
-Cohen~\cite{hagis1982} established that $N > 10^{\TelemetryMinLog}$ with at least
+Cohen~\cite{hagis1982} established that $N > 10^{35}$ with at least
 seven distinct prime factors.  Because $2N+1$ is manifestly odd, one
 obtains immediately that $\sigma(N)$ is odd for any QPN; the
 consequences of this parity constraint are the starting point for the

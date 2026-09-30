@@ -3,7 +3,8 @@
 use crate::schema_generated::Prefix;
 use crate::types::PrimePower;
 use lll_rs::{lll::biglll, matrix::Matrix, vector::BigVector};
-use rug::{Assign, Integer, Rational};
+use rug::integer::Order;
+use rug::{Assign, Float, Integer, Rational};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -45,6 +46,54 @@ pub fn compute_target_penalty(m: usize) -> f64 {
         return base;
     }
     base * ((1usize << (m - 2)) as f64)
+}
+
+/// Convert a 256-bit/512-bit accumulator `Uint` directly to `rug::Integer`
+/// without string formatting or string parsing.
+pub fn uint_to_rug_integer(u: &crate::types::Uint) -> Integer {
+    let bytes = u.to_le_bytes();
+    Integer::from_digits(&bytes, Order::Lsf)
+}
+
+/// Convert `s_l` and `n_l` accumulators directly into an exact `rug::Rational` fraction S_l / N_l.
+pub fn accumulators_to_rational(s_l: &crate::types::Uint, n_l: &crate::types::Uint) -> Rational {
+    let s_int = uint_to_rug_integer(s_l);
+    let n_int = uint_to_rug_integer(n_l);
+    Rational::from((s_int, n_int))
+}
+
+/// Compute target log-abundancy and tolerance epsilon using 256-bit arbitrary precision Float arithmetic.
+pub fn compute_target_log_and_epsilon_float(
+    s_l: &crate::types::Uint,
+    n_l: &crate::types::Uint,
+) -> (Float, Float) {
+    const PRECISION: u32 = 256;
+    let s_int = uint_to_rug_integer(s_l);
+    let n_int = uint_to_rug_integer(n_l);
+
+    if n_int == 0 || s_int == 0 {
+        return (Float::with_val(PRECISION, 0), Float::with_val(PRECISION, 0));
+    }
+
+    let rat = Rational::from((s_int, n_int.clone()));
+    let a_curr_flt = Float::with_val(PRECISION, &rat);
+    let ln_2 = Float::with_val(PRECISION, 2).ln();
+    let target_log_flt = ln_2 - a_curr_flt.ln();
+
+    let n_flt = Float::with_val(PRECISION, &n_int);
+    let inv_2n_flt = Float::with_val(PRECISION, 0.5) / &n_flt;
+    let epsilon_flt = inv_2n_flt.ln_1p();
+
+    (target_log_flt, epsilon_flt)
+}
+
+/// Compute target log-abundancy and tolerance epsilon as f64 values using 256-bit Float arithmetic internally.
+pub fn compute_target_log_and_epsilon(
+    s_l: &crate::types::Uint,
+    n_l: &crate::types::Uint,
+) -> (f64, f64) {
+    let (target_log_flt, epsilon_flt) = compute_target_log_and_epsilon_float(s_l, n_l);
+    (target_log_flt.to_f64(), epsilon_flt.to_f64())
 }
 
 /// LLL-based lattice pruning module.
@@ -100,29 +149,32 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
         w.push(Integer::from(w_val));
     }
 
-    // Define target log-abundancy T = ln(2) - ln(A_curr).
-    let s_l_f64 = curr.s_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let n_l_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let a_curr = s_l_f64 / n_l_f64;
-    if a_curr <= 0.0 {
+    // Construct exact rug::Integer accumulators without string parsing.
+    let s_int = uint_to_rug_integer(&curr.s_l);
+    let n_int = uint_to_rug_integer(&curr.n_l);
+
+    if n_int == 0 || s_int == 0 {
         return false;
     }
-    let target_log = ln_2 - a_curr.ln();
 
-    // Define target tolerance epsilon = ln(1 + 1/(2N)) = ln(2 + 1/N) - ln(2).
-    // Using ln_1p prevents floating-point cancellation underflow for deep search prefixes (N >= 10^16).
-    let n_f64 = curr.n_l.to_string().parse::<f64>().unwrap_or(1.0);
-    let _tolerance = crate::manifest_constants::LATTICE_PRECISION_TOLERANCE;
-    let epsilon = if n_f64 > 0.0 {
-        (0.5 / n_f64).ln_1p()
-    } else {
-        0.0
-    };
+    // Exact rational bound check before vector reduction:
+    // T + epsilon < 0 is mathematically equivalent to S_l >= 2 * N_l + 1 (i.e. S_l > 2 * N_l).
+    // If S_l > 2 * N_l, current abundancy S_l / N_l > 2, so target abundancy 2 is strictly exceeded.
+    let two_n = Integer::from(2 * &n_int);
+    if s_int > two_n {
+        return true;
+    }
 
-    if target_log + epsilon < 0.0 {
+    // Compute target log-abundancy T and target tolerance epsilon using 256-bit Float arithmetic.
+    let (target_log_flt, epsilon_flt) = compute_target_log_and_epsilon_float(&curr.s_l, &curr.n_l);
+
+    if target_log_flt.clone() + &epsilon_flt < 0 {
         // Since subset sum must be positive, and target_log + epsilon is negative, we can never reach it.
         return true;
     }
+
+    let target_log = target_log_flt.to_f64();
+    let epsilon = epsilon_flt.to_f64();
 
     let t_val = (target_log * scaling_factor).round() as i64;
     let t = Integer::from(t_val);
@@ -220,7 +272,8 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::UintExt;
+    use crate::types::{Uint, UintExt};
+    use rug::ops::Pow;
 
     #[test]
     fn test_lll_prune_decision_basic() {
@@ -233,7 +286,7 @@ mod tests {
             factors: vec![3, 5],
             sigma_factors: vec![],
             sigma_factors_u64: vec![],
-            active_mask: vec![0b111], // Indices 0, 1, 2 are active
+            active_mask: vec![0b111].into(), // Indices 0, 1, 2 are active
             sigma_mod24: 1,
         };
 
@@ -286,9 +339,8 @@ mod tests {
     #[test]
     fn test_epsilon_underflow_prevention_deep_prefix() {
         // Deep prefix N = 10^16
-        let n_l_16 = "10000000000000000"; // 10^16
-        let n_f64_16: f64 = n_l_16.parse().unwrap();
-        let eps_16 = (0.5 / n_f64_16).ln_1p();
+        let n_l_16 = Uint::from_u128(10_000_000_000_000_000); // 10^16
+        let (_, eps_16) = compute_target_log_and_epsilon(&n_l_16, &n_l_16);
         assert!(
             eps_16 > 0.0,
             "Epsilon for N=10^16 must be positive, got {}",
@@ -296,13 +348,118 @@ mod tests {
         );
 
         // Extremely deep prefix N = 10^37
-        let n_l_37 = "10000000000000000000000000000000000000"; // 10^37
-        let n_f64_37: f64 = n_l_37.parse().unwrap();
-        let eps_37 = (0.5 / n_f64_37).ln_1p();
+        let n_l_37 = Uint::from_u128(10_000_000_000_000_000_000_000_000_000_000_000_000); // 10^37
+        let (_, eps_37) = compute_target_log_and_epsilon(&n_l_37, &n_l_37);
         assert!(
             eps_37 > 0.0,
             "Epsilon for N=10^37 must be positive, got {}",
             eps_37
         );
+    }
+
+    #[test]
+    fn test_uint_to_rug_integer_and_rational_conversion() {
+        let u1 = Uint::from_u128(123_456_789_012_345_678_901_234_567_890);
+        let u2 = Uint::from_u128(987_654_321_098_765_432_109_876_543_210);
+
+        let rug_i1 = uint_to_rug_integer(&u1);
+        let rug_i2 = uint_to_rug_integer(&u2);
+
+        assert_eq!(rug_i1.to_string(), u1.to_string());
+        assert_eq!(rug_i2.to_string(), u2.to_string());
+
+        let rat = accumulators_to_rational(&u1, &u2);
+        assert_eq!(rat, Rational::from((&rug_i1, &rug_i2)));
+    }
+
+    #[test]
+    fn test_deep_prefix_no_nan_or_overflow_exceeding_f64_limit() {
+        // Test U512 accumulators up to 10^150
+        let n_l_large = Uint::from_u128(10).pow(150);
+        let s_l_large = Uint::from_u128(12).pow(130);
+
+        let (target_log, epsilon) = compute_target_log_and_epsilon(&s_l_large, &n_l_large);
+
+        assert!(!target_log.is_nan(), "target_log must not be NaN");
+        assert!(!target_log.is_infinite(), "target_log must not be infinite");
+        assert!(!epsilon.is_nan(), "epsilon must not be NaN");
+        assert!(!epsilon.is_infinite(), "epsilon must not be infinite");
+
+        // Test arbitrary rug::Integer accumulators exceeding f64 limit (10^350 > 10^308)
+        let s_350 = Integer::from(15).pow(280); // ~ 10^329
+        let n_350 = Integer::from(10).pow(350); // 10^350
+        let rat_350 = Rational::from((s_350, n_350.clone()));
+
+        const PRECISION: u32 = 256;
+        let a_curr_flt = Float::with_val(PRECISION, &rat_350);
+        let ln_2 = Float::with_val(PRECISION, 2).ln();
+        let target_log_flt = ln_2 - a_curr_flt.ln();
+
+        let n_flt = Float::with_val(PRECISION, &n_350);
+        let inv_2n_flt = Float::with_val(PRECISION, 0.5) / &n_flt;
+        let epsilon_flt = inv_2n_flt.ln_1p();
+
+        assert!(
+            !target_log_flt.is_nan(),
+            "256-bit target_log for 10^350 must not be NaN"
+        );
+        assert!(
+            !target_log_flt.is_infinite(),
+            "256-bit target_log for 10^350 must not be infinite"
+        );
+        assert!(
+            !epsilon_flt.is_nan(),
+            "256-bit epsilon for 10^350 must not be NaN"
+        );
+        assert!(
+            !epsilon_flt.is_infinite(),
+            "256-bit epsilon for 10^350 must not be infinite"
+        );
+    }
+
+    #[test]
+    fn test_exact_rational_bound_pruning_deep_node() {
+        crate::lean_ffi::initialize_lean_runtime();
+
+        // Deep node with S_l > 2 * N_l (abundancy already > 2), with accumulators near 10^150
+        let n_l = Uint::from_u128(10).pow(150);
+        let s_l = n_l * Uint::from_u32(2) + Uint::from_u32(1); // S_l = 2 * N_l + 1
+
+        let curr = Prefix {
+            n_l,
+            s_l,
+            last_idx: 0,
+            factors: vec![3, 5],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: vec![0b11].into(),
+            sigma_mod24: 1,
+        };
+
+        let components = vec![
+            PrimePower {
+                p: 7,
+                two_e: 2,
+                val: crate::types::Uint::from_u32(49),
+                sigma: crate::types::Uint::from_u32(57),
+                sigma_factors: vec![],
+                needs_rho: vec![],
+                abundance_fp: (57u128 << 64) / 49,
+            },
+            PrimePower {
+                p: 11,
+                two_e: 2,
+                val: crate::types::Uint::from_u32(121),
+                sigma: crate::types::Uint::from_u32(133),
+                sigma_factors: vec![],
+                needs_rho: vec![],
+                abundance_fp: (133u128 << 64) / 121,
+            },
+        ];
+
+        // Must prune (return true) due to exact rational bound proving unreachability,
+        // without producing NaN or overflowing.
+        let pruned = lll_prune_decision(&curr, &components);
+        assert!(pruned, "Deep node with S_l > 2 * N_l must be pruned");
     }
 }
