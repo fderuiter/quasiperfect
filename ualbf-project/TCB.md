@@ -29,9 +29,9 @@ The parallel CPU CRT tensor sieve lives in `rust-engine/src/unverified/gpu.rs` a
 - **Verification Status:** Each evaluated component produces a `GpuBloomWitness` record. A host-side witness verification gateway re-checks every witness against `ualbf_check_crt_1155_sound` / `check_crt_1155` from `UALBF/Engine/Mod1155Bridge.lean` before any candidate is pruned, and halts execution on any witness failure.
 
 ## 4b. LLL Lattice Prune
-The optional log-abundancy lattice prune lives in `rust-engine/src/lattice.rs`. It is outside the formally verified TCB.
-- **Current State:** The prune is compiled only with the `lattice` Cargo feature, which is off by default. CI and standard builds do not run it.
-- **Verification Status:** Nothing about the prune is proven in Lean. When it is enabled, each prune is traced with the status "unproven: LLL lattice bound". For branches that survive it, the exact ray-casting search (`composite_tonelli_shanks`, `solve_crt`) is still the final check.
+The exact rational interval log-abundancy lattice prune lives in `rust-engine/src/lattice.rs`. It is outside the formally verified TCB.
+- **Current State:** The prune is compiled with the `lattice` Cargo feature. It constructs all LLL lattice basis vectors $w_i$ and target bound $t$ using exact rational floor/ceiling interval operations over `rug::Rational`, derived directly from integer accumulators without floating-point conversions (`Float::to_f64()`, `f64.ln()`).
+- **Verification Status:** Nothing about the prune is proven in Lean. When enabled, each branch elimination decision is computed via exact rational interval arithmetic to guarantee zero false negatives. Emitted LLL witness certificates are deterministically validated by `verify_cert.py` using exact rational Schmidt lower bounds. For branches that survive it, the exact ray-casting search (`composite_tonelli_shanks`, `solve_crt`) remains the final check.
 
 ## 4a. Trusted Mathematical Axioms
 No mathematical results are assumed as Lean axioms. The ALLOWED_AXIOMS whitelist in cert_util.py is empty, and the auditor and `rust-engine/build.rs` reject any theorem whose status is `axiom`. The last former axiom, `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (a quasiperfect number coprime to 3 has at least 7 distinct prime factors, the Hagis and Cohen (1982) bound), is now proved in `UALBF/QPN/PrasadSunitha.lean`.

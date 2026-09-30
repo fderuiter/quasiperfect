@@ -12,7 +12,9 @@ Verifies:
 
 import json
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -24,6 +26,7 @@ if project_root not in sys.path:
 if scripts_dir not in sys.path:
     sys.path.insert(0, scripts_dir)
 
+import auditor
 import env_util
 import validate_docs
 
@@ -108,6 +111,40 @@ class TestEnvManifestAndUtil(unittest.TestCase):
         self.assertTrue(validate_docs.validate_env_manifest(self.repo_root))
         self.assertTrue(validate_docs.validate_env_vars(self.repo_root))
         self.assertTrue(validate_docs.validate_env_docs_alignment(self.repo_root))
+
+    def test_staging_workspace_copies_top_level_manifests(self):
+        temp_dir = tempfile.mkdtemp(prefix="test_staging_")
+        try:
+            auditor._setup_staging_workspace(self.repo_root, temp_dir)
+            for manifest_name in (
+                "env_manifest.json",
+                "env_manifest.schema.json",
+                "docs_manifest.json",
+                "README.md",
+            ):
+                target = os.path.join(temp_dir, manifest_name)
+                self.assertTrue(
+                    os.path.exists(target),
+                    f"{manifest_name} should exist in staging workspace",
+                )
+                self.assertFalse(
+                    os.path.islink(target) and not os.path.exists(target),
+                    f"{manifest_name} should not be a broken symlink",
+                )
+
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(temp_dir)
+                with mock.patch.dict(
+                    os.environ, {"UALBF_IN_STAGING_WORKSPACE": "1"}
+                ):
+                    manifest, schema = env_util.load_manifest_and_schema()
+                    self.assertIsInstance(manifest, dict)
+                    self.assertTrue(validate_docs.validate_env_manifest(temp_dir))
+            finally:
+                os.chdir(old_cwd)
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
