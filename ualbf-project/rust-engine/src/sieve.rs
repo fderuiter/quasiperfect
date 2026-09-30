@@ -549,6 +549,41 @@ mod tests {
         let p_max = u128::MAX;
         assert_eq!(compute_asymptotic_abundance(p_max), base + 1);
     }
+
+    #[test]
+    fn test_phase1_candidate_inclusion() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let limit = 50;
+        let max_e = 2;
+        let result = phase1_global_annihilation_sieve(limit, max_e);
+
+        assert!(!result.components.is_empty(), "Phase 1 sieve should retain valid candidate components");
+
+        // Check specific known valid candidate prime powers (e.g. p = 7, 2e = 4 and p = 17, 2e = 2)
+        let p7_retained = result.components.iter().any(|comp| comp.p == 7 && comp.two_e == 4);
+        assert!(p7_retained, "Valid candidate component p=7, 2e=4 must be retained in sieve result");
+
+        let p17_retained = result.components.iter().any(|comp| comp.p == 17 && comp.two_e == 2);
+        assert!(p17_retained, "Valid candidate component p=17, 2e=2 must be retained in sieve result");
+
+        // Verify all retained components satisfy candidate inclusion invariants
+        for comp in &result.components {
+            assert!(comp.p > 1, "Prime base must be > 1");
+            assert!(comp.two_e >= 2 && comp.two_e % 2 == 0, "Exponent two_e must be even and >= 2");
+            assert!(comp.abundance_fp > (1u128 << 64), "Abundance ratio must exceed 1.0 (in 2^64 fixed point)");
+
+            let fact_res = quick_factor_u256(comp.sigma);
+            let factors = fact_res.factors();
+            for q in factors {
+                let q_mod_8 = (q % Uint::from_u32(8)).as_u32();
+                assert!(
+                    q_mod_8 != 5 && q_mod_8 != 7,
+                    "Candidate p={} 2e={} has invalid prime factor q={} mod 8 = {}",
+                    comp.p, comp.two_e, q, q_mod_8
+                );
+            }
+        }
+    }
 }
 
 /// Gather mod‑8 screening results and cofactor information for the cyclotomic divisors of sigma(p^(2e)).
