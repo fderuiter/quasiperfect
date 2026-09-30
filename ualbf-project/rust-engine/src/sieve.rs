@@ -40,6 +40,23 @@ fn check_sieve_bit(stage2_bitset: &[u64], p_mod_8: usize, max_e: u32, e: u32) ->
     }
 }
 
+/// Safely computes the asymptotic abundance ratio (scaled by 2^64) for prime p:
+/// ceil(p * 2^64 / (p - 1)) = 2^64 + ceil(2^64 / (p - 1)).
+/// Uses algebraic decomposition to prevent u128 multiplication overflow when p >= 2^64.
+pub(crate) fn compute_asymptotic_abundance(p_u128: u128) -> u128 {
+    if p_u128 > 1 {
+        let den = p_u128 - 1;
+        let base = 1u128 << 64;
+        let mut val = base + (base / den);
+        if base % den != 0 {
+            val += 1;
+        }
+        val
+    } else {
+        0
+    }
+}
+
 pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
     let phase1_start = std::time::Instant::now();
@@ -275,18 +292,7 @@ pub fn phase1_global_annihilation_sieve(limit: usize, max_e: u32) -> SieveResult
                 res.pending_factors.sort_unstable();
 
                 let abundance_fp = if res.val == Uint::MAX || res.sigma == Uint::MAX {
-                    let p_u128 = res.p as u128;
-                    if p_u128 > 1 {
-                        let num = p_u128.checked_mul(1u128 << 64).unwrap();
-                        let den = p_u128 - 1;
-                        let mut val = num / den;
-                        if num % den != 0 {
-                            val += 1;
-                        }
-                        val
-                    } else {
-                        0
-                    }
+                    compute_asymptotic_abundance(res.p as u128)
                 } else {
                     let sigma_u256 = res.sigma;
                     let shifted = sigma_u256 << 64;
@@ -515,6 +521,33 @@ mod tests {
         assert!(run_offline_verification(test_log).is_ok());
 
         let _ = std::fs::remove_file(test_log);
+    }
+
+    #[test]
+    fn test_large_prime_asymptotic_abundance_calculation() {
+        // Boundary check p <= 1
+        assert_eq!(compute_asymptotic_abundance(0), 0);
+        assert_eq!(compute_asymptotic_abundance(1), 0);
+
+        // Small prime boundary values: p = 2, 3, 5
+        let base = 1u128 << 64;
+        assert_eq!(compute_asymptotic_abundance(2), base * 2);
+        assert_eq!(compute_asymptotic_abundance(3), 3u128 << 63);
+        assert_eq!(compute_asymptotic_abundance(5), 5u128 << 62);
+
+        // Boundary around 2^64
+        let p_2_64 = base; // p = 2^64
+        assert_eq!(compute_asymptotic_abundance(p_2_64), base + 2);
+
+        let p_2_64_plus_1 = base + 1; // p = 2^64 + 1
+        assert_eq!(compute_asymptotic_abundance(p_2_64_plus_1), base + 1);
+
+        let p_2_64_plus_17 = base + 17; // p > 2^64 + 1
+        assert_eq!(compute_asymptotic_abundance(p_2_64_plus_17), base + 1);
+
+        // Very large prime candidate p = u128::MAX
+        let p_max = u128::MAX;
+        assert_eq!(compute_asymptotic_abundance(p_max), base + 1);
     }
 }
 

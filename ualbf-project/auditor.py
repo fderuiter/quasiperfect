@@ -469,11 +469,16 @@ def _setup_staging_workspace(host_dir, staging_dir):
         except Exception:
             pass
 
-    # Copy env_manifest.json and env_manifest.schema.json if present
+    # Copy env_manifest.json and env_manifest.schema.json into staging directory (and ualbf-project subfolder if present)
+    staging_dsts = [staging_dir]
+    ualbf_sub = os.path.join(staging_dir, "ualbf-project")
+    if os.path.isdir(ualbf_sub):
+        staging_dsts.append(ualbf_sub)
+
     for env_file in ("env_manifest.json", "env_manifest.schema.json"):
         parent_env = _find_root_file(host_dir, env_file)
         if os.path.exists(parent_env):
-            for dst_d in (staging_dir, os.path.dirname(staging_dir)):
+            for dst_d in staging_dsts:
                 dst_p = os.path.join(dst_d, env_file)
                 if not os.path.exists(dst_p):
                     try:
@@ -1854,11 +1859,6 @@ def check_documentation(manifest, repo_root=None):
         "r",
         "l",
         "is_axiomatic",
-        "UALBF_TARGET_MIN_LOG10",
-        "UALBF_TARGET_MAX_LOG10",
-        "UALBF_SIEVE_LIMIT",
-        "UALBF_MAX_EXPONENT",
-        "UALBF_PREFIX_STOP_THRESHOLD",
     }
     ignore_symbols.update(SAFE_COMMON_WORDS)
 
