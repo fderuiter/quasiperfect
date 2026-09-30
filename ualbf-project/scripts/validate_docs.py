@@ -859,7 +859,12 @@ def main():
         sys.exit(1)
 
     # Check if all .tex files in paper/ are registered in manifest
-    all_tex_files = glob.glob("**/*.tex", recursive=True)
+    # Paths are taken relative to the repository root, like the manifest keys,
+    # so the result does not depend on the directory the script runs from.
+    all_tex_files = [
+        os.path.relpath(p, repo_root)
+        for p in glob.glob(os.path.join(repo_root, "**", "*.tex"), recursive=True)
+    ]
     filtered_tex_files = []
     generated_tex_names = {"telemetry.tex", "verification_manifest.tex"}
     for tex_file in all_tex_files:
@@ -874,7 +879,7 @@ def main():
         ):
             if os.path.basename(tex_file) in generated_tex_names:
                 continue
-            filtered_tex_files.append(tex_file)
+            filtered_tex_files.append(tex_file.replace("\\", "/"))
 
     unregistered_tex = []
     for tex_file in filtered_tex_files:
