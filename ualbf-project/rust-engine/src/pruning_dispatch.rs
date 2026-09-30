@@ -18,31 +18,15 @@ pub fn dispatch_starvation_check(
             let best_num_opt = (best_remaining).checked_mul(target_den as u128);
             let best_den_opt = (1u128 << 63).checked_mul(target_num as u128);
 
-            if let (Some(mut best_num), Some(mut best_den)) = (best_num_opt, best_den_opt) {
-                while s_l_128.checked_mul(best_num).is_none()
-                    || n_l_128
-                        .checked_mul(best_den)
-                        .and_then(|x| x.checked_mul(2))
-                        .is_none()
-                {
-                    best_num = (best_num >> 1) + 1;
-                    best_den >>= 1;
-                    if best_den == 0 {
-                        break;
-                    }
-                }
-
+            if let (Some(best_num), Some(best_den)) = (best_num_opt, best_den_opt) {
                 if s_l_128 > 0 && n_l_128 > 0 && best_num > 0 && best_den > 0 {
                     if s_l_128 <= u128::MAX / best_num
                         && n_l_128 <= u128::MAX / 2
                         && (n_l_128 * 2) <= u128::MAX / best_den
                     {
-                        let pruned = crate::verus_proofs::check_starvation_kill(
+                        return crate::verus_proofs::check_starvation_kill(
                             s_l_128, n_l_128, best_num, best_den,
                         );
-                        if pruned {
-                            return true;
-                        }
                     }
                 }
             }
@@ -171,6 +155,30 @@ mod tests {
         // lhs > rhs, so it should NOT prune.
         let result = dispatch_starvation_check(s_l, n_l, best_remaining, target_num, target_den);
         assert!(!result, "Should not prune using 512-bit fallback");
+    }
+
+    #[test]
+    fn test_starvation_intermediate_overflow_fallback() {
+        // s_l = 1 << 100, n_l = 1 << 100 (both fit in u128)
+        let s_l = Uint::from_u128(1u128 << 100);
+        let n_l = Uint::from_u128(1u128 << 100);
+        // best_remaining = 1 << 63 (fits in u128)
+        // best_num = (1 << 63) * 1
+        // s_l * best_num = (1 << 100) * (1 << 63) = 1 << 163 (overflows u128!)
+        let best_remaining = 1u128 << 63;
+        let target_num = 2u64;
+        let target_den = 1u64;
+
+        // Intermediate multiplication overflows u128, so 128-bit fast path bounds check fails.
+        // It must fallback directly to exact 512-bit check without mutating terms.
+        // s_l * best_remaining * target_den = (1 << 100) * (1 << 63) * 1 = 1 << 163
+        // n_l * target_num * (1 << 64) = (1 << 100) * 2 * (1 << 64) = 1 << 165
+        // lhs < rhs (1 << 163 < 1 << 165), so it should prune.
+        let result = dispatch_starvation_check(s_l, n_l, best_remaining, target_num, target_den);
+        assert!(
+            result,
+            "Should prune using 512-bit fallback when intermediate product overflows u128"
+        );
     }
 
     #[test]

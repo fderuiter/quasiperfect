@@ -33,6 +33,13 @@ def get_repo_root():
 CORE_THEOREMS = cert_util.CORE_THEOREMS
 ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 
+TOP_LEVEL_MANIFESTS = (
+    "env_manifest.json",
+    "env_manifest.schema.json",
+    "docs_manifest.json",
+    "README.md",
+)
+
 GHOST_PRUNING_BINDINGS = {
     "ruleA_safe": "UALBF.Engine.ruleA_safe",
     "ruleB_safe": "UALBF.Engine.ruleB_safe",
@@ -426,29 +433,28 @@ def _setup_staging_workspace(host_dir, staging_dir):
                             shutil.copy2(h_f, s_f)
 
     # Copy parent root files and skill guide directories (docs_manifest.json, README.md, env_manifest.json, env_manifest.schema.json, .jules, .agents) if present and not in staging_dir
-    for parent_item in (
-        "docs_manifest.json",
-        "README.md",
-        "env_manifest.json",
-        "env_manifest.schema.json",
-        ".jules",
-        ".agents",
-    ):
+    for parent_item in TOP_LEVEL_MANIFESTS + (".jules", ".agents"):
         parent_path = _find_root_file(host_dir, parent_item)
         staging_target = os.path.join(staging_dir, parent_item)
-        if os.path.exists(parent_path) and not os.path.exists(staging_target):
-            try:
-                if os.path.isdir(parent_path):
-                    shutil.copytree(
-                        parent_path,
-                        staging_target,
-                        symlinks=True,
-                        ignore=ignore_patterns,
-                    )
-                else:
-                    shutil.copy2(parent_path, staging_target)
-            except Exception:
-                pass
+        if os.path.exists(parent_path):
+            if os.path.islink(staging_target) and not os.path.exists(staging_target):
+                try:
+                    os.unlink(staging_target)
+                except Exception:
+                    pass
+            if not os.path.exists(staging_target):
+                try:
+                    if os.path.isdir(parent_path):
+                        shutil.copytree(
+                            parent_path,
+                            staging_target,
+                            symlinks=True,
+                            ignore=ignore_patterns,
+                        )
+                    else:
+                        shutil.copy2(parent_path, staging_target)
+                except Exception:
+                    pass
 
     # Copy parent semantic_verification_report.md if present and not in staging_dir
     parent_report = os.path.abspath(
@@ -458,31 +464,38 @@ def _setup_staging_workspace(host_dir, staging_dir):
         parent_report = os.path.abspath(
             os.path.join(host_dir, "semantic_verification_report.md")
         )
-    if os.path.exists(parent_report) and not os.path.exists(
-        os.path.join(staging_dir, "semantic_verification_report.md")
-    ):
-        try:
-            shutil.copy2(
-                parent_report,
-                os.path.join(staging_dir, "semantic_verification_report.md"),
-            )
-        except Exception:
-            pass
+    if os.path.exists(parent_report):
+        staging_report = os.path.join(staging_dir, "semantic_verification_report.md")
+        if os.path.islink(staging_report) and not os.path.exists(staging_report):
+            try:
+                os.unlink(staging_report)
+            except Exception:
+                pass
+        if not os.path.exists(staging_report):
+            try:
+                shutil.copy2(parent_report, staging_report)
+            except Exception:
+                pass
 
-    # Copy env_manifest.json and env_manifest.schema.json into staging directory (and ualbf-project subfolder if present)
+    # Copy top-level manifests into staging directory (and ualbf-project subfolder if present)
     staging_dsts = [staging_dir]
     ualbf_sub = os.path.join(staging_dir, "ualbf-project")
     if os.path.isdir(ualbf_sub):
         staging_dsts.append(ualbf_sub)
 
-    for env_file in ("env_manifest.json", "env_manifest.schema.json"):
-        parent_env = _find_root_file(host_dir, env_file)
-        if os.path.exists(parent_env):
+    for manifest_file in TOP_LEVEL_MANIFESTS:
+        parent_manifest = _find_root_file(host_dir, manifest_file)
+        if os.path.exists(parent_manifest):
             for dst_d in staging_dsts:
-                dst_p = os.path.join(dst_d, env_file)
+                dst_p = os.path.join(dst_d, manifest_file)
+                if os.path.islink(dst_p) and not os.path.exists(dst_p):
+                    try:
+                        os.unlink(dst_p)
+                    except Exception:
+                        pass
                 if not os.path.exists(dst_p):
                     try:
-                        shutil.copy2(parent_env, dst_p)
+                        shutil.copy2(parent_manifest, dst_p)
                     except Exception:
                         pass
 
@@ -1799,6 +1812,8 @@ def check_documentation(manifest, repo_root=None):
         "i64",
         "i128",
         "isize",
+        "f32",
+        "f64",
         "bool",
         "str",
         "String",
@@ -1806,6 +1821,9 @@ def check_documentation(manifest, repo_root=None):
         "Result",
         "Vec",
         "Box",
+        "rug",
+        "Rational",
+        "Float",
         "make",
         "cargo",
         "lake",
@@ -1911,7 +1929,17 @@ def check_documentation(manifest, repo_root=None):
 
                 for bt in re.findall(r"`([^`]+)`", line):
                     if "/" in bt or bt.endswith(
-                        (".rs", ".md", ".lean", ".json", ".c", ".h", ".toml", ".tex")
+                        (
+                            ".rs",
+                            ".md",
+                            ".lean",
+                            ".json",
+                            ".c",
+                            ".h",
+                            ".toml",
+                            ".tex",
+                            ".py",
+                        )
                     ):
                         target = bt.split("#")[0].split(":")[0]
                         if not target:
@@ -1932,6 +1960,13 @@ def check_documentation(manifest, repo_root=None):
 
                         is_qualified = "." in clean_bt or "::" in clean_bt
                         if is_qualified:
+                            parts = re.split(r"::|\.", clean_bt)
+                            if any(
+                                p in ignore_symbols or p.lower() in ignore_symbols
+                                for p in parts
+                            ):
+                                continue
+
                             dot_path = clean_bt.replace("::", ".")
                             colon_path = clean_bt.replace(".", "::")
                             dot_path_lower = dot_path.lower()

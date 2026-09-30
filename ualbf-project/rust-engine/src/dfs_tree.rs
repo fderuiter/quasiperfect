@@ -406,6 +406,11 @@ pub fn phase2_and_4_fused(
             ap,
             rp,
             bp,
+            math_interruptions: math_interruptions.load(Ordering::Relaxed),
+            range: crate::distributed::RangeWorkUnit {
+                start_bound: vec![],
+                end_bound: vec![],
+            },
         });
     }
     DfsTelemetry {
@@ -779,7 +784,7 @@ pub fn check_and_evaluate_node(
         num *= Uint::from_u64(p);
         den *= Uint::from_u64(p - 1);
     }
-    if crate::universal_bounds::cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den) {
+    if !crate::universal_bounds::cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -3041,6 +3046,159 @@ mod tests {
 
         let limit = get_conjectural_limit();
         assert!(limit > Uint::from_u64(0));
+    }
+
+    #[test]
+    fn test_dfs_candidate_inclusion_boundary_conditions() {
+        crate::lean_ffi::initialize_lean_runtime();
+
+        // Construct candidate components (odd primes)
+        let mut comps = Vec::new();
+        for i in 0..20 {
+            let p = 101 + i * 2;
+            comps.push(make_prime_power(p, p * p, p * p + p + 1));
+        }
+
+        let tb = Uint::from_u128(u128::MAX);
+
+        // 1. Abundancy Ratio Boundary Condition
+        // Prefix with s_l / n_l = 1990 / 1000 (= 1.99 < 2.0) with tb = u128::MAX passes check_and_evaluate_node
+        {
+            let mut curr_valid = make_prefix(1000, 1990, 0);
+            curr_valid.sigma_mod24 = 3; // Touchard residue 3
+            curr_valid.active_mask = vec![0xFFFFF; 1].into();
+            curr_valid.factors = vec![7, 11, 13, 17, 19, 23, 29];
+
+            with_dfs_ctx!(
+                curr = curr_valid,
+                components = &comps,
+                target_bound = tb,
+                max_idx_3 = 100,
+                max_idx_5 = 100,
+                saved_states = vec![],
+                |ptr| unsafe {
+                    let valid = __rust_dfs_check_evaluate(ptr, 0);
+                    assert!(
+                        valid,
+                        "Valid candidate prefix with s_l/n_l = 1.99 < 2.0 must return true"
+                    );
+                }
+            );
+
+            // Exact abundancy ratio boundary: s_l / n_l = 2000 / 1000 (= 2.0) passes
+            let mut curr_exact_abundancy = make_prefix(1000, 2000, 0);
+            curr_exact_abundancy.sigma_mod24 = 3;
+            curr_exact_abundancy.active_mask = vec![0xFFFFF; 1].into();
+            curr_exact_abundancy.factors = vec![7, 11, 13, 17, 19, 23, 29];
+
+            with_dfs_ctx!(
+                curr = curr_exact_abundancy,
+                components = &comps,
+                target_bound = tb,
+                max_idx_3 = 100,
+                max_idx_5 = 100,
+                saved_states = vec![],
+                |ptr| unsafe {
+                    let valid = __rust_dfs_check_evaluate(ptr, 0);
+                    assert!(
+                        valid,
+                        "Exact target abundancy boundary s_l/n_l = 2.0 must return true"
+                    );
+                }
+            );
+
+            // Overflowing prefix with s_l / n_l = 2050 / 1000 (= 2.05 > 2.0) must fail
+            let mut curr_overflow = make_prefix(1000, 2050, 0);
+            curr_overflow.sigma_mod24 = 3;
+            curr_overflow.active_mask = vec![0xFFFFF; 1].into();
+            curr_overflow.factors = vec![7, 11, 13, 17, 19, 23, 29];
+
+            with_dfs_ctx!(
+                curr = curr_overflow,
+                components = &comps,
+                target_bound = tb,
+                max_idx_3 = 100,
+                max_idx_5 = 100,
+                saved_states = vec![],
+                |ptr| unsafe {
+                    let valid = __rust_dfs_check_evaluate(ptr, 0);
+                    assert!(
+                        !valid,
+                        "Candidate prefix overflowing abundancy > 2.0 must return false"
+                    );
+                }
+            );
+        }
+
+        // 2. Exact Target Bound Boundary Condition
+        // Prefix with n_l == target_bound should pass (<= target_bound is allowed)
+        {
+            let exact_bound = Uint::from_u64(500);
+            let mut curr_exact = make_prefix(500, 1000, 0); // 1000/500 = 2.0
+            curr_exact.sigma_mod24 = 19; // Touchard residue 19
+            curr_exact.active_mask = vec![0xFFFFF; 1].into();
+            curr_exact.factors = vec![7, 11, 13, 17, 19, 23, 29];
+
+            with_dfs_ctx!(
+                curr = curr_exact,
+                components = &comps,
+                target_bound = exact_bound,
+                max_idx_3 = 100,
+                max_idx_5 = 100,
+                saved_states = vec![],
+                |ptr| unsafe {
+                    let valid = __rust_dfs_check_evaluate(ptr, 0);
+                    assert!(valid, "Candidate prefix at exact target_bound (n_l == target_bound) must return true");
+                }
+            );
+
+            // Prefix exceeding target bound (n_l = target_bound + 1) must fail
+            let mut curr_exceeded = make_prefix(501, 1002, 0);
+            curr_exceeded.sigma_mod24 = 19;
+            curr_exceeded.active_mask = vec![0xFFFFF; 1].into();
+            curr_exceeded.factors = vec![7, 11, 13, 17, 19, 23, 29];
+
+            with_dfs_ctx!(
+                curr = curr_exceeded,
+                components = &comps,
+                target_bound = exact_bound,
+                max_idx_3 = 100,
+                max_idx_5 = 100,
+                saved_states = vec![],
+                |ptr| unsafe {
+                    let valid = __rust_dfs_check_evaluate(ptr, 0);
+                    assert!(!valid, "Candidate prefix exceeding target bound (n_l > target_bound) must return false");
+                }
+            );
+        }
+
+        // 3. Touchard Mod-24 Reachability Boundary Condition
+        // Prefixes with sigma_mod24 == 3 or 19 must pass
+        {
+            for &res in &[3u32, 19u32] {
+                let mut curr_touchard = make_prefix(100, 195, 0);
+                curr_touchard.sigma_mod24 = res;
+                curr_touchard.active_mask = vec![0xFFFFF; 1].into();
+                curr_touchard.factors = vec![7, 11, 13, 17, 19, 23, 29];
+
+                with_dfs_ctx!(
+                    curr = curr_touchard,
+                    components = &comps,
+                    target_bound = tb,
+                    max_idx_3 = 100,
+                    max_idx_5 = 100,
+                    saved_states = vec![],
+                    |ptr| unsafe {
+                        let valid = __rust_dfs_check_evaluate(ptr, 0);
+                        assert!(
+                            valid,
+                            "Candidate prefix with Touchard residue {} must return true",
+                            res
+                        );
+                    }
+                );
+            }
+        }
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

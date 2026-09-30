@@ -779,7 +779,8 @@ fn main() {
     let target_bound: Uint = Uint::from_u32(10).pow(target_max_log10);
     let threshold: Uint = Uint::from_u128(prefix_stop as u128);
 
-    let sieve_result = sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent);
+    let sieve_result =
+        sieve::phase1_global_annihilation_sieve(sieve_limit, max_exponent, target_bound);
     let valid_components = sieve_result.components;
     let sigma_cache = sieve_result.sigma_cache;
 
@@ -837,13 +838,13 @@ fn main() {
     let telemetry_data;
 
     if mode == "controller" {
-        let depth_limit = 2; // shallow DFS depths
+        let depth_limit = 1; // shallow DFS depths
         let work_units =
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
-        distributed::run_controller(&addr, work_units);
-        sieve::finalize_sidecar_logger();
-        std::process::exit(0); // For now just exit after completion
+        let (tel, ranges) = distributed::run_controller(&addr, work_units);
+        telemetry_data = tel;
+        explored_ranges_out = ranges;
     } else if mode == "worker" {
         let addr = config.controller_addr.clone();
         let total_weight_scaled: usize = valid_components
@@ -1083,5 +1084,6 @@ fn main() {
 
     let cert_json = serde_json::to_string_pretty(&cert).expect("Failed to serialize certificate");
     fs::write("formal_certificate.json", &cert_json).expect("Failed to write certificate");
-    println!("=== Certificate Generated: formal_certificate.json ===");
+    fs::write("certificate.json", &cert_json).expect("Failed to write certificate");
+    println!("=== Certificate Generated: formal_certificate.json & certificate.json ===");
 }
