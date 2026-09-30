@@ -11,7 +11,7 @@
     "default": null,
     "allowed_values": null,
     "status": "active",
-    "description": "Path to the Lean toolchain sysroot directory used during proof and spec checks."
+    "description": "Path to the mandatory Lean toolchain sysroot directory required for standard engine builds."
   },
   "MOCK_LEAN": {
     "type": "boolean",

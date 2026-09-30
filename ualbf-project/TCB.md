@@ -44,7 +44,7 @@ All build tools, certificate verification scripts, and paper generation utilitie
 
 | Variable | Type | Default | Status | Description |
 |---|---|---|---|---|
-| `LEAN_SYSROOT` | path | `null` | Active | Path to the Lean toolchain sysroot directory used during proof and spec checks |
+| `LEAN_SYSROOT` | path | `null` | Active | Path to the mandatory Lean toolchain sysroot directory required for standard engine builds |
 | `MOCK_LEAN` | boolean | `null` | Active | Bypasses external Lean binary invocation during tests by enabling mock verification |
 | `UALBF_ALLOW_LOGIC_MISMATCH` | boolean | `null` | Active | Allows execution to proceed despite logic or manifest hash mismatch during certificate verification |
 | `UALBF_ALLOW_MISSING_SOURCES` | boolean | `null` | Active | Allows certificate verification without requiring local Lean 4 proof source files |
