@@ -34,10 +34,10 @@ CORE_THEOREMS = cert_util.CORE_THEOREMS
 ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 
 GHOST_PRUNING_BINDINGS = {
-    "ruleA_safe": "UALBF.Engine.SearchMonad.ruleA_safe",
-    "ruleB_safe": "UALBF.Engine.SearchMonad.ruleB_safe",
-    "ruleA_pruning": "UALBF.Engine.SearchMonad.ruleA_safe",
-    "ruleB_pruning": "UALBF.Engine.SearchMonad.ruleB_safe",
+    "ruleA_safe": "UALBF.Engine.ruleA_safe",
+    "ruleB_safe": "UALBF.Engine.ruleB_safe",
+    "ruleA_pruning": "UALBF.Engine.ruleA_safe",
+    "ruleB_pruning": "UALBF.Engine.ruleB_safe",
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
     "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",

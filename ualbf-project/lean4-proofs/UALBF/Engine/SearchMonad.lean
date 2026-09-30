@@ -18,24 +18,25 @@ def ruleB_pruning : SearchM Bool := do
   return s.sigma_factors.any (fun sf => s.factors.any (fun f => f.toNat == sf))
 
 /--
-  Rule A Safety Theorem:
-  Proves that active pruning checks (`ruleA_pruning`) exclude `IsQuasiperfect` candidates
-  when `s.n_l` exceeds the target bound.
+  Rule A soundness for a bounded search.
+  If the partial product `s.n_l` already exceeds `target_bound`, every positive
+  extension `N` of it (every `N` with `s.n_l ∣ N`) also exceeds `target_bound`, so
+  pruning the branch loses no candidate `N ≤ target_bound`. This says nothing about
+  quasiperfect numbers above `target_bound`.
 -/
 theorem ruleA_safe (s : SearchState) (target_bound : Nat) (N : Nat)
     (h_prune : s.n_l > target_bound)
     (h_ext : s.n_l ∣ N)
-    (h_qpn_bound : ∀ m, IsQuasiperfect m → m ≤ target_bound) :
-    ¬ IsQuasiperfect N := by
-  intro h_qpn
-  have h_le_target : N ≤ target_bound := h_qpn_bound N h_qpn
-  have h_pos : N > 0 := h_qpn.1
-  have h_nl_le_N : s.n_l ≤ N := Nat.le_of_dvd h_pos h_ext
-  omega
+    (h_pos : 0 < N) :
+    target_bound < N :=
+  Nat.lt_of_lt_of_le h_prune (Nat.le_of_dvd h_pos h_ext)
 
 /--
-  Rule B Safety Theorem:
-  Connects `ruleB_pruning` and deep divisibility chain checks to `CyclotomicGraph.forced_inclusion`.
+  Cyclotomic forcing lemma used by Rule B.
+  This is `CyclotomicGraph.forced_inclusion`: an even exponent `2e` on `p` forces a
+  prime `q ≡ 1 (mod d)` to divide `σ(N)`. It is a statement about `σ(N)`, not about
+  the factors of `N`, so it does not by itself justify `ruleB_pruning`; that pruning
+  rule has no soundness proof.
 -/
 theorem ruleB_safe {p e N : ℕ}
     (hp_prime : p.Prime)
@@ -50,22 +51,8 @@ def dfs_step : SearchM Unit := do
   let s ← get
   set s
 
-/--
-  Invariant preservation theorem for `dfs_step`:
-  `dfs_step` preserves any search state invariant `P : SearchState → Prop`.
--/
-theorem dfs_step_preserves_invariant (P : SearchState → Prop) (s : SearchState) (hP : P s) :
-    P s := hP
-
 @[export ualbf_search_monad_step]
 def ualbf_search_monad_step_impl (_ctx : UInt64) : IO Unit :=
   return ()
-
-/--
-  Invariant preservation theorem for `ualbf_search_monad_step_impl`:
-  State transitions in `ualbf_search_monad_step_impl` preserve search state invariants.
--/
-theorem search_monad_step_preserves_invariant (P : SearchState → Prop) (s : SearchState) (hP : P s) :
-    P s := hP
 
 end UALBF.Engine

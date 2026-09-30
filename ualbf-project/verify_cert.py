@@ -768,6 +768,17 @@ def verify_certificate(
 
     print("✓ Cryptographic signature is valid.")
 
+    # Every branch the engine abandoned without a proven prune (arithmetic
+    # overflow, a failed Lean identity check, an interrupted root computation)
+    # is a coverage gap, so the certified range is not fully searched.
+    coverage_gaps = tel.get("math_interruptions", 0)
+    if coverage_gaps:
+        print(
+            f"ERROR: Search coverage is incomplete: {coverage_gaps} branch(es) were abandoned without a proven prune (math_interruptions).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     # Verify logic hash if we have the rust-engine/src directory
     rust_src_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

@@ -344,7 +344,11 @@ pub fn phase4_exact_ray_casting(
     let s_l_int = prefix.s_l.as_int();
     let mut a = match (Int::from_u32(2)).checked_mul(n_l_int) {
         Some(v) => v % s_l_int,
-        None => return,
+        None => {
+            // Overflow: this prefix is not searched, so record it as a coverage gap.
+            math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return;
+        }
     };
     if a < Int::zero() {
         a += s_l_int;
@@ -364,7 +368,9 @@ pub fn phase4_exact_ray_casting(
         let x_l_abs_uint = x_l_abs.as_uint();
 
         if !crate::lean_ffi::verify_identity_lean(&n_l_uint, &x_l_abs_uint, x_l_is_neg, &s_l_uint) {
-            return; // block search execution for this prefix if verification fails
+            // The prefix is not searched, so record it as a coverage gap.
+            math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return;
         }
 
         // Normalize safely after formal verification
@@ -389,6 +395,8 @@ pub fn phase4_exact_ray_casting(
         };
 
         if z_max_big > Int::MAX.as_uint() || z_min_big > Int::MAX.as_uint() {
+            // Out of range for the ray-casting arithmetic: record as a coverage gap.
+            math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             return;
         }
 

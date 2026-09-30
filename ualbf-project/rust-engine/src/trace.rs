@@ -70,6 +70,8 @@ pub struct TraceEvent {
     pub n_l: Uint,
     pub s_l: Uint,
     pub reason: PruneReason,
+    /// The Lean theorem that justifies this prune, prefixed `lean: `, or a
+    /// `conditional:`/`partial:`/`unproven:` note when no theorem fully covers it.
     pub verification_status: &'static str,
 }
 
@@ -134,7 +136,7 @@ impl PruneReason {
 
 impl TraceEvent {
     pub fn is_critical(&self) -> bool {
-        self.verification_status != "formally verified" || self.reason.is_critical()
+        !self.verification_status.starts_with("lean: ") || self.reason.is_critical()
     }
 }
 
@@ -468,7 +470,7 @@ mod tests {
                     verification_status: if i == 25 {
                         "unverified_critical"
                     } else {
-                        "formally verified"
+                        "lean: UALBF.Engine.ruleA_safe"
                     },
                 };
 

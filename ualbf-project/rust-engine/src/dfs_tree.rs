@@ -485,7 +485,7 @@ pub fn check_and_evaluate_node(
                     n_l: curr.n_l,
                     s_l: curr.s_l,
                     reason: crate::trace::PruneReason::TargetBound,
-                    verification_status: "formally verified",
+                    verification_status: "lean: UALBF.Engine.ruleA_safe",
                 },
             );
         }
@@ -544,7 +544,7 @@ pub fn check_and_evaluate_node(
                     reason: crate::trace::PruneReason::Touchard {
                         sigma_mod24: curr.sigma_mod24,
                     },
-                    verification_status: "formally verified",
+                    verification_status: "partial: UALBF.QPN.TouchardQPN.qpn_sigma_mod_24 (residue reachability not proven)",
                 },
             );
         }
@@ -615,7 +615,7 @@ pub fn check_and_evaluate_node(
                         lhs,
                         rhs,
                     },
-                    verification_status: "formally verified",
+                    verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (suffix bound assumed)",
                 },
             );
         }
@@ -760,7 +760,7 @@ pub fn check_and_evaluate_node(
                         s_l_mul: curr.s_l * overflow_den_u,
                         n_l_mul: curr.n_l * overflow_num_u,
                     },
-                    verification_status: "formally verified",
+                    verification_status: "unproven: arithmetic overflow",
                 },
             );
         }
@@ -795,7 +795,7 @@ pub fn check_and_evaluate_node(
                         euler_num,
                         euler_den,
                     },
-                    verification_status: "formally verified",
+                    verification_status: "unproven: no Lean theorem for the Euler ceiling",
                 },
             );
         }
@@ -879,7 +879,7 @@ pub fn check_and_evaluate_node(
                         topology_manifest: Some(topology_manifest),
                         reachable_paths: None,
                     },
-                    verification_status: "formally verified (disjunctive clause unsatisfiable)",
+                    verification_status: "unproven: CDG cascade (disjunctive clause unsatisfiable)",
                 });
             }
             return false;
@@ -965,7 +965,7 @@ pub fn check_and_evaluate_node(
                             topology_manifest: Some(topology_manifest),
                             reachable_paths: Some(reachable_paths),
                         },
-                        verification_status: "formally verified (graph topology audited)",
+                        verification_status: "unproven: CDG cascade (graph topology audited)",
                     },
                 );
             }
@@ -1010,7 +1010,7 @@ pub fn check_and_evaluate_node(
                         lhs: lhs_dyn,
                         rhs: rhs_dyn,
                     },
-                    verification_status: "formally verified",
+                    verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
                 },
             );
         }
@@ -1067,7 +1067,7 @@ pub fn check_and_evaluate_node(
                         curr_factors: curr.factors.len(),
                         remaining_components,
                     },
-                    verification_status: "formally verified",
+                    verification_status: "conditional: UALBF.QPN.PrasadSunitha omega bounds (component count assumed)",
                 },
             );
         }
@@ -1207,7 +1207,7 @@ pub fn check_and_evaluate_node(
                     n_l: curr.n_l,
                     s_l: curr.s_l,
                     reason: crate::trace::PruneReason::Raycast,
-                    verification_status: "formally verified",
+                    verification_status: "unproven: handed off to ray casting",
                 },
             );
         }

@@ -194,7 +194,7 @@ def build_cert(
             "phase2_execution_time_ms": 12345,
             "total_execution_time_ms": 13000,
             "raycast_pruned": 100,
-            "math_interruptions": 2,
+            "math_interruptions": 0,
             "path_ranges": (
                 path_ranges
                 if path_ranges is not None
