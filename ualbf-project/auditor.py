@@ -340,6 +340,22 @@ def fetch_proofwidgets_assets(cwd=None, env=None):
             )
 
 
+def _find_root_file(host_dir, name):
+    """Locate a repo-root file next to or above host_dir, falling back to this
+    script's own checkout when host_dir is outside the repository."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(host_dir, "..", name),
+        os.path.join(host_dir, name),
+        os.path.join(script_dir, "..", name),
+        os.path.join(script_dir, name),
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return os.path.abspath(candidate)
+    return os.path.abspath(candidates[0])
+
+
 def _setup_staging_workspace(host_dir, staging_dir):
     os.makedirs(staging_dir, exist_ok=True)
 
@@ -418,9 +434,7 @@ def _setup_staging_workspace(host_dir, staging_dir):
         ".jules",
         ".agents",
     ):
-        parent_path = os.path.abspath(os.path.join(host_dir, "..", parent_item))
-        if not os.path.exists(parent_path):
-            parent_path = os.path.abspath(os.path.join(host_dir, parent_item))
+        parent_path = _find_root_file(host_dir, parent_item)
         staging_target = os.path.join(staging_dir, parent_item)
         if os.path.exists(parent_path) and not os.path.exists(staging_target):
             try:
@@ -457,9 +471,7 @@ def _setup_staging_workspace(host_dir, staging_dir):
 
     # Copy env_manifest.json and env_manifest.schema.json if present
     for env_file in ("env_manifest.json", "env_manifest.schema.json"):
-        parent_env = os.path.abspath(os.path.join(host_dir, "..", env_file))
-        if not os.path.exists(parent_env):
-            parent_env = os.path.abspath(os.path.join(host_dir, env_file))
+        parent_env = _find_root_file(host_dir, env_file)
         if os.path.exists(parent_env):
             for dst_d in (staging_dir, os.path.dirname(staging_dir)):
                 dst_p = os.path.join(dst_d, env_file)
