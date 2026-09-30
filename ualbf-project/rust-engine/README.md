@@ -52,6 +52,8 @@ The engine initiates by building a space of mathematically viable "Prime Powers"
 ### Phase 2: Dynamic Prefix DFS Construction (`src/dfs_tree.rs`)
 Using the surviving components from Phase 1, we execute a lock-free Depth-First Search array to dynamically construct mathematical "Prefixes" ($n_l$). We halt recursion when our prefix combination surpasses a predefined upper bound target. Threads branch sub-trees autonomously, eliminating global stack contention and yielding `Prefix` objects containing $n_l$ and $\sigma$ values $s_l$.
 
+> **Search scope (#565).** Phase 1 only builds components for primes below `SIEVE_LIMIT` (250,000) and exponents $2e$ with $e \le$ `MAX_EXPONENT` (4). The DFS only ever extends prefixes from that list, and its starvation and minimum-factor prunes bound the remaining suffix using that list alone. A run therefore covers the $N$ built from those prime powers (plus the ray-cast cofactors of prefixes that reach `PREFIX_STOP_THRESHOLD`), **not** every $N$ in the target interval. Its output is not a lower bound on quasiperfect numbers. A complete, certificate-producing search is tracked in #569.
+
 ### Phase 3: Exact Valuation Sieve & Ray-Casting Preparations (`src/main.rs`)
 We take the generated Prefix structures and stream them across all available system cores using `rayon`, locking-in high-performance exact ray-casting bounds for each mathematical branch concurrently.
 

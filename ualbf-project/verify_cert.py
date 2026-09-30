@@ -864,8 +864,17 @@ def verify_certificate(
         sys.exit(1)
     else:
         print("\n✓ Manifest verified: 0 sorries, 0 axioms.")
+        # The engine only enumerates prime powers p^(2e) with p < sieve_limit and
+        # e <= max_exponent, so its run covers a restricted family of N, not every
+        # N in the target interval (#565). Report exactly that scope.
         print(
-            f"✓ Bound Verified: 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}"
+            f"✓ Search completed for 10^{tel['target_min_log10']} < N < 10^{tel['target_max_log10']}, "
+            f"restricted to N whose prime powers p^(2e) all have p < {tel.get('sieve_limit', '?')} "
+            f"and e <= {tel.get('max_exponent', '?')}."
+        )
+        print(
+            "! This is NOT an exhaustive lower bound on quasiperfect numbers: primes above the "
+            "sieve limit and larger exponents were never enumerated (see issue #565)."
         )
         print("✓ Telemetry matches execution reality.")
 
