@@ -59,6 +59,13 @@ pub fn uint_to_rug_integer(u: &crate::types::Uint) -> Integer {
     Integer::from_digits(&bytes, Order::Lsf)
 }
 
+/// Convert a 256-bit/512-bit accumulator `Uint` directly to `rug::Integer` in-place
+/// without new allocations or string parsing.
+pub fn uint_to_rug_integer_into(u: &crate::types::Uint, target: &mut Integer) {
+    let bytes = u.to_le_bytes();
+    target.assign_digits(&bytes, Order::Lsf);
+}
+
 /// Convert `s_l` and `n_l` accumulators directly into an exact `rug::Rational` fraction S_l / N_l.
 pub fn accumulators_to_rational(s_l: &crate::types::Uint, n_l: &crate::types::Uint) -> Rational {
     let s_int = uint_to_rug_integer(s_l);
@@ -161,6 +168,100 @@ pub fn compute_target_log_and_epsilon(
     (target_log_f64, epsilon_f64)
 }
 
+/// Pre-allocated thread-local workspace for multi-precision accumulators and LLL basis matrices.
+pub struct LllWorkspace {
+    pub w: Vec<Integer>,
+    pub s_int: Integer,
+    pub n_int: Integer,
+    pub two_n: Integer,
+    pub t: Integer,
+    pub s_i: Integer,
+    pub v_i: Integer,
+    pub x_i: Rational,
+    pub scaled_w: Rational,
+    pub scaled_t: Rational,
+    pub shortest_sq_norm: Integer,
+    pub b0_j_sq: Integer,
+    pub lhs_den: Integer,
+    pub lhs: Rational,
+    pub diff_exact: Rational,
+    pub half_m_plus_1: Rational,
+    pub r_exact: Rational,
+    pub r_sq_exact: Rational,
+    pub matrices: Vec<Option<Matrix<BigVector>>>,
+}
+
+impl LllWorkspace {
+    pub fn new() -> Self {
+        let mut matrices = Vec::with_capacity(18);
+        matrices.resize_with(18, || None);
+        for d in 3..=17 {
+            matrices[d] = Some(Matrix::init(d, d));
+        }
+
+        Self {
+            w: (0..17).map(|_| Integer::from(0)).collect(),
+            s_int: Integer::from(0),
+            n_int: Integer::from(0),
+            two_n: Integer::from(0),
+            t: Integer::from(0),
+            s_i: Integer::from(0),
+            v_i: Integer::from(0),
+            x_i: Rational::from((0, 1)),
+            scaled_w: Rational::from((0, 1)),
+            scaled_t: Rational::from((0, 1)),
+            shortest_sq_norm: Integer::from(0),
+            b0_j_sq: Integer::from(0),
+            lhs_den: Integer::from(0),
+            lhs: Rational::from((0, 1)),
+            diff_exact: Rational::from((0, 1)),
+            half_m_plus_1: Rational::from((0, 1)),
+            r_exact: Rational::from((0, 1)),
+            r_sq_exact: Rational::from((0, 1)),
+            matrices,
+        }
+    }
+
+    pub fn reset(&mut self, m: usize) {
+        let d = m + 1;
+        self.s_int.assign(0);
+        self.n_int.assign(0);
+        self.two_n.assign(0);
+        self.t.assign(0);
+        self.s_i.assign(0);
+        self.v_i.assign(0);
+        self.x_i.assign(0);
+        self.scaled_w.assign(0);
+        self.scaled_t.assign(0);
+        self.shortest_sq_norm.assign(0);
+        self.b0_j_sq.assign(0);
+        self.lhs_den.assign(0);
+        self.lhs.assign(0);
+        self.diff_exact.assign(0);
+        self.half_m_plus_1.assign(0);
+        self.r_exact.assign(0);
+        self.r_sq_exact.assign(0);
+
+        for i in 0..17 {
+            self.w[i].assign(0);
+        }
+
+        if d < self.matrices.len() {
+            if let Some(ref mut basis) = self.matrices[d] {
+                for i in 0..d {
+                    for j in 0..d {
+                        basis[i][j].assign(0);
+                    }
+                }
+            }
+        }
+    }
+}
+
+std::thread_local! {
+    static LLL_WORKSPACE: std::cell::RefCell<LllWorkspace> = std::cell::RefCell::new(LllWorkspace::new());
+}
+
 /// LLL-based lattice pruning module using exact rational interval arithmetic.
 ///
 /// This module provides mathematically sound and conservative bounding of the OQPN search space
@@ -168,17 +269,22 @@ pub fn compute_target_log_and_epsilon(
 /// To ensure zero false-negative branch elimination, all basis matrix entries, shortest vector bounds,
 /// and target radius bounds are computed using exact rational floor/ceiling operations over `rug::Rational`.
 pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
-    let mut remaining = Vec::new();
+    let mut remaining_indices = [0usize; 17];
+    let mut m = 0;
     let mask = &curr.active_mask;
     let start_idx = curr.last_idx;
     let mut block_idx = start_idx / 64;
     if block_idx < mask.len() {
         let mut block = mask[block_idx] & (!0 << (start_idx % 64));
-        loop {
+        'scan: loop {
             while block != 0 {
+                if m >= 17 {
+                    break 'scan;
+                }
                 let tz = block.trailing_zeros();
                 let j = block_idx * 64 + tz as usize;
-                remaining.push(components[j].clone());
+                remaining_indices[m] = j;
+                m += 1;
                 block &= block - 1;
             }
             block_idx += 1;
@@ -189,134 +295,150 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
         }
     }
 
-    let m = remaining.len();
     if m < 2 || m > 16 {
         return false;
     }
 
-    let scaling_factor_rat = compute_target_penalty_rat(m);
+    LLL_WORKSPACE.with(|ws_cell| {
+        let mut ws_borrow = ws_cell.borrow_mut();
+        let ws = &mut *ws_borrow;
+        ws.reset(m);
 
-    let mut w = Vec::with_capacity(m);
-    for comp in &remaining {
-        let s_i = uint_to_rug_integer(&comp.sigma);
-        let v_i = uint_to_rug_integer(&comp.val);
-        if s_i <= v_i {
+        let scaling_factor_rat = compute_target_penalty_rat(m);
+
+        for i in 0..m {
+            let comp = &components[remaining_indices[i]];
+            uint_to_rug_integer_into(&comp.sigma, &mut ws.s_i);
+            uint_to_rug_integer_into(&comp.val, &mut ws.v_i);
+            if ws.s_i <= ws.v_i {
+                return false;
+            }
+            ws.x_i.mutate_numer_denom(|num, den| {
+                num.assign(&ws.s_i);
+                den.assign(&ws.v_i);
+            });
+            let (log_low, _log_high) = rational_log_interval(&ws.x_i, 16);
+            if *log_low.numer() <= 0 {
+                return false;
+            }
+            ws.scaled_w.assign(scaling_factor_rat.clone() * log_low);
+            ws.w[i].assign(ws.scaled_w.numer() / ws.scaled_w.denom());
+            if ws.w[i] <= 0 {
+                return false;
+            }
+        }
+
+        uint_to_rug_integer_into(&curr.s_l, &mut ws.s_int);
+        uint_to_rug_integer_into(&curr.n_l, &mut ws.n_int);
+
+        if ws.n_int == 0 || ws.s_int == 0 {
             return false;
         }
-        let x_i = Rational::from((s_i, v_i));
-        let (log_low, _log_high) = rational_log_interval(&x_i, 16);
-        if *log_low.numer() <= 0 {
+
+        ws.two_n.assign(&ws.n_int << 1);
+        if ws.s_int > ws.two_n {
+            return true;
+        }
+
+        let ((target_log_low, _target_log_high), epsilon_rat) =
+            compute_target_log_and_epsilon_rational(&curr.s_l, &curr.n_l);
+
+        if *target_log_low.numer() <= 0 {
             return false;
         }
-        let scaled_w = scaling_factor_rat.clone() * log_low;
-        let w_val = scaled_w.numer().clone() / scaled_w.denom();
-        if w_val <= 0 {
+
+        ws.scaled_t
+            .assign(scaling_factor_rat.clone() * &target_log_low);
+        ws.t.assign(ws.scaled_t.numer() / ws.scaled_t.denom());
+
+        if ws.t <= 0 {
             return false;
         }
-        w.push(w_val);
-    }
 
-    let s_int = uint_to_rug_integer(&curr.s_l);
-    let n_int = uint_to_rug_integer(&curr.n_l);
+        let d = m + 1;
+        let basis = ws.matrices[d]
+            .as_mut()
+            .expect("Pre-allocated LLL matrix missing");
 
-    if n_int == 0 || s_int == 0 {
-        return false;
-    }
+        for i in 0..m {
+            basis[i][i].assign(1);
+            basis[i][m].assign(&ws.w[i]);
+        }
+        basis[m][m].assign(-&ws.t);
 
-    let two_n = Integer::from(2 * &n_int);
-    if s_int > two_n {
-        return true;
-    }
+        biglll::lattice_reduce(basis);
 
-    let ((target_log_low, _target_log_high), epsilon_rat) =
-        compute_target_log_and_epsilon_rational(&curr.s_l, &curr.n_l);
-
-    if *target_log_low.numer() <= 0 {
-        return false;
-    }
-
-    let scaled_t = scaling_factor_rat.clone() * &target_log_low;
-    let t = scaled_t.numer().clone() / scaled_t.denom();
-
-    if t <= 0 {
-        return false;
-    }
-
-    let mut basis: Matrix<BigVector> = Matrix::init(m + 1, m + 1);
-    for i in 0..m {
-        basis[i][i].assign(1);
-        basis[i][m].assign(&w[i]);
-    }
-    basis[m][m].assign(-&t);
-
-    biglll::lattice_reduce(&mut basis);
-
-    let b0 = &basis[0];
-    let mut shortest_sq_norm = Integer::from(0);
-    for j in 0..=m {
-        let b0_j = &b0[j];
-        shortest_sq_norm += Integer::from(b0_j * b0_j);
-    }
-
-    if shortest_sq_norm == 0 {
-        return false;
-    }
-
-    let lhs_num = shortest_sq_norm;
-    let lhs_den = Integer::from(1) << m;
-    let lhs = Rational::from((lhs_num, lhs_den));
-
-    let diff_exact = lhs - Rational::from(m);
-    if diff_exact <= 0 {
-        return false;
-    }
-
-    let half_m_plus_1 = Rational::from((m + 1, 2));
-    let r_exact = half_m_plus_1 + scaling_factor_rat * &epsilon_rat;
-    if r_exact <= 0 {
-        return false;
-    }
-
-    let r_sq_exact = r_exact.clone() * &r_exact;
-
-    if diff_exact > r_sq_exact {
-        let mut u_matrix = Vec::with_capacity(m + 1);
-        let mut valid_reconstruction = true;
-        for i in 0..=m {
-            let mut row = Vec::with_capacity(m + 1);
-            for j in 0..m {
-                row.push(basis[i][j].to_string());
-            }
-            let mut sum = Integer::from(0);
-            for k in 0..m {
-                sum += Integer::from(&basis[i][k] * &w[k]);
-            }
-            sum -= &basis[i][m];
-            let (u_im, remainder) = sum.div_rem(t.clone());
-            if remainder != 0 {
-                valid_reconstruction = false;
-                break;
-            }
-            row.push(u_im.to_string());
-            u_matrix.push(row);
+        ws.shortest_sq_norm.assign(0);
+        for j in 0..=m {
+            let b0_j = &basis[0][j];
+            ws.b0_j_sq.assign(b0_j * b0_j);
+            ws.shortest_sq_norm += &ws.b0_j_sq;
         }
 
-        if valid_reconstruction {
-            let witness = LatticeWitness {
-                dimension: m + 1,
-                w: w.iter().map(|x| x.to_string()).collect(),
-                t: t.to_string(),
-                transformation_matrix: u_matrix,
-                epsilon: epsilon_rat.to_f64(),
-                target_log: target_log_low.to_f64(),
-            };
-            add_lattice_witness(witness);
+        if ws.shortest_sq_norm == 0 {
+            return false;
         }
 
-        return true;
-    }
+        ws.lhs_den.assign(1);
+        ws.lhs_den <<= m;
+        ws.lhs.mutate_numer_denom(|num, den| {
+            num.assign(&ws.shortest_sq_norm);
+            den.assign(&ws.lhs_den);
+        });
 
-    false
+        ws.diff_exact.assign(&ws.lhs - Rational::from(m));
+        if ws.diff_exact <= 0 {
+            return false;
+        }
+
+        ws.half_m_plus_1.assign(Rational::from((m + 1, 2)));
+        ws.r_exact
+            .assign(&ws.half_m_plus_1 + scaling_factor_rat * &epsilon_rat);
+        if ws.r_exact <= 0 {
+            return false;
+        }
+
+        ws.r_sq_exact.assign(&ws.r_exact * &ws.r_exact);
+
+        if ws.diff_exact > ws.r_sq_exact {
+            let mut u_matrix = Vec::with_capacity(m + 1);
+            let mut valid_reconstruction = true;
+            for i in 0..=m {
+                let mut row = Vec::with_capacity(m + 1);
+                for j in 0..m {
+                    row.push(basis[i][j].to_string());
+                }
+                let mut sum = Integer::from(0);
+                for k in 0..m {
+                    sum += Integer::from(&basis[i][k] * &ws.w[k]);
+                }
+                sum -= &basis[i][m];
+                let (u_im, remainder) = sum.div_rem(ws.t.clone());
+                if remainder != 0 {
+                    valid_reconstruction = false;
+                    break;
+                }
+                row.push(u_im.to_string());
+                u_matrix.push(row);
+            }
+
+            if valid_reconstruction {
+                let witness = LatticeWitness {
+                    dimension: m + 1,
+                    w: ws.w[0..m].iter().map(|x| x.to_string()).collect(),
+                    t: ws.t.to_string(),
+                    transformation_matrix: u_matrix,
+                    epsilon: epsilon_rat.to_f64(),
+                    target_log: target_log_low.to_f64(),
+                };
+                add_lattice_witness(witness);
+            }
+
+            return true;
+        }
+
+        false
+    })
 }
 
 #[cfg(test)]
@@ -640,5 +762,126 @@ mod tests {
 
         assert!(!sink_target.is_nan());
         assert!(!sink_eps.is_nan());
+    }
+
+    #[test]
+    fn test_thread_local_workspace_reset_and_isolation() {
+        crate::lean_ffi::initialize_lean_runtime();
+
+        let curr1 = Prefix {
+            n_l: Uint::from_u32(100),
+            s_l: Uint::from_u32(150),
+            last_idx: 0,
+            factors: vec![3, 5],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: vec![0b111].into(),
+            sigma_mod24: 1,
+        };
+
+        let curr2 = Prefix {
+            n_l: Uint::from_u32(1000),
+            s_l: Uint::from_u32(1200),
+            last_idx: 0,
+            factors: vec![3, 5],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: vec![0b11].into(),
+            sigma_mod24: 1,
+        };
+
+        let components = vec![
+            PrimePower {
+                p: 7,
+                two_e: 2,
+                val: Uint::from_u32(49),
+                sigma: Uint::from_u32(57),
+                sigma_factors: vec![],
+                needs_rho: vec![],
+                abundance_fp: (57u128 << 64) / 49,
+            },
+            PrimePower {
+                p: 11,
+                two_e: 2,
+                val: Uint::from_u32(121),
+                sigma: Uint::from_u32(133),
+                sigma_factors: vec![],
+                needs_rho: vec![],
+                abundance_fp: (133u128 << 64) / 121,
+            },
+            PrimePower {
+                p: 13,
+                two_e: 2,
+                val: Uint::from_u32(169),
+                sigma: Uint::from_u32(183),
+                sigma_factors: vec![],
+                needs_rho: vec![],
+                abundance_fp: (183u128 << 64) / 169,
+            },
+        ];
+
+        // First evaluation
+        let res1 = lll_prune_decision(&curr1, &components);
+        // Second evaluation on same thread (verifies clean reset of workspace buffers)
+        let res2 = lll_prune_decision(&curr2, &components);
+        // Re-run first evaluation again to verify complete decision equivalence
+        let res1_again = lll_prune_decision(&curr1, &components);
+
+        assert_eq!(
+            res1, res1_again,
+            "Consecutive evaluations must yield identical decisions"
+        );
+        assert_eq!(res1, false);
+        assert_eq!(res2, false);
+    }
+
+    #[test]
+    fn test_zero_copy_active_mask_scanning_multi_block() {
+        let mut mask = vec![0u64; 3];
+        mask[0] = 1 << 5; // Index 5
+        mask[1] = 1 << 10; // Index 64 + 10 = 74
+        mask[2] = 1 << 63; // Index 128 + 63 = 191
+
+        let mut components = vec![
+            PrimePower {
+                p: 2,
+                two_e: 2,
+                val: Uint::from_u32(4),
+                sigma: Uint::from_u32(7),
+                sigma_factors: vec![],
+                needs_rho: vec![],
+                abundance_fp: (7u128 << 64) / 4,
+            };
+            200
+        ];
+
+        components[5].p = 7;
+        components[74].p = 11;
+        components[191].p = 13;
+
+        let curr = Prefix {
+            n_l: Uint::from_u32(100),
+            s_l: Uint::from_u32(150),
+            last_idx: 0,
+            factors: vec![3, 5],
+            sigma_factors: vec![],
+            sigma_factors_u64: vec![],
+            active_mask: mask.into(),
+            sigma_mod24: 1,
+        };
+
+        let decision = lll_prune_decision(&curr, &components);
+        assert!(!decision);
+    }
+
+    #[test]
+    fn test_workspace_struct_memory_footprint_and_bounds() {
+        let ws_size = std::mem::size_of::<LllWorkspace>();
+        println!("Size of LllWorkspace struct: {} bytes", ws_size);
+        assert!(
+            ws_size < 65536,
+            "LllWorkspace struct size ({} bytes) must be well under 64 KB",
+            ws_size
+        );
     }
 }
