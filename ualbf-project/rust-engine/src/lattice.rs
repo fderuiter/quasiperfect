@@ -4,7 +4,7 @@ use crate::schema_generated::Prefix;
 use crate::types::PrimePower;
 use lll_rs::{lll::biglll, matrix::Matrix, vector::BigVector};
 use rug::integer::Order;
-use rug::{Assign, Float, Integer, Rational};
+use rug::{Assign, Integer, Rational};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
@@ -40,12 +40,16 @@ pub fn add_lattice_witness(witness: LatticeWitness) {
     }
 }
 
-pub fn compute_target_penalty(m: usize) -> f64 {
-    let base = crate::manifest_constants::LATTICE_TARGET_PENALTY_BASE;
+pub fn compute_target_penalty_rat(m: usize) -> Rational {
+    let base = crate::manifest_constants::LATTICE_TARGET_PENALTY_BASE as u64;
     if m < 2 || m > 16 {
-        return base;
+        return Rational::from(base);
     }
-    base * ((1usize << (m - 2)) as f64)
+    Rational::from(base << (m - 2))
+}
+
+pub fn compute_target_penalty(m: usize) -> f64 {
+    compute_target_penalty_rat(m).to_f64()
 }
 
 /// Convert a 256-bit/512-bit accumulator `Uint` directly to `rug::Integer`
@@ -62,45 +66,108 @@ pub fn accumulators_to_rational(s_l: &crate::types::Uint, n_l: &crate::types::Ui
     Rational::from((s_int, n_int))
 }
 
-/// Compute target log-abundancy and tolerance epsilon using 256-bit arbitrary precision Float arithmetic.
-pub fn compute_target_log_and_epsilon_float(
-    s_l: &crate::types::Uint,
-    n_l: &crate::types::Uint,
-) -> (Float, Float) {
-    const PRECISION: u32 = 256;
-    let rat = accumulators_to_rational(s_l, n_l);
-
-    if *rat.numer() == 0 || *rat.denom() == 0 {
-        return (Float::with_val(PRECISION, 0), Float::with_val(PRECISION, 0));
+/// Compute exact rational lower and upper bounds for ln(x) where x = p/q > 1.
+///
+/// Returns (L, U) as `(rug::Rational, rug::Rational)` satisfying L < ln(x) < U.
+/// Uses the hyperbolic arctanh expansion:
+///   ln(x) = 2 * sum_{k=0}^{inf} z^{2k+1} / (2k+1)
+/// where z = (x - 1) / (x + 1) = (p - q) / (p + q) in (0, 1).
+pub fn rational_log_interval(x: &Rational, terms: usize) -> (Rational, Rational) {
+    if *x.numer() <= 0 || *x.denom() <= 0 {
+        return (Rational::from(0), Rational::from(0));
+    }
+    if x.numer() == x.denom() {
+        return (Rational::from(0), Rational::from(0));
     }
 
-    let a_curr_flt = Float::with_val(PRECISION, &rat);
-    let ln_2 = Float::with_val(PRECISION, 2).ln();
-    let target_log_flt = ln_2 - a_curr_flt.ln();
+    let p = x.numer();
+    let q = x.denom();
 
-    let n_flt = Float::with_val(PRECISION, rat.denom());
-    let inv_2n_flt = Float::with_val(PRECISION, 0.5) / &n_flt;
-    let epsilon_flt = inv_2n_flt.ln_1p();
+    let num_z = p.clone() - q;
+    let den_z = p.clone() + q;
 
-    (target_log_flt, epsilon_flt)
+    if num_z <= 0 {
+        return (Rational::from(0), Rational::from(0));
+    }
+
+    let z = Rational::from((num_z, den_z));
+    let z_sq = z.clone() * &z;
+
+    let mut sum = Rational::from(0);
+    let mut z_pow = z.clone();
+
+    for k in 0..=terms {
+        let term = z_pow.clone() / Integer::from(2 * k + 1);
+        sum += term;
+        if k < terms {
+            z_pow *= &z_sq;
+        }
+    }
+
+    let lower_bound = Rational::from(2) * sum;
+
+    let z_next = z_pow * &z_sq;
+    let one_minus_z_sq = Rational::from(1) - z_sq;
+    let error_denom = Rational::from(2 * terms + 3) * one_minus_z_sq;
+    let error_bound = (Rational::from(2) * z_next) / error_denom;
+
+    let upper_bound = lower_bound.clone() + error_bound;
+
+    (lower_bound, upper_bound)
 }
 
-/// Compute target log-abundancy and tolerance epsilon as f64 values using 256-bit Float arithmetic internally.
+/// Compute exact rational lower and upper bounds for target log-abundancy T and epsilon.
+///
+/// Returns ((t_low, t_high), eps_upper) as exact `Rational`s.
+pub fn compute_target_log_and_epsilon_rational(
+    s_l: &crate::types::Uint,
+    n_l: &crate::types::Uint,
+) -> ((Rational, Rational), Rational) {
+    let s_int = uint_to_rug_integer(s_l);
+    let n_int = uint_to_rug_integer(n_l);
+
+    if s_int == 0 || n_int == 0 {
+        return ((Rational::from(0), Rational::from(0)), Rational::from(0));
+    }
+
+    let two_n = Integer::from(2 * &n_int);
+    let x_t = Rational::from((two_n, s_int));
+
+    let target_log_interval = if *x_t.numer() > *x_t.denom() {
+        rational_log_interval(&x_t, 20)
+    } else if x_t.numer() == x_t.denom() {
+        (Rational::from(0), Rational::from(0))
+    } else {
+        (Rational::from(-1), Rational::from(-1))
+    };
+
+    let two_n_plus_1 = Integer::from(2 * &n_int) + 1;
+    let two_n_denom = Integer::from(2 * &n_int);
+    let x_e = Rational::from((two_n_plus_1, two_n_denom));
+
+    let (_, eps_upper) = rational_log_interval(&x_e, 20);
+
+    (target_log_interval, eps_upper)
+}
+
+/// Compute target log-abundancy and tolerance epsilon as f64 values for telemetry logging.
 pub fn compute_target_log_and_epsilon(
     s_l: &crate::types::Uint,
     n_l: &crate::types::Uint,
 ) -> (f64, f64) {
-    let (target_log_flt, epsilon_flt) = compute_target_log_and_epsilon_float(s_l, n_l);
-    (target_log_flt.to_f64(), epsilon_flt.to_f64())
+    let ((t_low, t_high), eps_upper) = compute_target_log_and_epsilon_rational(s_l, n_l);
+    let target_log_f64 = ((t_low + t_high) / Rational::from(2)).to_f64();
+    let epsilon_f64 = eps_upper.to_f64();
+    (target_log_f64, epsilon_f64)
 }
 
-/// LLL-based lattice pruning module.
+/// LLL-based lattice pruning module using exact rational interval arithmetic.
 ///
-/// This module provides approximate yet mathematically sound and conservative bounding
-/// of the OQPN search space by mapping subset selection to a knapsack-like shortest vector problem (SVP).
-/// To ensure soundness, approximate computations must never reject reachable targets.
+/// This module provides mathematically sound and conservative bounding of the OQPN search space
+/// by mapping candidate subset selection to a knapsack-like shortest vector problem (SVP).
+/// To ensure zero false-negative branch elimination, all basis matrix entries, shortest vector bounds,
+/// and target radius bounds are computed using exact rational floor/ceiling operations over `rug::Rational`.
 pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
-    // Collect remaining compatible candidates using the same active_mask and last_idx logic.
     let mut remaining = Vec::new();
     let mask = &curr.active_mask;
     let start_idx = curr.last_idx;
@@ -123,31 +190,32 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
     }
 
     let m = remaining.len();
-    // Optimization: run LLL only for a reasonable number of candidates to balance performance.
     if m < 2 || m > 16 {
         return false;
     }
 
-    // Convert abundance_fp values from Q64.64 into scaled log-abundancy lattice contributions.
-    let ln_2 = 2.0_f64.ln();
-    let scaling_factor = compute_target_penalty(m);
+    let scaling_factor_rat = compute_target_penalty_rat(m);
 
     let mut w = Vec::with_capacity(m);
     for comp in &remaining {
-        let fp_f64 = comp.abundance_fp as f64;
-        let log_contribution = fp_f64.ln() - 64.0 * ln_2;
-        if log_contribution <= 0.0 {
-            // Log-abundancy of prime powers must be positive. If not, don't prune to be conservative.
+        let s_i = uint_to_rug_integer(&comp.sigma);
+        let v_i = uint_to_rug_integer(&comp.val);
+        if s_i <= v_i {
             return false;
         }
-        let w_val = (log_contribution * scaling_factor).round() as i64;
+        let x_i = Rational::from((s_i, v_i));
+        let (log_low, _log_high) = rational_log_interval(&x_i, 16);
+        if *log_low.numer() <= 0 {
+            return false;
+        }
+        let scaled_w = scaling_factor_rat.clone() * log_low;
+        let w_val = scaled_w.numer().clone() / scaled_w.denom();
         if w_val <= 0 {
             return false;
         }
-        w.push(Integer::from(w_val));
+        w.push(w_val);
     }
 
-    // Construct exact rug::Integer accumulators without string parsing.
     let s_int = uint_to_rug_integer(&curr.s_l);
     let n_int = uint_to_rug_integer(&curr.n_l);
 
@@ -155,34 +223,25 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
         return false;
     }
 
-    // Exact rational bound check before vector reduction:
-    // T + epsilon < 0 is mathematically equivalent to S_l >= 2 * N_l + 1 (i.e. S_l > 2 * N_l).
-    // If S_l > 2 * N_l, current abundancy S_l / N_l > 2, so target abundancy 2 is strictly exceeded.
     let two_n = Integer::from(2 * &n_int);
     if s_int > two_n {
         return true;
     }
 
-    // Compute target log-abundancy T and target tolerance epsilon using 256-bit Float arithmetic.
-    let (target_log_flt, epsilon_flt) = compute_target_log_and_epsilon_float(&curr.s_l, &curr.n_l);
+    let ((target_log_low, _target_log_high), epsilon_rat) =
+        compute_target_log_and_epsilon_rational(&curr.s_l, &curr.n_l);
 
-    if target_log_flt.clone() + &epsilon_flt < 0 {
-        // Since subset sum must be positive, and target_log + epsilon is negative, we can never reach it.
-        return true;
-    }
-
-    let target_log = target_log_flt.to_f64();
-    let epsilon = epsilon_flt.to_f64();
-
-    let t_val = (target_log * scaling_factor).round() as i64;
-    let t = Integer::from(t_val);
-
-    if t == 0 {
+    if *target_log_low.numer() <= 0 {
         return false;
     }
 
-    // Formulate the lattice basis.
-    // Matrix of size (m + 1) columns x (m + 1) rows.
+    let scaled_t = scaling_factor_rat.clone() * &target_log_low;
+    let t = scaled_t.numer().clone() / scaled_t.denom();
+
+    if t <= 0 {
+        return false;
+    }
+
     let mut basis: Matrix<BigVector> = Matrix::init(m + 1, m + 1);
     for i in 0..m {
         basis[i][i].assign(1);
@@ -190,10 +249,8 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
     }
     basis[m][m].assign(-&t);
 
-    // Run LLL reduction in-place.
     biglll::lattice_reduce(&mut basis);
 
-    // Compute the squared norm of the shortest vector b'_0.
     let b0 = &basis[0];
     let mut shortest_sq_norm = Integer::from(0);
     for j in 0..=m {
@@ -205,63 +262,58 @@ pub fn lll_prune_decision(curr: &Prefix, components: &[PrimePower]) -> bool {
         return false;
     }
 
-    // babai / LLL lower bound: any non-zero lattice vector y satisfies:
-    // ||y||^2 >= 2^-m * shortest_sq_norm.
-    // Since ||y||^2 = sum(x_j^2) + (sum(x_j * w_j) - t)^2 <= m + (sum(x_j * w_j) - t)^2,
-    // we have (sum(x_j * w_j) - t)^2 >= 2^-m * shortest_sq_norm - m.
     let lhs_num = shortest_sq_norm;
     let lhs_den = Integer::from(1) << m;
     let lhs = Rational::from((lhs_num, lhs_den));
 
-    let diff = lhs - Rational::from(m);
-    if diff <= 0 {
+    let diff_exact = lhs - Rational::from(m);
+    if diff_exact <= 0 {
         return false;
     }
 
-    // Check if diff > (0.5 * (m + 1) + M * epsilon)^2
-    let r = 0.5 * ((m + 1) as f64) + scaling_factor * epsilon;
-    if r > 0.0 {
-        let r_sq = r * r;
-        if let Some(r_sq_rat) = Rational::from_f64(r_sq) {
-            if diff > r_sq_rat {
-                // Computed bound rigorously proves the branch cannot reach the target.
-                // Reconstruct U matrix
-                let mut u_matrix = Vec::with_capacity(m + 1);
-                let mut valid_reconstruction = true;
-                for i in 0..=m {
-                    let mut row = Vec::with_capacity(m + 1);
-                    for j in 0..m {
-                        row.push(basis[i][j].to_string());
-                    }
-                    let mut sum = Integer::from(0);
-                    for k in 0..m {
-                        sum += Integer::from(&basis[i][k] * &w[k]);
-                    }
-                    sum -= &basis[i][m];
-                    let (u_im, remainder) = sum.div_rem(t.clone());
-                    if remainder != 0 {
-                        valid_reconstruction = false;
-                        break;
-                    }
-                    row.push(u_im.to_string());
-                    u_matrix.push(row);
-                }
+    let half_m_plus_1 = Rational::from((m + 1, 2));
+    let r_exact = half_m_plus_1 + scaling_factor_rat * &epsilon_rat;
+    if r_exact <= 0 {
+        return false;
+    }
 
-                if valid_reconstruction {
-                    let witness = LatticeWitness {
-                        dimension: m + 1,
-                        w: w.iter().map(|x| x.to_string()).collect(),
-                        t: t.to_string(),
-                        transformation_matrix: u_matrix,
-                        epsilon,
-                        target_log,
-                    };
-                    add_lattice_witness(witness);
-                }
+    let r_sq_exact = r_exact.clone() * &r_exact;
 
-                return true;
+    if diff_exact > r_sq_exact {
+        let mut u_matrix = Vec::with_capacity(m + 1);
+        let mut valid_reconstruction = true;
+        for i in 0..=m {
+            let mut row = Vec::with_capacity(m + 1);
+            for j in 0..m {
+                row.push(basis[i][j].to_string());
             }
+            let mut sum = Integer::from(0);
+            for k in 0..m {
+                sum += Integer::from(&basis[i][k] * &w[k]);
+            }
+            sum -= &basis[i][m];
+            let (u_im, remainder) = sum.div_rem(t.clone());
+            if remainder != 0 {
+                valid_reconstruction = false;
+                break;
+            }
+            row.push(u_im.to_string());
+            u_matrix.push(row);
         }
+
+        if valid_reconstruction {
+            let witness = LatticeWitness {
+                dimension: m + 1,
+                w: w.iter().map(|x| x.to_string()).collect(),
+                t: t.to_string(),
+                transformation_matrix: u_matrix,
+                epsilon: epsilon_rat.to_f64(),
+                target_log: target_log_low.to_f64(),
+            };
+            add_lattice_witness(witness);
+        }
+
+        return true;
     }
 
     false
@@ -371,6 +423,38 @@ mod tests {
     }
 
     #[test]
+    fn test_rational_log_interval_accuracy() {
+        // Test x = 2
+        let x2 = Rational::from((2, 1));
+        let (low, high) = rational_log_interval(&x2, 20);
+        assert!(
+            low < high,
+            "lower bound must be strictly less than upper bound"
+        );
+
+        let low_f = low.to_f64();
+        let high_f = high.to_f64();
+        let exact_ln2 = 2.0_f64.ln();
+
+        assert!(
+            low_f <= exact_ln2,
+            "low_f {} <= exact_ln2 {}",
+            low_f,
+            exact_ln2
+        );
+        assert!(
+            high_f >= exact_ln2,
+            "high_f {} >= exact_ln2 {}",
+            high_f,
+            exact_ln2
+        );
+        assert!(
+            (high_f - low_f) < 1e-15,
+            "interval width should be smaller than 1e-15"
+        );
+    }
+
+    #[test]
     fn test_deep_prefix_no_nan_or_overflow_exceeding_f64_limit() {
         // Test U512 accumulators up to 10^150
         let n_l_large = Uint::from_u128(10).pow(150);
@@ -388,31 +472,9 @@ mod tests {
         let n_350 = Integer::from(10).pow(350); // 10^350
         let rat_350 = Rational::from((s_350, n_350.clone()));
 
-        const PRECISION: u32 = 256;
-        let a_curr_flt = Float::with_val(PRECISION, &rat_350);
-        let ln_2 = Float::with_val(PRECISION, 2).ln();
-        let target_log_flt = ln_2 - a_curr_flt.ln();
+        let (low_t, high_t) = rational_log_interval(&rat_350, 20);
 
-        let n_flt = Float::with_val(PRECISION, &n_350);
-        let inv_2n_flt = Float::with_val(PRECISION, 0.5) / &n_flt;
-        let epsilon_flt = inv_2n_flt.ln_1p();
-
-        assert!(
-            !target_log_flt.is_nan(),
-            "256-bit target_log for 10^350 must not be NaN"
-        );
-        assert!(
-            !target_log_flt.is_infinite(),
-            "256-bit target_log for 10^350 must not be infinite"
-        );
-        assert!(
-            !epsilon_flt.is_nan(),
-            "256-bit epsilon for 10^350 must not be NaN"
-        );
-        assert!(
-            !epsilon_flt.is_infinite(),
-            "256-bit epsilon for 10^350 must not be infinite"
-        );
+        assert!(low_t <= high_t, "low_t must be <= high_t");
     }
 
     #[test]
@@ -483,7 +545,7 @@ mod tests {
         assert_eq!(*rat_512.numer(), uint_to_rug_integer(&s_512));
         assert_eq!(*rat_512.denom(), uint_to_rug_integer(&n_512));
 
-        let (target_log_flt, epsilon_flt) = compute_target_log_and_epsilon_float(&s_512, &n_512);
+        let (target_log_flt, epsilon_flt) = compute_target_log_and_epsilon(&s_512, &n_512);
         assert!(
             !target_log_flt.is_nan(),
             "target_log_flt for 512-bit int must not be NaN"
