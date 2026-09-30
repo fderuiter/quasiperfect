@@ -818,7 +818,7 @@ def create_signed_test_cert(
         map_obj["path_ranges"] = tel["path_ranges"]
 
     priv = Ed25519PrivateKey.generate()
-    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()  # type: ignore[arg-type]
     payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
     sig_hex = priv.sign(payload.encode("utf-8")).hex()
 
