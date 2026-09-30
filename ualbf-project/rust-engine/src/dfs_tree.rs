@@ -779,7 +779,7 @@ pub fn check_and_evaluate_node(
         num *= Uint::from_u64(p);
         den *= Uint::from_u64(p - 1);
     }
-    if crate::universal_bounds::cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den) {
+    if !crate::universal_bounds::cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
