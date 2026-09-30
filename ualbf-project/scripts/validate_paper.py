@@ -213,6 +213,9 @@ def is_valid_code_file_path(code_path: str, repo_root: str, paper_dir: str) -> b
     return False
 
 
+GENERATED_PAPER_INPUTS = {"telemetry.tex", "verification_manifest.tex"}
+
+
 def validate_paper_sources(
     paper_dir: Optional[str] = None, repo_root: Optional[str] = None
 ) -> bool:
@@ -266,8 +269,12 @@ def validate_paper_sources(
         rel_exact = os.path.join(containing_dir, inp_path)
         rel_tex = rel_exact if rel_exact.endswith(".tex") else rel_exact + ".tex"
 
+        # Build outputs regenerated from the manifests by the paper build; a
+        # checkout without the native verification library cannot produce them.
+        is_generated = os.path.basename(target_tex) in GENERATED_PAPER_INPUTS
         if not (
-            os.path.exists(target_exact)
+            is_generated
+            or os.path.exists(target_exact)
             or os.path.exists(target_tex)
             or os.path.exists(rel_exact)
             or os.path.exists(rel_tex)
