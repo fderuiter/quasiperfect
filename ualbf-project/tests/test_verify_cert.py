@@ -1941,7 +1941,8 @@ from verify_cert import verify_trace_file
 
 
 class TestGraphTopologyVerification:
-    def test_valid_topology_manifest_passes(self, tmp_path):
+    def test_well_formed_cdg_record_is_rejected(self, tmp_path):
+        """The CDG forced cascade is unsound (#566), so even a well-formed record fails."""
         trace_path = os.path.join(tmp_path, "trace.jsonl")
         topology_manifest = {
             "adjacency": [[1], [2], []],
@@ -1966,8 +1967,9 @@ class TestGraphTopologyVerification:
         trace_hash = hashlib.sha256(trace_content.encode("utf-8")).hexdigest()
         cert = {"telemetry": {"trace_hash": trace_hash}}
 
-        # Should pass without SystemExit
-        verify_trace_file(cert, trace_path)
+        with pytest.raises(SystemExit) as excinfo:
+            verify_trace_file(cert, trace_path)
+        assert excinfo.value.code == 1
 
     def test_missing_topology_manifest_fails(self, tmp_path):
         trace_path = os.path.join(tmp_path, "trace.jsonl")
