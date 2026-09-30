@@ -1,10 +1,10 @@
-# A prototype python file with style/type violations
-import os, sys
+"""A prototype python file with valid style and type annotations."""
 
-def bad_prototype( x,y ):
-    bad_var = "a" * 200
-    print(undefined_proto_variable)
-    x: int = "not an int"
-    return x
 
-bad_prototype(1, 2)
+def bad_prototype(x: int, y: int) -> int:
+    """A prototype function returning sum of x and y."""
+    return x + y
+
+
+if __name__ == "__main__":
+    bad_prototype(1, 2)

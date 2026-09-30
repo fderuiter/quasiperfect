@@ -238,14 +238,19 @@ def validate_paper_sources(
     if not (os.path.exists(telemetry_path) and os.path.exists(verification_path)):
         manifest_path = os.path.join(repo_root_abs, "proof_manifest.json")
         if not os.path.exists(manifest_path):
-            manifest_path = os.path.join(repo_root_abs, "ualbf-project", "proof_manifest.json")
+            manifest_path = os.path.join(
+                repo_root_abs, "ualbf-project", "proof_manifest.json"
+            )
         bounds_path = os.path.join(repo_root_abs, "bounds_manifest.json")
         if not os.path.exists(bounds_path):
-            bounds_path = os.path.join(repo_root_abs, "ualbf-project", "bounds_manifest.json")
+            bounds_path = os.path.join(
+                repo_root_abs, "ualbf-project", "bounds_manifest.json"
+            )
 
         if os.path.exists(manifest_path) and os.path.exists(bounds_path):
             try:
                 import verify_paper_sync
+
                 verify_paper_sync.generate_paper_macros(
                     manifest_path, bounds_path, paper_dir_abs
                 )
