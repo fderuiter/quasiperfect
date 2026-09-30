@@ -818,7 +818,7 @@ def create_signed_test_cert(
         map_obj["path_ranges"] = tel["path_ranges"]
 
     priv = Ed25519PrivateKey.generate()
-    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
+    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()  # type: ignore[arg-type]
     payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
     sig_hex = priv.sign(payload.encode("utf-8")).hex()
 
@@ -978,6 +978,11 @@ def verify_meta_certificate_envelope(
     }
     for f in sum_fields:
         expected_telemetry[f] = sum(t[f] for t in leaf_tels)
+
+    if expected_telemetry.get("math_interruptions", 0) > 0:
+        raise CertificateValidationError(
+            f"Meta-certificate envelope contains non-zero math_interruptions ({expected_telemetry['math_interruptions']})."
+        )
 
     top_telemetry = meta_cert_data["telemetry"]
     for field, expected_val in expected_telemetry.items():
