@@ -88,4 +88,77 @@ mod tests {
             target_den
         ));
     }
+
+    #[test]
+    fn test_cpu_check_dusart_bound_rhs_overflow() {
+        // When rhs multiplication overflows 512 bits, it must return false
+        // to avoid unearned pruning (false positive pruning).
+        let s_l = Uint::from_u64(10);
+        let n_l = Uint::MAX;
+        let p_last = 3000;
+        let validity_threshold = 2973;
+        let dusart_num = 1;
+        let dusart_den = 5;
+        let target_num = 2;
+        let target_den = 1;
+
+        assert!(!cpu_check_dusart_bound(
+            &s_l,
+            &n_l,
+            p_last,
+            validity_threshold,
+            dusart_num,
+            dusart_den,
+            target_num,
+            target_den
+        ));
+    }
+
+    #[test]
+    fn test_cpu_check_dusart_bound_lhs_overflow() {
+        // When lhs multiplication overflows 512 bits, it must return false.
+        let s_l = Uint::MAX;
+        let n_l = Uint::from_u64(10);
+        let p_last = 3000;
+        let validity_threshold = 2973;
+        let dusart_num = 1;
+        let dusart_den = 5;
+        let target_num = 2;
+        let target_den = 1;
+
+        assert!(!cpu_check_dusart_bound(
+            &s_l,
+            &n_l,
+            p_last,
+            validity_threshold,
+            dusart_num,
+            dusart_den,
+            target_num,
+            target_den
+        ));
+    }
+
+    #[test]
+    fn test_cpu_check_dusart_bound_both_overflow() {
+        // When both lhs and rhs overflow 512 bits, it must return false.
+        let s_l = Uint::MAX;
+        let n_l = Uint::MAX;
+        let p_last = 3000;
+        let validity_threshold = 2973;
+        let dusart_num = 1;
+        let dusart_den = 5;
+        let target_num = 2;
+        let target_den = 1;
+
+        assert!(!cpu_check_dusart_bound(
+            &s_l,
+            &n_l,
+            p_last,
+            validity_threshold,
+            dusart_num,
+            dusart_den,
+            target_num,
+            target_den
+        ));
+    }
 }
