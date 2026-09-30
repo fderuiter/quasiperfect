@@ -409,7 +409,10 @@ mod tests {
                 let mut sorted = clause.clone();
                 sorted.sort_unstable();
                 sorted.dedup();
-                assert_eq!(clause, &sorted, "Clause candidates are not sorted/deduplicated");
+                assert_eq!(
+                    clause, &sorted,
+                    "Clause candidates are not sorted/deduplicated"
+                );
             }
         }
     }

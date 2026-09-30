@@ -17,18 +17,18 @@ def get_free_port():
 
 def test_distributed_controller_cert_signing(tmp_path):
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    env = dict(os.environ)
+    if "LEAN_SYSROOT" not in env:
+        env["LEAN_SYSROOT"] = "DUMMY"
+    subprocess.run(
+        ["cargo", "build", "--release", "--features", "signing"],
+        cwd=os.path.join(repo_root, "rust-engine"),
+        check=True,
+        env=env,
+    )
     engine_bin = os.path.join(repo_root, "target", "release", "ualbf_engine")
     if not os.path.exists(engine_bin):
         engine_bin = os.path.join(repo_root, "rust-engine", "target", "release", "ualbf_engine")
-    if not os.path.exists(engine_bin):
-        subprocess.run(
-            ["cargo", "build", "--release", "--features", "signing"],
-            cwd=os.path.join(repo_root, "rust-engine"),
-            check=True
-        )
-        engine_bin = os.path.join(repo_root, "target", "release", "ualbf_engine")
-        if not os.path.exists(engine_bin):
-            engine_bin = os.path.join(repo_root, "rust-engine", "target", "release", "ualbf_engine")
 
     port = get_free_port()
     addr = f"127.0.0.1:{port}"
