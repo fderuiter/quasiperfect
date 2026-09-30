@@ -1,7 +1,7 @@
 // AUTO-GENERATED from bounds_manifest.json. DO NOT EDIT.
 
 pub const EXPORTED_BOUNDS_MANIFEST_HASH: &str =
-    "34637db79282878d4850edae431c554d92cae5c3a76c9c01275aff2cc8cd0f10";
+    "f6d7058bacf4ab4e4cb8c93dc725f34d085c52f0ab6c29be68f97547887c5903";
 
 use vstd::prelude::*;
 
@@ -9,8 +9,8 @@ verus! {
     pub open spec fn lean_prime_split_threshold() -> nat { 61 }
     pub open spec fn lean_prasad_sunitha_bound() -> nat { 15 }
     pub open spec fn lean_prasad_sunitha_combined() -> nat { 15 }
-    pub open spec fn lean_div_5_coprime_3_bound() -> nat { 11 }
-    pub open spec fn lean_div_5_coprime_3_combined() -> nat { 11 }
+    pub open spec fn lean_div_5_coprime_3_bound() -> nat { 7 }
+    pub open spec fn lean_div_5_coprime_3_combined() -> nat { 7 }
     pub open spec fn lean_hagis1982_combined() -> nat { 7 }
     pub open spec fn lean_qpn_totient_bound_num() -> nat { 20442 }
     pub open spec fn lean_qpn_totient_bound_den() -> nat { 10000 }

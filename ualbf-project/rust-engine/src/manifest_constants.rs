@@ -6,9 +6,9 @@ pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = 15;
 #[cfg(not(verus_keep_ghost))]
 pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = 15;
 #[cfg(not(verus_keep_ghost))]
-pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = 11;
+pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = 7;
 #[cfg(not(verus_keep_ghost))]
-pub const DIV_5_COPRIME_3_BOUND: u64 = 11;
+pub const DIV_5_COPRIME_3_BOUND: u64 = 7;
 #[cfg(not(verus_keep_ghost))]
 pub const BASELINE_MIN_PRIME_FACTORS: u64 = 7;
 #[cfg(not(verus_keep_ghost))]
@@ -58,7 +58,7 @@ pub const LATTICE_PRECISION_TOLERANCE: f64 = 1e-09;
 #[cfg(not(verus_keep_ghost))]
 pub const LATTICE_TARGET_PENALTY_BASE: f64 = 1000000000.0;
 #[cfg(not(verus_keep_ghost))]
-pub const MANIFEST_HASH: &str = "34637db79282878d4850edae431c554d92cae5c3a76c9c01275aff2cc8cd0f10";
+pub const MANIFEST_HASH: &str = "f6d7058bacf4ab4e4cb8c93dc725f34d085c52f0ab6c29be68f97547887c5903";
 
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
@@ -68,8 +68,8 @@ verus! {
     pub const PRIME_SPLIT_THRESHOLD: u64 = 61;
     pub const PRASAD_SUNITHA_PROOF_BOUND: u64 = 15;
     pub const PRASAD_SUNITHA_BOUND_NO_3_5: u64 = 15;
-    pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = 11;
-    pub const DIV_5_COPRIME_3_BOUND: u64 = 11;
+    pub const DIV_5_COPRIME_3_PROOF_BOUND: u64 = 7;
+    pub const DIV_5_COPRIME_3_BOUND: u64 = 7;
     pub const BASELINE_MIN_PRIME_FACTORS: u64 = 7;
     pub const EULER_CEILING_NUM: u64 = 20442;
     pub const EULER_CEILING_DEN: u64 = 10000;
@@ -89,5 +89,5 @@ verus! {
     pub const CONJECTURAL_MAX_LOG10_CEILING: u32 = 30;
     pub const TOUCHARD_MOD_24_MODULUS: u32 = 24;
     pub const CRT_MODULUS_PRODUCT: u32 = 1155;
-    pub const MANIFEST_HASH: &'static str = "34637db79282878d4850edae431c554d92cae5c3a76c9c01275aff2cc8cd0f10";
+    pub const MANIFEST_HASH: &'static str = "f6d7058bacf4ab4e4cb8c93dc725f34d085c52f0ab6c29be68f97547887c5903";
 }

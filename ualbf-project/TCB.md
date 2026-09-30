@@ -31,7 +31,7 @@ The CRT tensor sieve has optional Metal and OpenCL backends in `rust-engine/src/
 ## 4a. Trusted Mathematical Axioms
 No mathematical results are assumed as Lean axioms. The ALLOWED_AXIOMS whitelist in cert_util.py is empty, and the auditor and `rust-engine/build.rs` reject any theorem whose status is `axiom`. The last former axiom, `UALBF.QPN.PrasadSunitha.qpn_div_5_coprime_3_omega_bound` (a quasiperfect number coprime to 3 has at least 7 distinct prime factors, the Hagis and Cohen (1982) bound), is now proved in `UALBF/QPN/PrasadSunitha.lean`.
 
-Some pruning rules still depend on assumptions that are not Lean theorems. Each trace event names the theorem behind its prune (`lean: ...`) or says what is assumed (`conditional:`, `partial:`, `unproven:`), and the ray-casting phase counts every abandoned prefix in `math_interruptions`, which `verify_cert.py` rejects as incomplete coverage.
+Some pruning rules still depend on assumptions that are not Lean theorems. Each trace event names the theorem behind its prune (prefixed "lean:") or says what is assumed (prefixed "conditional:", "partial:" or "unproven:"), and the ray-casting phase counts every abandoned prefix in the math_interruptions counter, which verify_cert.py rejects as incomplete coverage.
 
 ## 5. Build Environment Variables & Verification Configuration
 
