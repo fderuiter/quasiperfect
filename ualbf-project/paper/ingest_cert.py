@@ -446,16 +446,24 @@ def check_manuscript_compliance(
             "bounds_manifest.json",
         )
 
-    target_max_log = 43
-    target_min_log = 37
+    target_exponent_bounds = set()
     if os.path.exists(bounds_path):
         try:
             bdata = cert_util.BoundedJSONLoader().load_file(bounds_path)
             sb = bdata.get("search_bounds", {})
-            if "target_max_log10" in sb and "value" in sb["target_max_log10"]:
-                target_max_log = sb["target_max_log10"]["value"]
-            if "target_min_log10" in sb and "value" in sb["target_min_log10"]:
-                target_min_log = sb["target_min_log10"]["value"]
+            for k, v in sb.items():
+                if "log10" in k:
+                    if isinstance(v, dict) and "value" in v:
+                        target_exponent_bounds.add(str(v["value"]))
+                    elif isinstance(v, (int, str)):
+                        target_exponent_bounds.add(str(v))
+            cb = bdata.get("conjectural_bounds", {})
+            for k, v in cb.items():
+                if "log10" in k:
+                    if isinstance(v, dict) and "value" in v:
+                        target_exponent_bounds.add(str(v["value"]))
+                    elif isinstance(v, (int, str)):
+                        target_exponent_bounds.add(str(v))
         except Exception:
             pass
 
@@ -469,6 +477,8 @@ def check_manuscript_compliance(
                 if m:
                     suffix, val = m.groups()
                     telemetry_metrics[suffix] = val
+                    if "Log" in suffix and val.strip().isdigit():
+                        target_exponent_bounds.add(val.strip())
 
     forbidden_hardcoded_values = set()
     for v in telemetry_metrics.values():
@@ -509,17 +519,7 @@ def check_manuscript_compliance(
                     # Requirement 2: Detect hardcoded exponent bound literals (e.g. 10^{40}, 10^{43})
                     for m in re.finditer(r"10\^\{?(\d+)\}?", code_line):
                         exp_val = m.group(1)
-                        if (
-                            exp_val
-                            in (
-                                str(target_max_log),
-                                str(target_min_log),
-                                "40",
-                                "43",
-                                "37",
-                            )
-                            and "\\Telemetry" not in code_line
-                        ):
+                        if exp_val in target_exponent_bounds:
                             print(
                                 f"Error in {rel_file_path}:{line_no}: Hardcoded scientific metric '10^{exp_val}' detected. Use '\\TelemetryMaxLog' or '\\TelemetryMinLog' macro instead."
                             )
@@ -527,7 +527,7 @@ def check_manuscript_compliance(
 
                     # Requirement 2: Detect forbidden hardcoded telemetry values
                     for hv in forbidden_hardcoded_values:
-                        if hv in code_line and "\\Telemetry" not in code_line:
+                        if hv in code_line:
                             if re.search(
                                 r"(?<![0-9a-zA-Z\.])"
                                 + re.escape(hv)

@@ -6,8 +6,13 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 try:
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # type: ignore
+        Ed25519PrivateKey,
+    )
+    from cryptography.hazmat.primitives.serialization import (  # type: ignore
+        Encoding,
+        PublicFormat,
+    )
 
     _HAS_CRYPTOGRAPHY = True
 except ImportError:
@@ -801,14 +806,32 @@ def create_signed_test_cert(
         except Exception:
             commit_hash = "unknown"
 
+    if bounds_path is None:
+        default_bounds = os.path.join(project_root, "bounds_manifest.json")
+        if os.path.exists(default_bounds):
+            bounds_path = default_bounds
+
+    target_min = 37
+    target_max = 43
+    if bounds_path and os.path.exists(bounds_path):
+        try:
+            bdata = BoundedJSONLoader().load_file(bounds_path)
+            sb = bdata.get("search_bounds", {})
+            if "target_min_log10" in sb and isinstance(sb["target_min_log10"], dict):
+                target_min = sb["target_min_log10"].get("value", target_min)
+            if "target_max_log10" in sb and isinstance(sb["target_max_log10"], dict):
+                target_max = sb["target_max_log10"].get("value", target_max)
+        except Exception:
+            pass
+
     tel = {
         "phase1_execution_time_ms": 100,
         "phase2_execution_time_ms": 5000,
         "total_branches_searched": 1000,
         "abundance_pruned": 200,
         "raycast_pruned": 0,
-        "target_min_log10": 35,
-        "target_max_log10": 37,
+        "target_min_log10": target_min,
+        "target_max_log10": target_max,
     }
     if extra_telemetry:
         tel.update(extra_telemetry)
