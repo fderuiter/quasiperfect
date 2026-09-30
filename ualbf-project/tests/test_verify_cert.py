@@ -2801,3 +2801,39 @@ class TestLogicHashMismatch:
 
         captured = capsys.readouterr()
         assert "WARNING: Manifest/Logic hash mismatch!" in captured.out
+
+
+class TestMathInterruptionsZeroEnforcement:
+    def test_verify_certificate_rejects_non_zero_math_interruptions(self, capsys):
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+        cert["telemetry"]["math_interruptions"] = 1
+        cert_path, manifest_path = write_files(manifest, cert)
+
+        with pytest.raises(SystemExit) as exc_info:
+            verify_certificate(cert_path, manifest_path)
+        assert exc_info.value.code == 1
+
+        captured = capsys.readouterr()
+        assert (
+            "math_interruptions" in captured.err or "math_interruptions" in captured.out
+        )
+
+    def test_verify_telemetry_paths_rejects_non_zero_math_interruptions(self, capsys):
+        cert = build_cert("placeholder")
+        cert["telemetry"]["math_interruptions"] = 2
+        cert["telemetry"]["path_ranges"] = [{"start_bound": [], "end_bound": [10]}]
+
+        with pytest.raises((SystemExit, AssertionError)):
+            verify_telemetry_paths([cert])
+
+    def test_native_validate_certificate_rejects_math_interruptions(self):
+        import verification_lib
+
+        cert = build_cert("placeholder")
+        cert["telemetry"]["math_interruptions"] = 3
+        pub_key = cert["public_key"]
+
+        with pytest.raises(ValueError) as exc_info:
+            verification_lib.validate_certificate(json.dumps(cert), pub_key)
+        assert "math_interruptions" in str(exc_info.value)

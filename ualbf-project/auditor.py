@@ -907,19 +907,6 @@ def _generate_manifest_impl():
         if lean_sysroot:
             env["LEAN_SYSROOT"] = lean_sysroot
             env["PATH"] = f"{os.path.join(lean_sysroot, 'bin')}:{env.get('PATH', '')}"
-        mock_bin = os.path.abspath(os.path.join(repo_root, "build", "mock-bin"))
-        env["PATH"] = f"{mock_bin}:{env.get('PATH', '')}"
-        make_dir = (
-            repo_root
-            if os.path.exists(os.path.join(repo_root, "Makefile"))
-            else os.path.dirname(os.path.abspath(__file__))
-        )
-        if os.path.exists(os.path.join(make_dir, "Makefile")):
-            subprocess.run(
-                ["make", "mock-ui"],
-                cwd=make_dir,
-                check=True,
-            )
         # Pre-fetch ProofWidgets JS assets before running Lake builds
         fetch_proofwidgets_assets(cwd, env)
 

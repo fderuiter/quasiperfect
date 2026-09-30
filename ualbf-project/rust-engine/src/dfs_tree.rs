@@ -318,7 +318,11 @@ pub fn phase2_and_4_fused(
 
         let lazy_res = resolve_lazy_factors(comp, &lazy_cache[i]);
         if lazy_res.is_err() {
-            return;
+            math_interruptions.fetch_add(1, Ordering::Relaxed);
+            panic!(
+                "Fatal search error: resolve_lazy_factors failed for top-level component index {} (prime={})",
+                i, comp.p
+            );
         }
         let extra_factors = lazy_res.unwrap();
 
@@ -1517,7 +1521,10 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     let lazy_res = resolve_lazy_factors(comp, &dfs_ctx.lazy_cache[i]);
     if lazy_res.is_err() {
         dfs_ctx.math_interruptions.fetch_add(1, Ordering::Relaxed);
-        return false;
+        panic!(
+            "Fatal search error: resolve_lazy_factors failed for component index {} (prime={})",
+            i, comp.p
+        );
     }
     let extra_factors = lazy_res.unwrap();
 
@@ -2478,6 +2485,74 @@ mod tests {
         let slot3 = std::sync::OnceLock::new();
         let res3 = resolve_lazy_factors(&comp3, &slot3);
         assert!(res3.is_err());
+    }
+
+    #[test]
+    #[should_panic(expected = "Fatal search error: resolve_lazy_factors failed")]
+    fn test_try_push_panics_on_lazy_factor_failure() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let mut curr = make_prefix(1, 1, 0);
+        let invalid_comp = PrimePower {
+            p: 7,
+            two_e: 2,
+            val: Uint::from_u64(49),
+            sigma: Uint::from_u64(57),
+            sigma_factors: vec![],
+            needs_rho: vec![Uint::from_u64(5)],
+            abundance_fp: 0,
+        };
+        let comps = vec![invalid_comp];
+        let tb = Uint::from_u128(u128::MAX);
+        let lazy_cache: Arc<Vec<std::sync::OnceLock<Result<Vec<Uint>, ()>>>> =
+            Arc::new(vec![std::sync::OnceLock::new()]);
+        let backbone = crate::backbone::SearchBackbone::new(&comps, &lazy_cache);
+        let count = AtomicUsize::new(0);
+        let pruned_count = AtomicUsize::new(0);
+        let abundance_pruned = AtomicUsize::new(0);
+        let boundary_pruned = AtomicUsize::new(0);
+        let completed_weight_scaled = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
+        let active_primes = make_active_primes();
+        let sigma_cache: crate::math_utils::SigmaCache = HashMap::new();
+        let stop_threshold = Uint::from_u128(u128::MAX);
+        let target_min = Uint::from_u64(1);
+        let suffix_abundance: Vec<u128> = vec![3u128 << 64; 129];
+        let illegal_valuations: Vec<(crate::types::Int, crate::types::Int)> = vec![];
+
+        let mut dfs_ctx = DfsContext {
+            start_bound: None,
+            end_bound: None,
+            curr: &mut curr,
+            components: &comps,
+            stop_threshold: &stop_threshold,
+            target_min: &target_min,
+            target_bound: &tb,
+            illegal_valuations: &illegal_valuations,
+            suffix_abundance: &suffix_abundance,
+            count: &count,
+            pruned_count: &pruned_count,
+            abundance_pruned: &abundance_pruned,
+            boundary_pruned: &boundary_pruned,
+            completed_weight_scaled: &completed_weight_scaled,
+            math_interruptions: &math_interruptions,
+            total_weight_scaled: 1000,
+            active_primes: &active_primes,
+            sigma_cache: &sigma_cache,
+            reporter: None,
+            max_idx_3: 0,
+            max_idx_5: 0,
+            lazy_cache: &lazy_cache,
+            backbone: &backbone,
+            saved_states: vec![],
+            dyn_min_factors: 7,
+            should_explore_memo: false,
+            trace_tx: None,
+            work_unit_id: 0,
+            step_counter: std::sync::atomic::AtomicU64::new(0),
+        };
+
+        let ptr = &mut dfs_ctx as *mut DfsContext as u64;
+        __rust_dfs_try_push(ptr, 0);
     }
 
     #[test]
