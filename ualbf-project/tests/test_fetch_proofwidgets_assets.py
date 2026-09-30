@@ -25,8 +25,8 @@ def test_script_exists_and_executable():
     assert os.access(SCRIPT_PATH, os.X_OK)
 
 
-def test_offline_mock_bundle_generation(tmp_path):
-    # Set up mock lake-manifest.json
+def test_offline_mode_fails_fast_without_mock_bundle(tmp_path):
+    # Set up lake-manifest.json
     manifest_file = tmp_path / "lake-manifest.json"
     manifest_data = {
         "packages": [
@@ -50,21 +50,51 @@ def test_offline_mock_bundle_generation(tmp_path):
         text=True,
     )
 
-    assert res.returncode == 0
-    assert "Offline mode active" in res.stdout or "mock bundle generated" in res.stdout
+    assert res.returncode == 1
+    assert "Offline mode active" in res.stderr or "Error:" in res.stderr
 
     js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
-    assert js_dir.exists()
-    assert (js_dir / "index.js").exists()
-    assert (js_dir / "lake.trace").exists()
-    assert len((js_dir / "index.js").read_text()) > 0
-    assert (
-        "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8"
-        in (js_dir / "lake.trace").read_text()
+    assert not (js_dir / "index.js").exists()
+    assert not (js_dir / "lake.trace").exists()
+
+
+def test_reuse_existing_verified_local_assets(tmp_path):
+    manifest_file = tmp_path / "lake-manifest.json"
+    manifest_data = {
+        "packages": [
+            {
+                "name": "proofwidgets",
+                "inputRev": "v0.0.99",
+                "rev": "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8",
+            }
+        ]
+    }
+    manifest_file.write_text(json.dumps(manifest_data))
+
+    js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
+    js_dir.mkdir(parents=True)
+    existing_content = "// pre-existing verified asset bundle\nexport default {};\n"
+    (js_dir / "index.js").write_text(existing_content)
+
+    env = os.environ.copy()
+    env["OFFLINE"] = "1"
+
+    res = subprocess.run(
+        ["bash", str(SCRIPT_PATH), str(manifest_file)],
+        cwd=str(tmp_path),
+        env=env,
+        capture_output=True,
+        text=True,
     )
 
+    assert res.returncode == 0
+    assert "Valid local assets found" in res.stdout
+    assert (js_dir / "index.js").read_text() == existing_content
+    assert (js_dir / "lake.trace").exists()
+    assert "a84b3e2475d5c5ab979567b1ad8aea21b764bcf8" in (js_dir / "lake.trace").read_text()
 
-def test_online_download_fallback_when_unverified_or_404(tmp_path):
+
+def test_online_download_fails_fast_when_network_error(tmp_path):
     manifest_file = tmp_path / "lake-manifest.json"
     manifest_data = {
         "packages": [
@@ -87,10 +117,10 @@ def test_online_download_fallback_when_unverified_or_404(tmp_path):
         text=True,
     )
 
-    assert res.returncode == 0
+    assert res.returncode == 1
+    assert "Error:" in res.stderr
     js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
-    assert (js_dir / "index.js").exists()
-    assert (js_dir / "lake.trace").exists()
+    assert not (js_dir / "index.js").exists()
 
 
 def test_unlisted_tag_missing_sha256_fails(tmp_path):
@@ -179,6 +209,8 @@ exit 0
     assert (
         "0000000000000000000000000000000000000000000000000000000000000000" in res.stderr
     )
+    js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
+    assert not (js_dir / "index.js").exists()
 
 
 def test_sha256_checksum_match_succeeds(tmp_path):
@@ -240,7 +272,6 @@ exit 0
 
 
 def test_manifest_path_with_quotes_and_injection(tmp_path):
-    # Path containing single quotes and injection attempt
     special_dir = tmp_path / "path_with_'quote'_and_$(injection)"
     special_dir.mkdir(parents=True)
     manifest_file = special_dir / "lake-manifest.json"
@@ -256,6 +287,10 @@ def test_manifest_path_with_quotes_and_injection(tmp_path):
     }
     manifest_file.write_text(json.dumps(manifest_data))
 
+    js_dir = special_dir / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
+    js_dir.mkdir(parents=True)
+    (js_dir / "index.js").write_text("// pre-existing asset\n")
+
     env = os.environ.copy()
     env["OFFLINE"] = "1"
 
@@ -268,7 +303,6 @@ def test_manifest_path_with_quotes_and_injection(tmp_path):
     )
 
     assert res.returncode == 0
-    js_dir = special_dir / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
     assert js_dir.exists()
     assert (js_dir / "lake.trace").exists()
     assert "custom_rev_12345" in (js_dir / "lake.trace").read_text()
@@ -283,7 +317,6 @@ def test_compute_sha256_python_fallback_with_special_chars(tmp_path):
 
     expected_hash = hashlib.sha256(content).hexdigest()
 
-    # Create a PATH where sha256sum and shasum are not available to force Python fallback
     dummy_bin_dir = tmp_path / "bin"
     dummy_bin_dir.mkdir()
     python3_real = sys.executable
@@ -353,10 +386,10 @@ def test_nix_build_top_forces_offline_when_net_not_allowed(tmp_path):
         text=True,
     )
 
-    assert res.returncode == 0
-    assert "Offline mode active" in res.stdout
+    assert res.returncode == 1
+    assert "Offline mode active" in res.stderr or "Error:" in res.stderr
     js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
-    assert (js_dir / "index.js").exists()
+    assert not (js_dir / "index.js").exists()
 
 
 def test_nix_build_top_allows_net_when_proofwidgets_allow_net_is_1(tmp_path):
@@ -387,10 +420,12 @@ def test_nix_build_top_allows_net_when_proofwidgets_allow_net_is_1(tmp_path):
         text=True,
     )
 
-    assert res.returncode == 0
-    assert "Offline mode active" not in res.stdout
+    # Online download fails without real network or mock server -> returns 1
+    assert res.returncode == 1
+    assert "Offline mode active" not in res.stderr
+    assert "Error:" in res.stderr
     js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
-    assert (js_dir / "index.js").exists()
+    assert not (js_dir / "index.js").exists()
 
 
 def test_direct_offline_override_takes_precedence_over_allow_net(tmp_path):
@@ -419,11 +454,7 @@ def test_direct_offline_override_takes_precedence_over_allow_net(tmp_path):
         text=True,
     )
 
-    assert res.returncode == 0
-    assert "Offline mode active" in res.stdout
+    assert res.returncode == 1
+    assert "Offline mode active" in res.stderr or "Error:" in res.stderr
     js_dir = tmp_path / ".lake" / "packages" / "proofwidgets" / ".lake" / "build" / "js"
-    assert (js_dir / "index.js").exists()
-
-
-
-
+    assert not (js_dir / "index.js").exists()

@@ -4,7 +4,6 @@ set -euo pipefail
 # Script: fetch_proofwidgets_assets.sh
 # Pre-fetches and extracts pre-built ProofWidgets JS bundle release archives into
 # .lake/packages/proofwidgets/.lake/build/js/ with SHA256 checksum validation.
-# Includes an offline mock bundle generator routine.
 
 # Known release SHA256 checksums (can be extended or overridden via PROOFWIDGETS_SHA256)
 declare -A KNOWN_SHA256=(
@@ -69,20 +68,14 @@ compute_sha256() {
     fi
 }
 
-generate_mock_bundle() {
-    echo "[ProofWidgets] Generating offline mock JS bundle in $JS_DIR..."
-    mkdir -p "$JS_DIR"
-    
-    cat << 'EOF' > "$JS_DIR/index.js"
-// ProofWidgets offline mock bundle
-module.exports = {};
-export default {};
-EOF
-
-    echo "$REV" > "$JS_DIR/lake.trace"
-    echo "$REV" > "$JS_DIR/lake.trace.nobuild"
-    echo "[ProofWidgets] Offline mock bundle generated successfully."
-}
+# Reuse existing verified local assets if present in JS_DIR
+if [[ -f "$JS_DIR/index.js" ]]; then
+    echo "[ProofWidgets] Valid local assets found in $JS_DIR. Reusing existing assets."
+    if [[ ! -f "$JS_DIR/lake.trace" ]]; then
+        echo "$REV" > "$JS_DIR/lake.trace"
+    fi
+    exit 0
+fi
 
 # Check if offline mode is requested
 IS_OFFLINE=0
@@ -93,13 +86,12 @@ elif [[ -n "${NIX_BUILD_TOP:-}" ]] && [[ "${PROOFWIDGETS_ALLOW_NET:-0}" != "1" ]
 fi
 
 if [[ $IS_OFFLINE -eq 1 ]]; then
-    echo "[ProofWidgets] Offline mode active. Skipping download."
-    generate_mock_bundle
-    exit 0
+    echo "[ProofWidgets] Error: Offline mode active for tag '$TAG' and no local assets found in $JS_DIR." >&2
+    exit 1
 fi
 
 if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
-    echo "[ProofWidgets] Error: Neither curl nor wget is available for online asset download." >&2
+    echo "[ProofWidgets] Error: Neither curl nor wget is available for online asset download for release tag '$TAG'." >&2
     exit 1
 fi
 
@@ -125,23 +117,30 @@ for url in "${URLS[@]}"; do
     ARCHIVE="$TMP_DIR/proofwidgets_assets.tar.gz"
     echo "[ProofWidgets] Attempting asset download from $url..."
     
+    DL_OK=0
     if command -v curl >/dev/null 2>&1; then
         if curl -f -sSL --connect-timeout 5 --max-time 15 -o "$ARCHIVE" "$url" 2>/dev/null; then
-            if [[ -s "$ARCHIVE" ]]; then
-                ACTUAL_SHA256=$(compute_sha256 "$ARCHIVE")
-                if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
-                    echo "[ProofWidgets] Error: SHA256 checksum mismatch for $url! Expected: $EXPECTED_SHA256, Actual: $ACTUAL_SHA256" >&2
-                    rm -f "$ARCHIVE"
-                    exit 1
-                fi
-                
-                # Unpack archive
-                if tar -xzf "$ARCHIVE" -C "$JS_DIR" 2>/dev/null || tar -xzf "$ARCHIVE" -C "$(dirname "$JS_DIR")" 2>/dev/null; then
-                    echo "[ProofWidgets] Successfully extracted JS assets into $JS_DIR."
-                    DOWNLOAD_SUCCESS=1
-                    break
-                fi
-            fi
+            DL_OK=1
+        fi
+    elif command -v wget >/dev/null 2>&1; then
+        if wget -q -T 15 -O "$ARCHIVE" "$url" 2>/dev/null; then
+            DL_OK=1
+        fi
+    fi
+
+    if [[ $DL_OK -eq 1 ]] && [[ -s "$ARCHIVE" ]]; then
+        ACTUAL_SHA256=$(compute_sha256 "$ARCHIVE")
+        if [[ "$ACTUAL_SHA256" != "$EXPECTED_SHA256" ]]; then
+            echo "[ProofWidgets] Error: SHA256 checksum mismatch for tag '$TAG' ($url)! Expected: $EXPECTED_SHA256, Actual: $ACTUAL_SHA256" >&2
+            rm -f "$ARCHIVE"
+            exit 1
+        fi
+        
+        # Unpack archive
+        if tar -xzf "$ARCHIVE" -C "$JS_DIR" 2>/dev/null || tar -xzf "$ARCHIVE" -C "$(dirname "$JS_DIR")" 2>/dev/null; then
+            echo "[ProofWidgets] Successfully extracted JS assets into $JS_DIR."
+            DOWNLOAD_SUCCESS=1
+            break
         fi
     fi
 done
@@ -153,7 +152,6 @@ if [[ $DOWNLOAD_SUCCESS -eq 1 ]] && [[ -f "$JS_DIR/index.js" ]]; then
     echo "[ProofWidgets] Asset pre-fetch completed successfully."
     exit 0
 else
-    echo "[ProofWidgets] Asset download failed or unavailable. Proceeding with offline fallback."
-    generate_mock_bundle
-    exit 0
+    echo "[ProofWidgets] Error: Asset download failed for release tag '$TAG' and no valid local assets exist in $JS_DIR." >&2
+    exit 1
 fi
