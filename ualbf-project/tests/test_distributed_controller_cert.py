@@ -15,6 +15,10 @@ def get_free_port():
     return port
 
 
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
 def test_distributed_controller_cert_signing(tmp_path):
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     env = dict(os.environ)
