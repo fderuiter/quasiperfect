@@ -403,6 +403,9 @@ pub fn run_runtime_parity_check() {
 
     // 3. Differential fuzz testing for native cyclotomic evaluation logic
     run_cyclotomic_differential_fuzzing();
+
+    // 4. Differential parity testing for native modular obstruction functions
+    run_obstruction_differential_fuzzing();
 }
 
 thread_local! {
@@ -855,6 +858,82 @@ pub fn run_cyclotomic_differential_fuzzing() {
     println!("Differential fuzzing checks passed successfully. Native cyclotomic matches verified outcomes.");
 }
 
+pub fn run_obstruction_differential_fuzzing() {
+    println!("Running startup differential parity checks for native obstruction functions...");
+
+    // 1. Modulo 3
+    for p in 2..=100u64 {
+        for two_e in 1..=20u32 {
+            let native = crate::obstruction::check_mod_3_native(p, two_e);
+            let ffi = check_mod_3(p, two_e);
+            if native != ffi {
+                panic!(
+                    "FATAL: Differential parity check failed for check_mod_3 at p={}, two_e={}: native={}, ffi={}",
+                    p, two_e, native, ffi
+                );
+            }
+        }
+    }
+
+    // 2. Modulo 5
+    for p in 2..=100u64 {
+        for two_e in 1..=20u32 {
+            let native = crate::obstruction::check_mod_5_native(p, two_e);
+            let ffi = check_mod_5(p, two_e);
+            if native != ffi {
+                panic!(
+                    "FATAL: Differential parity check failed for check_mod_5 at p={}, two_e={}: native={}, ffi={}",
+                    p, two_e, native, ffi
+                );
+            }
+        }
+    }
+
+    // 3. Modulo 8 factor check
+    for q in 1..=200u64 {
+        let native_valid = !crate::obstruction::check_mod_8_factor_native(q);
+        let ffi_valid = check_mod_8(q);
+        if native_valid != ffi_valid {
+            panic!(
+                "FATAL: Differential parity check failed for check_mod_8 at q={}: native_valid={}, ffi_valid={}",
+                q, native_valid, ffi_valid
+            );
+        }
+    }
+
+    // 4. Modulo 9
+    for p in 2..=100u64 {
+        for two_e in 1..=20u32 {
+            let native = crate::obstruction::check_mod_9_native(p, two_e);
+            let ffi = check_mod_9(p, two_e);
+            if native != ffi {
+                panic!(
+                    "FATAL: Differential parity check failed for check_mod_9 at p={}, two_e={}: native={}, ffi={}",
+                    p, two_e, native, ffi
+                );
+            }
+        }
+    }
+
+    // 5. Touchard
+    for p in 2..=100u64 {
+        for two_e in 1..=20u32 {
+            let native = crate::obstruction::check_touchard_native(p, two_e);
+            let ffi = check_touchard(p, two_e);
+            if native != ffi {
+                panic!(
+                    "FATAL: Differential parity check failed for check_touchard at p={}, two_e={}: native={}, ffi={}",
+                    p, two_e, native, ffi
+                );
+            }
+        }
+    }
+
+    println!(
+        "Differential parity checks passed successfully for all modular obstruction functions."
+    );
+}
+
 pub fn cyclotomic_eval(n: u32, p: Uint) -> Option<Uint> {
     native_cyclotomic_eval(n, &p)
 }
@@ -867,6 +946,12 @@ mod tests {
         initialize_lean_worker_thread();
     }
     use super::*;
+
+    #[test]
+    fn test_obstruction_differential_fuzzing() {
+        setup();
+        run_obstruction_differential_fuzzing();
+    }
 
     #[test]
     fn test_512bit_cyclotomic_eval_overflow_logging() {
