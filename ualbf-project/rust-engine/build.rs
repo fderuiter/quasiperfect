@@ -1083,6 +1083,12 @@ fn main() {
     println!("cargo:rustc-link-lib=static=gmp");
 
     // --- 4. System libraries ---
+    if lean_root_lib.join("libc++.a").exists() {
+        println!("cargo:rustc-link-lib=static=c++");
+        if lean_root_lib.join("libc++abi.a").exists() {
+            println!("cargo:rustc-link-lib=static=c++abi");
+        }
+    }
     let target = env::var("TARGET").unwrap_or_default();
     if target.contains("apple") {
         println!("cargo:rustc-link-lib=dylib=c++");
