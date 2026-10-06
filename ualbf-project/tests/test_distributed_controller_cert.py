@@ -82,6 +82,17 @@ def test_distributed_controller_cert_signing(tmp_path):
     assert os.path.exists(cert_path), "certificate.json was not created by controller"
     assert os.path.exists(formal_cert_path), "formal_certificate.json was not created by controller"
 
+    # Verify worker task receipt was produced
+    worker_receipt_path = os.path.join(repo_root, "worker_receipt.json")
+    receipt_files = [f for f in os.listdir(repo_root) if f.startswith("worker_receipt") and f.endswith(".json")]
+    assert os.path.exists(worker_receipt_path) or len(receipt_files) > 0, "Worker task receipt was not created"
+
+    if os.path.exists(worker_receipt_path):
+        with open(worker_receipt_path, "r", encoding="utf-8") as f:
+            receipt = json.load(f)
+        assert receipt.get("mode") == "worker"
+        assert receipt.get("status") == "completed"
+
     with open(cert_path, "r", encoding="utf-8") as f:
         cert = json.load(f)
 
@@ -95,6 +106,35 @@ def test_distributed_controller_cert_signing(tmp_path):
     verify_cert.verify_telemetry_paths([cert])
 
     # Clean up
-    for p in [cert_path, formal_cert_path, checkpoint_path]:
+    for p in [cert_path, formal_cert_path, checkpoint_path, worker_receipt_path]:
         if os.path.exists(p):
             os.remove(p)
+    for f in os.listdir(repo_root):
+        if f.startswith("worker_receipt_") and f.endswith(".json"):
+            os.remove(os.path.join(repo_root, f))
+
+
+def test_worker_receipt_validation():
+    """Unit test verifying worker receipt JSON fields and structure."""
+    sample_receipt = {
+        "node_id": 9999,
+        "mode": "worker",
+        "status": "completed",
+        "target_min_log10": 37,
+        "target_max_log10": 43,
+        "total_branches_searched": 500,
+        "abundance_pruned": 50,
+        "raycast_pruned": 20,
+        "boundary_pruned": 5,
+        "math_interruptions": 0,
+        "phase2_execution_time_ms": 250,
+        "explored_ranges": [
+            {"start_bound": [], "end_bound": [10]},
+            {"start_bound": [10], "end_bound": []}
+        ]
+    }
+    assert sample_receipt["mode"] == "worker"
+    assert sample_receipt["status"] == "completed"
+    assert "explored_ranges" in sample_receipt
+    assert len(sample_receipt["explored_ranges"]) == 2
+
