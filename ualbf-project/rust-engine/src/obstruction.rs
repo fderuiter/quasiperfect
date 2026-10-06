@@ -1,6 +1,85 @@
 use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_9, check_touchard};
 use crate::types::Uint;
 
+/// Native inline Rust function for Modulo 3 obstruction check.
+/// Evaluates the geometric sum polynomial $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k \pmod 3$.
+/// Returns `true` (obstructed) if the sum evaluates to `0`.
+#[inline(always)]
+pub fn check_mod_3_native(p: u64, two_e: u32) -> bool {
+    let p_mod = p % 3;
+    let mut term = 1u64;
+    let mut sum = 0u64;
+    for _ in 0..=two_e {
+        sum = (sum + term) % 3;
+        term = (term * p_mod) % 3;
+    }
+    sum == 0
+}
+
+/// Native inline Rust function for Modulo 5 Abbott-Aull obstruction check.
+/// Checks whether $p \equiv 1 \pmod 5$ and $e \equiv 2 \pmod 5$ (where $2e$ is the power exponent).
+/// Returns `true` (obstructed) if condition holds.
+#[inline(always)]
+pub fn check_mod_5_native(p: u64, two_e: u32) -> bool {
+    let e = two_e / 2;
+    (p % 5 == 1) && (e % 5 == 2)
+}
+
+/// Native inline Rust function for Modulo 8 component obstruction check.
+/// Evaluates the geometric sum polynomial $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k \pmod 8$.
+/// Returns `true` (obstructed) if the sum is NOT congruent to 1 or 3 modulo 8.
+#[inline(always)]
+pub fn check_mod_8_native(p: u64, two_e: u32) -> bool {
+    let p_mod = p & 7;
+    let mut sum = 0u64;
+    let mut term = 1u64;
+    for _ in 0..=two_e {
+        sum = (sum + term) & 7;
+        term = (term * p_mod) & 7;
+    }
+    !(sum == 1 || sum == 3)
+}
+
+/// Native inline Rust function for prime factor Modulo 8 obstruction check.
+/// Returns `true` (obstructed / forbidden) if $q \not\equiv 1, 3 \pmod 8$.
+#[inline(always)]
+pub fn check_mod_8_factor_native(q: u64) -> bool {
+    let rem = q & 7;
+    !(rem == 1 || rem == 3)
+}
+
+/// Native inline Rust function for Modulo 9 obstruction check.
+/// Evaluates the geometric sum polynomial $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k \pmod 9$.
+/// Returns `true` (obstructed) if the sum modulo 9 is a multiple of 3 (`sum % 3 == 0`).
+#[inline(always)]
+pub fn check_mod_9_native(p: u64, two_e: u32) -> bool {
+    let p_mod = p % 9;
+    let mut term = 1u64;
+    let mut sum = 0u64;
+    for _ in 0..=two_e {
+        sum = (sum + term) % 9;
+        term = (term * p_mod) % 9;
+    }
+    sum % 3 == 0
+}
+
+/// Native inline Rust function for Touchard obstruction check.
+/// Returns `true` (obstructed) if $2e$ is odd and $p$ is odd.
+#[inline(always)]
+pub fn check_touchard_native(p: u64, two_e: u32) -> bool {
+    (two_e % 2 == 1) && (p % 2 == 1)
+}
+
+/// Combined inline check for whether component $(p, 2e)$ is statically rejected by any obstruction.
+#[inline(always)]
+pub fn is_component_statically_rejected(p: u64, two_e: u32) -> bool {
+    check_mod_3_native(p, two_e)
+        || check_mod_5_native(p, two_e)
+        || check_mod_8_native(p, two_e)
+        || check_mod_9_native(p, two_e)
+        || check_touchard_native(p, two_e)
+}
+
 pub trait Obstruction: Sync + Send {
     /// Check if a prime factor `q` of `sigma(p^{2e})` is forbidden.
     fn check_prime_factor(&self, _q: &Uint) -> bool {
@@ -16,20 +95,12 @@ pub trait Obstruction: Sync + Send {
 pub struct Mod8Obstruction;
 impl Obstruction for Mod8Obstruction {
     fn check_prime_factor(&self, q: &Uint) -> bool {
-        use crate::residue::IsValidMod8;
-        !q.is_valid_mod_8()
+        let low_word = u64::from_le_bytes(q.to_le_bytes()[..8].try_into().unwrap());
+        check_mod_8_factor_native(low_word)
     }
 
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        use crate::residue::IsValidMod8;
-        let p_mod = p & 7;
-        let mut sum = 0;
-        let mut term = 1;
-        for _ in 0..=two_e {
-            sum = (sum + term) & 7;
-            term = (term * p_mod) & 7;
-        }
-        !sum.is_valid_mod_8()
+        check_mod_8_native(p, two_e)
     }
 }
 
@@ -50,14 +121,14 @@ impl Obstruction for Mod3Obstruction {
     /// assert_eq!(ob.check_component(7, 2), true);
     /// ```
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_mod_3(p, two_e)
+        check_mod_3_native(p, two_e)
     }
 }
 
 pub struct Mod5Obstruction;
 impl Obstruction for Mod5Obstruction {
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_mod_5(p, two_e)
+        check_mod_5_native(p, two_e)
     }
 }
 
@@ -79,7 +150,7 @@ impl Obstruction for Mod9Obstruction {
     /// assert_eq!(ob.check_component(13, 2), true);
     /// ```
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_mod_9(p, two_e)
+        check_mod_9_native(p, two_e)
     }
 }
 
@@ -87,7 +158,7 @@ pub struct TouchardObstruction;
 impl Obstruction for TouchardObstruction {
     /// Evaluates Touchard obstruction constraints.
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_touchard(p, two_e)
+        check_touchard_native(p, two_e)
     }
 }
 

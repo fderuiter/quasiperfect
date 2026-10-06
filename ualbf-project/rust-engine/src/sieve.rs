@@ -72,15 +72,6 @@ pub fn phase1_global_annihilation_sieve(
     let total_primes = sieve.prime_pi(limit);
     let count = AtomicUsize::new(0);
 
-    let static_filters: std::sync::Arc<Vec<Box<dyn crate::obstruction::Obstruction>>> =
-        std::sync::Arc::new(vec![
-            Box::new(crate::obstruction::Mod3Obstruction),
-            Box::new(crate::obstruction::Mod5Obstruction),
-            Box::new(crate::obstruction::Mod8Obstruction),
-            Box::new(crate::obstruction::Mod9Obstruction),
-            Box::new(crate::obstruction::TouchardObstruction),
-        ]);
-
     let num_blocks = (limit / 64) + 1;
     let mut stage1_bitset = vec![0u64; num_blocks];
 
@@ -88,14 +79,7 @@ pub fn phase1_global_annihilation_sieve(
         let mut any_valid = false;
         for e in 1..=max_e {
             let two_e = 2 * e;
-            let mut statically_rejected = false;
-            for filter in static_filters.iter() {
-                if filter.check_component(p as u64, two_e) {
-                    statically_rejected = true;
-                    break;
-                }
-            }
-            if statically_rejected {
+            if crate::obstruction::is_component_statically_rejected(p as u64, two_e) {
                 continue;
             }
 
@@ -117,10 +101,9 @@ pub fn phase1_global_annihilation_sieve(
     let max_index = 8 * (max_e as usize + 1);
     let num_blocks_stage2 = (max_index / 64) + 1;
     let mut stage2_bitset = vec![0u64; num_blocks_stage2];
-    let mod8 = crate::obstruction::Mod8Obstruction;
     for p_mod_8 in 0..8 {
         for e in 1..=max_e {
-            if !mod8.check_component(p_mod_8 as u64, 2 * e) {
+            if !crate::obstruction::check_mod_8_native(p_mod_8 as u64, 2 * e) {
                 if let Some(index) = get_sieve_index(p_mod_8 as usize, max_e, e) {
                     if index / 64 < stage2_bitset.len() {
                         stage2_bitset[index / 64] |= 1 << (index % 64);
@@ -202,14 +185,7 @@ pub fn phase1_global_annihilation_sieve(
 
                     let two_e = 2 * e;
 
-                    let mut statically_rejected = false;
-                    for filter in static_filters.iter() {
-                        if filter.check_component(p as u64, two_e) {
-                            statically_rejected = true;
-                            break;
-                        }
-                    }
-                    if statically_rejected {
+                    if crate::obstruction::is_component_statically_rejected(p as u64, two_e) {
                         pruned.fetch_add(1, Ordering::Relaxed);
                         continue;
                     }
