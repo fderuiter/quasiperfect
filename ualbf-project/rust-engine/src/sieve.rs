@@ -501,19 +501,28 @@ mod tests {
             Some(false) => true,
             _ => false,
         };
-        assert!(!is_pruned_overflow, "None on index overflow must not prune candidates (conservative fallback)");
+        assert!(
+            !is_pruned_overflow,
+            "None on index overflow must not prune candidates (conservative fallback)"
+        );
 
         let is_pruned_obstructed = match check_sieve_bit(&bitset, 0, 1, 1) {
             Some(false) => true,
             _ => false,
         };
-        assert!(is_pruned_obstructed, "Some(false) must prune explicitly obstructed candidates");
+        assert!(
+            is_pruned_obstructed,
+            "Some(false) must prune explicitly obstructed candidates"
+        );
 
         let is_pruned_allowed = match check_sieve_bit(&bitset_mut, 0, 1, 1) {
             Some(false) => true,
             _ => false,
         };
-        assert!(!is_pruned_allowed, "Some(true) must retain allowed candidates");
+        assert!(
+            !is_pruned_allowed,
+            "Some(true) must retain allowed candidates"
+        );
 
         // 3. Test compute_sigma_checked overflow monadic Option propagation
         assert!(crate::lean_ffi::compute_sigma_checked(12345, 1000).is_none());
