@@ -320,4 +320,44 @@ mod tests {
             target_den
         ));
     }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_valid_prune() {
+        // s_l = 21, n_l = 10, target = 2 / 1 -> 21 * 1 > 10 * 2 -> 21 > 20 (true)
+        let s_l = Uint::from_u64(21);
+        let n_l = Uint::from_u64(10);
+        assert!(cpu_check_abundancy_overflow(&s_l, &n_l, 2, 1));
+    }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_valid_no_prune() {
+        // s_l = 19, n_l = 10, target = 2 / 1 -> 19 * 1 > 10 * 2 -> 19 > 20 (false)
+        let s_l = Uint::from_u64(19);
+        let n_l = Uint::from_u64(10);
+        assert!(!cpu_check_abundancy_overflow(&s_l, &n_l, 2, 1));
+    }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_lhs_overflow() {
+        // s_l = Uint::MAX -> s_l * target_den overflows 512 bits -> returns false
+        let s_l = Uint::MAX;
+        let n_l = Uint::from_u64(10);
+        assert!(!cpu_check_abundancy_overflow(&s_l, &n_l, 1, 2));
+    }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_rhs_overflow() {
+        // n_l = Uint::MAX -> n_l * target_num overflows 512 bits -> returns false
+        let s_l = Uint::from_u64(10);
+        let n_l = Uint::MAX;
+        assert!(!cpu_check_abundancy_overflow(&s_l, &n_l, 2, 1));
+    }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_both_overflow() {
+        // Both s_l * target_den and n_l * target_num overflow 512 bits -> returns false
+        let s_l = Uint::MAX;
+        let n_l = Uint::MAX;
+        assert!(!cpu_check_abundancy_overflow(&s_l, &n_l, 2, 2));
+    }
 }

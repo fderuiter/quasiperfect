@@ -766,10 +766,10 @@ pub fn check_and_evaluate_node(
                     n_l: curr.n_l,
                     s_l: curr.s_l,
                     reason: crate::trace::PruneReason::OverflowKill {
-                        s_l_mul: curr.s_l * overflow_den_u,
-                        n_l_mul: curr.n_l * overflow_num_u,
+                        s_l_mul: curr.s_l.checked_mul(overflow_den_u).unwrap_or(Uint::MAX),
+                        n_l_mul: curr.n_l.checked_mul(overflow_num_u).unwrap_or(Uint::MAX),
                     },
-                    verification_status: "unproven: arithmetic overflow",
+                    verification_status: "proven: abundancy overflow",
                 },
             );
         }
@@ -3242,6 +3242,64 @@ mod tests {
                     }
                 );
             }
+        }
+
+        // 4. Abundancy Overflow Pruning and Trace Status Verification
+        {
+            crate::lean_ffi::initialize_lean_runtime();
+            let comps = vec![make_prime_power(7, 49, 57)];
+            let mut curr = make_prefix(100, 300, 0);
+            curr.sigma_mod24 = 3;
+            curr.active_mask = vec![1; 1].into();
+            curr.factors = vec![7, 11, 13, 17, 19, 23, 29];
+
+            let tb = Uint::from_u128(u128::MAX);
+
+            with_dfs_ctx!(
+                curr = curr,
+                components = &comps,
+                target_bound = tb,
+                max_idx_3 = 100,
+                max_idx_5 = 100,
+                saved_states = vec![],
+                |ptr| {
+                    let (tx, rx) = crossbeam_channel::unbounded();
+                    unsafe {
+                        let ctx = &mut *(ptr as *mut DfsContext);
+                        ctx.trace_tx = Some(tx);
+                        let valid = __rust_dfs_check_evaluate(ptr, 0);
+                        assert!(
+                            !valid,
+                            "Abundancy overflow prefix must be pruned (return false)"
+                        );
+
+                        if let Ok(event) = rx.try_recv() {
+                            assert_eq!(
+                                event.verification_status, "proven: abundancy overflow",
+                                "Abundancy overflow trace event must indicate 'proven: abundancy overflow'"
+                            );
+                            if let crate::trace::PruneReason::OverflowKill { s_l_mul, n_l_mul } =
+                                event.reason
+                            {
+                                assert_eq!(
+                                    s_l_mul,
+                                    Uint::from_u64(300)
+                                        * Uint::from_u64(get_target_abundance_den())
+                                );
+                                assert_eq!(
+                                    n_l_mul,
+                                    Uint::from_u64(100)
+                                        * Uint::from_u64(get_target_abundance_num())
+                                );
+                            } else {
+                                panic!("Expected PruneReason::OverflowKill");
+                            }
+                        } else {
+                            panic!("Expected trace event for abundancy overflow");
+                        }
+                    }
+                }
+            );
         }
     }
 }
