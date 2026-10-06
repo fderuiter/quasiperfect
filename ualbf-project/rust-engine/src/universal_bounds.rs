@@ -226,4 +226,65 @@ mod tests {
             target_den
         ));
     }
+
+    #[test]
+    fn test_cpu_check_cdg_forced_lhs_overflow() {
+        // When lhs multiplication overflows 512 bits, it must return false
+        // to prevent unearned pruning signals.
+        let s_l = Uint::MAX;
+        let n_l = Uint::from_u64(10);
+        let forced_num = Uint::from_u64(2);
+        let forced_den = Uint::from_u64(1);
+        let target_num = 2;
+        let target_den = 1;
+
+        assert!(!cpu_check_cdg_forced(
+            &s_l,
+            &n_l,
+            &forced_num,
+            &forced_den,
+            target_num,
+            target_den
+        ));
+    }
+
+    #[test]
+    fn test_cpu_check_cdg_forced_rhs_overflow() {
+        // When rhs multiplication overflows 512 bits, it must return false.
+        let s_l = Uint::from_u64(10);
+        let n_l = Uint::MAX;
+        let forced_num = Uint::from_u64(2);
+        let forced_den = Uint::from_u64(1);
+        let target_num = 2;
+        let target_den = 1;
+
+        assert!(!cpu_check_cdg_forced(
+            &s_l,
+            &n_l,
+            &forced_num,
+            &forced_den,
+            target_num,
+            target_den
+        ));
+    }
+
+    #[test]
+    fn test_cpu_check_cdg_forced_both_overflow() {
+        // When both lhs and rhs overflow 512 bits, it must return false.
+        let s_l = Uint::MAX;
+        let n_l = Uint::MAX;
+        let forced_num = Uint::from_u64(2);
+        let forced_den = Uint::from_u64(1);
+        let target_num = 2;
+        let target_den = 1;
+
+        assert!(!cpu_check_cdg_forced(
+            &s_l,
+            &n_l,
+            &forced_num,
+            &forced_den,
+            target_num,
+            target_den
+        ));
+    }
 }

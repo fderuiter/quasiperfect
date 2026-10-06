@@ -151,9 +151,12 @@ inline bool ualbf_check_dusart_bound(RNS512 s_l, RNS512 n_l, uint64_t p_last, ui
         pub fn cpu_check_cdg_forced(s_l: &crate::types::Uint, n_l: &crate::types::Uint, forced_num: &crate::types::Uint, forced_den: &crate::types::Uint, target_num: u64, target_den: u64) -> bool {
             let num = crate::types::Uint::from_u64(target_num);
             let den = crate::types::Uint::from_u64(target_den);
-            let lhs = s_l.checked_mul(*forced_num).and_then(|x| x.checked_mul(den)).unwrap_or(crate::types::Uint::MAX);
-            let rhs = n_l.checked_mul(*forced_den).and_then(|x| x.checked_mul(num)).unwrap_or(crate::types::Uint::MAX);
-            lhs > rhs
+            let lhs_opt = s_l.checked_mul(*forced_num).and_then(|x| x.checked_mul(den));
+            let rhs_opt = n_l.checked_mul(*forced_den).and_then(|x| x.checked_mul(num));
+            match (lhs_opt, rhs_opt) {
+                (Some(lhs), Some(rhs)) => lhs > rhs,
+                _ => false,
+            }
         }
 
         pub fn cpu_check_prasad_sunitha(info_mask: u32, baseline_min: usize, prasad_sunitha_bound: usize, curr_factors_len: usize, remaining_components: usize) -> bool {
