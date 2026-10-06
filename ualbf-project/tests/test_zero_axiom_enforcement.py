@@ -10,7 +10,7 @@ from unittest import mock
 import pytest
 
 # Add ualbf-project to path
-project_dir = Path(__file__).parent.parent
+project_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_dir))
 
 import auditor
