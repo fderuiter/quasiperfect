@@ -145,7 +145,12 @@ inline bool ualbf_check_dusart_bound(RNS512 s_l, RNS512 n_l, uint64_t p_last, ui
         pub fn cpu_check_euler_ceiling(num: &crate::types::Uint, den: &crate::types::Uint, euler_num: &crate::types::Uint, euler_den: &crate::types::Uint) -> bool {
             let enum_u = euler_num;
             let eden_u = euler_den;
-            num * eden_u < den * enum_u
+            let lhs = num.checked_mul(*eden_u);
+            let rhs = den.checked_mul(*enum_u);
+            match (lhs, rhs) {
+                (Some(l), Some(r)) => l < r,
+                _ => true,
+            }
         }
 
         pub fn cpu_check_cdg_forced(s_l: &crate::types::Uint, n_l: &crate::types::Uint, forced_num: &crate::types::Uint, forced_den: &crate::types::Uint, target_num: u64, target_den: u64) -> bool {

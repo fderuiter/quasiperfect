@@ -776,7 +776,7 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    // Euler Ceiling pruning from the logic layer.
+    // Euler Ceiling diagnostic telemetry from the logic layer.
     let (euler_num, euler_den) = crate::lean_ffi::get_euler_ceiling();
     let mut num = Uint::one();
     let mut den = Uint::one();
@@ -785,7 +785,6 @@ pub fn check_and_evaluate_node(
         den *= Uint::from_u64(p - 1);
     }
     if !crate::universal_bounds::cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den) {
-        abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
             f_vec.extend_from_slice(&curr.factors);
@@ -808,7 +807,6 @@ pub fn check_and_evaluate_node(
                 },
             );
         }
-        return false;
     }
 
     // The Component Dependency Graph (CDG) "forced cascade" prune was removed (#566).
