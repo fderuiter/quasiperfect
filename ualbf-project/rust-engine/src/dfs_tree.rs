@@ -104,6 +104,10 @@ impl SuffixPrimeCollector {
                 while block != 0 {
                     let tz = block.trailing_zeros();
                     let j = block_idx * 64 + tz as usize;
+                    if j >= components.len() {
+                        block &= block - 1;
+                        continue;
+                    }
                     let comp = &components[j];
 
                     if let Some(existing) = self
@@ -512,6 +516,10 @@ pub fn check_and_evaluate_node(
             while block != 0 {
                 let tz = block.trailing_zeros();
                 let j = block_idx * 64 + tz as usize;
+                if j >= components.len() {
+                    block &= block - 1;
+                    continue;
+                }
                 let comp = &components[j];
                 let m = (comp.sigma % crate::types::Uint::from_u64(24)).as_u64() as usize;
                 if m != 1 {
@@ -666,6 +674,10 @@ pub fn check_and_evaluate_node(
                         while block != 0 {
                             let tz = block.trailing_zeros();
                             let j = block_idx * 64 + tz as usize;
+                            if j >= components.len() {
+                                block &= block - 1;
+                                continue;
+                            }
                             let comp = &components[j];
 
                             if comp.p != current_p {
