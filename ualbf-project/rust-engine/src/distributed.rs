@@ -8,10 +8,19 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RangeWorkUnit {
     pub start_bound: Vec<u64>,
     pub end_bound: Vec<u64>,
+}
+
+impl RangeWorkUnit {
+    pub fn task_id(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -209,7 +218,7 @@ fn expand_work_units(
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 struct ActiveWorkerState {
@@ -221,12 +230,14 @@ struct ActiveWorkerState {
 pub struct CheckpointSchema {
     pub active: Vec<RangeWorkUnit>,
     pub pending: Vec<RangeWorkUnit>,
+    #[serde(default)]
+    pub completed: Vec<RangeWorkUnit>,
 }
 
 pub fn load_checkpoint_or_fallback(
     checkpoint_path: &str,
     default_units: Vec<RangeWorkUnit>,
-) -> (Vec<RangeWorkUnit>, bool) {
+) -> (Vec<RangeWorkUnit>, Vec<RangeWorkUnit>, bool) {
     if let Ok(content) = std::fs::read_to_string(checkpoint_path) {
         println!("Resuming from {}", checkpoint_path);
         // Try to parse as the new unified checkpoint schema first
@@ -238,20 +249,20 @@ pub fn load_checkpoint_or_fallback(
             // are popped from the end), appending active units to the end of the queue Vec puts them at the "front" of
             // execution priority.
             initial_queue.extend(schema.active);
-            (initial_queue, true)
+            (initial_queue, schema.completed, true)
         } else if let Ok(legacy_units) = serde_json::from_str::<Vec<RangeWorkUnit>>(&content) {
             // Fallback parsing: convert flat legacy format into unassigned tasks
-            (legacy_units, true)
+            (legacy_units, vec![], true)
         } else {
             // Reject corrupt or invalid JSON files by ignoring/falling back to generated units
             eprintln!(
                 "Warning: corrupt or invalid checkpoint file {}. Falling back to generated units.",
                 checkpoint_path
             );
-            (default_units, false)
+            (default_units, vec![], false)
         }
     } else {
-        (default_units, false)
+        (default_units, vec![], false)
     }
 }
 
@@ -259,13 +270,19 @@ fn save_checkpoint(
     checkpoint_path: &str,
     queue: &[RangeWorkUnit],
     active_workers: &HashMap<usize, ActiveWorkerState>,
+    completed_set: &HashSet<RangeWorkUnit>,
 ) {
     let active: Vec<RangeWorkUnit> = active_workers
         .values()
         .map(|w| w.active_task.clone())
         .collect();
     let pending = queue.to_vec();
-    let schema = CheckpointSchema { active, pending };
+    let completed: Vec<RangeWorkUnit> = completed_set.iter().cloned().collect();
+    let schema = CheckpointSchema {
+        active,
+        pending,
+        completed,
+    };
     if let Ok(json) = serde_json::to_string(&schema) {
         let temp_path = format!("{}.tmp", checkpoint_path);
         if let Ok(mut file) = std::fs::File::create(&temp_path) {
@@ -311,10 +328,18 @@ pub fn run_controller(
     let checkpoint_path = "checkpoint.json";
 
     // Load from checkpoint if exists with fallback parsing
-    let (initial_units, is_new_or_legacy) = load_checkpoint_or_fallback(checkpoint_path, units);
+    let (initial_units, initial_completed, is_new_or_legacy) =
+        load_checkpoint_or_fallback(checkpoint_path, units);
 
+    let completed_set = Arc::new(Mutex::new(HashSet::<RangeWorkUnit>::from_iter(
+        initial_completed,
+    )));
     let work_queue = Arc::new(Mutex::new(initial_units));
-    let total_units = work_queue.lock().unwrap_or_else(|e| e.into_inner()).len();
+    let total_units = work_queue.lock().unwrap_or_else(|e| e.into_inner()).len()
+        + completed_set
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len();
     println!(
         "Partitioned search space into {} discrete pending work units.",
         total_units
@@ -337,11 +362,11 @@ pub fn run_controller(
     // After constructing the initial queue, save the new schema immediately to persist the updated state
     if is_new_or_legacy {
         let queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
+        let completed = completed_set.lock().unwrap_or_else(|e| e.into_inner());
         let empty_workers = HashMap::new();
-        save_checkpoint(checkpoint_path, &queue, &empty_workers);
+        save_checkpoint(checkpoint_path, &queue, &empty_workers, &completed);
     }
 
-    let completed = Arc::new(AtomicUsize::new(0));
     let is_finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let total_branches_acc = Arc::new(AtomicUsize::new(0));
@@ -349,10 +374,18 @@ pub fn run_controller(
     let rp_acc = Arc::new(AtomicUsize::new(0));
     let bp_acc = Arc::new(AtomicUsize::new(0));
     let math_interruptions_acc = Arc::new(AtomicUsize::new(0));
-    let completed_ranges = Arc::new(Mutex::new(Vec::<RangeWorkUnit>::new()));
+    let completed_ranges = Arc::new(Mutex::new(
+        completed_set
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>(),
+    ));
 
     let active_workers_monitor = Arc::clone(&active_workers);
     let work_queue_monitor = Arc::clone(&work_queue);
+    let completed_set_monitor = Arc::clone(&completed_set);
     let checkpoint_path_monitor = checkpoint_path.to_string();
     let is_finished_monitor = Arc::clone(&is_finished);
 
@@ -377,6 +410,9 @@ pub fn run_controller(
                 let mut workers = active_workers_monitor
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
+                let completed = completed_set_monitor
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 let mut changed = false;
                 for id in &to_remove {
                     if let Some(state) = workers.remove(id) {
@@ -386,7 +422,7 @@ pub fn run_controller(
                     }
                 }
                 if changed {
-                    save_checkpoint(&checkpoint_path_monitor, &queue, &workers);
+                    save_checkpoint(&checkpoint_path_monitor, &queue, &workers, &completed);
                 }
             }
         }
@@ -398,7 +434,7 @@ pub fn run_controller(
         match listener.accept() {
             Ok((stream, _)) => {
                 let work_queue = Arc::clone(&work_queue);
-                let completed = Arc::clone(&completed);
+                let completed_set = Arc::clone(&completed_set);
                 let active_workers = Arc::clone(&active_workers);
                 let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
                 let checkpoint_path_clone = checkpoint_path.to_string();
@@ -443,7 +479,15 @@ pub fn run_controller(
                                             },
                                         );
                                     }
-                                    save_checkpoint(&checkpoint_path_clone, &queue, &workers);
+                                    let completed =
+                                        completed_set.lock().unwrap_or_else(|e| e.into_inner());
+                                    save_checkpoint(
+                                        &checkpoint_path_clone,
+                                        &queue,
+                                        &workers,
+                                        &completed,
+                                    );
+                                    drop(completed);
                                     drop(workers);
                                     drop(queue);
 
@@ -478,28 +522,45 @@ pub fn run_controller(
                                         let mut workers = active_workers
                                             .lock()
                                             .unwrap_or_else(|e| e.into_inner());
-                                        if workers.remove(&worker_id).is_some() {
-                                            total_branches_acc
-                                                .fetch_add(total_branches, Ordering::Relaxed);
-                                            ap_acc.fetch_add(ap, Ordering::Relaxed);
-                                            rp_acc.fetch_add(rp, Ordering::Relaxed);
-                                            bp_acc.fetch_add(bp, Ordering::Relaxed);
-                                            math_interruptions_acc
-                                                .fetch_add(math_interruptions, Ordering::Relaxed);
-                                            {
-                                                let mut ranges = completed_ranges
-                                                    .lock()
-                                                    .unwrap_or_else(|e| e.into_inner());
-                                                ranges.push(range);
+                                        let mut completed =
+                                            completed_set.lock().unwrap_or_else(|e| e.into_inner());
+
+                                        let matches_active =
+                                            if let Some(state) = workers.get(&worker_id) {
+                                                state.active_task == range
+                                            } else {
+                                                false
+                                            };
+
+                                        if matches_active {
+                                            workers.remove(&worker_id);
+
+                                            let is_new = completed.insert(range.clone());
+                                            if is_new {
+                                                total_branches_acc
+                                                    .fetch_add(total_branches, Ordering::Relaxed);
+                                                ap_acc.fetch_add(ap, Ordering::Relaxed);
+                                                rp_acc.fetch_add(rp, Ordering::Relaxed);
+                                                bp_acc.fetch_add(bp, Ordering::Relaxed);
+                                                math_interruptions_acc.fetch_add(
+                                                    math_interruptions,
+                                                    Ordering::Relaxed,
+                                                );
+                                                {
+                                                    let mut ranges = completed_ranges
+                                                        .lock()
+                                                        .unwrap_or_else(|e| e.into_inner());
+                                                    ranges.push(range);
+                                                }
                                             }
 
-                                            let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
                                             save_checkpoint(
                                                 &checkpoint_path_clone,
                                                 &queue,
                                                 &workers,
+                                                &completed,
                                             );
-                                            if c >= total_units {
+                                            if completed.len() >= total_units {
                                                 if let Ok(p4_json) = serde_json::to_string(
                                                     &crate::events::SearchEvent::Phase {
                                                         phase: 4,
@@ -511,6 +572,11 @@ pub fn run_controller(
                                                 }
                                                 is_finished_worker.store(true, Ordering::SeqCst);
                                             }
+                                        } else {
+                                            println!(
+                                                "Worker {} completion event dropped: range {:?} does not match active worker task.",
+                                                worker_id, range
+                                            );
                                         }
                                     }
                                 }
@@ -522,13 +588,14 @@ pub fn run_controller(
                     // Connection closed unexpectedly
                     let mut queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
                     let mut workers = active_workers.lock().unwrap_or_else(|e| e.into_inner());
+                    let completed = completed_set.lock().unwrap_or_else(|e| e.into_inner());
                     if let Some(state) = workers.remove(&worker_id) {
                         println!(
                             "Worker {} disconnected unexpectedly. Recovering task.",
                             worker_id
                         );
                         queue.push(state.active_task);
-                        save_checkpoint(&checkpoint_path_clone, &queue, &workers);
+                        save_checkpoint(&checkpoint_path_clone, &queue, &workers, &completed);
                     }
                 });
             }
@@ -819,6 +886,7 @@ mod tests {
         let schema = CheckpointSchema {
             active: vec![a1.clone()],
             pending: vec![p1.clone(), p2.clone()],
+            completed: vec![],
         };
 
         let json = serde_json::to_string(&schema).unwrap();
@@ -826,8 +894,9 @@ mod tests {
 
         // Load it back
         let default_units = vec![];
-        let (loaded, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, ok) = load_checkpoint_or_fallback(temp_path, default_units);
         assert!(ok);
+        assert!(completed.is_empty());
         // It should have: pending + active.
         // Since active is put at the end of the queue (pop priority): [p1, p2, a1]
         assert_eq!(loaded.len(), 3);
@@ -858,8 +927,9 @@ mod tests {
 
         // Load it back
         let default_units = vec![];
-        let (loaded, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, ok) = load_checkpoint_or_fallback(temp_path, default_units);
         assert!(ok);
+        assert!(completed.is_empty());
         assert_eq!(loaded.len(), 2);
         assert_eq!(loaded[0].start_bound, vec![1, 2]);
         assert_eq!(loaded[1].start_bound, vec![5, 6]);
@@ -880,8 +950,9 @@ mod tests {
         };
         let default_units = vec![p_default.clone()];
 
-        let (loaded, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, ok) = load_checkpoint_or_fallback(temp_path, default_units);
         assert!(!ok); // Rejected corrupt JSON
+        assert!(completed.is_empty());
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].start_bound, vec![99]);
 
@@ -903,6 +974,10 @@ mod tests {
             start_bound: vec![5, 6],
             end_bound: vec![7, 8],
         };
+        let c1 = RangeWorkUnit {
+            start_bound: vec![9, 10],
+            end_bound: vec![11, 12],
+        };
 
         let queue = vec![p1];
         let mut active_workers = HashMap::new();
@@ -914,7 +989,10 @@ mod tests {
             },
         );
 
-        save_checkpoint(temp_path, &queue, &active_workers);
+        let mut completed_set = HashSet::new();
+        completed_set.insert(c1);
+
+        save_checkpoint(temp_path, &queue, &active_workers, &completed_set);
 
         // Verify test_checkpoint_atomic.json exists and contains correct content
         assert!(std::path::Path::new(temp_path).exists());
@@ -922,8 +1000,10 @@ mod tests {
         let schema: CheckpointSchema = serde_json::from_str(&content).unwrap();
         assert_eq!(schema.pending.len(), 1);
         assert_eq!(schema.active.len(), 1);
+        assert_eq!(schema.completed.len(), 1);
         assert_eq!(schema.pending[0].start_bound, vec![1, 2]);
         assert_eq!(schema.active[0].start_bound, vec![5, 6]);
+        assert_eq!(schema.completed[0].start_bound, vec![9, 10]);
 
         // Clean up
         let _ = fs::remove_file(temp_path);
@@ -1230,7 +1310,7 @@ mod tests {
         // First RequestWork
         send_message(&client_mutex, &Message::RequestWork).unwrap();
         let msg1: Message = recv_message(&mut client_reader).unwrap();
-        let first_work = match msg1 {
+        let _first_work = match msg1 {
             Message::WorkUnit(Some(u)) => u,
             _ => panic!("Expected WorkUnit on first request"),
         };
@@ -1280,6 +1360,173 @@ mod tests {
 
         let (telemetry, ranges) = controller_handle.join().unwrap();
         assert_eq!(telemetry.total_branches, 100);
+        assert_eq!(ranges.len(), 2);
+        let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_lagging_worker_event_rejection() {
+        let _ = fs::remove_file("checkpoint.json");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
+        let unit1 = RangeWorkUnit {
+            start_bound: vec![10],
+            end_bound: vec![20],
+        };
+
+        let addr_clone = addr.clone();
+        let unit1_clone = unit1.clone();
+        let controller_handle =
+            thread::spawn(move || run_controller(&addr_clone, vec![unit1_clone]));
+
+        thread::sleep(Duration::from_millis(50));
+
+        let client = TcpStream::connect(&addr).unwrap();
+        let mut client_reader = client.try_clone().unwrap();
+        let client_mutex = Arc::new(Mutex::new(client));
+
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg1: Message = recv_message(&mut client_reader).unwrap();
+        let real_work = match msg1 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+
+        // Client attempts to report completion for an invalid / non-matching range [99, 100]
+        let invalid_work = RangeWorkUnit {
+            start_bound: vec![99],
+            end_bound: vec![100],
+        };
+
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 50,
+                ap: 0,
+                rp: 0,
+                bp: 0,
+                math_interruptions: 0,
+                range: invalid_work,
+            }),
+        )
+        .unwrap();
+
+        thread::sleep(Duration::from_millis(50));
+
+        // Now report completion with the valid matching range so controller can finish
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 100,
+                ap: 5,
+                rp: 2,
+                bp: 1,
+                math_interruptions: 0,
+                range: real_work,
+            }),
+        )
+        .unwrap();
+
+        let (telemetry, ranges) = controller_handle.join().unwrap();
+        assert_eq!(telemetry.total_branches, 100);
+        assert_eq!(ranges.len(), 1);
+        assert_eq!(ranges[0], unit1);
+        let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_requeued_task_completion_deduplication() {
+        let _ = fs::remove_file("checkpoint.json");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
+        let unit1 = RangeWorkUnit {
+            start_bound: vec![100],
+            end_bound: vec![200],
+        };
+        let unit2 = RangeWorkUnit {
+            start_bound: vec![200],
+            end_bound: vec![300],
+        };
+
+        let addr_clone = addr.clone();
+        let controller_handle =
+            thread::spawn(move || run_controller(&addr_clone, vec![unit1.clone(), unit2.clone()]));
+
+        thread::sleep(Duration::from_millis(50));
+
+        // Client 1 connects and requests work
+        let client1 = TcpStream::connect(&addr).unwrap();
+        let mut client1_reader = client1.try_clone().unwrap();
+        let client1_mutex = Arc::new(Mutex::new(client1));
+
+        send_message(&client1_mutex, &Message::RequestWork).unwrap();
+        let msg1: Message = recv_message(&mut client1_reader).unwrap();
+        let work_assigned_to_c1 = match msg1 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+
+        // Client 1 closes connection without completing (task is recovered by controller)
+        drop(client1_reader);
+        drop(client1_mutex);
+
+        thread::sleep(Duration::from_millis(50));
+
+        // Client 2 connects and requests work (gets recovered task)
+        let client2 = TcpStream::connect(&addr).unwrap();
+        let mut client2_reader = client2.try_clone().unwrap();
+        let client2_mutex = Arc::new(Mutex::new(client2));
+
+        send_message(&client2_mutex, &Message::RequestWork).unwrap();
+        let msg2: Message = recv_message(&mut client2_reader).unwrap();
+        let work_assigned_to_c2_first = match msg2 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+        assert_eq!(work_assigned_to_c1, work_assigned_to_c2_first);
+
+        // Client 2 completes first task
+        send_message(
+            &client2_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 150,
+                ap: 10,
+                rp: 5,
+                bp: 2,
+                math_interruptions: 0,
+                range: work_assigned_to_c2_first.clone(),
+            }),
+        )
+        .unwrap();
+
+        // Client 2 requests second task
+        send_message(&client2_mutex, &Message::RequestWork).unwrap();
+        let msg3: Message = recv_message(&mut client2_reader).unwrap();
+        let work_assigned_to_c2_second = match msg3 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+
+        // Client 2 completes second task
+        send_message(
+            &client2_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 250,
+                ap: 20,
+                rp: 10,
+                bp: 4,
+                math_interruptions: 0,
+                range: work_assigned_to_c2_second,
+            }),
+        )
+        .unwrap();
+
+        let (telemetry, ranges) = controller_handle.join().unwrap();
+        assert_eq!(telemetry.total_branches, 400);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file("checkpoint.json");
     }

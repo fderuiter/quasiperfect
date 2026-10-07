@@ -220,38 +220,44 @@ mod tests {
     }
 
     #[test]
-    fn test_cdg_forced_512bit_lhs_overflow_returns_false() {
-        // s_l * forced_num exceeds 512 bits
+    fn test_cdg_forced_512bit_lhs_overflow() {
         let s_l = Uint::MAX;
         let n_l = Uint::from_u64(10);
         let forced_num = Uint::from_u64(2);
         let forced_den = Uint::from_u64(1);
-        let target_num = 1u64;
+        let target_num = 2u64;
         let target_den = 1u64;
 
         let result =
             dispatch_cdg_forced_check(s_l, n_l, forced_num, forced_den, target_num, target_den);
-        assert!(
-            !result,
-            "CDG pruning check must return false when intermediate numerator product overflows 512 bits"
-        );
+        assert!(!result, "Should return false on 512-bit lhs overflow");
     }
 
     #[test]
-    fn test_cdg_forced_512bit_rhs_overflow_returns_false() {
-        // n_l * forced_den exceeds 512 bits
+    fn test_cdg_forced_512bit_rhs_overflow() {
         let s_l = Uint::from_u64(10);
         let n_l = Uint::MAX;
-        let forced_num = Uint::from_u64(1);
-        let forced_den = Uint::from_u64(2);
-        let target_num = 1u64;
+        let forced_num = Uint::from_u64(2);
+        let forced_den = Uint::from_u64(1);
+        let target_num = 2u64;
         let target_den = 1u64;
 
         let result =
             dispatch_cdg_forced_check(s_l, n_l, forced_num, forced_den, target_num, target_den);
-        assert!(
-            !result,
-            "CDG pruning check must return false when intermediate denominator product overflows 512 bits"
-        );
+        assert!(!result, "Should return false on 512-bit rhs overflow");
+    }
+
+    #[test]
+    fn test_cdg_forced_512bit_both_overflow() {
+        let s_l = Uint::MAX;
+        let n_l = Uint::MAX;
+        let forced_num = Uint::from_u64(2);
+        let forced_den = Uint::from_u64(1);
+        let target_num = 2u64;
+        let target_den = 1u64;
+
+        let result =
+            dispatch_cdg_forced_check(s_l, n_l, forced_num, forced_den, target_num, target_den);
+        assert!(!result, "Should return false on 512-bit both overflow");
     }
 }

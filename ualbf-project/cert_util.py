@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import subprocess
@@ -777,6 +778,79 @@ def verify_theorem_checksum(
             return False
 
 
+def _ed25519_generate_and_sign(
+    payload_bytes: bytes, secret_key: Optional[bytes] = None
+) -> tuple[str, str]:
+    """Pure Python RFC 8032 Ed25519 key generation and signing fallback."""
+    if secret_key is None:
+        secret_key = os.urandom(32)
+    elif len(secret_key) != 32:
+        raise ValueError("Secret key must be 32 bytes")
+
+    q = 2**252 + 27742317777372353535851937790883648493
+    r = 2**255 - 19
+    d = -121665 * pow(121666, r - 2, r) % r
+    I = pow(2, (r - 1) // 4, r)
+
+    def inv(x: int) -> int:
+        return pow(x, r - 2, r)
+
+    def xrecover(y: int) -> int:
+        xx = (y * y - 1) * inv(d * y * y + 1)
+        x = pow(xx, (r + 3) // 8, r)
+        if (x * x - xx) % r != 0:
+            x = (x * I) % r
+        if x % 2 != 0:
+            x = r - x
+        return x
+
+    By = 4 * inv(5) % r
+    Bx = xrecover(By)
+    B = (Bx, By)
+
+    def edwards(P: tuple[int, int], Q: tuple[int, int]) -> tuple[int, int]:
+        x1, y1 = P
+        x2, y2 = Q
+        x3 = (x1 * y2 + x2 * y1) * inv(1 + d * x1 * x2 * y1 * y2) % r
+        y3 = (y1 * y2 + x1 * x2) * inv(1 - d * x1 * x2 * y1 * y2) % r
+        return (x3, y3)
+
+    def scalarmult(P: tuple[int, int], e: int) -> tuple[int, int]:
+        if e == 0:
+            return (0, 1)
+        Q = scalarmult(P, e // 2)
+        Q = edwards(Q, Q)
+        if e & 1:
+            Q = edwards(Q, P)
+        return Q
+
+    def encodepoint(P: tuple[int, int]) -> bytes:
+        x, y = P
+        bits = (y & ((1 << 255) - 1)) | ((x & 1) << 255)
+        return bits.to_bytes(32, "little")
+
+    def H(m: bytes) -> bytes:
+        return hashlib.sha512(m).digest()
+
+    h = H(secret_key[:32])
+    a = int.from_bytes(h[:32], "little")
+    a &= (1 << 254) - 8
+    a |= 1 << 254
+
+    A = scalarmult(B, a)
+    A_bytes = encodepoint(A)
+
+    r_int = int.from_bytes(H(h[32:] + payload_bytes), "little") % q
+    R = scalarmult(B, r_int)
+    R_bytes = encodepoint(R)
+
+    k = int.from_bytes(H(R_bytes + A_bytes + payload_bytes), "little") % q
+    S = (r_int + k * a) % q
+    sig_bytes = R_bytes + S.to_bytes(32, "little")
+
+    return A_bytes.hex(), sig_bytes.hex()
+
+
 def create_signed_test_cert(
     manifest_path: str,
     bounds_path: Optional[str] = None,
@@ -848,15 +922,13 @@ def create_signed_test_cert(
     if "path_ranges" in tel:
         map_obj["path_ranges"] = tel["path_ranges"]
 
-    if not _HAS_CRYPTOGRAPHY or Ed25519PrivateKey is None:
-        raise ImportError(
-            "cryptography package is required for creating signed test certificates."
-        )
-
-    priv = Ed25519PrivateKey.generate()
-    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()  # type: ignore[arg-type]
     payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
-    sig_hex = priv.sign(payload.encode("utf-8")).hex()
+    if _HAS_CRYPTOGRAPHY and Ed25519PrivateKey is not None:
+        priv = Ed25519PrivateKey.generate()
+        pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()  # type: ignore[arg-type]
+        sig_hex = priv.sign(payload.encode("utf-8")).hex()
+    else:
+        pub_hex, sig_hex = _ed25519_generate_and_sign(payload.encode("utf-8"))
 
     cert_data = {
         "manifest_hash": manifest_hash,
