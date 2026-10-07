@@ -182,11 +182,9 @@ fn expand_work_units(
         if !curr.factors.contains(&comp.p) {
             let row = &backbone.compatibility_matrix[i];
             let saved_state = curr.capture_state_and_intersect(row);
-            if let (Some(next_n_l), Some(next_s_l)) = (
-                saved_state.n_l.checked_mul(comp.val),
-                saved_state.s_l.checked_mul(comp.sigma),
-            ) {
+            if let Some(next_n_l) = saved_state.n_l.checked_mul(comp.val) {
                 if next_n_l <= *target_bound {
+                    let next_s_l = saved_state.s_l.checked_mul(comp.sigma).unwrap_or(Uint::MAX);
                     curr.n_l = next_n_l;
                     curr.s_l = next_s_l;
                     curr.last_idx = i + 1;
@@ -462,9 +460,16 @@ pub fn run_controller(
                                 Message::RequestWork => {
                                     let mut queue =
                                         work_queue.lock().unwrap_or_else(|e| e.into_inner());
-                                    let work = queue.pop();
                                     let mut workers =
                                         active_workers.lock().unwrap_or_else(|e| e.into_inner());
+                                    if let Some(old_state) = workers.remove(&worker_id) {
+                                        println!(
+                                            "Duplicate work request from worker {}. Re-queueing active task.",
+                                            worker_id
+                                        );
+                                        queue.push(old_state.active_task);
+                                    }
+                                    let work = queue.pop();
                                     if let Some(ref w) = work {
                                         workers.insert(
                                             worker_id,
@@ -1272,6 +1277,89 @@ mod tests {
         assert_eq!(telemetry.raycast_pruned, 15);
         assert_eq!(telemetry.boundary_pruned, 6);
         assert_eq!(telemetry.math_interruptions, 4);
+        assert_eq!(ranges.len(), 2);
+        let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_duplicate_work_request_requeues_task() {
+        let _ = fs::remove_file("checkpoint.json");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
+        let unit1 = RangeWorkUnit {
+            start_bound: vec![10],
+            end_bound: vec![20],
+        };
+        let unit2 = RangeWorkUnit {
+            start_bound: vec![20],
+            end_bound: vec![30],
+        };
+
+        let addr_clone = addr.clone();
+        let controller_handle =
+            thread::spawn(move || run_controller(&addr_clone, vec![unit1, unit2]));
+
+        thread::sleep(Duration::from_millis(50));
+
+        let client = TcpStream::connect(&addr).unwrap();
+        let mut client_reader = client.try_clone().unwrap();
+        let client_mutex = Arc::new(Mutex::new(client));
+
+        // First RequestWork
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg1: Message = recv_message(&mut client_reader).unwrap();
+        let _first_work = match msg1 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit on first request"),
+        };
+
+        // Send duplicate RequestWork before completing first_work
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg2: Message = recv_message(&mut client_reader).unwrap();
+        let replacement_work = match msg2 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit on duplicate request"),
+        };
+
+        // Complete the replacement work unit
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 50,
+                ap: 0,
+                rp: 0,
+                bp: 0,
+                math_interruptions: 0,
+                range: replacement_work,
+            }),
+        )
+        .unwrap();
+
+        // Request and complete the remaining work unit
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg3: Message = recv_message(&mut client_reader).unwrap();
+        let final_work = match msg3 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit on final request"),
+        };
+
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 50,
+                ap: 0,
+                rp: 0,
+                bp: 0,
+                math_interruptions: 0,
+                range: final_work,
+            }),
+        )
+        .unwrap();
+
+        let (telemetry, ranges) = controller_handle.join().unwrap();
+        assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file("checkpoint.json");
     }
