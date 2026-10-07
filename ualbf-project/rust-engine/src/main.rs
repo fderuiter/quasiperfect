@@ -884,7 +884,11 @@ fn main() {
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
         let (tel, mut ranges) = distributed::run_controller(&addr, work_units);
-        ranges.sort_by(|a, b| a.start_bound.cmp(&b.start_bound));
+        ranges.sort_by(|a, b| {
+            a.start_bound
+                .cmp(&b.start_bound)
+                .then_with(|| a.end_bound.cmp(&b.end_bound))
+        });
         telemetry_data = tel;
         explored_ranges_out = ranges;
     } else if mode == "worker" {
