@@ -146,6 +146,22 @@ struct Certificate {
     pub compositeness_witnesses: Option<serde_json::Value>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct WorkerTaskReceipt {
+    pub node_id: u32,
+    pub mode: String,
+    pub status: String,
+    pub target_min_log10: u32,
+    pub target_max_log10: u32,
+    pub total_branches_searched: usize,
+    pub abundance_pruned: usize,
+    pub raycast_pruned: usize,
+    pub boundary_pruned: usize,
+    pub math_interruptions: usize,
+    pub phase2_execution_time_ms: u128,
+    pub explored_ranges: Vec<crate::distributed::RangeWorkUnit>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,6 +326,32 @@ mod tests {
         };
         let json_val: serde_json::Value = serde_json::to_value(&cert).unwrap();
         assert_eq!(json_val["verification_mode"], "pure");
+    }
+
+    #[test]
+    fn test_worker_task_receipt_serialization() {
+        let receipt = WorkerTaskReceipt {
+            node_id: 12345,
+            mode: "worker".to_string(),
+            status: "completed".to_string(),
+            target_min_log10: 37,
+            target_max_log10: 43,
+            total_branches_searched: 100,
+            abundance_pruned: 10,
+            raycast_pruned: 5,
+            boundary_pruned: 2,
+            math_interruptions: 0,
+            phase2_execution_time_ms: 123,
+            explored_ranges: vec![crate::distributed::RangeWorkUnit {
+                start_bound: vec![2],
+                end_bound: vec![3],
+            }],
+        };
+        let json_val: Value = serde_json::to_value(&receipt).unwrap();
+        assert_eq!(json_val["mode"], "worker");
+        assert_eq!(json_val["status"], "completed");
+        assert_eq!(json_val["node_id"], 12345);
+        assert_eq!(json_val["explored_ranges"][0]["start_bound"][0], 2);
     }
 
     #[test]
@@ -841,7 +883,12 @@ fn main() {
         let work_units =
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
-        let (tel, ranges) = distributed::run_controller(&addr, work_units);
+        let (tel, mut ranges) = distributed::run_controller(&addr, work_units);
+        ranges.sort_by(|a, b| {
+            a.start_bound
+                .cmp(&b.start_bound)
+                .then_with(|| a.end_bound.cmp(&b.end_bound))
+        });
         telemetry_data = tel;
         explored_ranges_out = ranges;
     } else if mode == "worker" {
@@ -930,6 +977,33 @@ fn main() {
         })
         .unwrap()
     );
+
+    if mode == "worker" {
+        let pid = std::process::id();
+        let receipt = WorkerTaskReceipt {
+            node_id: pid,
+            mode: "worker".to_string(),
+            status: "completed".to_string(),
+            target_min_log10,
+            target_max_log10,
+            total_branches_searched: telemetry_data.total_branches,
+            abundance_pruned: telemetry_data.abundance_pruned,
+            raycast_pruned: telemetry_data.raycast_pruned,
+            boundary_pruned: telemetry_data.boundary_pruned,
+            math_interruptions: telemetry_data.math_interruptions,
+            phase2_execution_time_ms: phase2_elapsed.as_millis(),
+            explored_ranges: explored_ranges_out,
+        };
+        let receipt_json = serde_json::to_string_pretty(&receipt)
+            .expect("Failed to serialize worker task receipt");
+        let receipt_path = format!("worker_receipt_{}.json", pid);
+        fs::write(&receipt_path, &receipt_json)
+            .expect("Failed to write node-scoped worker receipt");
+        fs::write("worker_receipt.json", &receipt_json)
+            .expect("Failed to write default worker receipt");
+        println!("=== Worker Task Receipt Generated: {} ===", receipt_path);
+        return;
+    }
 
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {
