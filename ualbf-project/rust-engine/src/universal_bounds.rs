@@ -44,6 +44,39 @@ mod tests {
         assert!(!cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
     }
 
+    #[test]
+    fn test_cpu_check_euler_ceiling_lhs_overflow() {
+        // num * euler_den overflows 512-bit Uint -> returns true without panicking
+        let num = Uint::MAX;
+        let den = Uint::from_u64(1);
+        let euler_num = Uint::from_u64(1);
+        let euler_den = Uint::from_u64(2);
+
+        assert!(cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
+    }
+
+    #[test]
+    fn test_cpu_check_euler_ceiling_rhs_overflow() {
+        // den * euler_num overflows 512-bit Uint -> returns true without panicking
+        let num = Uint::from_u64(1);
+        let den = Uint::MAX;
+        let euler_num = Uint::from_u64(2);
+        let euler_den = Uint::from_u64(1);
+
+        assert!(cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
+    }
+
+    #[test]
+    fn test_cpu_check_euler_ceiling_both_overflow() {
+        // both lhs and rhs overflow 512-bit Uint -> returns true without panicking
+        let num = Uint::MAX;
+        let den = Uint::MAX;
+        let euler_num = Uint::MAX;
+        let euler_den = Uint::MAX;
+
+        assert!(cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
+    }
+
     proptest! {
         #[test]
         fn test_cpu_check_euler_ceiling_property(
