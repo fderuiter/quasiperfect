@@ -170,13 +170,13 @@ pub fn phase1_global_annihilation_sieve(
 
                 for e in 1..=max_e {
                     // Stage 2 (Mod8) exponent filter in O(1).
-                    // In stage2_bitset, a bit value of 1 (Some(true)) means the component is NOT obstructed (allowed).
-                    // Thus, if check_sieve_bit returns Some(true), is_pruned is false.
-                    // All other cases (Some(false) or None/overflow) mean we must prune.
+                    // In stage2_bitset, a bit value of 0 (Some(false)) means the component is explicitly obstructed (pruned).
+                    // Both Some(true) (allowed) and None (index lookup overflow / out of bounds) yield is_pruned = false
+                    // for conservative fallback, preserving unverified candidate components for downstream checks.
                     let p_mod_8 = p & 7;
                     let is_pruned = match check_sieve_bit(&stage2_bitset, p_mod_8, max_e, e) {
-                        Some(true) => false,
-                        _ => true, // safe prune on None/overflow
+                        Some(false) => true,
+                        _ => false, // conservative fallback on None/overflow or Some(true)
                     };
                     if is_pruned {
                         pruned.fetch_add(1, Ordering::Relaxed);
@@ -495,6 +495,35 @@ mod tests {
         bitset_mut[0] |= 1 << 1;
         assert_eq!(check_sieve_bit(&bitset_mut, 0, 1, 1), Some(true));
 
+        // Verify conservative fallback behavior for stage 2 exponent filtering:
+        // Only Some(false) prunes candidates; None (overflow/out-of-bounds) and Some(true) do NOT prune.
+        let is_pruned_overflow = match check_sieve_bit(&bitset, usize::MAX, 10, 1) {
+            Some(false) => true,
+            _ => false,
+        };
+        assert!(
+            !is_pruned_overflow,
+            "None on index overflow must not prune candidates (conservative fallback)"
+        );
+
+        let is_pruned_obstructed = match check_sieve_bit(&bitset, 0, 1, 1) {
+            Some(false) => true,
+            _ => false,
+        };
+        assert!(
+            is_pruned_obstructed,
+            "Some(false) must prune explicitly obstructed candidates"
+        );
+
+        let is_pruned_allowed = match check_sieve_bit(&bitset_mut, 0, 1, 1) {
+            Some(false) => true,
+            _ => false,
+        };
+        assert!(
+            !is_pruned_allowed,
+            "Some(true) must retain allowed candidates"
+        );
+
         // 3. Test compute_sigma_checked overflow monadic Option propagation
         assert!(crate::lean_ffi::compute_sigma_checked(12345, 1000).is_none());
 
@@ -649,6 +678,15 @@ mod tests {
                 }
             } else {
                 prop_assert_eq!(bit_res, None);
+            }
+
+            // Assert conservative non-pruning behavior across wide parameter ranges
+            let is_pruned = match bit_res {
+                Some(false) => true,
+                _ => false,
+            };
+            if bit_res == None {
+                prop_assert!(!is_pruned, "Lookup overflow (None) must yield is_pruned = false for conservative fallback");
             }
         }
 

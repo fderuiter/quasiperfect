@@ -17,9 +17,6 @@ import tempfile
 import types
 import unittest
 from unittest import mock
-import pytest  # type: ignore
-
-pytest.importorskip("cryptography")
 
 try:
     importlib.import_module("verification_lib")
@@ -95,18 +92,17 @@ def _minimal_cert(
     if "path_ranges" in tel:
         map_obj["path_ranges"] = tel["path_ranges"]
 
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import (  # type: ignore
-        Ed25519PrivateKey,
-    )
-    from cryptography.hazmat.primitives.serialization import (  # type: ignore
-        Encoding,
-        PublicFormat,
-    )
-
-    priv = Ed25519PrivateKey.generate()
-    pub_hex = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
     payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
-    sig_hex = priv.sign(payload.encode("utf-8")).hex()
+    if cert_util._HAS_CRYPTOGRAPHY and cert_util.Ed25519PrivateKey is not None:
+        priv = cert_util.Ed25519PrivateKey.generate()
+        pub_hex = (
+            priv.public_key()
+            .public_bytes(cert_util.Encoding.Raw, cert_util.PublicFormat.Raw)
+            .hex()
+        )
+        sig_hex = priv.sign(payload.encode("utf-8")).hex()
+    else:
+        pub_hex, sig_hex = cert_util._ed25519_generate_and_sign(payload.encode("utf-8"))
 
     os.environ["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
 
