@@ -1531,47 +1531,54 @@ pub fn __rust_dfs_try_push(ctx: u64, i: u32) -> bool {
     }
     let extra_factors = lazy_res.unwrap();
 
-    if let (Some(next_n_l), Some(next_s_l)) = (
-        dfs_ctx.curr.n_l.checked_mul(comp.val),
-        dfs_ctx.curr.s_l.checked_mul(comp.sigma),
-    ) {
-        if next_n_l <= *dfs_ctx.target_bound {
-            if crate::lean_ffi::is_conjectural_active() {
-                let conjectural_limit = get_conjectural_limit();
-                if next_n_l > conjectural_limit {
-                    return false;
-                }
-            }
-            let row = &dfs_ctx.backbone.compatibility_matrix[i];
-            dfs_ctx
-                .saved_states
-                .push(dfs_ctx.curr.capture_state_and_intersect(row));
-            dfs_ctx.curr.n_l = next_n_l;
-            dfs_ctx.curr.s_l = next_s_l;
-            let comp_sigma_mod24 = (comp.sigma % Uint::from_u64(24)).as_u32();
-            dfs_ctx.curr.sigma_mod24 = (dfs_ctx.curr.sigma_mod24 * comp_sigma_mod24) % 24;
-            dfs_ctx.curr.last_idx = i + 1;
-            dfs_ctx.curr.factors.push(comp.p);
-            dfs_ctx
-                .curr
-                .sigma_factors
-                .extend_from_slice(&comp.sigma_factors);
-            dfs_ctx.curr.sigma_factors.extend_from_slice(&extra_factors);
-            // Don't forget to push sigma_factors_u64 for the sequential engine
-            for sf in &comp.sigma_factors {
-                if *sf <= Uint::from_u128(u64::MAX as u128) {
-                    dfs_ctx.curr.sigma_factors_u64.push(sf.as_u64());
-                }
-            }
-            for sf in &extra_factors {
-                if *sf <= Uint::from_u128(u64::MAX as u128) {
-                    dfs_ctx.curr.sigma_factors_u64.push(sf.as_u64());
-                }
-            }
-            return true;
+    let Some(next_n_l) = dfs_ctx.curr.n_l.checked_mul(comp.val) else {
+        return false;
+    };
+    if next_n_l > *dfs_ctx.target_bound {
+        return false;
+    }
+    if crate::lean_ffi::is_conjectural_active() {
+        let conjectural_limit = get_conjectural_limit();
+        if next_n_l > conjectural_limit {
+            return false;
         }
     }
-    false
+
+    let next_s_l = match dfs_ctx.curr.s_l.checked_mul(comp.sigma) {
+        Some(val) => val,
+        None => {
+            dfs_ctx.math_interruptions.fetch_add(1, Ordering::Relaxed);
+            Uint::MAX
+        }
+    };
+
+    let row = &dfs_ctx.backbone.compatibility_matrix[i];
+    dfs_ctx
+        .saved_states
+        .push(dfs_ctx.curr.capture_state_and_intersect(row));
+    dfs_ctx.curr.n_l = next_n_l;
+    dfs_ctx.curr.s_l = next_s_l;
+    let comp_sigma_mod24 = (comp.sigma % Uint::from_u64(24)).as_u32();
+    dfs_ctx.curr.sigma_mod24 = (dfs_ctx.curr.sigma_mod24 * comp_sigma_mod24) % 24;
+    dfs_ctx.curr.last_idx = i + 1;
+    dfs_ctx.curr.factors.push(comp.p);
+    dfs_ctx
+        .curr
+        .sigma_factors
+        .extend_from_slice(&comp.sigma_factors);
+    dfs_ctx.curr.sigma_factors.extend_from_slice(&extra_factors);
+    // Don't forget to push sigma_factors_u64 for the sequential engine
+    for sf in &comp.sigma_factors {
+        if *sf <= Uint::from_u128(u64::MAX as u128) {
+            dfs_ctx.curr.sigma_factors_u64.push(sf.as_u64());
+        }
+    }
+    for sf in &extra_factors {
+        if *sf <= Uint::from_u128(u64::MAX as u128) {
+            dfs_ctx.curr.sigma_factors_u64.push(sf.as_u64());
+        }
+    }
+    true
 }
 
 pub fn __rust_dfs_pop(ctx: u64) {
@@ -2094,6 +2101,46 @@ mod tests {
                 assert!(ctx_factors(ptr).contains(&7));
                 // saved state preserved
                 assert_eq!(ctx_saved_states_len(ptr), 1);
+            }
+        );
+    }
+
+    #[test]
+    fn test_try_push_handles_sigma_overflow_conservatively() {
+        let mut curr = make_prefix(1, 1, 0);
+        curr.s_l = Uint::MAX;
+        let p7 = make_prime_power(7, 49, 57); // val=49, sigma=57
+        let comps = vec![p7];
+        let tb = Uint::from_u128(u128::MAX);
+        with_dfs_ctx!(
+            curr = curr,
+            components = &comps,
+            target_bound = tb,
+            max_idx_3 = 0,
+            max_idx_5 = 0,
+            saved_states = vec![],
+            |ptr| unsafe {
+                let ctx_ref = DfsContextRef::from_handle(ptr).expect("valid handle");
+                let initial_interruptions =
+                    ctx_ref.get_ref().math_interruptions.load(Ordering::Relaxed);
+                let pushed = __rust_dfs_try_push(ptr, 0);
+                assert!(
+                    pushed,
+                    "__rust_dfs_try_push must return true when s_l overflows"
+                );
+                assert_eq!(
+                    ctx_n_l(ptr),
+                    Uint::from_u64(49),
+                    "n_l should be updated correctly"
+                );
+                assert_eq!(ctx_s_l(ptr), Uint::MAX, "s_l should saturate to Uint::MAX");
+                let final_interruptions =
+                    ctx_ref.get_ref().math_interruptions.load(Ordering::Relaxed);
+                assert_eq!(
+                    final_interruptions,
+                    initial_interruptions + 1,
+                    "math_interruptions must be incremented on s_l overflow"
+                );
             }
         );
     }

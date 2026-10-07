@@ -173,11 +173,9 @@ fn expand_work_units(
         if !curr.factors.contains(&comp.p) {
             let row = &backbone.compatibility_matrix[i];
             let saved_state = curr.capture_state_and_intersect(row);
-            if let (Some(next_n_l), Some(next_s_l)) = (
-                saved_state.n_l.checked_mul(comp.val),
-                saved_state.s_l.checked_mul(comp.sigma),
-            ) {
+            if let Some(next_n_l) = saved_state.n_l.checked_mul(comp.val) {
                 if next_n_l <= *target_bound {
+                    let next_s_l = saved_state.s_l.checked_mul(comp.sigma).unwrap_or(Uint::MAX);
                     curr.n_l = next_n_l;
                     curr.s_l = next_s_l;
                     curr.last_idx = i + 1;
