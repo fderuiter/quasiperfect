@@ -69,6 +69,12 @@ def load_bounds(bounds_path: Optional[str] = None) -> dict:
 
 
 def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
+    if not getattr(cert_util, "_has_verification_lib", False):
+        print(
+            "Error: Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop` or `make verification-lib`)."
+        )
+        sys.exit(1)
+
     if manifest_path is None:
         manifest_path = env_util.get_env_var("UALBF_PROOF_MANIFEST")
     if not manifest_path or not os.path.exists(manifest_path):
@@ -202,7 +208,7 @@ def write_telemetry_tex(
                 cert = cert_util.load_and_validate_cert(
                     cert_path, trusted_public_key=trusted_key
                 )
-            except cert_util.CertificateError as e:
+            except (cert_util.CertificateError, ImportError) as e:
                 print(f"Error: {e}")
                 sys.exit(1)
 

@@ -29,7 +29,6 @@ from cert_util import (
     CertificateValidationError,
     clean_source_py,
     count_non_literal_braces_py,
-    compute_verus_hashes_fallback,
     compute_verus_hashes,
 )
 
@@ -590,49 +589,28 @@ class TestFallbackParsingRoutines:
         assert open_b == expected_open
         assert close_b == expected_close
 
-    @pytest.mark.parametrize(
-        "content, expected_fn_names",
-        [
-            (
-                "pub fn simple_fn(x: u32) {\n    x + 1;\n}\n",
-                ["simple_fn"],
-            ),
-            (
-                "pub spec fn spec_calc() -> bool {\n    true\n}\n"
-                "pub proof fn proof_lemma() {\n    assert(true);\n}\n",
-                ["spec_calc", "proof_lemma"],
-            ),
-            (
-                "pub mod inner {\n"
-                "    pub open spec fn open_spec() -> u32 {\n        42\n    }\n"
-                "}\n",
-                ["inner::open_spec"],
-            ),
-        ],
-    )
-    def test_compute_verus_hashes_fallback(self, content, expected_fn_names):
-        hashes = compute_verus_hashes_fallback(content)
-        assert set(hashes.keys()) == set(expected_fn_names)
-        for fn_name in expected_fn_names:
-            assert isinstance(hashes[fn_name], str)
-            assert len(hashes[fn_name]) == 64  # sha256 hex string
+    def test_missing_verification_lib_raises_importerror(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(cert_util, "_has_verification_lib", False)
+        monkeypatch.setattr(cert_util, "hash_tcb", cert_util._missing_verification_lib)
+        monkeypatch.setattr(cert_util, "hash_extension_tcb", cert_util._missing_verification_lib)
+        monkeypatch.setattr(cert_util, "check_path_continuity", cert_util._missing_verification_lib)
+        monkeypatch.setattr(cert_util, "compute_verus_hashes", cert_util._missing_verification_lib)
 
-    @pytest.mark.skipif(
-        not HAS_VERIFICATION_LIB,
-        reason="verification_lib native extension not available",
-    )
-    @pytest.mark.parametrize(
-        "verus_code",
-        [
-            "pub fn standalone_func() {\n    let x = 1;\n}\n",
-            "pub spec fn helper_spec() -> bool {\n    true\n}\n",
-            "pub mod math {\n    pub proof fn lemma_one() {\n        assert(true);\n    }\n}\n",
-        ],
-    )
-    def test_fallback_matches_native_verus_hashes(self, verus_code):
-        native_hashes = compute_verus_hashes(verus_code)
-        fallback_hashes = compute_verus_hashes_fallback(verus_code)
-        assert native_hashes == fallback_hashes
+        with pytest.raises(ImportError, match="Native verification_lib not found"):
+            cert_util.hash_tcb("/dummy")
+        with pytest.raises(ImportError, match="Native verification_lib not found"):
+            cert_util.hash_extension_tcb("/dummy")
+        with pytest.raises(ImportError, match="Native verification_lib not found"):
+            cert_util.check_path_continuity("[]")
+        with pytest.raises(ImportError, match="Native verification_lib not found"):
+            cert_util.compute_verus_hashes("pub fn foo() {}")
+        with pytest.raises(ImportError, match="Native verification_lib not found"):
+            cert_util.get_verus_proof_hashes(tmp_path)
+        
+        manifest_file = tmp_path / "manifest.json"
+        manifest_file.write_text("{}", encoding="utf-8")
+        with pytest.raises(ImportError, match="Native verification_lib not found"):
+            cert_util.create_signed_test_cert(str(manifest_file))
 
 
 class TestVerifyManifestChainAndVerusHelpers:
