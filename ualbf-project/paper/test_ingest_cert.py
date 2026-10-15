@@ -938,5 +938,13 @@ class TestCertPathFallback(unittest.TestCase):
                     os.environ.pop("UALBF_CERT_PATH", None)
 
 
+class TestMissingVerificationLib(unittest.TestCase):
+    def test_ingest_cert_aborts_without_verification_lib(self):
+        with mock.patch.object(cert_util, "_has_verification_lib", False):
+            with self.assertRaises(SystemExit) as cm:
+                ingest_cert.check_manifest("dummy_path")
+            self.assertEqual(cm.exception.code, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

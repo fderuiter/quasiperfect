@@ -161,85 +161,10 @@ def count_non_literal_braces_py(line: str) -> tuple[int, int]:
     return open_count, close_count
 
 
-def compute_verus_hashes_fallback(content: str) -> dict[str, str]:
-    cleaned = clean_source_py(content)
-    verus_hashes = {}
-    current_fn = ""
-    current_body = ""
-    in_spec = False
-    brace_count = 0
-    module_stack = []
-    module_brace_depth = 0
-
-    kw_list = [
-        "pub spec fn ",
-        "pub open spec fn ",
-        "pub uninterp spec fn ",
-        "pub proof fn ",
-        "pub fn ",
-    ]
-
-    for line in cleaned.splitlines():
-        trimmed = line.strip()
-
-        # Track module declarations
-        if not in_spec:
-            if "{" in trimmed and (
-                trimmed.startswith("mod ") or trimmed.startswith("pub mod ")
-            ):
-                if trimmed.startswith("pub mod "):
-                    mod_name = trimmed.removeprefix("pub mod ")
-                else:
-                    mod_name = trimmed.removeprefix("mod ")
-                mod_name = mod_name.split("{", 1)[0].strip()
-                if mod_name:
-                    module_stack.append(mod_name)
-                    if "{" in trimmed:
-                        module_brace_depth += 1
-
-        matched_kw = None
-        if not in_spec:
-            for kw in kw_list:
-                if kw in line:
-                    matched_kw = kw
-                    break
-
-        if not in_spec and matched_kw is not None:
-            parts = line.split(matched_kw, 1)
-            if len(parts) > 1:
-                bare_fn_name = parts[1].split("(", 1)[0].strip()
-                qualified_name = (
-                    bare_fn_name
-                    if not module_stack
-                    else f"{'::'.join(module_stack)}::{bare_fn_name}"
-                )
-                current_fn = qualified_name
-                in_spec = True
-                current_body = line
-
-                open_b, close_b = count_non_literal_braces_py(line)
-                brace_count = open_b - close_b
-                if brace_count == 0 and "{" in line:
-                    verus_hashes[current_fn] = hash_util.hash_string(current_body)
-                    in_spec = False
-        elif in_spec:
-            current_body += "\n" + line
-            open_b, close_b = count_non_literal_braces_py(line)
-            brace_count += open_b - close_b
-            if brace_count == 0:
-                verus_hashes[current_fn] = hash_util.hash_string(current_body)
-                in_spec = False
-        elif not in_spec and module_brace_depth > 0:
-            open_b, close_b = count_non_literal_braces_py(line)
-            module_brace_depth += open_b
-            if close_b > 0:
-                for _ in range(close_b):
-                    if module_brace_depth > 0:
-                        module_brace_depth -= 1
-                        if module_stack:
-                            module_stack.pop()
-
-    return verus_hashes
+def _missing_verification_lib(*args: Any, **kwargs: Any) -> Any:
+    raise ImportError(
+        "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop` or `make verification-lib`)."
+    )
 
 
 _has_verification_lib = True
@@ -251,11 +176,11 @@ try:
     check_path_continuity = verification_lib.check_path_continuity
     compute_verus_hashes = verification_lib.compute_verus_hashes
 except Exception:
-    hash_tcb = None
-    hash_extension_tcb = None
-    check_path_continuity = None
     _has_verification_lib = False
-    compute_verus_hashes = compute_verus_hashes_fallback
+    hash_tcb = _missing_verification_lib
+    hash_extension_tcb = _missing_verification_lib
+    check_path_continuity = _missing_verification_lib
+    compute_verus_hashes = _missing_verification_lib
 
 
 CertificateError = hash_util.CertificateError
@@ -728,6 +653,10 @@ def get_verus_proof_hashes(rust_src_dir: Union[str, Path]) -> dict[str, str]:
     Scans Rust source files (verus_proofs.rs, lean_export.rs) in rust_src_dir
     and returns computed function digest maps.
     """
+    if not _has_verification_lib:
+        raise ImportError(
+            "Native verification_lib not found. Please build the verification-lib extension (e.g. `maturin develop` or `make verification-lib`)."
+        )
     verus_hashes: dict[str, str] = {}
     rust_src_path = Path(rust_src_dir)
     loader = BoundedJSONLoader()
@@ -865,9 +794,7 @@ def create_signed_test_cert(
     manifest_hash = hash_util.hash_bytes(mbytes)
 
     project_root = os.path.dirname(os.path.abspath(__file__))
-    verified_logic_hash = (
-        hash_tcb(project_root) if (_has_verification_lib and hash_tcb) else "0" * 64
-    )
+    verified_logic_hash = hash_tcb(project_root)
 
     if commit_hash is None:
         try:
