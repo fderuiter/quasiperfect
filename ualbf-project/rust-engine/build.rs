@@ -603,6 +603,7 @@ pub fn validate_verus_hashes(
 /// start with "libstdc++.so.6: cannot open shared object file".
 fn link_stdcxx() {
     println!("cargo:rustc-link-lib=dylib=stdc++");
+    println!("cargo:rustc-link-lib=dylib=c++");
     let compiler = cc::Build::new().get_compiler();
     let Ok(output) = Command::new(compiler.path())
         .arg("-print-file-name=libstdc++.so")
