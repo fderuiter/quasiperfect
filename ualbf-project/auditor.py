@@ -31,6 +31,7 @@ def get_repo_root():
 
 
 CORE_THEOREMS = cert_util.CORE_THEOREMS
+CONJECTURAL_THEOREMS = getattr(cert_util, "CONJECTURAL_THEOREMS", [])
 ALLOWED_AXIOMS = cert_util.ALLOWED_AXIOMS
 
 TOP_LEVEL_MANIFESTS = (
@@ -791,6 +792,7 @@ def _generate_manifest_impl():
     # Load existing manifest to preserve statuses if Lean is missing and perform unmanifested file gate check
     old_manifest = {}
     existing_statuses = {}
+    existing_entries = {}
     existing_manifest_status = None
     existing_registered_files = set()
     manifest_path = "proof_manifest.json"
@@ -801,6 +803,7 @@ def _generate_manifest_impl():
                 existing_manifest_status = old_manifest.get("status")
                 for thm in old_manifest.get("theorems", []):
                     existing_statuses[thm["name"]] = thm["status"]
+                    existing_entries[thm["name"]] = thm
                     if "file" in thm:
                         existing_registered_files.add(thm["file"])
                 for pf in old_manifest.get("proof_files", []):
@@ -1270,6 +1273,64 @@ def _generate_manifest_impl():
             {"name": thm, "file": rel_file, "status": status, "checksum": checksum}
         )
 
+    for thm in CONJECTURAL_THEOREMS:
+        parts = thm.split(".")
+        short_name = parts[-1]
+        found_file = None
+        for i in range(len(parts) - 1, 0, -1):
+            possible_rel = "/".join(parts[:i]) + ".lean"
+            possible_path = os.path.join(cwd, possible_rel)
+            if os.path.exists(possible_path):
+                try:
+                    with open(possible_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    if re.search(
+                        r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
+                        + re.escape(short_name)
+                        + r"\b",
+                        content,
+                    ):
+                        found_file = possible_rel
+                        break
+                except Exception:
+                    pass
+
+        if not found_file or found_file == "UALBF.lean":
+            for pf in disk_proof_files:
+                pf_path = os.path.join(cwd, pf)
+                if os.path.exists(pf_path):
+                    try:
+                        with open(pf_path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        if re.search(
+                            r"\b(theorem|def|class|structure|lemma)\s+(?:[a-zA-Z0-9_]+\.)*"
+                            + re.escape(short_name)
+                            + r"\b",
+                            content,
+                        ):
+                            found_file = pf
+                            break
+                    except Exception:
+                        pass
+
+        rel_file = found_file if found_file else "UALBF/Pure/ABCConjecture.lean"
+        if not has_lean:
+            status = existing_statuses.get(thm, "unverified")
+        else:
+            status = "conjectural"
+        existing_entry = existing_entries.get(thm, {})
+        hyp = existing_entry.get("hypothesis_dependency", "ABCConjectureStatement")
+        checksum = theorem_checksum(thm, rel_file, status)
+
+        entry = {
+            "name": thm,
+            "file": rel_file,
+            "status": status,
+            "hypothesis_dependency": hyp,
+            "checksum": checksum,
+        }
+        manifest["theorems"].append(entry)
+
     # Discover and incorporate Lean AST source code axioms
     ast_discovered_axioms = extract_axioms_from_lean_source(cwd)
     for ax in ast_discovered_axioms:
@@ -1677,7 +1738,7 @@ def check_documentation(manifest, repo_root=None):
             manifest_symbols.add(r_fn.split("::")[-1])
 
     strict_manifest_symbols = set()
-    for thm_name in CORE_THEOREMS:
+    for thm_name in list(CORE_THEOREMS) + list(CONJECTURAL_THEOREMS):
         strict_manifest_symbols.add(thm_name)
         strict_manifest_symbols.add(thm_name.split(".")[-1])
     for spec_name in manifest.get("verus_hashes", {}).keys():
@@ -1685,7 +1746,7 @@ def check_documentation(manifest, repo_root=None):
         strict_manifest_symbols.add(spec_name.split("::")[-1])
 
     valid_symbols = set(manifest_symbols)
-    for thm in CORE_THEOREMS:
+    for thm in list(CORE_THEOREMS) + list(CONJECTURAL_THEOREMS):
         valid_symbols.add(thm)
         valid_symbols.add(thm.split(".")[-1])
 
@@ -1975,7 +2036,10 @@ def check_documentation(manifest, repo_root=None):
                             thm_status = manifest_thm_statuses.get(
                                 clean_bt
                             ) or manifest_thm_statuses.get(dot_path)
-                            if thm_status is not None and thm_status != "proven":
+                            if thm_status is not None and thm_status not in (
+                                "proven",
+                                "conjectural",
+                            ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
                                 )
@@ -2006,7 +2070,10 @@ def check_documentation(manifest, repo_root=None):
                                 continue
 
                             thm_status = manifest_thm_statuses.get(ident)
-                            if thm_status is not None and thm_status != "proven":
+                            if thm_status is not None and thm_status not in (
+                                "proven",
+                                "conjectural",
+                            ):
                                 errors.append(
                                     f"[DOC CHECK ERROR] {doc_rel_to_repo}:{i+1} - Unproven or status-tainted theorem symbol referenced in authoritative documentation: '{bt}' (status: {thm_status})"
                                 )

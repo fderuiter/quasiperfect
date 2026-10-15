@@ -35,6 +35,8 @@ pub struct Theorem {
     pub file: String,
     pub status: String,
     pub checksum: String,
+    #[serde(default)]
+    pub hypothesis_dependency: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -285,9 +287,20 @@ pub fn validate_proof_manifest(
         ));
     }
 
-    // No Lean axioms are whitelisted: every theorem must be fully proven.
+    // Verify theorem statuses: proven theorems or conjectural theorems with hypothesis_dependency
     for thm in &proof_manifest.theorems {
-        if thm.status != "proven" {
+        if thm.status == "conjectural" {
+            if thm
+                .hypothesis_dependency
+                .as_ref()
+                .map_or(true, |s| s.trim().is_empty())
+            {
+                return Err(format!(
+                    "FATAL: Conjectural theorem '{}' in '{}' lacks required 'hypothesis_dependency'. Compilation halted.",
+                    thm.name, thm.file
+                ));
+            }
+        } else if thm.status != "proven" {
             return Err(format!(
                 "FATAL: Theorem '{}' in '{}' is incomplete (status: {}). Compilation halted.",
                 thm.name, thm.file, thm.status

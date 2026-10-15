@@ -99,7 +99,13 @@ def check_manifest(manifest_path: Optional[str] = None) -> Tuple[dict, str]:
     for thm in manifest_data_macros.get("theorems", []):
         thm_name = thm.get("name", "unknown")
         status = str(thm.get("status", "")).strip().lower()
-        if status not in ("proven", "verified") and not (
+        if status == "conjectural":
+            hyp = thm.get("hypothesis_dependency")
+            if not hyp or not str(hyp).strip():
+                unproven_theorems.append(
+                    (thm_name, "conjectural without hypothesis_dependency")
+                )
+        elif status not in ("proven", "verified") and not (
             status == "axiom" and thm_name in allowed_axioms
         ):
             unproven_theorems.append((thm_name, thm.get("status", "missing")))
@@ -385,15 +391,42 @@ def write_telemetry_tex(
                     "\\textbf{Component} & \\textbf{Cryptographic Certificate (SHA-256)} \\\\\n"
                 )
                 vm.write("\\hline\n")
-                vm.write("\\multicolumn{2}{|c|}{\\textbf{Lean Theorems}} \\\\\n")
-                vm.write("\\hline\n")
-                for thm in manifest_data_macros.get("theorems", []):
-                    name_escaped = thm["name"].replace("_", "\\_")
-                    macro_name = make_macro_name(thm["name"])
+                all_thms = manifest_data_macros.get("theorems", [])
+                proven_thms = [
+                    t for t in all_thms if t.get("status") in ("proven", "verified")
+                ]
+                conjectural_thms = [
+                    t for t in all_thms if t.get("status") == "conjectural"
+                ]
+                other_thms = [
+                    t
+                    for t in all_thms
+                    if t.get("status") not in ("proven", "verified", "conjectural")
+                ]
+
+                if proven_thms or other_thms:
+                    vm.write("\\multicolumn{2}{|c|}{\\textbf{Lean Theorems}} \\\\\n")
+                    vm.write("\\hline\n")
+                    for thm in proven_thms + other_thms:
+                        name_escaped = thm["name"].replace("_", "\\_")
+                        macro_name = make_macro_name(thm["name"])
+                        vm.write(
+                            f"\\texttt{{{name_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n"
+                        )
+                    vm.write("\\hline\n")
+
+                if conjectural_thms:
                     vm.write(
-                        f"\\texttt{{{name_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n"
+                        "\\multicolumn{2}{|c|}{\\textbf{Conjectural Lean Theorems}} \\\\\n"
                     )
-                vm.write("\\hline\n")
+                    vm.write("\\hline\n")
+                    for thm in conjectural_thms:
+                        name_escaped = thm["name"].replace("_", "\\_")
+                        macro_name = make_macro_name(thm["name"])
+                        vm.write(
+                            f"\\texttt{{{name_escaped}}} & \\texttt{{\\{macro_name}}} \\\\\n"
+                        )
+                    vm.write("\\hline\n")
                 vm.write(
                     "\\multicolumn{2}{|c|}{\\textbf{Rust/Verus Implementations}} \\\\\n"
                 )

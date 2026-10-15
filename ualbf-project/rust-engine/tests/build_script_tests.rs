@@ -237,6 +237,7 @@ fn test_validate_proof_manifest_rejects_formerly_whitelisted_axiom() {
         file: "UALBF/QPN/PrasadSunitha.lean".to_string(),
         status: "axiom".to_string(),
         checksum: "hash_axiom".to_string(),
+        hypothesis_dependency: None,
     });
     assert!(validate_proof_manifest(&manifest, "hash_A").is_err());
 }
@@ -249,12 +250,41 @@ fn test_validate_proof_manifest_non_whitelisted_axiom() {
         file: "UALBF/Bad.lean".to_string(),
         status: "axiom".to_string(),
         checksum: "hash_bad".to_string(),
+        hypothesis_dependency: None,
     });
     let err = validate_proof_manifest(&manifest, "hash_A")
         .expect_err("Should fail on non-whitelisted axiom");
     assert!(err.contains(
         "Theorem 'unauthorized_axiom' in 'UALBF/Bad.lean' is incomplete (status: axiom)"
     ));
+}
+
+#[test]
+fn test_validate_proof_manifest_conjectural_theorem_valid() {
+    let mut manifest = parse_proof_manifest(&sample_valid_proof_manifest_json("hash_A")).unwrap();
+    manifest.theorems.push(Theorem {
+        name: "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling".to_string(),
+        file: "UALBF/Pure/ABCConjecture.lean".to_string(),
+        status: "conjectural".to_string(),
+        checksum: "hash_conj".to_string(),
+        hypothesis_dependency: Some("ABCConjectureStatement".to_string()),
+    });
+    assert!(validate_proof_manifest(&manifest, "hash_A").is_ok());
+}
+
+#[test]
+fn test_validate_proof_manifest_conjectural_theorem_missing_dependency_fails() {
+    let mut manifest = parse_proof_manifest(&sample_valid_proof_manifest_json("hash_A")).unwrap();
+    manifest.theorems.push(Theorem {
+        name: "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling".to_string(),
+        file: "UALBF/Pure/ABCConjecture.lean".to_string(),
+        status: "conjectural".to_string(),
+        checksum: "hash_conj".to_string(),
+        hypothesis_dependency: None,
+    });
+    let err = validate_proof_manifest(&manifest, "hash_A")
+        .expect_err("Should fail when hypothesis_dependency is missing");
+    assert!(err.contains("lacks required 'hypothesis_dependency'"));
 }
 
 #[test]

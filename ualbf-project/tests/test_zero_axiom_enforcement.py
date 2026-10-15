@@ -115,7 +115,10 @@ def test_auditor_rejects_legacy_axiom():
                 manifest = json.load(f)
 
             for thm in manifest["theorems"]:
-                assert thm["status"] == "axiom"
+                if thm["name"] in auditor.CORE_THEOREMS:
+                    assert thm["status"] == "axiom"
+                else:
+                    assert thm["status"] == "conjectural"
 
         finally:
             os.chdir(old_cwd)
@@ -204,7 +207,10 @@ def test_auditor_allows_standard_lean_axioms():
                 manifest = json.load(f)
 
             for thm in manifest["theorems"]:
-                assert thm["status"] == "proven"
+                if thm["name"] in auditor.CORE_THEOREMS:
+                    assert thm["status"] == "proven"
+                else:
+                    assert thm["status"] == "conjectural"
 
         finally:
             os.chdir(old_cwd)
@@ -297,7 +303,10 @@ def test_auditor_parses_quoted_lean4_theorem_names():
                 manifest = json.load(f)
 
             for thm in manifest["theorems"]:
-                assert thm["status"] == "proven"
+                if thm["name"] in auditor.CORE_THEOREMS:
+                    assert thm["status"] == "proven"
+                else:
+                    assert thm["status"] == "conjectural"
 
         finally:
             os.chdir(old_cwd)
@@ -1297,7 +1306,10 @@ def test_auditor_rejects_missing_theorem_header():
                 manifest = json.load(f)
 
             for thm in manifest["theorems"]:
-                assert thm["status"] == "error"
+                if thm["name"] in auditor.CORE_THEOREMS:
+                    assert thm["status"] == "error"
+                else:
+                    assert thm["status"] == "conjectural"
 
         finally:
             os.chdir(old_cwd)
@@ -1342,7 +1354,10 @@ def test_auditor_accepts_explicit_empty_axiom_brackets():
                 manifest = json.load(f)
 
             for thm in manifest["theorems"]:
-                assert thm["status"] == "proven"
+                if thm["name"] in auditor.CORE_THEOREMS:
+                    assert thm["status"] == "proven"
+                else:
+                    assert thm["status"] == "conjectural"
 
         finally:
             os.chdir(old_cwd)

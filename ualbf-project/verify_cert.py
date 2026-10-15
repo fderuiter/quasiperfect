@@ -844,16 +844,27 @@ def verify_certificate(
 
     allowed_axioms = cert_util.ALLOWED_AXIOMS
     sorries = []
+    conjectural_count = 0
+    unconditional_proven_count = 0
     for thm in manifest.get("theorems", []):
         status = thm.get("status")
-        is_whitelisted = status == "proven" or (
-            status == "axiom" and thm.get("name") in allowed_axioms
-        )
-        if not is_whitelisted:
+        if status == "conjectural":
+            hyp = thm.get("hypothesis_dependency")
+            if not hyp or not str(hyp).strip():
+                sorries.append(thm)
+            else:
+                conjectural_count += 1
+        elif status == "proven":
+            unconditional_proven_count += 1
+        elif status == "axiom" and thm.get("name") in allowed_axioms:
+            unconditional_proven_count += 1
+        else:
             sorries.append(thm)
 
     print("\n--- Manifest Summary ---")
     print(f"Total Theorems: {len(manifest.get('theorems', []))}")
+    print(f"Unconditional Proven Theorems: {unconditional_proven_count}")
+    print(f"Conjectural Theorems: {conjectural_count}")
     print(f"Incomplete/Axioms: {len(sorries)}")
 
     if sorries:
