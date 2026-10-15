@@ -579,7 +579,7 @@ def verify_certificate(
     try:
         os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
         cert = cert_util.load_and_validate_cert(cert_path)
-    except cert_util.CertificateError as e:
+    except (cert_util.CertificateError, ImportError) as e:
         print(f"ERROR: {e}")
         sys.exit(1)
 
@@ -713,7 +713,8 @@ def verify_certificate(
         except SystemExit:
             raise
         except Exception as e:
-            print(f"WARNING: Failed to compute logic hash: {e}")
+            print(f"ERROR: Failed to compute logic hash: {e}", file=sys.stderr)
+            sys.exit(1)
 
     manifest = cert_util.BoundedJSONLoader().loads(manifest_content)
 
