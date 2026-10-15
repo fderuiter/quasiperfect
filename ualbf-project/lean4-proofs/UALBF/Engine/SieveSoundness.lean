@@ -135,24 +135,23 @@ theorem rust_sieve_soundness_mod_9 {N p e : ℕ}
   rust_sieve_soundness_generic 3 (S := ModularSieve9) h_qpn h_mod9 hp_prime h_bad_mod
 
 instance ModularSieve5 : ModularSieve 5 where
-  cond N := 5 ∣ N
+  cond _ := True
   ForbiddenComponent p e := sigma (p^(2*e)) % 5 = 0
   forbidden_implies_dvd _p _e h := Nat.dvd_of_mod_eq_zero h
-  obstruction N h_qpn h_cond := by
+  obstruction N h_qpn _h_cond := by
     intro h_dvd
     have h_mod_zero : sigma N % 5 = 0 := Nat.mod_eq_zero_of_dvd h_dvd
-    exact qpn_sigma_mod_5_divides h_qpn h_cond h_mod_zero
+    exact (qpn_sigma_mod_5 h_qpn).1 h_mod_zero
 
 /--
   Soundness of the Rust Engine's Modulo-5 Sieve.
 -/
 theorem rust_sieve_soundness_mod_5 {N p e : ℕ}
   (h_qpn : IsQuasiperfect N)
-  (h_mod5 : 5 ∣ N)
   (hp_prime : p.Prime)
   (h_bad_mod : sigma (p^(2*e)) % 5 = 0) :
   ¬ ExactValuation p (2*e) N :=
-  rust_sieve_soundness_generic 5 (S := ModularSieve5) h_qpn h_mod5 hp_prime h_bad_mod
+  rust_sieve_soundness_generic 5 (S := ModularSieve5) h_qpn True.intro hp_prime h_bad_mod
 
 theorem passes_raycast_sieve_spec (z pe pe1 : ℕ) (_hpe : 0 < pe) (_hpe1 : 0 < pe1) :
     ¬ (z % pe = 0 ∧ z % pe1 ≠ 0) ↔ (z % pe ≠ 0 ∨ z % pe1 = 0) := by

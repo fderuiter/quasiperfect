@@ -40,7 +40,7 @@
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
-      "checksum": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "checksum": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     {
       "name": "UALBF.Engine.Bipartition.prefix_sigma_coprime",
@@ -280,19 +280,19 @@
       "name": "UALBF.Engine.SieveSoundness.rust_sieve_soundness_mod_5",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
-      "checksum": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "checksum": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     {
       "name": "UALBF.Engine.Mod5Bridge.ualbf_check_mod_5_soundness_ffi",
       "file": "UALBF/Engine/Mod5Bridge.lean",
       "status": "proven",
-      "checksum": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f"
+      "checksum": "8a17fa66a83f4144afab96dc870dc7a5ede8413d686581bdb099d5dae0b5bbb9"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.ModularSieve",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
-      "checksum": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "checksum": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
@@ -358,13 +358,13 @@
       "name": "UALBF.Engine.SieveSoundness.passes_raycast_sieve_spec",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
-      "checksum": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "checksum": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     {
       "name": "UALBF.Engine.SieveSoundness.verified_passes_raycast_sieve",
       "file": "UALBF/Engine/SieveSoundness.lean",
       "status": "proven",
-      "checksum": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "checksum": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
@@ -594,7 +594,7 @@
     },
     {
       "file": "UALBF/Engine/Mod5Bridge.lean",
-      "checksum": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f"
+      "checksum": "8a17fa66a83f4144afab96dc870dc7a5ede8413d686581bdb099d5dae0b5bbb9"
     },
     {
       "file": "UALBF/Engine/Obstruction.lean",
@@ -610,7 +610,7 @@
     },
     {
       "file": "UALBF/Engine/SieveSoundness.lean",
-      "checksum": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "checksum": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     {
       "file": "UALBF/Engine/TouchardBridge.lean",
@@ -757,11 +757,11 @@
     },
     "passes_raycast_sieve_spec": {
       "lean_theorem": "UALBF.Engine.SieveSoundness.passes_raycast_sieve_spec",
-      "theorem_hash": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "theorem_hash": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     "verified_passes_raycast_sieve": {
       "lean_theorem": "UALBF.Engine.SieveSoundness.verified_passes_raycast_sieve",
-      "theorem_hash": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5"
+      "theorem_hash": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234"
     },
     "zsigmondy_preconditions_satisfied": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.zsigmondy_preconditions_satisfied",
@@ -938,19 +938,19 @@
         "rust-engine/src/obstruction.rs"
       ],
       "component_hashes": {
-        "rust_sieve_soundness_mod_5": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5",
-        "ualbf_check_mod_5_soundness_ffi": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f",
+        "rust_sieve_soundness_mod_5": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234",
+        "ualbf_check_mod_5_soundness_ffi": "8a17fa66a83f4144afab96dc870dc7a5ede8413d686581bdb099d5dae0b5bbb9",
         "check_mod_5": "e5e09579be22ffcaa427f0c90f41480d393af625cb8a4235d0d7a716cb2f6d48",
         "Mod5Obstruction": "e5e09579be22ffcaa427f0c90f41480d393af625cb8a4235d0d7a716cb2f6d48"
       },
       "file_checksums": {
-        "lean4-proofs/UALBF/Engine/Mod5Bridge.lean": "eb01c656fa0f36dd4f5e713f683e58a7080201ad48acf389a226a42e03ec664f",
-        "lean4-proofs/UALBF/Engine/SieveSoundness.lean": "02184c7e367704a945ce5c7f36d76f26104e92b0619dabbfcdb0eeee8381b1a5",
+        "lean4-proofs/UALBF/Engine/Mod5Bridge.lean": "8a17fa66a83f4144afab96dc870dc7a5ede8413d686581bdb099d5dae0b5bbb9",
+        "lean4-proofs/UALBF/Engine/SieveSoundness.lean": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234",
         "rust-engine/src/lean_ffi.rs": "e5e09579be22ffcaa427f0c90f41480d393af625cb8a4235d0d7a716cb2f6d48",
         "rust-engine/src/obstruction.rs": "7c6a99b49f48f8ea665d5a8567294aa1962534f8ed68068647bf80e19fcb1eb6"
       }
     }
   ],
-  "verified_logic_hash": "5f0465a995e10692931227f4aefce259079eb14ea66db2b8347bc72dd5161264",
+  "verified_logic_hash": "4ba3381698c96f485a7b12c668eee0d8c17fe91db702eab6dc394434589214bd",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
