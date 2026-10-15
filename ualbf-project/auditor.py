@@ -1314,10 +1314,7 @@ def _generate_manifest_impl():
                         pass
 
         rel_file = found_file if found_file else "UALBF/Pure/ABCConjecture.lean"
-        if not has_lean:
-            status = existing_statuses.get(thm, "unverified")
-        else:
-            status = "conjectural"
+        status = "conjectural"
         existing_entry = existing_entries.get(thm, {})
         hyp = existing_entry.get("hypothesis_dependency", "ABCConjectureStatement")
         checksum = theorem_checksum(thm, rel_file, status)
