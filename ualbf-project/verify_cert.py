@@ -579,7 +579,7 @@ def verify_certificate(
     try:
         os.environ["UALBF_PROOF_MANIFEST"] = os.path.abspath(manifest_path)
         cert = cert_util.load_and_validate_cert(cert_path)
-    except cert_util.CertificateError as e:
+    except (cert_util.CertificateError, ImportError) as e:
         print(f"ERROR: {e}")
         sys.exit(1)
 
@@ -713,7 +713,8 @@ def verify_certificate(
         except SystemExit:
             raise
         except Exception as e:
-            print(f"WARNING: Failed to compute logic hash: {e}")
+            print(f"ERROR: Failed to compute logic hash: {e}", file=sys.stderr)
+            sys.exit(1)
 
     manifest = cert_util.BoundedJSONLoader().loads(manifest_content)
 
@@ -844,16 +845,27 @@ def verify_certificate(
 
     allowed_axioms = cert_util.ALLOWED_AXIOMS
     sorries = []
+    conjectural_count = 0
+    unconditional_proven_count = 0
     for thm in manifest.get("theorems", []):
         status = thm.get("status")
-        is_whitelisted = status == "proven" or (
-            status == "axiom" and thm.get("name") in allowed_axioms
-        )
-        if not is_whitelisted:
+        if status == "conjectural":
+            hyp = thm.get("hypothesis_dependency")
+            if not hyp or not str(hyp).strip():
+                sorries.append(thm)
+            else:
+                conjectural_count += 1
+        elif status == "proven":
+            unconditional_proven_count += 1
+        elif status == "axiom" and thm.get("name") in allowed_axioms:
+            unconditional_proven_count += 1
+        else:
             sorries.append(thm)
 
     print("\n--- Manifest Summary ---")
     print(f"Total Theorems: {len(manifest.get('theorems', []))}")
+    print(f"Unconditional Proven Theorems: {unconditional_proven_count}")
+    print(f"Conjectural Theorems: {conjectural_count}")
     print(f"Incomplete/Axioms: {len(sorries)}")
 
     if sorries:

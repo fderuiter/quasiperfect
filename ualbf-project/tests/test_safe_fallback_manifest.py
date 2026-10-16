@@ -68,8 +68,12 @@ def test_check_lean_environment_missing_fails():
 
         assert manifest.get("status") == "unverified"
         assert len(manifest.get("theorems", [])) > 0
+        import auditor
         for thm in manifest["theorems"]:
-            assert thm["status"] == "unverified"
+            if thm["name"] in auditor.CONJECTURAL_THEOREMS:
+                assert thm["status"] == "conjectural"
+            else:
+                assert thm["status"] == "unverified"
 
 
 def test_verify_cert_rejects_global_unverified_manifest(tmp_path):
