@@ -542,8 +542,6 @@ CORE_THEOREMS = [
     "UALBF.FFI.U512.w5_mk",
     "UALBF.FFI.U512.w6_mk",
     "UALBF.FFI.U512.w7_mk",
-    "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
-    "UALBF.Pure.ABCConjecture.conjectural_ceiling_size_exclusion",
     "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
     "UALBF.Engine.Mod1155Bridge.mod1155_to_mod3",
     "UALBF.Engine.Mod1155Bridge.mod1155_to_mod5",
@@ -582,6 +580,11 @@ CORE_THEOREMS = [
     "UALBF.Pure.Arithmetic.lemma_f_squared_gt_n_minus_1",
     "UALBF.Pure.Arithmetic.lemma_pocklington_certificate",
     "UALBF.Pure.Arithmetic.lemma_divisibility_transitive",
+]
+
+CONJECTURAL_THEOREMS = [
+    "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
+    "UALBF.Pure.ABCConjecture.conjectural_ceiling_size_exclusion",
 ]
 
 # No Lean axioms are whitelisted: any `axiom` reached by a core theorem fails the audit.

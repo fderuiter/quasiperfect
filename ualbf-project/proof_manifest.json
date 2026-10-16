@@ -211,18 +211,6 @@
       "checksum": "0d17fd36a53e645c80ef6c67c91a034110e2a2d6317a9fe44c6abe4b2fc07ba3"
     },
     {
-      "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
-      "file": "UALBF/Pure/ABCConjecture.lean",
-      "status": "proven",
-      "checksum": "e22eaa1a38904f80693db2f12ceddc0e3c5b45a413341ae500a22c092ae69415"
-    },
-    {
-      "name": "UALBF.Pure.ABCConjecture.conjectural_ceiling_size_exclusion",
-      "file": "UALBF/Pure/ABCConjecture.lean",
-      "status": "proven",
-      "checksum": "e22eaa1a38904f80693db2f12ceddc0e3c5b45a413341ae500a22c092ae69415"
-    },
-    {
       "name": "UALBF.Engine.Mod1155Bridge.mod_eq_of_mod_eq_of_dvd",
       "file": "UALBF/Engine/Mod1155Bridge.lean",
       "status": "proven",
@@ -449,6 +437,20 @@
       "file": "UALBF/Pure/Arithmetic.lean",
       "status": "proven",
       "checksum": "e272303ea6a318ffe7560f6a8d62cddc3d8903680dadf7f5563c4849ac043630"
+    },
+    {
+      "name": "UALBF.Pure.ABCConjecture.derive_conjectural_ceiling",
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "status": "conjectural",
+      "hypothesis_dependency": "ABCConjectureStatement",
+      "checksum": "e22eaa1a38904f80693db2f12ceddc0e3c5b45a413341ae500a22c092ae69415"
+    },
+    {
+      "name": "UALBF.Pure.ABCConjecture.conjectural_ceiling_size_exclusion",
+      "file": "UALBF/Pure/ABCConjecture.lean",
+      "status": "conjectural",
+      "hypothesis_dependency": "ABCConjectureStatement",
+      "checksum": "e22eaa1a38904f80693db2f12ceddc0e3c5b45a413341ae500a22c092ae69415"
     }
   ],
   "verus_hashes": {
@@ -945,6 +947,6 @@
       }
     }
   ],
-  "verified_logic_hash": "71569ee8b2cca776d6d8006a3ad3dd76326fe1dec19b29a87943d1227ad5cf6c",
+  "verified_logic_hash": "5b3efa02d05a769e03949076aba5f54c495795dcdb74662b30a712ae0f598429",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }

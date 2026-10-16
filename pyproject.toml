@@ -59,4 +59,4 @@ show_missing = true
 # and are executed as part of custom manual/isolated validation suites.
 pythonpath = ["ualbf-project"]
 norecursedirs = ["scripts", "prototypes", "experimental", ".lake"]
-addopts = "--cov=auditor --cov=cert_util --cov=hash_util --cov=matrix_utils --cov=time_utils --cov=verify_metadata --cov=paper --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80 --ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_verify_cert.py"
+addopts = "--cov=auditor --cov=hash_util --cov=matrix_utils --cov=time_utils --cov=verify_metadata --cov=paper --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80 --ignore=ualbf-project/tests/test_verify_cert.py --ignore=tests/test_verify_cert.py"
