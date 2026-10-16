@@ -1,7 +1,9 @@
 import Mathlib.Data.Nat.Basic
+import Mathlib.Data.Nat.Factorization.Basic
 import UALBF.Basic
 import UALBF.Engine.SearchState
 import UALBF.Engine.CyclotomicGraph
+import UALBF.QPN.PrasadSunitha
 
 namespace UALBF.Engine
 
@@ -46,6 +48,30 @@ theorem ruleB_safe {p e N : ℕ}
     (h_qpn : IsQuasiperfect N) (d : ℕ) (hd : d ∣ (2 * e + 1)) (hd1 : 1 < d) :
     ∃ q, q.Prime ∧ q % d = 1 ∧ q ∣ sigma N :=
   CyclotomicGraph.forced_inclusion hp_prime hp_ge_3 he1 h_exact h_qpn d hd hd1
+
+/--
+  Prasad-Sunitha Search Tree Component Bounding Theorem.
+  Proves that candidate integers constructed from a finite search component list
+  cannot exceed the maximum factor count derived from the component list length,
+  and therefore cannot yield a quasiperfect number when the component count is strictly
+  less than the required Prasad-Sunitha bound.
+-/
+theorem prasad_sunitha_component_bound {N : ℕ} {components : Finset ℕ} {bound : ℕ}
+    (h_sub : N.primeFactors ⊆ components)
+    (h_ps_bound : bound ≤ N.primeFactors.card) :
+    bound ≤ components.card :=
+  le_trans h_ps_bound (Finset.card_le_card h_sub)
+
+/--
+  Corollary connecting a quasiperfect candidate integer N coprime to 15
+  and constructed from a component list to the Prasad-Sunitha bound (15).
+-/
+theorem prasad_sunitha_component_bound_qpn {N : ℕ} {components : Finset ℕ}
+    (h_qpn : IsQuasiperfect N)
+    (h_coprime : N.gcd 15 = 1)
+    (h_sub : N.primeFactors ⊆ components) :
+    UALBF.Manifest.PRASAD_SUNITHA_PROOF_BOUND ≤ components.card :=
+  prasad_sunitha_component_bound h_sub (UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound h_qpn h_coprime)
 
 def dfs_step : SearchM Unit := do
   let s ← get
