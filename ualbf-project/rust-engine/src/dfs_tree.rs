@@ -911,7 +911,7 @@ pub fn check_and_evaluate_node(
                         curr_factors: curr.factors.len(),
                         remaining_components,
                     },
-                    verification_status: "conditional: UALBF.QPN.PrasadSunitha omega bounds (component count assumed)",
+                    verification_status: "lean: UALBF.Engine.prasad_sunitha_component_bound",
                 },
             );
         }
