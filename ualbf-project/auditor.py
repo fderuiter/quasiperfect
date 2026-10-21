@@ -1658,7 +1658,10 @@ def check_documentation(manifest, repo_root=None):
             return True
         # 3. Suffix matching via cache
         target_base = os.path.basename(target)
-        if target_base in ["profile.json", "checkpoint.json"] or f"{target_base}.template" in all_files_cache:
+        if (
+            target_base in ["profile.json", "checkpoint.json"]
+            or f"{target_base}.template" in all_files_cache
+        ):
             return True
         if target_base in all_files_cache:
             for full_path in all_files_cache[target_base]:
