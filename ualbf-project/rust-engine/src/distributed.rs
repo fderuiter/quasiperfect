@@ -221,6 +221,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+pub const DEFAULT_MAX_RETRIES: usize = 3;
+
 struct ActiveWorkerState {
     active_task: RangeWorkUnit,
     last_heartbeat: Instant,
@@ -232,12 +234,19 @@ pub struct CheckpointSchema {
     pub pending: Vec<RangeWorkUnit>,
     #[serde(default)]
     pub completed: Vec<RangeWorkUnit>,
+    #[serde(default)]
+    pub retries: Vec<(RangeWorkUnit, usize)>,
 }
 
 pub fn load_checkpoint_or_fallback(
     checkpoint_path: &str,
     default_units: Vec<RangeWorkUnit>,
-) -> (Vec<RangeWorkUnit>, Vec<RangeWorkUnit>, bool) {
+) -> (
+    Vec<RangeWorkUnit>,
+    Vec<RangeWorkUnit>,
+    HashMap<RangeWorkUnit, usize>,
+    bool,
+) {
     if let Ok(content) = std::fs::read_to_string(checkpoint_path) {
         println!("Resuming from {}", checkpoint_path);
         // Try to parse as the new unified checkpoint schema first
@@ -249,20 +258,21 @@ pub fn load_checkpoint_or_fallback(
             // are popped from the end), appending active units to the end of the queue Vec puts them at the "front" of
             // execution priority.
             initial_queue.extend(schema.active);
-            (initial_queue, schema.completed, true)
+            let retries_map: HashMap<RangeWorkUnit, usize> = schema.retries.into_iter().collect();
+            (initial_queue, schema.completed, retries_map, true)
         } else if let Ok(legacy_units) = serde_json::from_str::<Vec<RangeWorkUnit>>(&content) {
             // Fallback parsing: convert flat legacy format into unassigned tasks
-            (legacy_units, vec![], true)
+            (legacy_units, vec![], HashMap::new(), true)
         } else {
             // Reject corrupt or invalid JSON files by ignoring/falling back to generated units
             eprintln!(
                 "Warning: corrupt or invalid checkpoint file {}. Falling back to generated units.",
                 checkpoint_path
             );
-            (default_units, vec![], false)
+            (default_units, vec![], HashMap::new(), false)
         }
     } else {
-        (default_units, vec![], false)
+        (default_units, vec![], HashMap::new(), false)
     }
 }
 
@@ -271,6 +281,7 @@ fn save_checkpoint(
     queue: &[RangeWorkUnit],
     active_workers: &HashMap<usize, ActiveWorkerState>,
     completed_set: &HashSet<RangeWorkUnit>,
+    retry_counts: &HashMap<RangeWorkUnit, usize>,
 ) {
     let active: Vec<RangeWorkUnit> = active_workers
         .values()
@@ -278,10 +289,15 @@ fn save_checkpoint(
         .collect();
     let pending = queue.to_vec();
     let completed: Vec<RangeWorkUnit> = completed_set.iter().cloned().collect();
+    let retries: Vec<(RangeWorkUnit, usize)> = retry_counts
+        .iter()
+        .map(|(k, v)| (k.clone(), *v))
+        .collect();
     let schema = CheckpointSchema {
         active,
         pending,
         completed,
+        retries,
     };
     if let Ok(json) = serde_json::to_string(&schema) {
         let temp_path = format!("{}.tmp", checkpoint_path);
@@ -328,8 +344,11 @@ pub fn run_controller(
     let checkpoint_path = "checkpoint.json";
 
     // Load from checkpoint if exists with fallback parsing
-    let (initial_units, initial_completed, is_new_or_legacy) =
+    let (initial_units, initial_completed, initial_retries, is_new_or_legacy) =
         load_checkpoint_or_fallback(checkpoint_path, units);
+
+    let retry_counts = Arc::new(Mutex::new(initial_retries));
+    let is_failed = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let completed_set = Arc::new(Mutex::new(HashSet::<RangeWorkUnit>::from_iter(
         initial_completed,
@@ -363,8 +382,9 @@ pub fn run_controller(
     if is_new_or_legacy {
         let queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
         let completed = completed_set.lock().unwrap_or_else(|e| e.into_inner());
+        let retries = retry_counts.lock().unwrap_or_else(|e| e.into_inner());
         let empty_workers = HashMap::new();
-        save_checkpoint(checkpoint_path, &queue, &empty_workers, &completed);
+        save_checkpoint(checkpoint_path, &queue, &empty_workers, &completed, &retries);
     }
 
     let is_finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -386,6 +406,7 @@ pub fn run_controller(
     let active_workers_monitor = Arc::clone(&active_workers);
     let work_queue_monitor = Arc::clone(&work_queue);
     let completed_set_monitor = Arc::clone(&completed_set);
+    let retry_counts_monitor = Arc::clone(&retry_counts);
     let checkpoint_path_monitor = checkpoint_path.to_string();
     let is_finished_monitor = Arc::clone(&is_finished);
 
@@ -413,6 +434,9 @@ pub fn run_controller(
                 let completed = completed_set_monitor
                     .lock()
                     .unwrap_or_else(|e| e.into_inner());
+                let retries = retry_counts_monitor
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
                 let mut changed = false;
                 for id in &to_remove {
                     if let Some(state) = workers.remove(id) {
@@ -422,7 +446,7 @@ pub fn run_controller(
                     }
                 }
                 if changed {
-                    save_checkpoint(&checkpoint_path_monitor, &queue, &workers, &completed);
+                    save_checkpoint(&checkpoint_path_monitor, &queue, &workers, &completed, &retries);
                 }
             }
         }
@@ -436,6 +460,8 @@ pub fn run_controller(
                 let work_queue = Arc::clone(&work_queue);
                 let completed_set = Arc::clone(&completed_set);
                 let active_workers = Arc::clone(&active_workers);
+                let retry_counts = Arc::clone(&retry_counts);
+                let is_failed_worker = Arc::clone(&is_failed);
                 let worker_id = worker_id_counter.fetch_add(1, Ordering::Relaxed);
                 let checkpoint_path_clone = checkpoint_path.to_string();
                 let is_finished_worker = Arc::clone(&is_finished);
@@ -481,12 +507,16 @@ pub fn run_controller(
                                     }
                                     let completed =
                                         completed_set.lock().unwrap_or_else(|e| e.into_inner());
+                                    let retries =
+                                        retry_counts.lock().unwrap_or_else(|e| e.into_inner());
                                     save_checkpoint(
                                         &checkpoint_path_clone,
                                         &queue,
                                         &workers,
                                         &completed,
+                                        &retries,
                                     );
+                                    drop(retries);
                                     drop(completed);
                                     drop(workers);
                                     drop(queue);
@@ -508,35 +538,110 @@ pub fn run_controller(
                                     if let Ok(event_json) = serde_json::to_string(&event) {
                                         println!("{}", event_json);
                                     }
-                                    if let crate::events::SearchEvent::DFSComplete {
-                                        total_branches,
-                                        ap,
-                                        rp,
-                                        bp,
-                                        math_interruptions,
-                                        range,
-                                    } = event
-                                    {
-                                        let mut queue =
-                                            work_queue.lock().unwrap_or_else(|e| e.into_inner());
-                                        let mut workers = active_workers
-                                            .lock()
-                                            .unwrap_or_else(|e| e.into_inner());
-                                        let mut completed =
-                                            completed_set.lock().unwrap_or_else(|e| e.into_inner());
+                                    match event {
+                                        crate::events::SearchEvent::DFSComplete {
+                                            total_branches,
+                                            ap,
+                                            rp,
+                                            bp,
+                                            math_interruptions,
+                                            range,
+                                        } if math_interruptions == 0 => {
+                                            let mut queue =
+                                                work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut workers = active_workers
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
+                                            let mut completed =
+                                                completed_set.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut retries =
+                                                retry_counts.lock().unwrap_or_else(|e| e.into_inner());
 
-                                        let matches_active =
-                                            if let Some(state) = workers.get(&worker_id) {
-                                                state.active_task == range
+                                            let matches_active =
+                                                if let Some(state) = workers.get(&worker_id) {
+                                                    state.active_task == range
+                                                } else {
+                                                    false
+                                                };
+
+                                            if matches_active {
+                                                workers.remove(&worker_id);
+                                                retries.remove(&range);
+
+                                                let is_new = completed.insert(range.clone());
+                                                if is_new {
+                                                    total_branches_acc
+                                                        .fetch_add(total_branches, Ordering::Relaxed);
+                                                    ap_acc.fetch_add(ap, Ordering::Relaxed);
+                                                    rp_acc.fetch_add(rp, Ordering::Relaxed);
+                                                    bp_acc.fetch_add(bp, Ordering::Relaxed);
+                                                    math_interruptions_acc.fetch_add(
+                                                        math_interruptions,
+                                                        Ordering::Relaxed,
+                                                    );
+                                                    {
+                                                        let mut ranges = completed_ranges
+                                                            .lock()
+                                                            .unwrap_or_else(|e| e.into_inner());
+                                                        ranges.push(range);
+                                                    }
+                                                }
+
+                                                save_checkpoint(
+                                                    &checkpoint_path_clone,
+                                                    &queue,
+                                                    &workers,
+                                                    &completed,
+                                                    &retries,
+                                                );
+                                                if completed.len() >= total_units {
+                                                    if let Ok(p4_json) = serde_json::to_string(
+                                                        &crate::events::SearchEvent::Phase {
+                                                            phase: 4,
+                                                            name: "All work units completed"
+                                                                .to_string(),
+                                                        },
+                                                    ) {
+                                                        println!("{}", p4_json);
+                                                    }
+                                                    is_finished_worker.store(true, Ordering::SeqCst);
+                                                }
                                             } else {
-                                                false
-                                            };
+                                                println!(
+                                                    "Worker {} completion event dropped: range {:?} does not match active worker task.",
+                                                    worker_id, range
+                                                );
+                                            }
+                                        }
+                                        crate::events::SearchEvent::DFSInterrupted {
+                                            total_branches,
+                                            ap,
+                                            rp,
+                                            bp,
+                                            math_interruptions,
+                                            error_metadata,
+                                            range,
+                                        } => {
+                                            let mut queue =
+                                                work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut workers = active_workers
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
+                                            let completed =
+                                                completed_set.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut retries =
+                                                retry_counts.lock().unwrap_or_else(|e| e.into_inner());
 
-                                        if matches_active {
-                                            workers.remove(&worker_id);
+                                            let matches_active =
+                                                if let Some(state) = workers.get(&worker_id) {
+                                                    state.active_task == range
+                                                } else {
+                                                    false
+                                                };
 
-                                            let is_new = completed.insert(range.clone());
-                                            if is_new {
+                                            if matches_active {
+                                                workers.remove(&worker_id);
+
                                                 total_branches_acc
                                                     .fetch_add(total_branches, Ordering::Relaxed);
                                                 ap_acc.fetch_add(ap, Ordering::Relaxed);
@@ -546,38 +651,139 @@ pub fn run_controller(
                                                     math_interruptions,
                                                     Ordering::Relaxed,
                                                 );
-                                                {
-                                                    let mut ranges = completed_ranges
-                                                        .lock()
-                                                        .unwrap_or_else(|e| e.into_inner());
-                                                    ranges.push(range);
-                                                }
-                                            }
 
-                                            save_checkpoint(
-                                                &checkpoint_path_clone,
-                                                &queue,
-                                                &workers,
-                                                &completed,
-                                            );
-                                            if completed.len() >= total_units {
-                                                if let Ok(p4_json) = serde_json::to_string(
-                                                    &crate::events::SearchEvent::Phase {
-                                                        phase: 4,
-                                                        name: "All work units completed"
-                                                            .to_string(),
-                                                    },
-                                                ) {
-                                                    println!("{}", p4_json);
+                                                let current_retries =
+                                                    retries.entry(range.clone()).or_insert(0);
+                                                *current_retries += 1;
+                                                let attempt_count = *current_retries;
+
+                                                if attempt_count <= DEFAULT_MAX_RETRIES {
+                                                    eprintln!(
+                                                        "Work unit interrupted due to math error ({}); attempt {}/{} for range {:?}. Re-queueing task.",
+                                                        error_metadata,
+                                                        attempt_count,
+                                                        DEFAULT_MAX_RETRIES,
+                                                        range
+                                                    );
+                                                    queue.push(range.clone());
+                                                    save_checkpoint(
+                                                        &checkpoint_path_clone,
+                                                        &queue,
+                                                        &workers,
+                                                        &completed,
+                                                        &retries,
+                                                    );
+                                                } else {
+                                                    eprintln!(
+                                                        "FATAL: Work unit {:?} exceeded maximum retry limit ({}/{}). Stopping search execution.",
+                                                        range, attempt_count, DEFAULT_MAX_RETRIES
+                                                    );
+                                                    queue.push(range.clone());
+                                                    save_checkpoint(
+                                                        &checkpoint_path_clone,
+                                                        &queue,
+                                                        &workers,
+                                                        &completed,
+                                                        &retries,
+                                                    );
+                                                    is_failed_worker.store(true, Ordering::SeqCst);
+                                                    is_finished_worker.store(true, Ordering::SeqCst);
                                                 }
-                                                is_finished_worker.store(true, Ordering::SeqCst);
+                                            } else {
+                                                println!(
+                                                    "Worker {} interruption event dropped: range {:?} does not match active worker task.",
+                                                    worker_id, range
+                                                );
                                             }
-                                        } else {
-                                            println!(
-                                                "Worker {} completion event dropped: range {:?} does not match active worker task.",
-                                                worker_id, range
-                                            );
                                         }
+                                        crate::events::SearchEvent::DFSComplete {
+                                            total_branches,
+                                            ap,
+                                            rp,
+                                            bp,
+                                            math_interruptions,
+                                            range,
+                                        } => {
+                                            let mut queue =
+                                                work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut workers = active_workers
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
+                                            let completed =
+                                                completed_set.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut retries =
+                                                retry_counts.lock().unwrap_or_else(|e| e.into_inner());
+
+                                            let matches_active =
+                                                if let Some(state) = workers.get(&worker_id) {
+                                                    state.active_task == range
+                                                } else {
+                                                    false
+                                                };
+
+                                            if matches_active {
+                                                workers.remove(&worker_id);
+
+                                                total_branches_acc
+                                                    .fetch_add(total_branches, Ordering::Relaxed);
+                                                ap_acc.fetch_add(ap, Ordering::Relaxed);
+                                                rp_acc.fetch_add(rp, Ordering::Relaxed);
+                                                bp_acc.fetch_add(bp, Ordering::Relaxed);
+                                                math_interruptions_acc.fetch_add(
+                                                    math_interruptions,
+                                                    Ordering::Relaxed,
+                                                );
+
+                                                let current_retries =
+                                                    retries.entry(range.clone()).or_insert(0);
+                                                *current_retries += 1;
+                                                let attempt_count = *current_retries;
+
+                                                let metadata = format!(
+                                                    "Work unit interrupted with {} math error(s)",
+                                                    math_interruptions
+                                                );
+
+                                                if attempt_count <= DEFAULT_MAX_RETRIES {
+                                                    eprintln!(
+                                                        "Work unit interrupted due to math error ({}); attempt {}/{} for range {:?}. Re-queueing task.",
+                                                        metadata,
+                                                        attempt_count,
+                                                        DEFAULT_MAX_RETRIES,
+                                                        range
+                                                    );
+                                                    queue.push(range.clone());
+                                                    save_checkpoint(
+                                                        &checkpoint_path_clone,
+                                                        &queue,
+                                                        &workers,
+                                                        &completed,
+                                                        &retries,
+                                                    );
+                                                } else {
+                                                    eprintln!(
+                                                        "FATAL: Work unit {:?} exceeded maximum retry limit ({}/{}). Stopping search execution.",
+                                                        range, attempt_count, DEFAULT_MAX_RETRIES
+                                                    );
+                                                    queue.push(range.clone());
+                                                    save_checkpoint(
+                                                        &checkpoint_path_clone,
+                                                        &queue,
+                                                        &workers,
+                                                        &completed,
+                                                        &retries,
+                                                    );
+                                                    is_failed_worker.store(true, Ordering::SeqCst);
+                                                    is_finished_worker.store(true, Ordering::SeqCst);
+                                                }
+                                            } else {
+                                                println!(
+                                                    "Worker {} interruption event dropped: range {:?} does not match active worker task.",
+                                                    worker_id, range
+                                                );
+                                            }
+                                        }
+                                        _ => {}
                                     }
                                 }
                             },
@@ -589,13 +795,14 @@ pub fn run_controller(
                     let mut queue = work_queue.lock().unwrap_or_else(|e| e.into_inner());
                     let mut workers = active_workers.lock().unwrap_or_else(|e| e.into_inner());
                     let completed = completed_set.lock().unwrap_or_else(|e| e.into_inner());
+                    let retries = retry_counts.lock().unwrap_or_else(|e| e.into_inner());
                     if let Some(state) = workers.remove(&worker_id) {
                         println!(
                             "Worker {} disconnected unexpectedly. Recovering task.",
                             worker_id
                         );
                         queue.push(state.active_task);
-                        save_checkpoint(&checkpoint_path_clone, &queue, &workers, &completed);
+                        save_checkpoint(&checkpoint_path_clone, &queue, &workers, &completed, &retries);
                     }
                 });
             }
@@ -818,24 +1025,36 @@ pub fn run_worker(
                 let unit_math_interruptions = math_interruptions.load(Ordering::Relaxed);
                 total_math_interruptions += unit_math_interruptions;
                 total_boundary_pruned += boundary_pruned.load(Ordering::Relaxed);
-                if unit_math_interruptions == 0 {
+                let rep = if unit_math_interruptions == 0 {
                     explored_ranges.push(range_bound.clone());
+                    Message::Event(crate::events::SearchEvent::DFSComplete {
+                        total_branches: count.into_inner(),
+                        ap: abundance_pruned.into_inner(),
+                        rp: pruned_count.into_inner(),
+                        bp: boundary_pruned.into_inner(),
+                        math_interruptions: 0,
+                        range: range_bound.clone(),
+                    })
                 } else {
                     eprintln!(
                         "Work unit interrupted due to {} mathematical evaluation error(s); range completion aborted.",
                         unit_math_interruptions
                     );
-                }
-                let rep = Message::Event(crate::events::SearchEvent::DFSComplete {
-                    total_branches: count.into_inner(),
-                    ap: abundance_pruned.into_inner(),
-                    rp: pruned_count.into_inner(),
-                    bp: boundary_pruned.into_inner(),
-                    math_interruptions: math_interruptions.into_inner(),
-                    range: range_bound.clone(),
-                });
+                    Message::Event(crate::events::SearchEvent::DFSInterrupted {
+                        total_branches: count.into_inner(),
+                        ap: abundance_pruned.into_inner(),
+                        rp: pruned_count.into_inner(),
+                        bp: boundary_pruned.into_inner(),
+                        math_interruptions: unit_math_interruptions,
+                        error_metadata: format!(
+                            "Work unit interrupted due to {} mathematical evaluation error(s)",
+                            unit_math_interruptions
+                        ),
+                        range: range_bound.clone(),
+                    })
+                };
                 if send_message(&stream_mutex, &rep).is_err() {
-                    eprintln!("Failed to send DFSComplete event to controller.");
+                    eprintln!("Failed to send event to controller.");
                     break;
                 }
             }
@@ -887,6 +1106,7 @@ mod tests {
             active: vec![a1.clone()],
             pending: vec![p1.clone(), p2.clone()],
             completed: vec![],
+            retries: vec![],
         };
 
         let json = serde_json::to_string(&schema).unwrap();
@@ -894,7 +1114,7 @@ mod tests {
 
         // Load it back
         let default_units = vec![];
-        let (loaded, completed, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, _retries, ok) = load_checkpoint_or_fallback(temp_path, default_units);
         assert!(ok);
         assert!(completed.is_empty());
         // It should have: pending + active.
@@ -927,7 +1147,7 @@ mod tests {
 
         // Load it back
         let default_units = vec![];
-        let (loaded, completed, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, _retries, ok) = load_checkpoint_or_fallback(temp_path, default_units);
         assert!(ok);
         assert!(completed.is_empty());
         assert_eq!(loaded.len(), 2);
@@ -950,7 +1170,7 @@ mod tests {
         };
         let default_units = vec![p_default.clone()];
 
-        let (loaded, completed, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, _retries, ok) = load_checkpoint_or_fallback(temp_path, default_units);
         assert!(!ok); // Rejected corrupt JSON
         assert!(completed.is_empty());
         assert_eq!(loaded.len(), 1);
@@ -990,9 +1210,12 @@ mod tests {
         );
 
         let mut completed_set = HashSet::new();
-        completed_set.insert(c1);
+        completed_set.insert(c1.clone());
 
-        save_checkpoint(temp_path, &queue, &active_workers, &completed_set);
+        let mut retries = HashMap::new();
+        retries.insert(c1, 1);
+
+        save_checkpoint(temp_path, &queue, &active_workers, &completed_set, &retries);
 
         // Verify test_checkpoint_atomic.json exists and contains correct content
         assert!(std::path::Path::new(temp_path).exists());
@@ -1528,6 +1751,129 @@ mod tests {
         let (telemetry, ranges) = controller_handle.join().unwrap();
         assert_eq!(telemetry.total_branches, 400);
         assert_eq!(ranges.len(), 2);
+        let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_bounded_task_requeue_on_dfs_interrupted() {
+        let _ = fs::remove_file("checkpoint.json");
+        let addr = "127.0.0.1:29881";
+        let u1 = RangeWorkUnit {
+            start_bound: vec![10, 20],
+            end_bound: vec![30, 40],
+        };
+        let work_units = vec![u1.clone()];
+
+        let controller_handle = thread::spawn(move || run_controller(addr, work_units));
+        thread::sleep(Duration::from_millis(50));
+
+        let client = TcpStream::connect(addr).unwrap();
+        let mut client_reader = client.try_clone().unwrap();
+        let client_mutex = Arc::new(Mutex::new(client));
+
+        // 1st request -> work unit assigned
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg: Message = recv_message(&mut client_reader).unwrap();
+        let task1 = match msg {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+        assert_eq!(task1, u1);
+
+        // 1st result -> DFSInterrupted
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSInterrupted {
+                total_branches: 10,
+                ap: 1,
+                rp: 0,
+                bp: 0,
+                math_interruptions: 1,
+                error_metadata: "Evaluation interruption".to_string(),
+                range: task1.clone(),
+            }),
+        )
+        .unwrap();
+
+        thread::sleep(Duration::from_millis(50));
+
+        // 2nd request -> task re-queued and reassigned
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg2: Message = recv_message(&mut client_reader).unwrap();
+        let task2 = match msg2 {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+        assert_eq!(task2, u1);
+
+        // 2nd result -> DFSComplete
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 20,
+                ap: 2,
+                rp: 0,
+                bp: 0,
+                math_interruptions: 0,
+                range: task2,
+            }),
+        )
+        .unwrap();
+
+        let (telemetry, ranges) = controller_handle.join().unwrap();
+        assert_eq!(telemetry.total_branches, 30);
+        assert_eq!(telemetry.math_interruptions, 1);
+        assert_eq!(ranges.len(), 1);
+        let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_bounded_task_requeue_exceed_max_retries() {
+        let _ = fs::remove_file("checkpoint.json");
+        let addr = "127.0.0.1:29882";
+        let u1 = RangeWorkUnit {
+            start_bound: vec![100, 200],
+            end_bound: vec![300, 400],
+        };
+        let work_units = vec![u1.clone()];
+
+        let controller_handle = thread::spawn(move || run_controller(addr, work_units));
+        thread::sleep(Duration::from_millis(50));
+
+        let client = TcpStream::connect(addr).unwrap();
+        let mut client_reader = client.try_clone().unwrap();
+        let client_mutex = Arc::new(Mutex::new(client));
+
+        // Attempt 1..=4 interruptions (exceeding DEFAULT_MAX_RETRIES = 3)
+        for i in 1..=4 {
+            send_message(&client_mutex, &Message::RequestWork).unwrap();
+            let msg: Message = recv_message(&mut client_reader).unwrap();
+            let task = match msg {
+                Message::WorkUnit(Some(u)) => u,
+                _ => panic!("Expected WorkUnit on attempt {}", i),
+            };
+            assert_eq!(task, u1);
+
+            send_message(
+                &client_mutex,
+                &Message::Event(crate::events::SearchEvent::DFSInterrupted {
+                    total_branches: 5,
+                    ap: 0,
+                    rp: 0,
+                    bp: 0,
+                    math_interruptions: 1,
+                    error_metadata: "Persistent evaluation error".to_string(),
+                    range: task,
+                }),
+            )
+            .unwrap();
+
+            thread::sleep(Duration::from_millis(50));
+        }
+
+        let (telemetry, ranges) = controller_handle.join().unwrap();
+        assert_eq!(telemetry.math_interruptions, 4);
+        assert!(ranges.is_empty()); // Range was NOT completed
         let _ = fs::remove_file("checkpoint.json");
     }
 }
