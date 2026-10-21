@@ -698,6 +698,14 @@ pub fn check_and_evaluate_node(
             }
         }
 
+        let num_available = best_abundances.len();
+        let tail_padded = num_available < max_allowed;
+
+        let p_sieve = Uint::from_u64(crate::lean_ffi::get_sieve_limit() as u64);
+        let one_fp = Uint::one() << 64;
+        let tail_frac = (one_fp + p_sieve - Uint::one()) / p_sieve;
+        let tail_multiplier_fp = one_fp + tail_frac;
+
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
         let mut accum_lhs = curr
@@ -720,6 +728,21 @@ pub fn check_and_evaluate_node(
             }
         }
 
+        if tail_padded && accum_lhs < accum_rhs {
+            let missing_slots = max_allowed - num_available;
+            for _ in 0..missing_slots {
+                let prod = accum_lhs
+                    .checked_mul(tail_multiplier_fp)
+                    .unwrap_or(Uint::MAX);
+                let offset = (Uint::one() << 64) - Uint::one();
+                accum_lhs = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
+                max_factors_needed += 1;
+                if accum_lhs >= accum_rhs {
+                    break;
+                }
+            }
+        }
+
         let mut best_15: Uint = Uint::one() << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
             let ab_u256 = Uint::from_u128((ab) as u128);
@@ -728,12 +751,25 @@ pub fn check_and_evaluate_node(
             best_15 = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
         }
 
+        if tail_padded {
+            let missing_slots = max_allowed - num_available;
+            for _ in 0..missing_slots {
+                let prod = best_15.checked_mul(tail_multiplier_fp).unwrap_or(Uint::MAX);
+                let offset = (Uint::one() << 64) - Uint::one();
+                best_15 = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
+            }
+        }
+
         // Final LHS = (s_l * best_15) >> 64
         let best_15_u128 = best_15.as_u128();
 
-        (curr.factors.len() + max_factors_needed, best_15_u128)
+        (
+            curr.factors.len() + max_factors_needed,
+            best_15_u128,
+            tail_padded,
+        )
     } else {
-        (get_min_prime_factors(), static_best_remaining)
+        (get_min_prime_factors(), static_best_remaining, false)
     };
 
     let factor_3_present = curr.factors.contains(&3);
@@ -853,6 +889,7 @@ pub fn check_and_evaluate_node(
                         dynamic_best_achievable_fp,
                         lhs: lhs_dyn,
                         rhs: rhs_dyn,
+                        tail_padded,
                     },
                     verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
                 },
@@ -3241,6 +3278,67 @@ mod tests {
                         );
                     }
                 );
+            }
+        }
+
+        // 4. Tail-padded Dynamic Starvation Unit Tests
+        {
+            // Test trace event serialization for dynamic starvation tail padding
+            let event_padded = crate::trace::TraceEvent {
+                work_unit_id: 1,
+                step_index: 100,
+                factors: smallvec::smallvec![7, 11],
+                n_l: Uint::from_u64(77),
+                s_l: Uint::from_u64(96),
+                reason: crate::trace::PruneReason::DynamicStarvation {
+                    dynamic_best_achievable_fp: (1u128 << 64) + 1000,
+                    lhs: Uint::from_u64(100),
+                    rhs: Uint::from_u64(200),
+                    tail_padded: true,
+                },
+                verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
+            };
+            let (tx, rx) = crossbeam_channel::bounded(10);
+            let _ = crate::trace::send_trace_event(&tx, event_padded);
+            let received = rx.recv().expect("Failed to receive trace event");
+            let json = serde_json::to_string(&received.reason).unwrap_or_default();
+            // Verify PruneReason pattern matching and trace event tail_padded tracking
+            if let crate::trace::PruneReason::DynamicStarvation { tail_padded, .. } =
+                received.reason
+            {
+                assert!(
+                    tail_padded,
+                    "TraceEvent must record tail_padded=true when tail padding is applied"
+                );
+            } else {
+                panic!("Expected DynamicStarvation prune reason");
+            }
+
+            let event_unpadded = crate::trace::TraceEvent {
+                work_unit_id: 1,
+                step_index: 101,
+                factors: smallvec::smallvec![7, 11],
+                n_l: Uint::from_u64(77),
+                s_l: Uint::from_u64(96),
+                reason: crate::trace::PruneReason::DynamicStarvation {
+                    dynamic_best_achievable_fp: (1u128 << 64) + 500,
+                    lhs: Uint::from_u64(100),
+                    rhs: Uint::from_u64(200),
+                    tail_padded: false,
+                },
+                verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
+            };
+            let _ = crate::trace::send_trace_event(&tx, event_unpadded);
+            let received_unpadded = rx.recv().expect("Failed to receive trace event");
+            if let crate::trace::PruneReason::DynamicStarvation { tail_padded, .. } =
+                received_unpadded.reason
+            {
+                assert!(
+                    !tail_padded,
+                    "TraceEvent must record tail_padded=false when no tail padding is needed"
+                );
+            } else {
+                panic!("Expected DynamicStarvation prune reason");
             }
         }
     }

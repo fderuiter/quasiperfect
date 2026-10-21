@@ -45,6 +45,7 @@ pub enum PruneReason {
         dynamic_best_achievable_fp: u128,
         lhs: Uint,
         rhs: Uint,
+        tail_padded: bool,
     },
     MinFactors {
         dynamic_min_factors: usize,
@@ -102,6 +103,8 @@ struct SerializableTraceEvent<'a> {
     euler_den: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     dynamic_best_achievable_fp: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tail_padded: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     dynamic_min_factors: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -189,6 +192,7 @@ impl TraceWriter {
                     euler_num: None,
                     euler_den: None,
                     dynamic_best_achievable_fp: None,
+                    tail_padded: None,
                     dynamic_min_factors: None,
                     curr_factors: None,
                     remaining_components: None,
@@ -255,12 +259,14 @@ impl TraceWriter {
                         dynamic_best_achievable_fp,
                         lhs,
                         rhs,
+                        tail_padded,
                     } => {
                         ser_event.reason = "dynamic_starvation";
                         ser_event.dynamic_best_achievable_fp =
                             Some(dynamic_best_achievable_fp.to_string());
                         ser_event.lhs = Some(lhs.to_string());
                         ser_event.rhs = Some(rhs.to_string());
+                        ser_event.tail_padded = Some(*tail_padded);
                     }
                     PruneReason::MinFactors {
                         dynamic_min_factors,
