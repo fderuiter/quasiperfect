@@ -44,7 +44,7 @@ jobs:
             if [[ "$f" == *"rust-engine/"* ]] || \
                [[ "$f" == *"lean4-proofs/"* ]] || \
                [[ "$f" == *"verification-lib/"* ]] || \
-               [[ "$f" == *"ualbf-project/scripts/"* ]]; then
+               [[ "$f" == *"scripts/"* ]]; then
                return 0
             fi
             # Block if it is a critical manifest/config file
@@ -61,11 +61,11 @@ jobs:
                return 0
             fi
             # Block if it is a core python script/library (direct files under ualbf-project/)
-            if [[ "$f" == "ualbf-project/auditor.py" ]] || \
-               [[ "$f" == "ualbf-project/cert_util.py" ]] || \
-               [[ "$f" == "ualbf-project/verify_cert.py" ]] || \
-               [[ "$f" == "ualbf-project/verify_metadata.py" ]] || \
-               [[ "$f" == "ualbf-project/time_utils.py" ]]; then
+            if [[ "$f" == *"auditor.py"* ]] || \
+               [[ "$f" == *"cert_util.py"* ]] || \
+               [[ "$f" == *"verify_cert.py"* ]] || \
+               [[ "$f" == *"verify_metadata.py"* ]] || \
+               [[ "$f" == *"time_utils.py"* ]]; then
                return 0
             fi
             # Block if it is a .github workflow or action
