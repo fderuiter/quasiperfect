@@ -877,13 +877,14 @@ fn main() {
     let phase2_start = std::time::Instant::now();
     let mut explored_ranges_out = Vec::new();
     let telemetry_data;
+    let mut controller_is_complete = true;
 
     if mode == "controller" {
         let depth_limit = 1; // shallow DFS depths
         let work_units =
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
-        let (tel, mut ranges) = distributed::run_controller(&addr, work_units);
+        let (tel, mut ranges, is_complete) = distributed::run_controller(&addr, work_units);
         ranges.sort_by(|a, b| {
             a.start_bound
                 .cmp(&b.start_bound)
@@ -891,6 +892,7 @@ fn main() {
         });
         telemetry_data = tel;
         explored_ranges_out = ranges;
+        controller_is_complete = is_complete;
     } else if mode == "worker" {
         let addr = config.controller_addr.clone();
         let total_weight_scaled: usize = valid_components
@@ -1008,6 +1010,11 @@ fn main() {
     // ── Generate Formal Exhaustion Certificate ──
     if skip_cert {
         println!("=== Certificate Generation Skipped due to custom bounds ===");
+        return;
+    }
+
+    if mode == "controller" && !controller_is_complete {
+        println!("=== Certificate Generation Skipped due to incomplete distributed search ===");
         return;
     }
 
