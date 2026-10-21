@@ -138,3 +138,58 @@ def test_worker_receipt_validation():
     assert "explored_ranges" in sample_receipt
     assert len(sample_receipt["explored_ranges"]) == 2
 
+
+def test_distributed_controller_socket_bind_failure_aborts_without_certificate(tmp_path):
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    env = dict(os.environ)
+    if "LEAN_SYSROOT" not in env:
+        env["LEAN_SYSROOT"] = "DUMMY"
+    try:
+        subprocess.run(
+            ["cargo", "build", "--release", "--features", "signing"],
+            cwd=os.path.join(repo_root, "rust-engine"),
+            check=True,
+            env=env,
+        )
+    except subprocess.CalledProcessError:
+        pytest.skip("Cargo build failed (Lean toolchain is absent); skipping test")
+    engine_bin = os.path.join(repo_root, "target", "release", "ualbf_engine")
+    if not os.path.exists(engine_bin):
+        engine_bin = os.path.join(repo_root, "rust-engine", "target", "release", "ualbf_engine")
+
+    # Occupy a port with a socket
+    dummy_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    dummy_socket.bind(('127.0.0.1', 0))
+    occupied_port = dummy_socket.getsockname()[1]
+    addr = f"127.0.0.1:{occupied_port}"
+
+    cert_path = os.path.join(repo_root, "certificate.json")
+    formal_cert_path = os.path.join(repo_root, "formal_certificate.json")
+
+    for p in [cert_path, formal_cert_path]:
+        if os.path.exists(p):
+            os.remove(p)
+
+    common_args = [
+        "--proof-manifest", "proof_manifest.json",
+        "--sieve-limit", "200",
+        "--target-min-log10", "37",
+        "--target-max-log10", "43",
+    ]
+
+    controller_proc = subprocess.run(
+        [engine_bin, "--mode", "controller", "--controller-addr", addr] + common_args,
+        cwd=repo_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    dummy_socket.close()
+
+    assert controller_proc.returncode != 0, "Controller process should have failed due to port collision"
+    assert "Failed to bind controller" in controller_proc.stderr or "Controller initialization or execution failed" in controller_proc.stderr
+    assert not os.path.exists(cert_path), "certificate.json must not be created on socket bind failure"
+    assert not os.path.exists(formal_cert_path), "formal_certificate.json must not be created on socket bind failure"
+
+

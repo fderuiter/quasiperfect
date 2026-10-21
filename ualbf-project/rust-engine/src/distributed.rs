@@ -14,6 +14,53 @@ pub struct RangeWorkUnit {
     pub end_bound: Vec<u64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ControllerExecutionState {
+    Uninitialized,
+    Listening,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug)]
+pub enum ControllerError {
+    BindError {
+        addr: String,
+        source: std::io::Error,
+    },
+    InvalidState(ControllerExecutionState),
+    ExecutionFailed,
+}
+
+impl std::fmt::Display for ControllerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ControllerError::BindError { addr, source } => {
+                write!(
+                    f,
+                    "Failed to bind controller socket to {}: {}",
+                    addr, source
+                )
+            }
+            ControllerError::InvalidState(state) => {
+                write!(f, "Controller in invalid state for operation: {:?}", state)
+            }
+            ControllerError::ExecutionFailed => {
+                write!(f, "Controller execution failed")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ControllerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ControllerError::BindError { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+}
+
 impl RangeWorkUnit {
     pub fn task_id(&self) -> u64 {
         use std::hash::{Hash, Hasher};
@@ -298,22 +345,20 @@ fn save_checkpoint(
 pub fn run_controller(
     addr: &str,
     units: Vec<RangeWorkUnit>,
-) -> (crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>) {
+) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>), ControllerError> {
+    let mut controller_state = ControllerExecutionState::Uninitialized;
     let listener = match TcpListener::bind(addr) {
-        Ok(l) => l,
+        Ok(l) => {
+            controller_state = ControllerExecutionState::Listening;
+            l
+        }
         Err(e) => {
+            controller_state = ControllerExecutionState::Failed;
             eprintln!("Failed to bind controller to {}: {}", addr, e);
-            return (
-                crate::dfs_tree::DfsTelemetry {
-                    total_branches: 0,
-                    abundance_pruned: 0,
-                    raycast_pruned: 0,
-                    search_space_density: 0.0,
-                    math_interruptions: 0,
-                    boundary_pruned: 0,
-                },
-                Vec::new(),
-            );
+            return Err(ControllerError::BindError {
+                addr: addr.to_string(),
+                source: e,
+            });
         }
     };
 
@@ -346,7 +391,8 @@ pub fn run_controller(
     );
 
     if total_units == 0 {
-        return (
+        controller_state = ControllerExecutionState::Completed;
+        return Ok((
             crate::dfs_tree::DfsTelemetry {
                 total_branches: 0,
                 abundance_pruned: 0,
@@ -356,7 +402,7 @@ pub fn run_controller(
                 boundary_pruned: 0,
             },
             Vec::new(),
-        );
+        ));
     }
 
     // After constructing the initial queue, save the new schema immediately to persist the updated state
@@ -619,7 +665,8 @@ pub fn run_controller(
         boundary_pruned: bp_acc.load(Ordering::Relaxed),
     };
 
-    (tel, ranges)
+    controller_state = ControllerExecutionState::Completed;
+    Ok((tel, ranges))
 }
 
 pub fn run_worker(
@@ -1271,7 +1318,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 300);
         assert_eq!(telemetry.abundance_pruned, 30);
         assert_eq!(telemetry.raycast_pruned, 15);
@@ -1358,7 +1405,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file("checkpoint.json");
@@ -1429,7 +1476,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 1);
         assert_eq!(ranges[0], unit1);
@@ -1525,9 +1572,24 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 400);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_run_controller_socket_bind_error() {
+        let bound_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = bound_listener.local_addr().unwrap().to_string();
+
+        let res = run_controller(&addr, vec![]);
+        assert!(res.is_err());
+        match res {
+            Err(ControllerError::BindError { addr: err_addr, .. }) => {
+                assert_eq!(err_addr, addr);
+            }
+            _ => panic!("Expected ControllerError::BindError"),
+        }
     }
 }
