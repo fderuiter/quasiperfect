@@ -92,8 +92,6 @@ bool ualbf_check_mod_8(void* a) { return true; }
 bool ualbf_check_mod_9(void* a) { return true; }
 bool ualbf_check_crt_1155_limbs(void* a) { return true; }
 bool ualbf_check_touchard(void* a) { return true; }
-uint64_t ualbf_static_suffix_bound_w0 = 0;
-uint64_t ualbf_static_suffix_bound_w1 = 0;
 void lean_initialize_runtime_module(void) {}
 void lean_initialize_thread(void) {}
 lean_object* initialize_ualbf_UALBF(uint8_t builtin) { return NULL; }
