@@ -1366,20 +1366,22 @@ def _generate_manifest_impl():
 
     # Scan and hash all 23 proof files
     proof_files = []
-    for root, _, files in os.walk(cwd):
-        if ".lake" in root:
-            continue
-        for file in files:
-            if (
-                file.endswith(".lean")
-                and file != "lakefile.lean"
-                and file != "find_axioms.lean"
-                and file != "Validator.lean"
-            ):
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, cwd)
-                checksum = hash_util.hash_file_bounded(full_path)
-                proof_files.append({"file": rel_path, "checksum": checksum})
+    proof_dir = os.path.join(repo_root, "lean4-proofs")
+    if os.path.exists(proof_dir):
+        for root, _, files in os.walk(proof_dir):
+            if ".lake" in root:
+                continue
+            for file in files:
+                if (
+                    file.endswith(".lean")
+                    and file != "lakefile.lean"
+                    and file != "find_axioms.lean"
+                    and file != "Validator.lean"
+                ):
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, proof_dir)
+                    checksum = hash_util.hash_file_bounded(full_path)
+                    proof_files.append({"file": rel_path, "checksum": checksum})
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
     # Compute bounds_manifest.json hash and validate trial_division_limit against ManifestConstants.lean
