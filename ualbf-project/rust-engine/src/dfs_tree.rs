@@ -69,7 +69,7 @@ use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use crate::raycast::phase4_exact_ray_casting;
+use crate::raycast::{phase4_exact_ray_casting, RaycastOutcome};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PrimeTracker {
@@ -1056,7 +1056,7 @@ pub fn check_and_evaluate_node(
                 },
             );
         }
-        phase4_exact_ray_casting(
+        let outcome = phase4_exact_ray_casting(
             curr,
             target_min,
             target_bound,
@@ -1069,7 +1069,10 @@ pub fn check_and_evaluate_node(
             max_idx_5,
             components.len(),
         );
-        return false;
+        return match outcome {
+            RaycastOutcome::Handled => false,
+            RaycastOutcome::Inconclusive => true,
+        };
     }
 
     // At shallow depths, spawn parallel child tasks for work-stealing.
@@ -3243,6 +3246,90 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_raycast_inconclusive_fallback_to_dfs_search() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let stop_threshold = Uint::from_u32(50);
+        let target_min = Uint::from_u64(1);
+        let comp = make_prime_power(3, 9, 13);
+        let comps = vec![comp];
+        let tb = Uint::from_u64(1_000_000);
+        let illegal_valuations: Vec<(Int, Int)> = vec![];
+        let pruned_count = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
+        let active_primes = make_active_primes();
+        let sigma_cache: crate::math_utils::SigmaCache = std::collections::HashMap::new();
+        let lazy_cache = Arc::new(vec![std::sync::OnceLock::new()]);
+        let backbone = crate::backbone::SearchBackbone::new(&comps, &lazy_cache);
+
+        let suffix_abundance: Vec<u128> = vec![3u128 << 64; 129];
+
+        // Case 1: s_l = 0 triggers Inconclusive -> check_and_evaluate_node returns true for DFS fallback
+        let stop_threshold_zero = Uint::zero();
+        let mut curr_inconclusive = make_prefix(0, 0, 0);
+        curr_inconclusive.active_mask = vec![1; 1].into();
+        curr_inconclusive.factors = vec![3, 5, 7, 11, 13, 17, 19];
+        curr_inconclusive.sigma_mod24 = 3;
+
+        let res_inconclusive = check_and_evaluate_node(
+            &mut curr_inconclusive,
+            &comps,
+            &stop_threshold_zero,
+            &target_min,
+            &tb,
+            &illegal_valuations,
+            &suffix_abundance,
+            &AtomicUsize::new(0),
+            &pruned_count,
+            &AtomicUsize::new(0),
+            &AtomicUsize::new(0),
+            &math_interruptions,
+            1,
+            &active_primes,
+            &sigma_cache,
+            None,
+            100,
+            100,
+            &backbone,
+            None,
+            0,
+            &AtomicU64::new(0),
+        );
+        assert!(res_inconclusive, "Inconclusive raycasting must return true for DFS fallback");
+
+        // Case 2: Handled raycasting -> check_and_evaluate_node returns false
+        let mut curr_handled = make_prefix(100, 195, 0);
+        curr_handled.active_mask = vec![0; 1].into();
+        curr_handled.factors = vec![3, 5, 7, 11, 13, 17, 19];
+        curr_handled.sigma_mod24 = 3;
+
+        let res_handled = check_and_evaluate_node(
+            &mut curr_handled,
+            &comps,
+            &stop_threshold,
+            &target_min,
+            &tb,
+            &illegal_valuations,
+            &suffix_abundance,
+            &AtomicUsize::new(0),
+            &pruned_count,
+            &AtomicUsize::new(0),
+            &AtomicUsize::new(0),
+            &math_interruptions,
+            1,
+            &active_primes,
+            &sigma_cache,
+            None,
+            100,
+            100,
+            &backbone,
+            None,
+            0,
+            &AtomicU64::new(0),
+        );
+        assert!(!res_handled, "Handled raycasting must return false to conclude branch search");
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
