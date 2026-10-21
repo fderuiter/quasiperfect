@@ -1544,12 +1544,33 @@ mod tests {
         send_message(
             &client_mutex,
             &Message::Event(crate::events::SearchEvent::DFSComplete {
-                total_branches: 100,
-                ap: 10,
-                rp: 5,
-                bp: 2,
+                total_branches: 50,
+                ap: 5,
+                rp: 2,
+                bp: 1,
                 math_interruptions: 1,
-                range: work1,
+                range: work1.clone(),
+            }),
+        )
+        .unwrap();
+
+        // Task was re-queued due to math_interruptions > 0; request it again and complete it
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg1_retry: Message = recv_message(&mut client_reader).unwrap();
+        let work1_retry = match msg1_retry {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 50,
+                ap: 5,
+                rp: 3,
+                bp: 1,
+                math_interruptions: 0,
+                range: work1_retry,
             }),
         )
         .unwrap();
@@ -1564,12 +1585,33 @@ mod tests {
         send_message(
             &client_mutex,
             &Message::Event(crate::events::SearchEvent::DFSComplete {
-                total_branches: 200,
-                ap: 20,
-                rp: 10,
-                bp: 4,
+                total_branches: 100,
+                ap: 10,
+                rp: 5,
+                bp: 2,
                 math_interruptions: 3,
-                range: work2,
+                range: work2.clone(),
+            }),
+        )
+        .unwrap();
+
+        // Task was re-queued due to math_interruptions > 0; request it again and complete it
+        send_message(&client_mutex, &Message::RequestWork).unwrap();
+        let msg2_retry: Message = recv_message(&mut client_reader).unwrap();
+        let work2_retry = match msg2_retry {
+            Message::WorkUnit(Some(u)) => u,
+            _ => panic!("Expected WorkUnit"),
+        };
+
+        send_message(
+            &client_mutex,
+            &Message::Event(crate::events::SearchEvent::DFSComplete {
+                total_branches: 100,
+                ap: 10,
+                rp: 5,
+                bp: 2,
+                math_interruptions: 0,
+                range: work2_retry,
             }),
         )
         .unwrap();
