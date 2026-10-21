@@ -388,4 +388,40 @@ theorem is_starved_bound (sl nl best_num best_den : ℕ) (hnl : 0 < nl) (hbd : 0
   rw [div_lt_iff₀ (by positivity)]
   linarith
 
+/--
+Soundness of abundancy overflow kill:
+If a prefix `b.N_L` has abundancy index exceeding the target ratio `target_num / target_den`,
+then any bipartition extension `b.N = b.N_L * b.N_R` has abundancy index strictly exceeding
+`target_num / target_den`.
+-/
+theorem abundancy_overflow_kill_sound (b : UALBF.Bipartition) (target_num target_den : ℕ)
+    (h_den_pos : 0 < target_den)
+    (h_overflow : (sigma b.N_L * target_den : ℚ) > (b.N_L * target_num : ℚ)) :
+    abundancy_index b.N > (target_num : ℚ) / (target_den : ℚ) := by
+  have h_NL_pos : (b.N_L : ℚ) > 0 := Nat.cast_pos.mpr b.h_pos.1
+  have h_NR_pos : (b.N_R : ℚ) > 0 := Nat.cast_pos.mpr b.h_pos.2
+  have h_tden_pos : (target_den : ℚ) > 0 := Nat.cast_pos.mpr h_den_pos
+  have h_sigma_NR : (sigma b.N_R : ℚ) ≥ (b.N_R : ℚ) := by
+    have h_mem : b.N_R ∈ b.N_R.divisors := Nat.mem_divisors_self.mpr (by omega)
+    have h_sum : b.N_R ≤ ∑ d ∈ b.N_R.divisors, d := Finset.single_le_sum (fun _ _ => Nat.zero_le _) h_mem
+    exact_mod_cast h_sum
+  have h_abund_NR : abundancy_index b.N_R ≥ 1 := by
+    unfold abundancy_index
+    rw [ge_iff_le, one_le_div₀ h_NR_pos]
+    exact h_sigma_NR
+  have h_abund_NL : abundancy_index b.N_L > (target_num : ℚ) / (target_den : ℚ) := by
+    unfold abundancy_index
+    rw [div_lt_div_iff₀ h_NL_pos h_tden_pos]
+    exact_mod_cast h_overflow
+  have h_mul : abundancy_index b.N = abundancy_index b.N_L * abundancy_index b.N_R :=
+    abundancy_index_mul b.h_coprime
+  have h_pos_NL : abundancy_index b.N_L > 0 := by
+    unfold abundancy_index
+    positivity
+  calc abundancy_index b.N
+    _ = abundancy_index b.N_L * abundancy_index b.N_R := h_mul
+    _ ≥ abundancy_index b.N_L * 1 := by nlinarith
+    _ = abundancy_index b.N_L := mul_one _
+    _ > (target_num : ℚ) / (target_den : ℚ) := h_abund_NL
+
 end UALBF.QPN.AbundancyBound

@@ -139,7 +139,12 @@ inline bool ualbf_check_dusart_bound(RNS512 s_l, RNS512 n_l, uint64_t p_last, ui
         pub fn cpu_check_abundancy_overflow(s_l: &crate::types::Uint, n_l: &crate::types::Uint, target_num: u64, target_den: u64) -> bool {
             let num = crate::types::Uint::from_u64(target_num);
             let den = crate::types::Uint::from_u64(target_den);
-            s_l * den > n_l * num
+            let lhs = s_l.checked_mul(den);
+            let rhs = n_l.checked_mul(num);
+            match (lhs, rhs) {
+                (Some(l), Some(r)) => l > r,
+                _ => false,
+            }
         }
 
         pub fn cpu_check_euler_ceiling(num: &crate::types::Uint, den: &crate::types::Uint, euler_num: &crate::types::Uint, euler_den: &crate::types::Uint) -> bool {

@@ -314,6 +314,7 @@ pub fn validate_proof_manifest(
         "ruleA_pruning",
         "ruleB_pruning",
         "check_starvation_kill",
+        "check_abundancy_overflow",
         "check_cdg_forced_kill",
         "lean_abundancy_starvation_theorem",
         "verify_starvation_pruning",

@@ -98,6 +98,7 @@ def test_ghost_pruning_bindings_present_in_manifest():
             gb = manifest["ghost_pruning_bindings"]
             assert len(gb) == len(auditor.GHOST_PRUNING_BINDINGS)
             assert "check_starvation_kill" in gb
+            assert "check_abundancy_overflow" in gb
             assert "lean_abundancy_starvation_theorem" in gb
             assert "check_cdg_forced_kill" in gb
             assert "lemma_sigma_multiplicative" in gb
