@@ -1,10 +1,10 @@
 # Structured Performance Profiles — Tuning Guide
 
-The UALBF Engine allows researchers to modify search parameters dynamically using a `rust-engine/profile.json.template` file. This prevents the need for manual code recompilation and enables easy hardware benchmarking without changing the mathematically verified bounds.
+The UALBF Engine allows researchers to modify search parameters dynamically using a runtime `profile.json` configuration file. On initial execution, if `profile.json` is missing, the engine automatically auto-instantiates `profile.json` from `rust-engine/profile.json.template` (or writes pretty-printed default JSON if no template exists). This prevents manual setup steps and enables easy hardware benchmarking without changing mathematically verified bounds.
 
 ## Profile Configuration Format
 
-The engine expects a `rust-engine/profile.json.template` file in the execution directory with the following structure:
+The engine expects a `profile.json` file in the execution directory with the following structure:
 
 ```json
 {
@@ -130,8 +130,14 @@ In addition to user-tunable performance configurations, the engine depends on ve
 - **lattice_target_penalty_base**
   - **Description**: Base scaling penalty factor for target matrix columns in dynamic lattice reduction.
 
-## Fallback Defaults
-If the file is absent or improperly formatted, the engine applies hardcoded safe defaults:
+## Auto-Instantiation & Fallback Defaults
+
+When `load_profile()` executes, configuration files are managed automatically:
+
+1. **Existing File**: If `profile.json` exists on disk, the engine loads it directly without modifying or overwriting its contents.
+2. **Template Copy**: If `profile.json` does not exist, the engine checks for `rust-engine/profile.json.template` in the execution directory and copies it to `profile.json` before loading.
+3. **Default Auto-Generation**: If `rust-engine/profile.json.template` is absent, the engine serializes `PerformanceProfile` default parameters into pretty-printed JSON and writes it to `profile.json`.
+4. **Corrupt File / Write Error**: If `profile.json` is corrupt or unwritable, the engine logs a warning and falls back gracefully to in-memory safe defaults without modifying disk contents:
 - pollard_rho_batch_size: 128
 - active_prime_slots: 64
 - engine_telemetry_interval_ms: 1000
