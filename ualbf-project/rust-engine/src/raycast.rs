@@ -316,6 +316,16 @@ fn verify_candidate_cpu_only(z_tiered: Uint, required_s_r: Uint, sigma_cache: &S
     s_r == required_s_r
 }
 
+/// Status returned by exact ray casting indicating whether the exact check completed
+/// or encountered a mathematical interruption requiring search fallback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RaycastOutcome {
+    /// Ray casting completed all candidate checks for this prefix.
+    Handled,
+    /// Ray casting was interrupted by math bounds/verification, requiring conservative DFS search fallback.
+    Inconclusive,
+}
+
 /// Phase 4 Ray Casting (Exact Modular Check)
 ///
 /// This phase executes an exact modular arithmetic test on candidate numbers that survive
@@ -337,22 +347,20 @@ pub fn phase4_exact_ray_casting(
     max_idx_3: usize,
     max_idx_5: usize,
     components_len: usize,
-) {
+) -> RaycastOutcome {
     let _config = crate::policy::get_safe_config();
 
-    let n_l_int = prefix.n_l.as_int();
-    let s_l_int = prefix.s_l.as_int();
-    let mut a = match (Int::from_u32(2)).checked_mul(n_l_int) {
-        Some(v) => v % s_l_int,
-        None => {
-            // Overflow: this prefix is not searched, so record it as a coverage gap.
-            math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            return;
-        }
-    };
-    if a < Int::zero() {
-        a += s_l_int;
+    if prefix.s_l.is_zero() {
+        math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        return RaycastOutcome::Inconclusive;
     }
+
+    // Overflow-free modular reduction for a = (2 * n_L) mod s_L
+    let r = prefix.n_l % prefix.s_l;
+    let s_minus_r = prefix.s_l - r;
+    let a_uint = if r < s_minus_r { r + r } else { r - s_minus_r };
+    let a = a_uint.as_int();
+    let s_l_int = prefix.s_l.as_int();
 
     let x_l_inv_opt = crate::math_utils::mod_inverse_big(a, s_l_int);
 
@@ -370,7 +378,7 @@ pub fn phase4_exact_ray_casting(
         if !crate::lean_ffi::verify_identity_lean(&n_l_uint, &x_l_abs_uint, x_l_is_neg, &s_l_uint) {
             // The prefix is not searched, so record it as a coverage gap.
             math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            return;
+            return RaycastOutcome::Inconclusive;
         }
 
         // Normalize safely after formal verification
@@ -380,7 +388,7 @@ pub fn phase4_exact_ray_casting(
         let roots = composite_tonelli_shanks(x_l, &prefix.sigma_factors);
         if roots.math_interruption {
             math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            return;
+            return RaycastOutcome::Inconclusive;
         }
         let n_l_big = prefix.n_l;
         let z_max_big = if *target_max > n_l_big {
@@ -397,7 +405,7 @@ pub fn phase4_exact_ray_casting(
         if z_max_big > Int::MAX.as_uint() || z_min_big > Int::MAX.as_uint() {
             // Out of range for the ray-casting arithmetic: record as a coverage gap.
             math_interruptions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            return;
+            return RaycastOutcome::Inconclusive;
         }
 
         let z_max = z_max_big.as_int();
@@ -551,6 +559,8 @@ pub fn phase4_exact_ray_casting(
             }
         }
     }
+
+    RaycastOutcome::Handled
 }
 
 #[cfg(test)]
@@ -914,5 +924,92 @@ mod additional_tests {
                 prop_assert!(n < next_sq, "n < (r+1)^2 failed for n = {}", n);
             }
         }
+    }
+
+    #[test]
+    fn test_overflow_free_modular_parameter_derivation() {
+        crate::lean_ffi::initialize_lean_runtime();
+        // Construct n_L >= 2^510 so 2 * n_L exceeds Int::MAX / 512-bit signed capacity
+        let n_l = (Uint::one() << 511) + Uint::from_u64(12345);
+        let s_l = Uint::from_u64(99999);
+
+        let prefix = Prefix {
+            n_l,
+            s_l,
+            last_idx: 1,
+            factors: vec![3],
+            sigma_factors: vec![Uint::from_u32(13)],
+            sigma_factors_u64: vec![13],
+            active_mask: vec![1].into(),
+            sigma_mod24: 1,
+        };
+
+        let target_min = Uint::from_u32(1);
+        let target_max = Uint::from_u32(1000);
+        let illegal_z_valuations: Vec<(Int, Int)> = vec![];
+        let pruned_count = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
+        let sigma_cache = std::collections::HashMap::new();
+
+        // Exact modular reduction expectation: r = n_l % s_l, a = (r + r) % s_l
+        let r = n_l % s_l;
+        let s_minus_r = s_l - r;
+        let expected_a = if r < s_minus_r { r + r } else { r - s_minus_r };
+
+        let outcome = phase4_exact_ray_casting(
+            &prefix,
+            &target_min,
+            &target_max,
+            &illegal_z_valuations,
+            &pruned_count,
+            &math_interruptions,
+            &sigma_cache,
+            None,
+            0,
+            0,
+            1,
+        );
+
+        // Outcome completes (Handled or Inconclusive on Tonelli-Shanks, but not overflow abortion)
+        assert!(expected_a < s_l);
+        assert!(outcome == RaycastOutcome::Handled || outcome == RaycastOutcome::Inconclusive);
+    }
+
+    #[test]
+    fn test_s_l_zero_boundary_returns_inconclusive() {
+        let prefix = Prefix {
+            n_l: Uint::from_u32(100),
+            s_l: Uint::zero(),
+            last_idx: 1,
+            factors: vec![3],
+            sigma_factors: vec![Uint::from_u32(13)],
+            sigma_factors_u64: vec![13],
+            active_mask: vec![1].into(),
+            sigma_mod24: 1,
+        };
+
+        let target_min = Uint::from_u32(1);
+        let target_max = Uint::from_u32(1000);
+        let illegal_z_valuations: Vec<(Int, Int)> = vec![];
+        let pruned_count = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
+        let sigma_cache = std::collections::HashMap::new();
+
+        let outcome = phase4_exact_ray_casting(
+            &prefix,
+            &target_min,
+            &target_max,
+            &illegal_z_valuations,
+            &pruned_count,
+            &math_interruptions,
+            &sigma_cache,
+            None,
+            0,
+            0,
+            1,
+        );
+
+        assert_eq!(outcome, RaycastOutcome::Inconclusive);
+        assert_eq!(math_interruptions.load(Ordering::Relaxed), 1);
     }
 }

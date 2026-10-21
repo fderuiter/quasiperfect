@@ -1,5 +1,52 @@
-use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_9, check_touchard};
+use crate::lean_ffi::{check_mod_3, check_mod_5, check_mod_8, check_mod_9, check_touchard};
 use crate::types::Uint;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StaticRejectionReason {
+    Mod3,
+    Mod5,
+    Mod8,
+    Mod9,
+    Touchard,
+}
+
+impl StaticRejectionReason {
+    pub fn rule_name(&self) -> &'static str {
+        match self {
+            Self::Mod3 => "mod3",
+            Self::Mod5 => "mod5",
+            Self::Mod8 => "mod8",
+            Self::Mod9 => "mod9",
+            Self::Touchard => "touchard",
+        }
+    }
+
+    pub fn lean_theorem_tag(&self) -> &'static str {
+        match self {
+            Self::Mod3 => "lean: UALBF.Obstruction.mod3_component",
+            Self::Mod5 => "lean: UALBF.Obstruction.mod5_component",
+            Self::Mod8 => "lean: UALBF.Obstruction.mod8_component",
+            Self::Mod9 => "lean: UALBF.Obstruction.mod9_component",
+            Self::Touchard => "lean: UALBF.Obstruction.touchard_component",
+        }
+    }
+}
+
+pub fn get_component_static_rejection(p: u64, two_e: u32) -> Option<StaticRejectionReason> {
+    if check_mod_3(p, two_e) {
+        Some(StaticRejectionReason::Mod3)
+    } else if check_mod_5(p, two_e) {
+        Some(StaticRejectionReason::Mod5)
+    } else if !check_mod_8(p) {
+        Some(StaticRejectionReason::Mod8)
+    } else if check_mod_9(p, two_e) {
+        Some(StaticRejectionReason::Mod9)
+    } else if check_touchard(p, two_e) {
+        Some(StaticRejectionReason::Touchard)
+    } else {
+        None
+    }
+}
 
 /// Native inline Rust function for Modulo 3 obstruction check.
 /// Evaluates the geometric sum polynomial $\sigma(p^{2e}) = \sum_{k=0}^{2e} p^k \pmod 3$.
@@ -73,11 +120,7 @@ pub fn check_touchard_native(p: u64, two_e: u32) -> bool {
 /// Combined inline check for whether component $(p, 2e)$ is statically rejected by any obstruction.
 #[inline(always)]
 pub fn is_component_statically_rejected(p: u64, two_e: u32) -> bool {
-    check_mod_3_native(p, two_e)
-        || check_mod_5_native(p, two_e)
-        || check_mod_8_native(p, two_e)
-        || check_mod_9_native(p, two_e)
-        || check_touchard_native(p, two_e)
+    get_component_static_rejection(p, two_e).is_some()
 }
 
 pub trait Obstruction: Sync + Send {
@@ -96,11 +139,11 @@ pub struct Mod8Obstruction;
 impl Obstruction for Mod8Obstruction {
     fn check_prime_factor(&self, q: &Uint) -> bool {
         let low_word = u64::from_le_bytes(q.to_le_bytes()[..8].try_into().unwrap());
-        check_mod_8_factor_native(low_word)
+        !check_mod_8(low_word)
     }
 
-    fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_mod_8_native(p, two_e)
+    fn check_component(&self, p: u64, _two_e: u32) -> bool {
+        !check_mod_8(p)
     }
 }
 
@@ -121,14 +164,14 @@ impl Obstruction for Mod3Obstruction {
     /// assert_eq!(ob.check_component(7, 2), true);
     /// ```
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_mod_3_native(p, two_e)
+        check_mod_3(p, two_e)
     }
 }
 
 pub struct Mod5Obstruction;
 impl Obstruction for Mod5Obstruction {
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_mod_5_native(p, two_e)
+        check_mod_5(p, two_e)
     }
 }
 
@@ -150,7 +193,7 @@ impl Obstruction for Mod9Obstruction {
     /// assert_eq!(ob.check_component(13, 2), true);
     /// ```
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_mod_9_native(p, two_e)
+        check_mod_9(p, two_e)
     }
 }
 
@@ -158,7 +201,7 @@ pub struct TouchardObstruction;
 impl Obstruction for TouchardObstruction {
     /// Evaluates Touchard obstruction constraints.
     fn check_component(&self, p: u64, two_e: u32) -> bool {
-        check_touchard_native(p, two_e)
+        check_touchard(p, two_e)
     }
 }
 

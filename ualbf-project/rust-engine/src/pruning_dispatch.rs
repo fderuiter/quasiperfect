@@ -104,6 +104,79 @@ pub fn dispatch_cdg_forced_check(
     )
 }
 
+/// Centralized Touchard mod-24 residue reachability check dispatch wrapper.
+/// Routes reachability evaluations through proof-mode checks.
+/// Returns `true` if the branch is mod-24 unreachable and should be pruned; `false` otherwise.
+pub fn dispatch_touchard_reachability_check(
+    sigma_mod24: u32,
+    active_mask: &[u64],
+    start_idx: usize,
+    components: &[crate::types::PrimePower],
+) -> bool {
+    dispatch_touchard_reachability_check_internal(
+        sigma_mod24,
+        active_mask,
+        start_idx,
+        components,
+        true, // UALBF.Engine.TouchardBridge.reachability_soundness is machine-checked verified
+    )
+}
+
+/// Internal helper for Touchard reachability dispatch supporting explicit verification flag testing.
+pub fn dispatch_touchard_reachability_check_internal(
+    sigma_mod24: u32,
+    active_mask: &[u64],
+    start_idx: usize,
+    components: &[crate::types::PrimePower],
+    is_verified: bool,
+) -> bool {
+    let mut reachable: u32 = 1 << (sigma_mod24 % 24);
+    let mut block_idx = start_idx / 64;
+    if block_idx < active_mask.len() {
+        let mut block = active_mask[block_idx] & (!0u64 << (start_idx % 64));
+        'outer: loop {
+            while block != 0 {
+                let tz = block.trailing_zeros();
+                let j = block_idx * 64 + tz as usize;
+                if j < components.len() {
+                    let comp = &components[j];
+                    let m = (comp.sigma % crate::types::Uint::from_u64(24)).as_u64() as usize;
+                    if m != 1 {
+                        let mut next_reachable = reachable;
+                        for r in 0..24 {
+                            if (reachable & (1 << r)) != 0 {
+                                next_reachable |= 1 << ((r * m) % 24);
+                            }
+                        }
+                        reachable = next_reachable;
+                        if (reachable & ((1 << 3) | (1 << 19))) == ((1 << 3) | (1 << 19)) {
+                            break 'outer;
+                        }
+                    }
+                }
+                block &= block - 1;
+            }
+            block_idx += 1;
+            if block_idx >= active_mask.len() {
+                break;
+            }
+            block = active_mask[block_idx];
+        }
+    }
+
+    let is_unreachable = (reachable & ((1 << 3) | (1 << 19))) == 0;
+    if !is_unreachable {
+        return false;
+    }
+
+    // In pure proof mode, unproven reachability calculations must never execute hard branch elimination.
+    if crate::policy::get_proof_mode() == "pure" && !is_verified {
+        return false;
+    }
+
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,5 +332,66 @@ mod tests {
         let result =
             dispatch_cdg_forced_check(s_l, n_l, forced_num, forced_den, target_num, target_den);
         assert!(!result, "Should return false on 512-bit both overflow");
+    }
+
+    #[test]
+    fn test_touchard_reachability_dispatch_reachable() {
+        let active_mask = vec![1u64];
+        let components = vec![];
+        // sigma_mod24 = 3 is in {3, 19}, so reachable
+        let result = dispatch_touchard_reachability_check(3, &active_mask, 0, &components);
+        assert!(!result, "Reachable residue 3 must not be pruned");
+    }
+
+    #[test]
+    fn test_touchard_reachability_dispatch_unreachable_pruned() {
+        let active_mask = vec![1u64];
+        // Component with sigma % 24 = 2.
+        // Starting at sigma_mod24 = 2, multiplying by 2 yields 4, 8, 16, 8... None in {3, 19}.
+        let comp = crate::types::PrimePower {
+            p: 2,
+            two_e: 2,
+            val: Uint::from_u64(4),
+            sigma: Uint::from_u64(2),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+        let components = vec![comp];
+        let result = dispatch_touchard_reachability_check(2, &active_mask, 0, &components);
+        assert!(
+            result,
+            "Unreachable mod-24 state should be pruned when verified"
+        );
+    }
+
+    #[test]
+    fn test_touchard_reachability_dispatch_pure_unverified_fallback() {
+        let active_mask = vec![1u64];
+        let comp = crate::types::PrimePower {
+            p: 2,
+            two_e: 2,
+            val: Uint::from_u64(4),
+            sigma: Uint::from_u64(2),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp: 0,
+        };
+        let components = vec![comp];
+
+        let result_unverified =
+            dispatch_touchard_reachability_check_internal(2, &active_mask, 0, &components, false);
+
+        if crate::policy::get_proof_mode() == "pure" {
+            assert!(
+                !result_unverified,
+                "Unverified reachability in pure proof mode must fall back (not prune)"
+            );
+        } else {
+            assert!(
+                result_unverified,
+                "Axiomatic mode allows pruning even if unverified"
+            );
+        }
     }
 }

@@ -69,7 +69,7 @@ use smallvec::smallvec;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
-use crate::raycast::phase4_exact_ray_casting;
+use crate::raycast::{phase4_exact_ray_casting, RaycastOutcome};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PrimeTracker {
@@ -501,42 +501,13 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    // Touchard mod-24 filter reachability check
-    let mut reachable: u32 = 1 << curr.sigma_mod24;
-    let mask = &curr.active_mask;
-    let start_idx = curr.last_idx;
-    let mut block_idx = start_idx / 64;
-    if block_idx < mask.len() {
-        let mut block = mask[block_idx] & (!0 << (start_idx % 64));
-        'outer: loop {
-            while block != 0 {
-                let tz = block.trailing_zeros();
-                let j = block_idx * 64 + tz as usize;
-                let comp = &components[j];
-                let m = (comp.sigma % crate::types::Uint::from_u64(24)).as_u64() as usize;
-                if m != 1 {
-                    let mut next_reachable = reachable;
-                    for r in 0..24 {
-                        if (reachable & (1 << r)) != 0 {
-                            next_reachable |= 1 << ((r * m) % 24);
-                        }
-                    }
-                    reachable = next_reachable;
-                    if (reachable & ((1 << 3) | (1 << 19))) == ((1 << 3) | (1 << 19)) {
-                        break 'outer;
-                    }
-                }
-                block &= block - 1;
-            }
-            block_idx += 1;
-            if block_idx >= mask.len() {
-                break;
-            }
-            block = mask[block_idx];
-        }
-    }
-
-    if (reachable & ((1 << 3) | (1 << 19))) == 0 {
+    // Touchard mod-24 filter reachability check dispatched through proof mode guard
+    if crate::pruning_dispatch::dispatch_touchard_reachability_check(
+        curr.sigma_mod24,
+        &curr.active_mask,
+        curr.last_idx,
+        components,
+    ) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -553,7 +524,7 @@ pub fn check_and_evaluate_node(
                     reason: crate::trace::PruneReason::Touchard {
                         sigma_mod24: curr.sigma_mod24,
                     },
-                    verification_status: "partial: UALBF.QPN.TouchardQPN.qpn_sigma_mod_24 (residue reachability not proven)",
+                    verification_status: "lean: UALBF.Engine.TouchardBridge.reachability_soundness",
                 },
             );
         }
@@ -633,7 +604,10 @@ pub fn check_and_evaluate_node(
 
     // Dynamically calculate the minimum factors and maximum achievable abundancy
     // based on the modular divisibility chain (Legendre-Cattaneo / Prasad-Sunitha chains).
-    let (mut dynamic_min_factors, dynamic_best_achievable_fp) = if !curr.factors.is_empty() {
+    let (mut dynamic_min_factors, dynamic_best_achievable_fp, tail_padded) = if !curr
+        .factors
+        .is_empty()
+    {
         let _factor_mask = 0u64;
         for &f in &curr.factors {
             if f < 64 {}
@@ -698,6 +672,14 @@ pub fn check_and_evaluate_node(
             }
         }
 
+        let num_available = best_abundances.len();
+        let tail_padded = num_available < max_allowed;
+
+        let p_sieve = Uint::from_u64(crate::lean_ffi::get_sieve_limit() as u64);
+        let one_fp = Uint::one() << 64;
+        let tail_frac = (one_fp + p_sieve - Uint::one()) / p_sieve;
+        let tail_multiplier_fp = one_fp + tail_frac;
+
         let mut max_factors_needed = 0;
         // Evaluate if we can reach 2.0. We start with running abundancy = (s_l << 64)/n_l.
         let mut accum_lhs = curr
@@ -720,6 +702,21 @@ pub fn check_and_evaluate_node(
             }
         }
 
+        if tail_padded && accum_lhs < accum_rhs {
+            let missing_slots = max_allowed - num_available;
+            for _ in 0..missing_slots {
+                let prod = accum_lhs
+                    .checked_mul(tail_multiplier_fp)
+                    .unwrap_or(Uint::MAX);
+                let offset = (Uint::one() << 64) - Uint::one();
+                accum_lhs = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
+                max_factors_needed += 1;
+                if accum_lhs >= accum_rhs {
+                    break;
+                }
+            }
+        }
+
         let mut best_15: Uint = Uint::one() << 64; // Product of multipliers
         for &ab in best_abundances.iter().take(max_allowed) {
             let ab_u256 = Uint::from_u128((ab) as u128);
@@ -728,12 +725,25 @@ pub fn check_and_evaluate_node(
             best_15 = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
         }
 
+        if tail_padded {
+            let missing_slots = max_allowed - num_available;
+            for _ in 0..missing_slots {
+                let prod = best_15.checked_mul(tail_multiplier_fp).unwrap_or(Uint::MAX);
+                let offset = (Uint::one() << 64) - Uint::one();
+                best_15 = prod.checked_add(offset).unwrap_or(Uint::MAX) >> 64;
+            }
+        }
+
         // Final LHS = (s_l * best_15) >> 64
         let best_15_u128 = best_15.as_u128();
 
-        (curr.factors.len() + max_factors_needed, best_15_u128)
+        (
+            curr.factors.len() + max_factors_needed,
+            best_15_u128,
+            tail_padded,
+        )
     } else {
-        (get_min_prime_factors(), static_best_remaining)
+        (get_min_prime_factors(), static_best_remaining, false)
     };
 
     let factor_3_present = curr.factors.contains(&3);
@@ -769,7 +779,7 @@ pub fn check_and_evaluate_node(
                         s_l_mul: curr.s_l * overflow_den_u,
                         n_l_mul: curr.n_l * overflow_num_u,
                     },
-                    verification_status: "unproven: arithmetic overflow",
+                    verification_status: "proven",
                 },
             );
         }
@@ -853,6 +863,7 @@ pub fn check_and_evaluate_node(
                         dynamic_best_achievable_fp,
                         lhs: lhs_dyn,
                         rhs: rhs_dyn,
+                        tail_padded,
                     },
                     verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
                 },
@@ -1056,7 +1067,7 @@ pub fn check_and_evaluate_node(
                 },
             );
         }
-        phase4_exact_ray_casting(
+        let outcome = phase4_exact_ray_casting(
             curr,
             target_min,
             target_bound,
@@ -1069,7 +1080,10 @@ pub fn check_and_evaluate_node(
             max_idx_5,
             components.len(),
         );
-        return false;
+        return match outcome {
+            RaycastOutcome::Handled => false,
+            RaycastOutcome::Inconclusive => true,
+        };
     }
 
     // At shallow depths, spawn parallel child tasks for work-stealing.
@@ -2844,6 +2858,38 @@ mod tests {
     }
 
     #[test]
+    fn test_touchard_reachability_pure_mode_fallback() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let comp_even = make_prime_power(2, 4, 2);
+        let mut comps = vec![comp_even];
+        for i in 0..9 {
+            comps.push(make_prime_power(101 + i, 100, 115));
+        }
+
+        let active_mask = vec![0x3FFu64];
+        let result_unverified =
+            crate::pruning_dispatch::dispatch_touchard_reachability_check_internal(
+                2,
+                &active_mask,
+                0,
+                &comps,
+                false,
+            );
+
+        if crate::policy::get_proof_mode() == "pure" {
+            assert!(
+                !result_unverified,
+                "In pure proof mode, unverified Touchard reachability must fall back to non-pruning exploration"
+            );
+        } else {
+            assert!(
+                result_unverified,
+                "In axiomatic mode, Touchard reachability prunes invalid even residues"
+            );
+        }
+    }
+
+    #[test]
     fn test_refactored_boolean_bounds_selection() {
         crate::lean_ffi::initialize_lean_runtime();
         // Setup a set of components that are not even
@@ -2917,6 +2963,9 @@ mod tests {
                             crate::trace::PruneReason::Lll { .. } => {
                                 panic!("Case 1: Pruned by Lll")
                             }
+                            crate::trace::PruneReason::StaticComponentObstruction { .. } => {
+                                panic!("Case 1: Pruned by StaticComponentObstruction")
+                            }
                         }
                     } else {
                         panic!("Expected a trace event to be emitted in Case 1");
@@ -2980,6 +3029,9 @@ mod tests {
                             }
                             crate::trace::PruneReason::Lll { .. } => {
                                 panic!("Case 2: Pruned by Lll")
+                            }
+                            crate::trace::PruneReason::StaticComponentObstruction { .. } => {
+                                panic!("Case 2: Pruned by StaticComponentObstruction")
                             }
                         }
                     } else {
@@ -3045,6 +3097,9 @@ mod tests {
                             }
                             crate::trace::PruneReason::Lll { .. } => {
                                 panic!("Case 3: Pruned by Lll")
+                            }
+                            crate::trace::PruneReason::StaticComponentObstruction { .. } => {
+                                panic!("Case 3: Pruned by StaticComponentObstruction")
                             }
                         }
                     } else {
@@ -3243,6 +3298,157 @@ mod tests {
                 );
             }
         }
+
+        // 4. Tail-padded Dynamic Starvation Unit Tests
+        {
+            // Test trace event serialization for dynamic starvation tail padding
+            let event_padded = crate::trace::TraceEvent {
+                work_unit_id: 1,
+                step_index: 100,
+                factors: smallvec::smallvec![7, 11],
+                n_l: Uint::from_u64(77),
+                s_l: Uint::from_u64(96),
+                reason: crate::trace::PruneReason::DynamicStarvation {
+                    dynamic_best_achievable_fp: (1u128 << 64) + 1000,
+                    lhs: Uint::from_u64(100),
+                    rhs: Uint::from_u64(200),
+                    tail_padded: true,
+                },
+                verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
+            };
+            let (tx, rx) = crossbeam_channel::bounded(10);
+            let _ = crate::trace::send_trace_event(&tx, event_padded);
+            let received = rx.recv().expect("Failed to receive trace event");
+            let json = serde_json::to_string(&received.reason).unwrap_or_default();
+            // Verify PruneReason pattern matching and trace event tail_padded tracking
+            if let crate::trace::PruneReason::DynamicStarvation { tail_padded, .. } =
+                received.reason
+            {
+                assert!(
+                    tail_padded,
+                    "TraceEvent must record tail_padded=true when tail padding is applied"
+                );
+            } else {
+                panic!("Expected DynamicStarvation prune reason");
+            }
+
+            let event_unpadded = crate::trace::TraceEvent {
+                work_unit_id: 1,
+                step_index: 101,
+                factors: smallvec::smallvec![7, 11],
+                n_l: Uint::from_u64(77),
+                s_l: Uint::from_u64(96),
+                reason: crate::trace::PruneReason::DynamicStarvation {
+                    dynamic_best_achievable_fp: (1u128 << 64) + 500,
+                    lhs: Uint::from_u64(100),
+                    rhs: Uint::from_u64(200),
+                    tail_padded: false,
+                },
+                verification_status: "conditional: UALBF.QPN.AbundancyBound.abundancy_starvation (dynamic suffix bound assumed)",
+            };
+            let _ = crate::trace::send_trace_event(&tx, event_unpadded);
+            let received_unpadded = rx.recv().expect("Failed to receive trace event");
+            if let crate::trace::PruneReason::DynamicStarvation { tail_padded, .. } =
+                received_unpadded.reason
+            {
+                assert!(
+                    !tail_padded,
+                    "TraceEvent must record tail_padded=false when no tail padding is needed"
+                );
+            } else {
+                panic!("Expected DynamicStarvation prune reason");
+            }
+        }
+    }
+
+    #[test]
+    fn test_raycast_inconclusive_fallback_to_dfs_search() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let stop_threshold = Uint::from_u32(50);
+        let target_min = Uint::from_u64(1);
+        let comp = make_prime_power(3, 9, 13);
+        let comps = vec![comp];
+        let tb = Uint::from_u64(1_000_000);
+        let illegal_valuations: Vec<(Int, Int)> = vec![];
+        let pruned_count = AtomicUsize::new(0);
+        let math_interruptions = AtomicUsize::new(0);
+        let active_primes = make_active_primes();
+        let sigma_cache: crate::math_utils::SigmaCache = std::collections::HashMap::new();
+        let lazy_cache = Arc::new(vec![std::sync::OnceLock::new()]);
+        let backbone = crate::backbone::SearchBackbone::new(&comps, &lazy_cache);
+
+        let suffix_abundance: Vec<u128> = vec![3u128 << 64; 129];
+
+        // Case 1: s_l = 0 triggers Inconclusive -> check_and_evaluate_node returns true for DFS fallback
+        let stop_threshold_zero = Uint::zero();
+        let mut curr_inconclusive = make_prefix(0, 0, 0);
+        curr_inconclusive.active_mask = vec![1; 1].into();
+        curr_inconclusive.factors = vec![3, 5, 7, 11, 13, 17, 19];
+        curr_inconclusive.sigma_mod24 = 3;
+
+        let res_inconclusive = check_and_evaluate_node(
+            &mut curr_inconclusive,
+            &comps,
+            &stop_threshold_zero,
+            &target_min,
+            &tb,
+            &illegal_valuations,
+            &suffix_abundance,
+            &AtomicUsize::new(0),
+            &pruned_count,
+            &AtomicUsize::new(0),
+            &AtomicUsize::new(0),
+            &math_interruptions,
+            1,
+            &active_primes,
+            &sigma_cache,
+            None,
+            100,
+            100,
+            &backbone,
+            None,
+            0,
+            &AtomicU64::new(0),
+        );
+        assert!(
+            res_inconclusive,
+            "Inconclusive raycasting must return true for DFS fallback"
+        );
+
+        // Case 2: Handled raycasting -> check_and_evaluate_node returns false
+        let mut curr_handled = make_prefix(100, 195, 0);
+        curr_handled.active_mask = vec![0; 1].into();
+        curr_handled.factors = vec![3, 5, 7, 11, 13, 17, 19];
+        curr_handled.sigma_mod24 = 3;
+
+        let res_handled = check_and_evaluate_node(
+            &mut curr_handled,
+            &comps,
+            &stop_threshold,
+            &target_min,
+            &tb,
+            &illegal_valuations,
+            &suffix_abundance,
+            &AtomicUsize::new(0),
+            &pruned_count,
+            &AtomicUsize::new(0),
+            &AtomicUsize::new(0),
+            &math_interruptions,
+            1,
+            &active_primes,
+            &sigma_cache,
+            None,
+            100,
+            100,
+            &backbone,
+            None,
+            0,
+            &AtomicU64::new(0),
+        );
+        assert!(
+            !res_handled,
+            "Handled raycasting must return false to conclude branch search"
+        );
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

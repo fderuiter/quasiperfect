@@ -314,6 +314,7 @@ pub fn validate_proof_manifest(
         "ruleA_pruning",
         "ruleB_pruning",
         "check_starvation_kill",
+        "check_abundancy_overflow",
         "check_cdg_forced_kill",
         "lean_abundancy_starvation_theorem",
         "verify_starvation_pruning",
@@ -326,6 +327,7 @@ pub fn validate_proof_manifest(
         "prasad_sunitha_bound_satisfied",
         "verify_prasad_sunitha",
         "screen_mod_8",
+        "reachability_soundness",
         "is_valid_mod_8",
         "passes_raycast_sieve_spec",
         "verified_passes_raycast_sieve",
@@ -828,10 +830,36 @@ fn main() {
     }
 
     if lean_sysroot.is_empty() || lean_sysroot == "DUMMY" {
-        panic!(
-            "FATAL: Lean sysroot not found or set to DUMMY (LEAN_SYSROOT='{}'). Verified Lean toolchain is required.",
+        let allow_fallback = env::var("CARGO_FEATURE_ALLOW_UNVERIFIED_STUB_FALLBACK").is_ok();
+        if !allow_fallback {
+            panic!(
+                "FATAL: Lean sysroot not found or set to DUMMY (LEAN_SYSROOT='{}'). Verified Lean toolchain is required. To explicitly allow unverified fallback stubs when Lean is missing, run with `--features allow-unverified-stub-fallback`.",
+                lean_sysroot
+            );
+        }
+
+        println!(
+            "cargo:warning=Lean sysroot not found or set to DUMMY (LEAN_SYSROOT='{}'). 'allow-unverified-stub-fallback' feature flag is active; continuing build with unverified fallback stubs.",
             lean_sysroot
         );
+        println!("cargo:rustc-cfg=unverified_build");
+
+        let mut builder = cc::Build::new();
+        builder.warnings(false).opt_level(2);
+        builder.file("src/unverified/dummy_ffi.c");
+        builder.compile("ualbf_shims");
+
+        let target = env::var("TARGET").unwrap_or_default();
+        if target.contains("apple") {
+            println!("cargo:rustc-link-lib=dylib=c++");
+        } else {
+            link_stdcxx();
+        }
+
+        println!("cargo:rerun-if-changed=src/unverified/dummy_ffi.c");
+        println!("cargo:rerun-if-changed=src/c_shims.c");
+        println!("cargo:rerun-if-changed=../bounds_manifest.json");
+        return;
     }
 
     let lean_include = PathBuf::from(&lean_sysroot).join("include");

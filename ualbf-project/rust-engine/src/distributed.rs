@@ -14,6 +14,53 @@ pub struct RangeWorkUnit {
     pub end_bound: Vec<u64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ControllerExecutionState {
+    Uninitialized,
+    Listening,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug)]
+pub enum ControllerError {
+    BindError {
+        addr: String,
+        source: std::io::Error,
+    },
+    InvalidState(ControllerExecutionState),
+    ExecutionFailed,
+}
+
+impl std::fmt::Display for ControllerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ControllerError::BindError { addr, source } => {
+                write!(
+                    f,
+                    "Failed to bind controller socket to {}: {}",
+                    addr, source
+                )
+            }
+            ControllerError::InvalidState(state) => {
+                write!(f, "Controller in invalid state for operation: {:?}", state)
+            }
+            ControllerError::ExecutionFailed => {
+                write!(f, "Controller execution failed")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ControllerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ControllerError::BindError { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+}
+
 impl RangeWorkUnit {
     pub fn task_id(&self) -> u64 {
         use std::hash::{Hash, Hasher};
@@ -289,10 +336,8 @@ fn save_checkpoint(
         .collect();
     let pending = queue.to_vec();
     let completed: Vec<RangeWorkUnit> = completed_set.iter().cloned().collect();
-    let retries: Vec<(RangeWorkUnit, usize)> = retry_counts
-        .iter()
-        .map(|(k, v)| (k.clone(), *v))
-        .collect();
+    let retries: Vec<(RangeWorkUnit, usize)> =
+        retry_counts.iter().map(|(k, v)| (k.clone(), *v)).collect();
     let schema = CheckpointSchema {
         active,
         pending,
@@ -314,22 +359,20 @@ fn save_checkpoint(
 pub fn run_controller(
     addr: &str,
     units: Vec<RangeWorkUnit>,
-) -> (crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>) {
+) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>), ControllerError> {
+    let mut controller_state = ControllerExecutionState::Uninitialized;
     let listener = match TcpListener::bind(addr) {
-        Ok(l) => l,
+        Ok(l) => {
+            controller_state = ControllerExecutionState::Listening;
+            l
+        }
         Err(e) => {
+            controller_state = ControllerExecutionState::Failed;
             eprintln!("Failed to bind controller to {}: {}", addr, e);
-            return (
-                crate::dfs_tree::DfsTelemetry {
-                    total_branches: 0,
-                    abundance_pruned: 0,
-                    raycast_pruned: 0,
-                    search_space_density: 0.0,
-                    math_interruptions: 0,
-                    boundary_pruned: 0,
-                },
-                Vec::new(),
-            );
+            return Err(ControllerError::BindError {
+                addr: addr.to_string(),
+                source: e,
+            });
         }
     };
 
@@ -365,7 +408,8 @@ pub fn run_controller(
     );
 
     if total_units == 0 {
-        return (
+        controller_state = ControllerExecutionState::Completed;
+        return Ok((
             crate::dfs_tree::DfsTelemetry {
                 total_branches: 0,
                 abundance_pruned: 0,
@@ -375,7 +419,7 @@ pub fn run_controller(
                 boundary_pruned: 0,
             },
             Vec::new(),
-        );
+        ));
     }
 
     // After constructing the initial queue, save the new schema immediately to persist the updated state
@@ -384,7 +428,13 @@ pub fn run_controller(
         let completed = completed_set.lock().unwrap_or_else(|e| e.into_inner());
         let retries = retry_counts.lock().unwrap_or_else(|e| e.into_inner());
         let empty_workers = HashMap::new();
-        save_checkpoint(checkpoint_path, &queue, &empty_workers, &completed, &retries);
+        save_checkpoint(
+            checkpoint_path,
+            &queue,
+            &empty_workers,
+            &completed,
+            &retries,
+        );
     }
 
     let is_finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -446,7 +496,13 @@ pub fn run_controller(
                     }
                 }
                 if changed {
-                    save_checkpoint(&checkpoint_path_monitor, &queue, &workers, &completed, &retries);
+                    save_checkpoint(
+                        &checkpoint_path_monitor,
+                        &queue,
+                        &workers,
+                        &completed,
+                        &retries,
+                    );
                 }
             }
         }
@@ -547,15 +603,18 @@ pub fn run_controller(
                                             math_interruptions,
                                             range,
                                         } if math_interruptions == 0 => {
-                                            let mut queue =
-                                                work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut queue = work_queue
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
                                             let mut workers = active_workers
                                                 .lock()
                                                 .unwrap_or_else(|e| e.into_inner());
-                                            let mut completed =
-                                                completed_set.lock().unwrap_or_else(|e| e.into_inner());
-                                            let mut retries =
-                                                retry_counts.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut completed = completed_set
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
+                                            let mut retries = retry_counts
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
 
                                             let matches_active =
                                                 if let Some(state) = workers.get(&worker_id) {
@@ -570,8 +629,10 @@ pub fn run_controller(
 
                                                 let is_new = completed.insert(range.clone());
                                                 if is_new {
-                                                    total_branches_acc
-                                                        .fetch_add(total_branches, Ordering::Relaxed);
+                                                    total_branches_acc.fetch_add(
+                                                        total_branches,
+                                                        Ordering::Relaxed,
+                                                    );
                                                     ap_acc.fetch_add(ap, Ordering::Relaxed);
                                                     rp_acc.fetch_add(rp, Ordering::Relaxed);
                                                     bp_acc.fetch_add(bp, Ordering::Relaxed);
@@ -604,7 +665,8 @@ pub fn run_controller(
                                                     ) {
                                                         println!("{}", p4_json);
                                                     }
-                                                    is_finished_worker.store(true, Ordering::SeqCst);
+                                                    is_finished_worker
+                                                        .store(true, Ordering::SeqCst);
                                                 }
                                             } else {
                                                 println!(
@@ -622,15 +684,18 @@ pub fn run_controller(
                                             error_metadata,
                                             range,
                                         } => {
-                                            let mut queue =
-                                                work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut queue = work_queue
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
                                             let mut workers = active_workers
                                                 .lock()
                                                 .unwrap_or_else(|e| e.into_inner());
-                                            let completed =
-                                                completed_set.lock().unwrap_or_else(|e| e.into_inner());
-                                            let mut retries =
-                                                retry_counts.lock().unwrap_or_else(|e| e.into_inner());
+                                            let completed = completed_set
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
+                                            let mut retries = retry_counts
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
 
                                             let matches_active =
                                                 if let Some(state) = workers.get(&worker_id) {
@@ -687,7 +752,8 @@ pub fn run_controller(
                                                         &retries,
                                                     );
                                                     is_failed_worker.store(true, Ordering::SeqCst);
-                                                    is_finished_worker.store(true, Ordering::SeqCst);
+                                                    is_finished_worker
+                                                        .store(true, Ordering::SeqCst);
                                                 }
                                             } else {
                                                 println!(
@@ -704,15 +770,18 @@ pub fn run_controller(
                                             math_interruptions,
                                             range,
                                         } => {
-                                            let mut queue =
-                                                work_queue.lock().unwrap_or_else(|e| e.into_inner());
+                                            let mut queue = work_queue
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
                                             let mut workers = active_workers
                                                 .lock()
                                                 .unwrap_or_else(|e| e.into_inner());
-                                            let completed =
-                                                completed_set.lock().unwrap_or_else(|e| e.into_inner());
-                                            let mut retries =
-                                                retry_counts.lock().unwrap_or_else(|e| e.into_inner());
+                                            let completed = completed_set
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
+                                            let mut retries = retry_counts
+                                                .lock()
+                                                .unwrap_or_else(|e| e.into_inner());
 
                                             let matches_active =
                                                 if let Some(state) = workers.get(&worker_id) {
@@ -774,7 +843,8 @@ pub fn run_controller(
                                                         &retries,
                                                     );
                                                     is_failed_worker.store(true, Ordering::SeqCst);
-                                                    is_finished_worker.store(true, Ordering::SeqCst);
+                                                    is_finished_worker
+                                                        .store(true, Ordering::SeqCst);
                                                 }
                                             } else {
                                                 println!(
@@ -802,7 +872,13 @@ pub fn run_controller(
                             worker_id
                         );
                         queue.push(state.active_task);
-                        save_checkpoint(&checkpoint_path_clone, &queue, &workers, &completed, &retries);
+                        save_checkpoint(
+                            &checkpoint_path_clone,
+                            &queue,
+                            &workers,
+                            &completed,
+                            &retries,
+                        );
                     }
                 });
             }
@@ -826,7 +902,8 @@ pub fn run_controller(
         boundary_pruned: bp_acc.load(Ordering::Relaxed),
     };
 
-    (tel, ranges)
+    controller_state = ControllerExecutionState::Completed;
+    Ok((tel, ranges))
 }
 
 pub fn run_worker(
@@ -1114,7 +1191,8 @@ mod tests {
 
         // Load it back
         let default_units = vec![];
-        let (loaded, completed, _retries, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, _retries, ok) =
+            load_checkpoint_or_fallback(temp_path, default_units);
         assert!(ok);
         assert!(completed.is_empty());
         // It should have: pending + active.
@@ -1147,7 +1225,8 @@ mod tests {
 
         // Load it back
         let default_units = vec![];
-        let (loaded, completed, _retries, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, _retries, ok) =
+            load_checkpoint_or_fallback(temp_path, default_units);
         assert!(ok);
         assert!(completed.is_empty());
         assert_eq!(loaded.len(), 2);
@@ -1170,7 +1249,8 @@ mod tests {
         };
         let default_units = vec![p_default.clone()];
 
-        let (loaded, completed, _retries, ok) = load_checkpoint_or_fallback(temp_path, default_units);
+        let (loaded, completed, _retries, ok) =
+            load_checkpoint_or_fallback(temp_path, default_units);
         assert!(!ok); // Rejected corrupt JSON
         assert!(completed.is_empty());
         assert_eq!(loaded.len(), 1);
@@ -1494,7 +1574,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 300);
         assert_eq!(telemetry.abundance_pruned, 30);
         assert_eq!(telemetry.raycast_pruned, 15);
@@ -1581,7 +1661,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file("checkpoint.json");
@@ -1652,7 +1732,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 1);
         assert_eq!(ranges[0], unit1);
@@ -1748,7 +1828,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 400);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file("checkpoint.json");
@@ -1820,7 +1900,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 30);
         assert_eq!(telemetry.math_interruptions, 1);
         assert_eq!(ranges.len(), 1);
@@ -1871,9 +1951,24 @@ mod tests {
             thread::sleep(Duration::from_millis(50));
         }
 
-        let (telemetry, ranges) = controller_handle.join().unwrap();
+        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.math_interruptions, 4);
         assert!(ranges.is_empty()); // Range was NOT completed
         let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_run_controller_socket_bind_error() {
+        let bound_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = bound_listener.local_addr().unwrap().to_string();
+
+        let res = run_controller(&addr, vec![]);
+        assert!(res.is_err());
+        match res {
+            Err(ControllerError::BindError { addr: err_addr, .. }) => {
+                assert_eq!(err_addr, addr);
+            }
+            _ => panic!("Expected ControllerError::BindError"),
+        }
     }
 }
