@@ -972,8 +972,16 @@ def main():
 
         authoritative_touched = False
         for f in pr_files:
+            manifest_key = None
             if f in manifest:
-                if manifest[f] == "authoritative":
+                manifest_key = f
+            elif f"ualbf-project/{f}" in manifest:
+                manifest_key = f"ualbf-project/{f}"
+            elif f.startswith("ualbf-project/") and f[len("ualbf-project/"): ] in manifest:
+                manifest_key = f[len("ualbf-project/"): ]
+
+            if manifest_key is not None:
+                if manifest[manifest_key] == "authoritative":
                     print(f"Authoritative document modified: {f}")
                     authoritative_touched = True
             elif f.endswith(".md") or f.endswith(".tex"):

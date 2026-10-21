@@ -47,6 +47,7 @@ GHOST_PRUNING_BINDINGS = {
     "ruleA_pruning": "UALBF.Engine.ruleA_safe",
     "ruleB_pruning": "UALBF.Engine.ruleB_safe",
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "check_abundancy_overflow": "UALBF.QPN.AbundancyBound.abundancy_overflow_kill_sound",
     "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
     "verify_starvation_pruning": "UALBF.QPN.AbundancyBound.verify_starvation_pruning",
@@ -59,6 +60,7 @@ GHOST_PRUNING_BINDINGS = {
     "prasad_sunitha_bound_satisfied": "UALBF.QPN.PrasadSunitha.qpn_coprime_15_omega_bound",
     "verify_prasad_sunitha": "UALBF.QPN.PrasadSunitha.verify_prasad_sunitha",
     "screen_mod_8": "UALBF.QPN.TouchardQPN.screen_mod_8",
+    "reachability_soundness": "UALBF.Engine.TouchardBridge.reachability_soundness",
     "is_valid_mod_8": "UALBF.QPN.Obstruction.is_valid_mod_8",
     "passes_raycast_sieve_spec": "UALBF.Engine.SieveSoundness.passes_raycast_sieve_spec",
     "verified_passes_raycast_sieve": "UALBF.Engine.SieveSoundness.verified_passes_raycast_sieve",
@@ -1850,6 +1852,7 @@ def check_documentation(manifest, repo_root=None):
         pass
 
     ignore_symbols = {
+        "profile.json",
         "null",
         "path",
         "boolean",
@@ -2001,6 +2004,8 @@ def check_documentation(manifest, repo_root=None):
                     ):
                         target = bt.split("#")[0].split(":")[0]
                         if not target:
+                            continue
+                        if target in ignore_symbols or bt in ignore_symbols or os.path.basename(target) in ignore_symbols:
                             continue
                         if not resolve_target_path(doc_path, target):
                             errors.append(

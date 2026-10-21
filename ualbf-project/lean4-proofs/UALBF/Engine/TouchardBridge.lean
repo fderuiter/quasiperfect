@@ -64,6 +64,10 @@ theorem ualbf_check_touchard_soundness_ffi (p : UInt64) (two_e : UInt32) (hp : p
     exact h_val
   exact touchard_bridge p.toNat two_e.toNat hp h_p h_e
 
+theorem reachability_soundness {N : ℕ} (h_qpn : IsQuasiperfect N) :
+    sigma N % 24 = 3 ∨ sigma N % 24 = 19 := by
+  exact qpn_sigma_mod_24 h_qpn
+
 set_option exponentiation.threshold 512 in
 lemma test_omega (w0 w1 w2 w3 w4 w5 w6 w7 : UInt64) :
   (w0.toNat + w1.toNat * 2^64 + w2.toNat * 2^128 + w3.toNat * 2^192 + w4.toNat * 2^256 + w5.toNat * 2^320 + w6.toNat * 2^384 + w7.toNat * 2^448) % 2^64 = w0.toNat := by

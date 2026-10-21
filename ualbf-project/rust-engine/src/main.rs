@@ -675,6 +675,7 @@ fn main() {
         "ruleA_pruning",
         "ruleB_pruning",
         "check_starvation_kill",
+        "check_abundancy_overflow",
         "check_cdg_forced_kill",
         "lean_abundancy_starvation_theorem",
         "verify_starvation_pruning",
@@ -687,6 +688,7 @@ fn main() {
         "prasad_sunitha_bound_satisfied",
         "verify_prasad_sunitha",
         "screen_mod_8",
+        "reachability_soundness",
         "is_valid_mod_8",
         "passes_raycast_sieve_spec",
         "verified_passes_raycast_sieve",
@@ -878,19 +880,30 @@ fn main() {
     let mut explored_ranges_out = Vec::new();
     let telemetry_data;
 
+    let mut controller_state: Option<crate::distributed::ControllerExecutionState> = None;
+
     if mode == "controller" {
         let depth_limit = 1; // shallow DFS depths
         let work_units =
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
-        let (tel, mut ranges) = distributed::run_controller(&addr, work_units);
-        ranges.sort_by(|a, b| {
-            a.start_bound
-                .cmp(&b.start_bound)
-                .then_with(|| a.end_bound.cmp(&b.end_bound))
-        });
-        telemetry_data = tel;
-        explored_ranges_out = ranges;
+        match distributed::run_controller(&addr, work_units) {
+            Ok((tel, mut ranges)) => {
+                ranges.sort_by(|a, b| {
+                    a.start_bound
+                        .cmp(&b.start_bound)
+                        .then_with(|| a.end_bound.cmp(&b.end_bound))
+                });
+                telemetry_data = tel;
+                explored_ranges_out = ranges;
+                controller_state = Some(crate::distributed::ControllerExecutionState::Completed);
+            }
+            Err(e) => {
+                eprintln!("Controller initialization or execution failed: {}", e);
+                controller_state = Some(crate::distributed::ControllerExecutionState::Failed);
+                std::process::exit(1);
+            }
+        }
     } else if mode == "worker" {
         let addr = config.controller_addr.clone();
         let total_weight_scaled: usize = valid_components
@@ -1006,6 +1019,16 @@ fn main() {
     }
 
     // ── Generate Formal Exhaustion Certificate ──
+    if mode == "controller" {
+        if controller_state != Some(crate::distributed::ControllerExecutionState::Completed) {
+            eprintln!(
+                "ERROR: Refusing to generate certificate: Controller execution state is not Completed (state: {:?})",
+                controller_state
+            );
+            std::process::exit(1);
+        }
+    }
+
     if skip_cert {
         println!("=== Certificate Generation Skipped due to custom bounds ===");
         return;

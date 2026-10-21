@@ -1,10 +1,13 @@
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 use crate::math_utils::{SigmaCache, TrialSieve};
 use crate::obstruction::Obstruction;
+use crate::trace::{PruneReason, TraceEvent};
 use crate::types::UintExt;
 use crate::types::{PrimePower, Uint};
+use crossbeam_channel::Sender;
 use primal::Sieve;
 use rayon::prelude::*;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
@@ -62,12 +65,22 @@ pub fn phase1_global_annihilation_sieve(
     max_e: u32,
     target_bound: Uint,
 ) -> SieveResult {
+    phase1_global_annihilation_sieve_with_trace(limit, max_e, target_bound, None)
+}
+
+pub fn phase1_global_annihilation_sieve_with_trace(
+    limit: usize,
+    max_e: u32,
+    target_bound: Uint,
+    trace_tx: Option<&Sender<TraceEvent>>,
+) -> SieveResult {
     println!("PROGRESS|PHASE|1|Legendre-Cattaneo Sieve");
     let phase1_start = std::time::Instant::now();
     let sieve = Sieve::new(limit);
     let pruned = AtomicUsize::new(0);
     let ecm_calls = AtomicUsize::new(0);
     let trial_only = AtomicUsize::new(0);
+    let step_counter = AtomicU64::new(0);
 
     let total_primes = sieve.prime_pi(limit);
     let count = AtomicUsize::new(0);
@@ -103,7 +116,7 @@ pub fn phase1_global_annihilation_sieve(
     let mut stage2_bitset = vec![0u64; num_blocks_stage2];
     for p_mod_8 in 0..8 {
         for e in 1..=max_e {
-            if !crate::obstruction::check_mod_8_native(p_mod_8 as u64, 2 * e) {
+            if crate::lean_ffi::check_mod_8(p_mod_8 as u64) {
                 if let Some(index) = get_sieve_index(p_mod_8 as usize, max_e, e) {
                     if index / 64 < stage2_bitset.len() {
                         stage2_bitset[index / 64] |= 1 << (index % 64);
@@ -185,8 +198,26 @@ pub fn phase1_global_annihilation_sieve(
 
                     let two_e = 2 * e;
 
-                    if crate::obstruction::is_component_statically_rejected(p as u64, two_e) {
+                    if let Some(rejection) = crate::obstruction::get_component_static_rejection(p as u64, two_e) {
                         pruned.fetch_add(1, Ordering::Relaxed);
+                        if let Some(tx) = trace_tx {
+                            let step_idx = step_counter.fetch_add(1, Ordering::Relaxed);
+                            let mut factors = SmallVec::new();
+                            factors.push(p as u64);
+                            factors.push(two_e as u64);
+                            let event = TraceEvent {
+                                work_unit_id: 0,
+                                step_index: step_idx,
+                                factors,
+                                n_l: Uint::from_u64(p as u64),
+                                s_l: Uint::from_u32(two_e),
+                                reason: PruneReason::StaticComponentObstruction {
+                                    rule: rejection.rule_name(),
+                                },
+                                verification_status: rejection.lean_theorem_tag(),
+                            };
+                            let _ = crate::trace::send_trace_event(tx, event);
+                        }
                         continue;
                     }
 

@@ -64,19 +64,19 @@
       "name": "UALBF.QPN.AbundancyBound.qpn_abundancy_target",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.qpn_totient_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.abundancy_starvation",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     {
       "name": "UALBF.QPN.Obstruction.legendre_cattaneo_obstruction",
@@ -124,7 +124,13 @@
       "name": "UALBF.Engine.TouchardBridge.touchard_bridge",
       "file": "UALBF/Engine/TouchardBridge.lean",
       "status": "proven",
-      "checksum": "3ff39a6f0b2d24caf1e9da8832f14d1abc141f7b33ad14443e11b299bca5ec20"
+      "checksum": "7d54795166960930fb95c7402c3a477bade2262e78d8f53ea7f7d8377c78315c"
+    },
+    {
+      "name": "UALBF.Engine.TouchardBridge.reachability_soundness",
+      "file": "UALBF/Engine/TouchardBridge.lean",
+      "status": "proven",
+      "checksum": "7d54795166960930fb95c7402c3a477bade2262e78d8f53ea7f7d8377c78315c"
     },
     {
       "name": "UALBF.FFI.fromU512_toU512",
@@ -286,19 +292,25 @@
       "name": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.verify_starvation_pruning",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     {
       "name": "UALBF.QPN.AbundancyBound.is_starved_bound",
       "file": "UALBF/QPN/AbundancyBound.lean",
       "status": "proven",
-      "checksum": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
+    },
+    {
+      "name": "UALBF.QPN.AbundancyBound.abundancy_overflow_kill_sound",
+      "file": "UALBF/QPN/AbundancyBound.lean",
+      "status": "proven",
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     {
       "name": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
@@ -616,7 +628,7 @@
     },
     {
       "file": "UALBF/Engine/TouchardBridge.lean",
-      "checksum": "3ff39a6f0b2d24caf1e9da8832f14d1abc141f7b33ad14443e11b299bca5ec20"
+      "checksum": "7d54795166960930fb95c7402c3a477bade2262e78d8f53ea7f7d8377c78315c"
     },
     {
       "file": "UALBF/FFI.lean",
@@ -664,7 +676,7 @@
     },
     {
       "file": "UALBF/QPN/AbundancyBound.lean",
-      "checksum": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "checksum": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     {
       "file": "UALBF/QPN/BasicProperties.lean",
@@ -703,7 +715,11 @@
     },
     "check_starvation_kill": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_starvation",
-      "theorem_hash": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "theorem_hash": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
+    },
+    "check_abundancy_overflow": {
+      "lean_theorem": "UALBF.QPN.AbundancyBound.abundancy_overflow_kill_sound",
+      "theorem_hash": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     "check_cdg_forced_kill": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
@@ -711,15 +727,15 @@
     },
     "lean_abundancy_starvation_theorem": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
-      "theorem_hash": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "theorem_hash": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     "verify_starvation_pruning": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.verify_starvation_pruning",
-      "theorem_hash": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "theorem_hash": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     "is_starved": {
       "lean_theorem": "UALBF.QPN.AbundancyBound.is_starved_bound",
-      "theorem_hash": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3"
+      "theorem_hash": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535"
     },
     "is_cdg_forced_pruned": {
       "lean_theorem": "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
@@ -752,6 +768,10 @@
     "screen_mod_8": {
       "lean_theorem": "UALBF.QPN.TouchardQPN.screen_mod_8",
       "theorem_hash": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
+    },
+    "reachability_soundness": {
+      "lean_theorem": "UALBF.Engine.TouchardBridge.reachability_soundness",
+      "theorem_hash": "7d54795166960930fb95c7402c3a477bade2262e78d8f53ea7f7d8377c78315c"
     },
     "is_valid_mod_8": {
       "lean_theorem": "UALBF.QPN.Obstruction.is_valid_mod_8",
@@ -852,12 +872,12 @@
         "rust-engine/src/verus_proofs.rs"
       ],
       "component_hashes": {
-        "abundancy_starvation": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3",
+        "abundancy_starvation": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535",
         "lean_abundancy_starvation_theorem": "3f4300e9de5e8e30ef5786aef95f510ca2fdd189fc24e155441bfa357c7ea366",
         "check_starvation_kill": "5b9cbf43d6d7495fa265f2b0b6cb6d738586441f56d4ae2ccbcc2838e26187eb"
       },
       "file_checksums": {
-        "lean4-proofs/UALBF/QPN/AbundancyBound.lean": "a13219893d7bf6ba12cef6062a2351959fcfe522446ac1cba0aa462bb4ed3fe3",
+        "lean4-proofs/UALBF/QPN/AbundancyBound.lean": "10e2be51e527a2c13ca8f4f1e1e9bad1c2853963acaba7f31be6d1002ec92535",
         "rust-engine/src/verus_proofs.rs": "34be8c1e2992f917d26c4903acb2d6427a98eebd8389c6c882f345b92c56d794"
       }
     },
@@ -953,6 +973,6 @@
       }
     }
   ],
-  "verified_logic_hash": "b0b36eea9a4c2616d88d3b193bfdec87c9ffe188679717ff22c24bdb88df527b",
+  "verified_logic_hash": "5d045ed24524fa6f73a154c38d600e73a97390229866c65c80b0168823fc398c",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
