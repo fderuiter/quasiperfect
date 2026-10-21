@@ -61,6 +61,9 @@ pub enum PruneReason {
         target_log: f64,
         epsilon: f64,
     },
+    StaticComponentObstruction {
+        rule: &'static str,
+    },
 }
 
 pub struct TraceEvent {
@@ -290,6 +293,10 @@ impl TraceWriter {
                         ser_event.shortest_sq_norm = Some(shortest_sq_norm.clone());
                         ser_event.target_log = Some(*target_log);
                         ser_event.epsilon = Some(*epsilon);
+                    }
+                    PruneReason::StaticComponentObstruction { rule } => {
+                        ser_event.reason = "static_component_obstruction";
+                        ser_event.static_best_remaining = Some(rule.to_string());
                     }
                 }
 

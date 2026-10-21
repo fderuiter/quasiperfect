@@ -2917,6 +2917,9 @@ mod tests {
                             crate::trace::PruneReason::Lll { .. } => {
                                 panic!("Case 1: Pruned by Lll")
                             }
+                            crate::trace::PruneReason::StaticComponentObstruction { .. } => {
+                                panic!("Case 1: Pruned by StaticComponentObstruction")
+                            }
                         }
                     } else {
                         panic!("Expected a trace event to be emitted in Case 1");
@@ -2980,6 +2983,9 @@ mod tests {
                             }
                             crate::trace::PruneReason::Lll { .. } => {
                                 panic!("Case 2: Pruned by Lll")
+                            }
+                            crate::trace::PruneReason::StaticComponentObstruction { .. } => {
+                                panic!("Case 2: Pruned by StaticComponentObstruction")
                             }
                         }
                     } else {
@@ -3045,6 +3051,9 @@ mod tests {
                             }
                             crate::trace::PruneReason::Lll { .. } => {
                                 panic!("Case 3: Pruned by Lll")
+                            }
+                            crate::trace::PruneReason::StaticComponentObstruction { .. } => {
+                                panic!("Case 3: Pruned by StaticComponentObstruction")
                             }
                         }
                     } else {
