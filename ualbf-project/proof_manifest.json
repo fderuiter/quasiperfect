@@ -969,10 +969,10 @@
         "lean4-proofs/UALBF/Engine/Mod5Bridge.lean": "8a17fa66a83f4144afab96dc870dc7a5ede8413d686581bdb099d5dae0b5bbb9",
         "lean4-proofs/UALBF/Engine/SieveSoundness.lean": "e2f4db65a8850b6a8d00daa565d3f5c7a802411014a75169a195e86084553234",
         "rust-engine/src/lean_ffi.rs": "e5e09579be22ffcaa427f0c90f41480d393af625cb8a4235d0d7a716cb2f6d48",
-        "rust-engine/src/obstruction.rs": "7c6a99b49f48f8ea665d5a8567294aa1962534f8ed68068647bf80e19fcb1eb6"
+        "rust-engine/src/obstruction.rs": "68a576e98464523213b69f7bfa738b8c4e4664bb4044776d3217b22e99b0ebd9"
       }
     }
   ],
-  "verified_logic_hash": "5d045ed24524fa6f73a154c38d600e73a97390229866c65c80b0168823fc398c",
+  "verified_logic_hash": "fb9aeaa8e9b1169713050e9e37d1d001cdf25e6d7c9b81dc25d08d0c18d1ee9c",
   "verified_extension_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 }
