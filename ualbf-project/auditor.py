@@ -47,6 +47,7 @@ GHOST_PRUNING_BINDINGS = {
     "ruleA_pruning": "UALBF.Engine.ruleA_safe",
     "ruleB_pruning": "UALBF.Engine.ruleB_safe",
     "check_starvation_kill": "UALBF.QPN.AbundancyBound.abundancy_starvation",
+    "check_abundancy_overflow": "UALBF.QPN.AbundancyBound.abundancy_overflow_kill_sound",
     "check_cdg_forced_kill": "UALBF.Engine.CyclotomicGraph.forced_inclusion",
     "lean_abundancy_starvation_theorem": "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
     "verify_starvation_pruning": "UALBF.QPN.AbundancyBound.verify_starvation_pruning",

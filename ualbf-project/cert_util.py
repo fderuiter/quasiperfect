@@ -557,6 +557,7 @@ CORE_THEOREMS = [
     "UALBF.QPN.AbundancyBound.lean_abundancy_starvation_theorem",
     "UALBF.QPN.AbundancyBound.verify_starvation_pruning",
     "UALBF.QPN.AbundancyBound.is_starved_bound",
+    "UALBF.QPN.AbundancyBound.abundancy_overflow_kill_sound",
     "UALBF.Engine.CyclotomicGraph.is_cdg_forced_pruned",
     "UALBF.Engine.Bipartition.coprime_multiplicative_nonlinear",
     "UALBF.Engine.Bipartition.coprime_multiplicative",

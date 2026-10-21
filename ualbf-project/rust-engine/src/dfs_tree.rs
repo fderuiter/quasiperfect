@@ -769,7 +769,7 @@ pub fn check_and_evaluate_node(
                         s_l_mul: curr.s_l * overflow_den_u,
                         n_l_mul: curr.n_l * overflow_num_u,
                     },
-                    verification_status: "unproven: arithmetic overflow",
+                    verification_status: "proven",
                 },
             );
         }
