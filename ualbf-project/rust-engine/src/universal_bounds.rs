@@ -77,6 +77,38 @@ mod tests {
         assert!(cpu_check_euler_ceiling(&num, &den, &euler_num, &euler_den));
     }
 
+    #[test]
+    fn test_cpu_check_abundancy_overflow_above() {
+        // s_l / n_l = 21 / 10 = 2.1 > target_num / target_den = 2 / 1 = 2.0 -> returns true
+        let s_l = Uint::from_u64(21);
+        let n_l = Uint::from_u64(10);
+        assert!(cpu_check_abundancy_overflow(&s_l, &n_l, 2, 1));
+    }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_below() {
+        // s_l / n_l = 19 / 10 = 1.9 <= target_num / target_den = 2 / 1 = 2.0 -> returns false
+        let s_l = Uint::from_u64(19);
+        let n_l = Uint::from_u64(10);
+        assert!(!cpu_check_abundancy_overflow(&s_l, &n_l, 2, 1));
+    }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_lhs_overflow() {
+        // s_l * target_den overflows 512-bit Uint -> returns false without panicking
+        let s_l = Uint::MAX;
+        let n_l = Uint::from_u64(1);
+        assert!(!cpu_check_abundancy_overflow(&s_l, &n_l, 2, 2));
+    }
+
+    #[test]
+    fn test_cpu_check_abundancy_overflow_rhs_overflow() {
+        // n_l * target_num overflows 512-bit Uint -> returns false without panicking
+        let s_l = Uint::from_u64(1);
+        let n_l = Uint::MAX;
+        assert!(!cpu_check_abundancy_overflow(&s_l, &n_l, 2, 2));
+    }
+
     proptest! {
         #[test]
         fn test_cpu_check_euler_ceiling_property(

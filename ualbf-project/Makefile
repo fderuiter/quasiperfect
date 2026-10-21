@@ -36,14 +36,7 @@ check-core: ## Runs Rust formatting and Clippy, and Lean formatting
 	./scripts/check-code-quality.sh
 
 check-python: verification-lib ## Runs Python style checks, type-checking, doc validation, and unit tests
-	python3 scripts/check_literals.py
-	python3 verify_metadata.py
-	black --check .
-	flake8 .
-	mypy .
-	python3 scripts/validate_docs.py --check-specs
-	python3 scripts/validate_tuning_guide.py
-	python3 -m pytest tests paper
+	python3 scripts/check_python_quality.py
 
 check-paper: verification-lib ## Verifies paper unit tests and LaTeX macro synchronization
 	python3 scripts/verify_paper_sync.py

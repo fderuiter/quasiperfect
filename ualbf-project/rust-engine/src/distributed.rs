@@ -14,6 +14,53 @@ pub struct RangeWorkUnit {
     pub end_bound: Vec<u64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ControllerExecutionState {
+    Uninitialized,
+    Listening,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug)]
+pub enum ControllerError {
+    BindError {
+        addr: String,
+        source: std::io::Error,
+    },
+    InvalidState(ControllerExecutionState),
+    ExecutionFailed,
+}
+
+impl std::fmt::Display for ControllerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ControllerError::BindError { addr, source } => {
+                write!(
+                    f,
+                    "Failed to bind controller socket to {}: {}",
+                    addr, source
+                )
+            }
+            ControllerError::InvalidState(state) => {
+                write!(f, "Controller in invalid state for operation: {:?}", state)
+            }
+            ControllerError::ExecutionFailed => {
+                write!(f, "Controller execution failed")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ControllerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ControllerError::BindError { source, .. } => Some(source),
+            _ => None,
+        }
+    }
+}
+
 impl RangeWorkUnit {
     pub fn task_id(&self) -> u64 {
         use std::hash::{Hash, Hasher};
@@ -298,7 +345,8 @@ fn save_checkpoint(
 pub fn run_controller(
     addr: &str,
     units: Vec<RangeWorkUnit>,
-) -> (crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>, bool) {
+) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>, bool), ControllerError> {
+    let mut controller_state = ControllerExecutionState::Uninitialized;
     let checkpoint_path = "checkpoint.json";
 
     // Load from checkpoint if exists with fallback parsing
@@ -306,7 +354,7 @@ pub fn run_controller(
         load_checkpoint_or_fallback(checkpoint_path, units);
 
     let completed_set = Arc::new(Mutex::new(HashSet::<RangeWorkUnit>::from_iter(
-        initial_completed.clone(),
+        initial_completed,
     )));
     let work_queue = Arc::new(Mutex::new(initial_units));
     let total_units = work_queue.lock().unwrap_or_else(|e| e.into_inner()).len()
@@ -316,23 +364,17 @@ pub fn run_controller(
             .len();
 
     let listener = match TcpListener::bind(addr) {
-        Ok(l) => l,
+        Ok(l) => {
+            controller_state = ControllerExecutionState::Listening;
+            l
+        }
         Err(e) => {
+            controller_state = ControllerExecutionState::Failed;
             eprintln!("Failed to bind controller to {}: {}", addr, e);
-            let completed_vec = initial_completed;
-            let is_comp = total_units > 0 && completed_vec.len() >= total_units;
-            return (
-                crate::dfs_tree::DfsTelemetry {
-                    total_branches: 0,
-                    abundance_pruned: 0,
-                    raycast_pruned: 0,
-                    search_space_density: 0.0,
-                    math_interruptions: 0,
-                    boundary_pruned: 0,
-                },
-                completed_vec,
-                is_comp,
-            );
+            return Err(ControllerError::BindError {
+                addr: addr.to_string(),
+                source: e,
+            });
         }
     };
 
@@ -350,7 +392,8 @@ pub fn run_controller(
     );
 
     if total_units == 0 {
-        return (
+        controller_state = ControllerExecutionState::Completed;
+        return Ok((
             crate::dfs_tree::DfsTelemetry {
                 total_branches: 0,
                 abundance_pruned: 0,
@@ -361,7 +404,7 @@ pub fn run_controller(
             },
             Vec::new(),
             false,
-        );
+        ));
     }
 
     // After constructing the initial queue, save the new schema immediately to persist the updated state
@@ -627,6 +670,9 @@ pub fn run_controller(
             completed_count, total_units
         );
         println!("Preserving {} for task recovery.", checkpoint_path);
+        controller_state = ControllerExecutionState::Failed;
+    } else {
+        controller_state = ControllerExecutionState::Completed;
     }
 
     let tel = crate::dfs_tree::DfsTelemetry {
@@ -638,7 +684,7 @@ pub fn run_controller(
         boundary_pruned: bp_acc.load(Ordering::Relaxed),
     };
 
-    (tel, ranges, is_complete)
+    Ok((tel, ranges, is_complete))
 }
 
 pub fn run_worker(
@@ -1290,7 +1336,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
         assert!(is_complete);
         assert_eq!(telemetry.total_branches, 300);
         assert_eq!(telemetry.abundance_pruned, 30);
@@ -1378,7 +1424,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
         assert!(is_complete);
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 2);
@@ -1450,7 +1496,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
         assert!(is_complete);
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 1);
@@ -1547,7 +1593,7 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
         assert!(is_complete);
         assert_eq!(telemetry.total_branches, 400);
         assert_eq!(ranges.len(), 2);
@@ -1563,18 +1609,18 @@ mod tests {
         let addr = listener.local_addr().unwrap().to_string();
         drop(listener);
 
-        let (_, _, is_complete_empty) = run_controller(&addr, vec![]);
+        let (_, _, is_complete_empty) = run_controller(&addr, vec![]).unwrap();
         assert!(!is_complete_empty);
 
-        // 2. Test invalid bind address returns is_complete == false
+        // 2. Test invalid bind address returns error
         let unit1 = RangeWorkUnit {
             start_bound: vec![1],
             end_bound: vec![2],
         };
-        let (_, _, is_complete_bind_err) = run_controller("invalid_address:99999", vec![unit1]);
-        assert!(!is_complete_bind_err);
+        let bind_res = run_controller("invalid_address:99999", vec![unit1]);
+        assert!(bind_res.is_err());
 
-        // 3. Test partial checkpoint resumption returns is_complete == false on early exit
+        // 3. Test partial checkpoint resumption returns error on invalid address
         let unit_done = RangeWorkUnit {
             start_bound: vec![10],
             end_bound: vec![20],
@@ -1590,11 +1636,25 @@ mod tests {
             &HashSet::from([unit_done.clone()]),
         );
 
-        let (_, ranges, is_complete_partial) = run_controller("invalid_address:99999", vec![]);
-        assert!(!is_complete_partial);
-        assert_eq!(ranges.len(), 1);
+        let res_partial = run_controller("invalid_address:99999", vec![]);
+        assert!(res_partial.is_err());
         assert!(fs::metadata("checkpoint.json").is_ok());
 
         let _ = fs::remove_file("checkpoint.json");
+    }
+
+    #[test]
+    fn test_run_controller_socket_bind_error() {
+        let bound_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = bound_listener.local_addr().unwrap().to_string();
+
+        let res = run_controller(&addr, vec![]);
+        assert!(res.is_err());
+        match res {
+            Err(ControllerError::BindError { addr: err_addr, .. }) => {
+                assert_eq!(err_addr, addr);
+            }
+            _ => panic!("Expected ControllerError::BindError"),
+        }
     }
 }

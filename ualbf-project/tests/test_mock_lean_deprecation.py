@@ -128,3 +128,37 @@ def test_build_rs_fails_when_lean_sysroot_missing():
 
     assert res.returncode != 0
     assert "FATAL: Lean sysroot not found" in res.stderr or "FATAL: Lean sysroot not found" in res.stdout
+
+
+@pytest.mark.skipif(
+    os.environ.get("GITHUB_ACTIONS") == "true",
+    reason="Skip cargo subprocess test under GHA fast-feedback python checks",
+)
+def test_build_rs_succeeds_with_allow_unverified_stub_fallback_feature():
+    """
+    Test that rust-engine/build.rs succeeds when Lean 4 sysroot is missing/DUMMY
+    if --features allow-unverified-stub-fallback is explicitly provided.
+    """
+    project_dir = Path(__file__).parent.parent
+    rust_engine_dir = project_dir / "rust-engine"
+
+    env = os.environ.copy()
+    env.pop("MOCK_LEAN", None)
+    env["LEAN_SYSROOT"] = "DUMMY"
+
+    # Touch build.rs to force build script rerun
+    build_rs_path = rust_engine_dir / "build.rs"
+    if build_rs_path.exists():
+        build_rs_path.touch()
+
+    res = subprocess.run(
+        ["cargo", "check", "--features", "allow-unverified-stub-fallback"],
+        cwd=str(rust_engine_dir),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert res.returncode == 0
+    assert "allow-unverified-stub-fallback" in res.stderr or "allow-unverified-stub-fallback" in res.stdout
+
