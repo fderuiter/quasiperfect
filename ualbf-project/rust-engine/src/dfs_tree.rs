@@ -501,42 +501,13 @@ pub fn check_and_evaluate_node(
         return false;
     }
 
-    // Touchard mod-24 filter reachability check
-    let mut reachable: u32 = 1 << curr.sigma_mod24;
-    let mask = &curr.active_mask;
-    let start_idx = curr.last_idx;
-    let mut block_idx = start_idx / 64;
-    if block_idx < mask.len() {
-        let mut block = mask[block_idx] & (!0 << (start_idx % 64));
-        'outer: loop {
-            while block != 0 {
-                let tz = block.trailing_zeros();
-                let j = block_idx * 64 + tz as usize;
-                let comp = &components[j];
-                let m = (comp.sigma % crate::types::Uint::from_u64(24)).as_u64() as usize;
-                if m != 1 {
-                    let mut next_reachable = reachable;
-                    for r in 0..24 {
-                        if (reachable & (1 << r)) != 0 {
-                            next_reachable |= 1 << ((r * m) % 24);
-                        }
-                    }
-                    reachable = next_reachable;
-                    if (reachable & ((1 << 3) | (1 << 19))) == ((1 << 3) | (1 << 19)) {
-                        break 'outer;
-                    }
-                }
-                block &= block - 1;
-            }
-            block_idx += 1;
-            if block_idx >= mask.len() {
-                break;
-            }
-            block = mask[block_idx];
-        }
-    }
-
-    if (reachable & ((1 << 3) | (1 << 19))) == 0 {
+    // Touchard mod-24 filter reachability check dispatched through proof mode guard
+    if crate::pruning_dispatch::dispatch_touchard_reachability_check(
+        curr.sigma_mod24,
+        &curr.active_mask,
+        curr.last_idx,
+        components,
+    ) {
         abundance_pruned.fetch_add(1, Ordering::Relaxed);
         if let Some(tx) = trace_tx {
             let mut f_vec = smallvec::SmallVec::new();
@@ -553,7 +524,7 @@ pub fn check_and_evaluate_node(
                     reason: crate::trace::PruneReason::Touchard {
                         sigma_mod24: curr.sigma_mod24,
                     },
-                    verification_status: "partial: UALBF.QPN.TouchardQPN.qpn_sigma_mod_24 (residue reachability not proven)",
+                    verification_status: "lean: UALBF.Engine.TouchardBridge.reachability_soundness",
                 },
             );
         }
@@ -2881,6 +2852,38 @@ mod tests {
                 );
             }
         );
+    }
+
+    #[test]
+    fn test_touchard_reachability_pure_mode_fallback() {
+        crate::lean_ffi::initialize_lean_runtime();
+        let comp_even = make_prime_power(2, 4, 2);
+        let mut comps = vec![comp_even];
+        for i in 0..9 {
+            comps.push(make_prime_power(101 + i, 100, 115));
+        }
+
+        let active_mask = vec![0x3FFu64];
+        let result_unverified =
+            crate::pruning_dispatch::dispatch_touchard_reachability_check_internal(
+                2,
+                &active_mask,
+                0,
+                &comps,
+                false,
+            );
+
+        if crate::policy::get_proof_mode() == "pure" {
+            assert!(
+                !result_unverified,
+                "In pure proof mode, unverified Touchard reachability must fall back to non-pruning exploration"
+            );
+        } else {
+            assert!(
+                result_unverified,
+                "In axiomatic mode, Touchard reachability prunes invalid even residues"
+            );
+        }
     }
 
     #[test]

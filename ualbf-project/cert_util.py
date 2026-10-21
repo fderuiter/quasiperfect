@@ -528,6 +528,7 @@ CORE_THEOREMS = [
     "UALBF.Engine.Obstruction.qpn_sigma_mod_9",
     "UALBF.QPN.TouchardQPN.qpn_sigma_mod_24",
     "UALBF.Engine.TouchardBridge.touchard_bridge",
+    "UALBF.Engine.TouchardBridge.reachability_soundness",
     "UALBF.FFI.fromU512_toU512",
     "UALBF.FFI.toU512_fromU512",
     "UALBF.FFI.fromU512_eq_fromU512Fast",

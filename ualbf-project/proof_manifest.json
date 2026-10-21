@@ -124,7 +124,13 @@
       "name": "UALBF.Engine.TouchardBridge.touchard_bridge",
       "file": "UALBF/Engine/TouchardBridge.lean",
       "status": "proven",
-      "checksum": "3ff39a6f0b2d24caf1e9da8832f14d1abc141f7b33ad14443e11b299bca5ec20"
+      "checksum": "7d54795166960930fb95c7402c3a477bade2262e78d8f53ea7f7d8377c78315c"
+    },
+    {
+      "name": "UALBF.Engine.TouchardBridge.reachability_soundness",
+      "file": "UALBF/Engine/TouchardBridge.lean",
+      "status": "proven",
+      "checksum": "7d54795166960930fb95c7402c3a477bade2262e78d8f53ea7f7d8377c78315c"
     },
     {
       "name": "UALBF.FFI.fromU512_toU512",
@@ -752,6 +758,10 @@
     "screen_mod_8": {
       "lean_theorem": "UALBF.QPN.TouchardQPN.screen_mod_8",
       "theorem_hash": "9cc566426952947f41130b267e82abef3dd8d539ca1a1e477c0c6a0239230a25"
+    },
+    "reachability_soundness": {
+      "lean_theorem": "UALBF.Engine.TouchardBridge.reachability_soundness",
+      "theorem_hash": "7d54795166960930fb95c7402c3a477bade2262e78d8f53ea7f7d8377c78315c"
     },
     "is_valid_mod_8": {
       "lean_theorem": "UALBF.QPN.Obstruction.is_valid_mod_8",
