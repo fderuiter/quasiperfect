@@ -604,8 +604,12 @@ pub fn validate_verus_hashes(
 /// which the system loader does not search, so test binaries failed to
 /// start with "libstdc++.so.6: cannot open shared object file".
 fn link_stdcxx() {
-    println!("cargo:rustc-link-lib=dylib=stdc++");
-    println!("cargo:rustc-link-lib=dylib=c++");
+    let target = env::var("TARGET").unwrap_or_default();
+    if target.contains("apple") || target.contains("freebsd") {
+        println!("cargo:rustc-link-lib=dylib=c++");
+    } else {
+        println!("cargo:rustc-link-lib=dylib=stdc++");
+    }
     let compiler = cc::Build::new().get_compiler();
     let Ok(output) = Command::new(compiler.path())
         .arg("-print-file-name=libstdc++.so")
