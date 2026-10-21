@@ -687,6 +687,7 @@ fn main() {
         "prasad_sunitha_bound_satisfied",
         "verify_prasad_sunitha",
         "screen_mod_8",
+        "reachability_soundness",
         "is_valid_mod_8",
         "passes_raycast_sieve_spec",
         "verified_passes_raycast_sieve",
