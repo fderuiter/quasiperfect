@@ -2005,7 +2005,11 @@ def check_documentation(manifest, repo_root=None):
                         target = bt.split("#")[0].split(":")[0]
                         if not target:
                             continue
-                        if target in ignore_symbols or bt in ignore_symbols or os.path.basename(target) in ignore_symbols:
+                        if (
+                            target in ignore_symbols
+                            or bt in ignore_symbols
+                            or os.path.basename(target) in ignore_symbols
+                        ):
                             continue
                         if not resolve_target_path(doc_path, target):
                             errors.append(

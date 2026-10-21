@@ -977,8 +977,11 @@ def main():
                 manifest_key = f
             elif f"ualbf-project/{f}" in manifest:
                 manifest_key = f"ualbf-project/{f}"
-            elif f.startswith("ualbf-project/") and f[len("ualbf-project/"): ] in manifest:
-                manifest_key = f[len("ualbf-project/"): ]
+            elif (
+                f.startswith("ualbf-project/")
+                and f[len("ualbf-project/") :] in manifest
+            ):
+                manifest_key = f[len("ualbf-project/") :]
 
             if manifest_key is not None:
                 if manifest[manifest_key] == "authoritative":
