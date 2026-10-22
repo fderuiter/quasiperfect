@@ -808,9 +808,17 @@ def _generate_manifest_impl():
                     existing_entries[thm["name"]] = thm
                     if "file" in thm:
                         existing_registered_files.add(thm["file"])
+                        if thm["file"].startswith("lean4-proofs/"):
+                            existing_registered_files.add(
+                                thm["file"][len("lean4-proofs/") :]
+                            )
                 for pf in old_manifest.get("proof_files", []):
                     if "file" in pf:
                         existing_registered_files.add(pf["file"])
+                        if pf["file"].startswith("lean4-proofs/"):
+                            existing_registered_files.add(
+                                pf["file"][len("lean4-proofs/") :]
+                            )
         except Exception:
             pass
 
@@ -1247,7 +1255,11 @@ def _generate_manifest_impl():
 
         if not found_file or found_file == "UALBF.lean":
             for pf in disk_proof_files:
-                pf_path = os.path.join(cwd, pf)
+                pf_path = (
+                    os.path.join(proof_dir, pf)
+                    if os.path.exists(os.path.join(proof_dir, pf))
+                    else os.path.join(cwd, pf)
+                )
                 if os.path.exists(pf_path):
                     try:
                         with open(pf_path, "r", encoding="utf-8") as f:
@@ -1300,7 +1312,11 @@ def _generate_manifest_impl():
 
         if not found_file or found_file == "UALBF.lean":
             for pf in disk_proof_files:
-                pf_path = os.path.join(cwd, pf)
+                pf_path = (
+                    os.path.join(proof_dir, pf)
+                    if os.path.exists(os.path.join(proof_dir, pf))
+                    else os.path.join(cwd, pf)
+                )
                 if os.path.exists(pf_path):
                     try:
                         with open(pf_path, "r", encoding="utf-8") as f:
