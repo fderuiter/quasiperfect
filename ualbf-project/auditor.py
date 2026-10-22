@@ -816,8 +816,9 @@ def _generate_manifest_impl():
 
     # Discover physical proof source files on disk
     disk_proof_files = []
-    if os.path.exists(cwd):
-        for root, _, files in os.walk(cwd):
+    proof_dir = os.path.join(repo_root, "lean4-proofs")
+    if os.path.exists(proof_dir):
+        for root, _, files in os.walk(proof_dir):
             if ".lake" in root:
                 continue
             for file in files:
@@ -828,7 +829,7 @@ def _generate_manifest_impl():
                     and file != "Validator.lean"
                 ):
                     full_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(full_path, cwd)
+                    rel_path = os.path.relpath(full_path, proof_dir)
                     disk_proof_files.append(rel_path)
 
     # Gate: Fail immediately if any unmanifested source file exists on disk
