@@ -360,6 +360,14 @@ pub fn run_controller(
     addr: &str,
     units: Vec<RangeWorkUnit>,
 ) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>), ControllerError> {
+    run_controller_with_checkpoint(addr, units, "checkpoint.json")
+}
+
+pub fn run_controller_with_checkpoint(
+    addr: &str,
+    units: Vec<RangeWorkUnit>,
+    checkpoint_path: &str,
+) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>), ControllerError> {
     let mut controller_state = ControllerExecutionState::Uninitialized;
     let listener = match TcpListener::bind(addr) {
         Ok(l) => {
@@ -383,8 +391,6 @@ pub fn run_controller(
     let worker_id_counter = Arc::new(AtomicUsize::new(1));
 
     println!("Controller listening on {}", addr);
-
-    let checkpoint_path = "checkpoint.json";
 
     // Load from checkpoint if exists with fallback parsing
     let (initial_units, initial_completed, initial_retries, is_new_or_legacy) =
@@ -1510,7 +1516,8 @@ mod tests {
 
     #[test]
     fn test_run_controller_telemetry_and_ranges() {
-        let _ = fs::remove_file("checkpoint.json");
+        let checkpoint = "checkpoint_test_telemetry.json";
+        let _ = fs::remove_file(checkpoint);
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
         drop(listener);
@@ -1525,8 +1532,9 @@ mod tests {
         };
 
         let addr_clone = addr.clone();
-        let controller_handle =
-            thread::spawn(move || run_controller(&addr_clone, vec![unit1, unit2]));
+        let controller_handle = thread::spawn(move || {
+            run_controller_with_checkpoint(&addr_clone, vec![unit1, unit2], checkpoint)
+        });
 
         thread::sleep(Duration::from_millis(50));
 
@@ -1623,12 +1631,13 @@ mod tests {
         assert_eq!(telemetry.boundary_pruned, 6);
         assert_eq!(telemetry.math_interruptions, 4);
         assert_eq!(ranges.len(), 2);
-        let _ = fs::remove_file("checkpoint.json");
+        let _ = fs::remove_file(checkpoint);
     }
 
     #[test]
     fn test_duplicate_work_request_requeues_task() {
-        let _ = fs::remove_file("checkpoint.json");
+        let checkpoint = "checkpoint_test_duplicate.json";
+        let _ = fs::remove_file(checkpoint);
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
         drop(listener);
@@ -1643,8 +1652,9 @@ mod tests {
         };
 
         let addr_clone = addr.clone();
-        let controller_handle =
-            thread::spawn(move || run_controller(&addr_clone, vec![unit1, unit2]));
+        let controller_handle = thread::spawn(move || {
+            run_controller_with_checkpoint(&addr_clone, vec![unit1, unit2], checkpoint)
+        });
 
         thread::sleep(Duration::from_millis(50));
 
@@ -1706,12 +1716,13 @@ mod tests {
         let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 2);
-        let _ = fs::remove_file("checkpoint.json");
+        let _ = fs::remove_file(checkpoint);
     }
 
     #[test]
     fn test_lagging_worker_event_rejection() {
-        let _ = fs::remove_file("checkpoint.json");
+        let checkpoint = "checkpoint_test_lagging.json";
+        let _ = fs::remove_file(checkpoint);
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
         drop(listener);
@@ -1723,8 +1734,9 @@ mod tests {
 
         let addr_clone = addr.clone();
         let unit1_clone = unit1.clone();
-        let controller_handle =
-            thread::spawn(move || run_controller(&addr_clone, vec![unit1_clone]));
+        let controller_handle = thread::spawn(move || {
+            run_controller_with_checkpoint(&addr_clone, vec![unit1_clone], checkpoint)
+        });
 
         thread::sleep(Duration::from_millis(50));
 
@@ -1778,12 +1790,13 @@ mod tests {
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 1);
         assert_eq!(ranges[0], unit1);
-        let _ = fs::remove_file("checkpoint.json");
+        let _ = fs::remove_file(checkpoint);
     }
 
     #[test]
     fn test_requeued_task_completion_deduplication() {
-        let _ = fs::remove_file("checkpoint.json");
+        let checkpoint = "checkpoint_test_dedup.json";
+        let _ = fs::remove_file(checkpoint);
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap().to_string();
         drop(listener);
@@ -1798,8 +1811,13 @@ mod tests {
         };
 
         let addr_clone = addr.clone();
-        let controller_handle =
-            thread::spawn(move || run_controller(&addr_clone, vec![unit1.clone(), unit2.clone()]));
+        let controller_handle = thread::spawn(move || {
+            run_controller_with_checkpoint(
+                &addr_clone,
+                vec![unit1.clone(), unit2.clone()],
+                checkpoint,
+            )
+        });
 
         thread::sleep(Duration::from_millis(50));
 
@@ -1873,23 +1891,30 @@ mod tests {
         let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.total_branches, 400);
         assert_eq!(ranges.len(), 2);
-        let _ = fs::remove_file("checkpoint.json");
+        let _ = fs::remove_file(checkpoint);
     }
 
     #[test]
     fn test_bounded_task_requeue_on_dfs_interrupted() {
-        let _ = fs::remove_file("checkpoint.json");
-        let addr = "127.0.0.1:29881";
+        let checkpoint = "checkpoint_test_interrupted.json";
+        let _ = fs::remove_file(checkpoint);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
         let u1 = RangeWorkUnit {
             start_bound: vec![10, 20],
             end_bound: vec![30, 40],
         };
         let work_units = vec![u1.clone()];
 
-        let controller_handle = thread::spawn(move || run_controller(addr, work_units));
+        let addr_clone = addr.clone();
+        let controller_handle = thread::spawn(move || {
+            run_controller_with_checkpoint(&addr_clone, work_units, checkpoint)
+        });
         thread::sleep(Duration::from_millis(50));
 
-        let client = TcpStream::connect(addr).unwrap();
+        let client = TcpStream::connect(&addr).unwrap();
         let mut client_reader = client.try_clone().unwrap();
         let client_mutex = Arc::new(Mutex::new(client));
 
@@ -1946,23 +1971,30 @@ mod tests {
         assert_eq!(telemetry.total_branches, 30);
         assert_eq!(telemetry.math_interruptions, 1);
         assert_eq!(ranges.len(), 1);
-        let _ = fs::remove_file("checkpoint.json");
+        let _ = fs::remove_file(checkpoint);
     }
 
     #[test]
     fn test_bounded_task_requeue_exceed_max_retries() {
-        let _ = fs::remove_file("checkpoint.json");
-        let addr = "127.0.0.1:29882";
+        let checkpoint = "checkpoint_test_exceed.json";
+        let _ = fs::remove_file(checkpoint);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
         let u1 = RangeWorkUnit {
             start_bound: vec![100, 200],
             end_bound: vec![300, 400],
         };
         let work_units = vec![u1.clone()];
 
-        let controller_handle = thread::spawn(move || run_controller(addr, work_units));
+        let addr_clone = addr.clone();
+        let controller_handle = thread::spawn(move || {
+            run_controller_with_checkpoint(&addr_clone, work_units, checkpoint)
+        });
         thread::sleep(Duration::from_millis(50));
 
-        let client = TcpStream::connect(addr).unwrap();
+        let client = TcpStream::connect(&addr).unwrap();
         let mut client_reader = client.try_clone().unwrap();
         let client_mutex = Arc::new(Mutex::new(client));
 
@@ -1996,7 +2028,7 @@ mod tests {
         let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
         assert_eq!(telemetry.math_interruptions, 4);
         assert!(ranges.is_empty()); // Range was NOT completed
-        let _ = fs::remove_file("checkpoint.json");
+        let _ = fs::remove_file(checkpoint);
     }
 
     #[test]
