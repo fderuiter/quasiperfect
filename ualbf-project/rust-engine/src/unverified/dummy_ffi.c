@@ -330,8 +330,21 @@ uint8_t ualbf_check_crt_1155_limbs(
     return 1;
 }
 
-uint64_t ualbf_static_suffix_bound_w0(uint32_t k) { (void)k; return 0; }
-uint64_t ualbf_static_suffix_bound_w1(uint32_t k) { (void)k; return 0; }
+uint64_t ualbf_static_suffix_bound_w0(uint32_t k) {
+    static const uint64_t w0[] = STATIC_SUFFIX_BOUNDS_W0;
+    if (k < STATIC_SUFFIX_BOUNDS_LEN) {
+        return w0[k];
+    }
+    return w0[STATIC_SUFFIX_BOUNDS_LEN - 1];
+}
+
+uint64_t ualbf_static_suffix_bound_w1(uint32_t k) {
+    static const uint64_t w1[] = STATIC_SUFFIX_BOUNDS_W1;
+    if (k < STATIC_SUFFIX_BOUNDS_LEN) {
+        return w1[k];
+    }
+    return w1[STATIC_SUFFIX_BOUNDS_LEN - 1];
+}
 
 uint64_t ualbf_euler_ceiling_num = (1ULL << 63) | EULER_CEILING_NUM;
 uint64_t ualbf_euler_ceiling_den = (1ULL << 63) | EULER_CEILING_DEN;

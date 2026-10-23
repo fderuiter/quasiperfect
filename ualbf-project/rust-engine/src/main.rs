@@ -887,9 +887,19 @@ fn main() {
         let depth_limit = 1; // shallow DFS depths
         let work_units =
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
+        let total_work_units = work_units.len();
         let addr = config.controller_addr.clone();
         match distributed::run_controller(&addr, work_units) {
             Ok((tel, mut ranges, is_complete)) => {
+                if tel.math_interruptions > 0 && ranges.len() < total_work_units {
+                    eprintln!(
+                        "FATAL: Controller run terminated with unrecovered evaluation interruptions or incomplete ranges (completed {}/{}). Aborting search run.",
+                        ranges.len(),
+                        total_work_units
+                    );
+                    controller_state = Some(crate::distributed::ControllerExecutionState::Failed);
+                    std::process::exit(1);
+                }
                 ranges.sort_by(|a, b| {
                     a.start_bound
                         .cmp(&b.start_bound)

@@ -1208,6 +1208,9 @@ verus! {{
 #define CRT_MODULI {{ {', '.join(map(str, crt_moduli))} }}
 #define LATTICE_PRECISION_TOLERANCE {lattice_precision_tolerance}
 #define LATTICE_TARGET_PENALTY_BASE {lattice_target_penalty_base}
+#define STATIC_SUFFIX_BOUNDS_LEN {len(bounds.get('static_suffix_bounds', []))}
+#define STATIC_SUFFIX_BOUNDS_W0 {{ {', '.join(f"0x{(b & 0xFFFFFFFFFFFFFFFF):x}ULL" for b in bounds.get('static_suffix_bounds', []))} }}
+#define STATIC_SUFFIX_BOUNDS_W1 {{ {', '.join(f"0x{(b >> 64):x}ULL" for b in bounds.get('static_suffix_bounds', []))} }}
 """
         with open(
             os.path.join(repo_root, "rust-engine", "src", "manifest_constants.h"), "w"

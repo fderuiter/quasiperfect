@@ -116,7 +116,7 @@ pub fn phase1_global_annihilation_sieve_with_trace(
     let mut stage2_bitset = vec![0u64; num_blocks_stage2];
     for p_mod_8 in 0..8 {
         for e in 1..=max_e {
-            if crate::lean_ffi::check_mod_8(p_mod_8 as u64) {
+            if !crate::obstruction::check_mod_8_native(p_mod_8 as u64, 2 * e) {
                 if let Some(index) = get_sieve_index(p_mod_8 as usize, max_e, e) {
                     if index / 64 < stage2_bitset.len() {
                         stage2_bitset[index / 64] |= 1 << (index % 64);

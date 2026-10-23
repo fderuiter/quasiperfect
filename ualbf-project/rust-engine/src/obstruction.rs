@@ -37,7 +37,7 @@ pub fn get_component_static_rejection(p: u64, two_e: u32) -> Option<StaticReject
         Some(StaticRejectionReason::Mod3)
     } else if check_mod_5(p, two_e) {
         Some(StaticRejectionReason::Mod5)
-    } else if !check_mod_8(p) {
+    } else if check_mod_8_native(p, two_e) {
         Some(StaticRejectionReason::Mod8)
     } else if check_mod_9(p, two_e) {
         Some(StaticRejectionReason::Mod9)
@@ -142,8 +142,8 @@ impl Obstruction for Mod8Obstruction {
         !check_mod_8(low_word)
     }
 
-    fn check_component(&self, p: u64, _two_e: u32) -> bool {
-        !check_mod_8(p)
+    fn check_component(&self, p: u64, two_e: u32) -> bool {
+        check_mod_8_native(p, two_e)
     }
 }
 

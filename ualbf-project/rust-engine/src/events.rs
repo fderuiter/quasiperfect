@@ -40,6 +40,15 @@ pub enum SearchEvent {
         math_interruptions: usize,
         range: crate::distributed::RangeWorkUnit,
     },
+    DFSInterrupted {
+        total_branches: usize,
+        ap: usize,
+        rp: usize,
+        bp: usize,
+        math_interruptions: usize,
+        error_metadata: String,
+        range: crate::distributed::RangeWorkUnit,
+    },
     RaycastDeferred {
         rem_str: String,
     },
@@ -131,6 +140,23 @@ mod tests {
             rp: 300,
             bp: 15,
             math_interruptions: 42,
+            range: crate::distributed::RangeWorkUnit {
+                start_bound: vec![1, 2],
+                end_bound: vec![3, 4],
+            },
+        };
+        assert_roundtrip(event);
+    }
+
+    #[test]
+    fn test_search_event_dfs_interrupted_roundtrip() {
+        let event = SearchEvent::DFSInterrupted {
+            total_branches: 50000,
+            ap: 1200,
+            rp: 300,
+            bp: 15,
+            math_interruptions: 2,
+            error_metadata: "Math evaluation overflow detected in division loop".to_string(),
             range: crate::distributed::RangeWorkUnit {
                 start_bound: vec![1, 2],
                 end_bound: vec![3, 4],

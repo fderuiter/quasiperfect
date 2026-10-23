@@ -15,7 +15,7 @@ pub struct GraphTopologyManifest {
     pub forced_candidates: Vec<Vec<usize>>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum PruneReason {
     TargetBound,
     CdgForcedCascade {
