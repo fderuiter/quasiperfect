@@ -359,7 +359,7 @@ fn save_checkpoint(
 pub fn run_controller(
     addr: &str,
     units: Vec<RangeWorkUnit>,
-) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>), ControllerError> {
+) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>, bool), ControllerError> {
     run_controller_with_checkpoint(addr, units, "checkpoint.json")
 }
 
@@ -367,8 +367,26 @@ pub fn run_controller_with_checkpoint(
     addr: &str,
     units: Vec<RangeWorkUnit>,
     checkpoint_path: &str,
-) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>), ControllerError> {
+) -> Result<(crate::dfs_tree::DfsTelemetry, Vec<RangeWorkUnit>, bool), ControllerError> {
     let mut controller_state = ControllerExecutionState::Uninitialized;
+
+    // Load from checkpoint if exists with fallback parsing
+    let (initial_units, initial_completed, initial_retries, is_new_or_legacy) =
+        load_checkpoint_or_fallback(checkpoint_path, units);
+
+    let retry_counts = Arc::new(Mutex::new(initial_retries));
+    let is_failed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+    let completed_set = Arc::new(Mutex::new(HashSet::<RangeWorkUnit>::from_iter(
+        initial_completed,
+    )));
+    let work_queue = Arc::new(Mutex::new(initial_units));
+    let total_units = work_queue.lock().unwrap_or_else(|e| e.into_inner()).len()
+        + completed_set
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len();
+
     let listener = match TcpListener::bind(addr) {
         Ok(l) => {
             controller_state = ControllerExecutionState::Listening;
@@ -391,23 +409,6 @@ pub fn run_controller_with_checkpoint(
     let worker_id_counter = Arc::new(AtomicUsize::new(1));
 
     println!("Controller listening on {}", addr);
-
-    // Load from checkpoint if exists with fallback parsing
-    let (initial_units, initial_completed, initial_retries, is_new_or_legacy) =
-        load_checkpoint_or_fallback(checkpoint_path, units);
-
-    let retry_counts = Arc::new(Mutex::new(initial_retries));
-    let is_failed = Arc::new(std::sync::atomic::AtomicBool::new(false));
-
-    let completed_set = Arc::new(Mutex::new(HashSet::<RangeWorkUnit>::from_iter(
-        initial_completed,
-    )));
-    let work_queue = Arc::new(Mutex::new(initial_units));
-    let total_units = work_queue.lock().unwrap_or_else(|e| e.into_inner()).len()
-        + completed_set
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .len();
     println!(
         "Partitioned search space into {} discrete pending work units.",
         total_units
@@ -425,6 +426,7 @@ pub fn run_controller_with_checkpoint(
                 boundary_pruned: 0,
             },
             Vec::new(),
+            false,
         ));
     }
 
@@ -899,6 +901,23 @@ pub fn run_controller_with_checkpoint(
     }
 
     let ranges = std::mem::take(&mut *completed_ranges.lock().unwrap_or_else(|e| e.into_inner()));
+    let completed_count = completed_set
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .len();
+    let is_complete = total_units > 0 && completed_count >= total_units;
+
+    if !is_complete {
+        println!(
+            "Warning: Partial controller run ended. Completed {} of {} work units.",
+            completed_count, total_units
+        );
+        println!("Preserving {} for task recovery.", checkpoint_path);
+        controller_state = ControllerExecutionState::Failed;
+    } else {
+        controller_state = ControllerExecutionState::Completed;
+    }
+
     let tel = crate::dfs_tree::DfsTelemetry {
         total_branches: total_branches_acc.load(Ordering::Relaxed),
         abundance_pruned: ap_acc.load(Ordering::Relaxed),
@@ -908,8 +927,7 @@ pub fn run_controller_with_checkpoint(
         boundary_pruned: bp_acc.load(Ordering::Relaxed),
     };
 
-    controller_state = ControllerExecutionState::Completed;
-    Ok((tel, ranges))
+    Ok((tel, ranges, is_complete))
 }
 
 pub fn run_worker(
@@ -1624,7 +1642,8 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
+        assert!(is_complete);
         assert_eq!(telemetry.total_branches, 300);
         assert_eq!(telemetry.abundance_pruned, 30);
         assert_eq!(telemetry.raycast_pruned, 15);
@@ -1713,7 +1732,8 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
+        assert!(is_complete);
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file(checkpoint);
@@ -1786,7 +1806,8 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
+        assert!(is_complete);
         assert_eq!(telemetry.total_branches, 100);
         assert_eq!(ranges.len(), 1);
         assert_eq!(ranges[0], unit1);
@@ -1888,7 +1909,8 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
+        assert!(is_complete);
         assert_eq!(telemetry.total_branches, 400);
         assert_eq!(ranges.len(), 2);
         let _ = fs::remove_file(checkpoint);
@@ -1967,7 +1989,8 @@ mod tests {
         )
         .unwrap();
 
-        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
+        assert!(is_complete);
         assert_eq!(telemetry.total_branches, 30);
         assert_eq!(telemetry.math_interruptions, 1);
         assert_eq!(ranges.len(), 1);
@@ -2025,10 +2048,55 @@ mod tests {
             thread::sleep(Duration::from_millis(50));
         }
 
-        let (telemetry, ranges) = controller_handle.join().unwrap().unwrap();
+        let (telemetry, ranges, is_complete) = controller_handle.join().unwrap().unwrap();
+        assert!(!is_complete);
         assert_eq!(telemetry.math_interruptions, 4);
         assert!(ranges.is_empty()); // Range was NOT completed
         let _ = fs::remove_file(checkpoint);
+    }
+
+    #[test]
+    fn test_run_controller_incomplete_run_returns_false() {
+        let _ = fs::remove_file("checkpoint.json");
+
+        // 1. Test total_units == 0 returns is_complete == false
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+        drop(listener);
+
+        let (_, _, is_complete_empty) = run_controller(&addr, vec![]).unwrap();
+        assert!(!is_complete_empty);
+
+        // 2. Test invalid bind address returns error
+        let unit1 = RangeWorkUnit {
+            start_bound: vec![1],
+            end_bound: vec![2],
+        };
+        let bind_res = run_controller("invalid_address:99999", vec![unit1]);
+        assert!(bind_res.is_err());
+
+        // 3. Test partial checkpoint resumption returns error on invalid address
+        let unit_done = RangeWorkUnit {
+            start_bound: vec![10],
+            end_bound: vec![20],
+        };
+        let unit_pending = RangeWorkUnit {
+            start_bound: vec![20],
+            end_bound: vec![30],
+        };
+        save_checkpoint(
+            "checkpoint.json",
+            &vec![unit_pending.clone()],
+            &HashMap::new(),
+            &HashSet::from([unit_done.clone()]),
+            &HashMap::new(),
+        );
+
+        let res_partial = run_controller("invalid_address:99999", vec![]);
+        assert!(res_partial.is_err());
+        assert!(fs::metadata("checkpoint.json").is_ok());
+
+        let _ = fs::remove_file("checkpoint.json");
     }
 
     #[test]

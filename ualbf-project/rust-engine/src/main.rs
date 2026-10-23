@@ -879,6 +879,7 @@ fn main() {
     let phase2_start = std::time::Instant::now();
     let mut explored_ranges_out = Vec::new();
     let telemetry_data;
+    let mut controller_is_complete = true;
 
     let mut controller_state: Option<crate::distributed::ControllerExecutionState> = None;
 
@@ -889,7 +890,7 @@ fn main() {
         let total_work_units = work_units.len();
         let addr = config.controller_addr.clone();
         match distributed::run_controller(&addr, work_units) {
-            Ok((tel, mut ranges)) => {
+            Ok((tel, mut ranges, is_complete)) => {
                 if tel.math_interruptions > 0 && ranges.len() < total_work_units {
                     eprintln!(
                         "FATAL: Controller run terminated with unrecovered evaluation interruptions or incomplete ranges (completed {}/{}). Aborting search run.",
@@ -906,7 +907,12 @@ fn main() {
                 });
                 telemetry_data = tel;
                 explored_ranges_out = ranges;
-                controller_state = Some(crate::distributed::ControllerExecutionState::Completed);
+                controller_is_complete = is_complete;
+                controller_state = Some(if is_complete {
+                    crate::distributed::ControllerExecutionState::Completed
+                } else {
+                    crate::distributed::ControllerExecutionState::Failed
+                });
             }
             Err(e) => {
                 eprintln!("Controller initialization or execution failed: {}", e);
@@ -1041,6 +1047,11 @@ fn main() {
 
     if skip_cert {
         println!("=== Certificate Generation Skipped due to custom bounds ===");
+        return;
+    }
+
+    if mode == "controller" && !controller_is_complete {
+        println!("=== Certificate Generation Skipped due to incomplete distributed search ===");
         return;
     }
 

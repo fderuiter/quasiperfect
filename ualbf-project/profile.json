@@ -1,0 +1,6 @@
+{
+  "pollard_rho_batch_size": 128,
+  "active_prime_slots": 64,
+  "engine_telemetry_interval_ms": 1000,
+  "dashboard_telemetry_interval_ms": 250
+}
