@@ -351,8 +351,11 @@ mod tests {
         let comp = crate::types::PrimePower {
             p: 2,
             two_e: 2,
-            p_pow_2e: Uint::from_u64(4),
+            val: Uint::from_u64(4),
             sigma: Uint::from_u64(2),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp: 0,
         };
         let components = vec![comp];
         let result = dispatch_touchard_reachability_check(2, &active_mask, 0, &components);
@@ -368,8 +371,11 @@ mod tests {
         let comp = crate::types::PrimePower {
             p: 2,
             two_e: 2,
-            p_pow_2e: Uint::from_u64(4),
+            val: Uint::from_u64(4),
             sigma: Uint::from_u64(2),
+            sigma_factors: vec![],
+            needs_rho: vec![],
+            abundance_fp: 0,
         };
         let components = vec![comp];
 

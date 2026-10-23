@@ -604,7 +604,10 @@ pub fn check_and_evaluate_node(
 
     // Dynamically calculate the minimum factors and maximum achievable abundancy
     // based on the modular divisibility chain (Legendre-Cattaneo / Prasad-Sunitha chains).
-    let (mut dynamic_min_factors, dynamic_best_achievable_fp) = if !curr.factors.is_empty() {
+    let (mut dynamic_min_factors, dynamic_best_achievable_fp, tail_padded) = if !curr
+        .factors
+        .is_empty()
+    {
         let _factor_mask = 0u64;
         for &f in &curr.factors {
             if f < 64 {}
@@ -3316,7 +3319,7 @@ mod tests {
             let (tx, rx) = crossbeam_channel::bounded(10);
             let _ = crate::trace::send_trace_event(&tx, event_padded);
             let received = rx.recv().expect("Failed to receive trace event");
-            let json = serde_json::to_string(&received.reason).unwrap_or_default();
+            let _json = format!("{:?}", received.reason);
             // Verify PruneReason pattern matching and trace event tail_padded tracking
             if let crate::trace::PruneReason::DynamicStarvation { tail_padded, .. } =
                 received.reason
@@ -3407,7 +3410,10 @@ mod tests {
             0,
             &AtomicU64::new(0),
         );
-        assert!(res_inconclusive, "Inconclusive raycasting must return true for DFS fallback");
+        assert!(
+            res_inconclusive,
+            "Inconclusive raycasting must return true for DFS fallback"
+        );
 
         // Case 2: Handled raycasting -> check_and_evaluate_node returns false
         let mut curr_handled = make_prefix(100, 195, 0);
@@ -3439,7 +3445,10 @@ mod tests {
             0,
             &AtomicU64::new(0),
         );
-        assert!(!res_handled, "Handled raycasting must return false to conclude branch search");
+        assert!(
+            !res_handled,
+            "Handled raycasting must return false to conclude branch search"
+        );
     }
 }
 static LAST_TELEMETRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);

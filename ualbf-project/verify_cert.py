@@ -2,6 +2,7 @@
 import json
 import sys
 import os
+import fnmatch
 import struct
 import hash_util
 import tempfile
@@ -1169,6 +1170,44 @@ def verify_meta_certificate(
     return verified_leaf_certs
 
 
+def discover_candidate_certificates(search_dir="."):
+    """
+    Scans search_dir non-recursively for candidate JSON certificate files.
+    Matches standard certificate naming patterns such as meta_certificate.json,
+    certificate*.json, *_cert.json, or *_certificate.json. Excludes manifest files.
+    """
+    candidate_patterns = [
+        "meta_certificate.json",
+        "certificate*.json",
+        "*_cert.json",
+        "*_certificate.json",
+    ]
+    manifest_patterns = [
+        "*manifest*.json",
+    ]
+
+    candidates = set()
+    try:
+        entries = os.listdir(search_dir)
+    except Exception:
+        return []
+
+    for entry in entries:
+        full_path = os.path.join(search_dir, entry)
+        if os.path.isfile(full_path) and entry.endswith(".json"):
+            if any(
+                fnmatch.fnmatch(entry.lower(), m_pat) for m_pat in manifest_patterns
+            ):
+                continue
+
+            for pat in candidate_patterns:
+                if fnmatch.fnmatch(entry.lower(), pat):
+                    candidates.add(entry)
+                    break
+
+    return sorted(list(candidates))
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -1178,7 +1217,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--cert",
         nargs="+",
-        default=["formal_certificate.json"],
+        default=None,
         help="Path(s) to formal_certificate.json",
     )
     parser.add_argument(
@@ -1218,7 +1257,42 @@ if __name__ == "__main__":
         "UALBF_ALLOW_MISSING_SOURCES", False
     )
 
-    certs = args.cert if isinstance(args.cert, list) else [args.cert]
+    if args.cert is None:
+        default_cert = "formal_certificate.json"
+        if os.path.exists(default_cert):
+            certs = [default_cert]
+        else:
+            candidates = discover_candidate_certificates(".")
+            if len(candidates) == 1:
+                candidate = candidates[0]
+                print(
+                    f"Notice: Default certificate '{default_cert}' not found. "
+                    f"Auto-discovered candidate certificate: '{candidate}'"
+                )
+                certs = [candidate]
+            elif len(candidates) > 1:
+                print(
+                    f"ERROR: Default certificate '{default_cert}' not found.\n"
+                    f"Multiple candidate certificate files found in working directory:",
+                    file=sys.stderr,
+                )
+                for cand in candidates:
+                    print(f"  - {cand}", file=sys.stderr)
+                print(
+                    "\nUsage: python3 verify_cert.py --cert <path_to_cert>",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            else:
+                print(
+                    f"ERROR: Default certificate '{default_cert}' not found and no candidate certificate files exist in working directory.\n"
+                    "Usage: python3 verify_cert.py --cert <path_to_cert>\n"
+                    "For CLI details, run: python3 verify_cert.py --help",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+    else:
+        certs = args.cert if isinstance(args.cert, list) else [args.cert]
 
     # If the user passed a single meta-certificate
     if len(certs) == 1 and not os.path.isdir(certs[0]):

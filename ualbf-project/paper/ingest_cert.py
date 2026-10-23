@@ -201,6 +201,21 @@ def write_telemetry_tex(
         else "verification_manifest.tex"
     )
 
+    existing_commit_hash = None
+    if os.path.exists(telemetry_tex_path):
+        try:
+            with open(telemetry_tex_path, "r", encoding="utf-8") as tf:
+                for line in tf:
+                    m = re.match(
+                        r"\\newcommand\{\\TelemetryCommitHash\}\{(.+?)\}",
+                        line.strip(),
+                    )
+                    if m:
+                        existing_commit_hash = m.group(1)
+                        break
+        except Exception:
+            pass
+
     with open(telemetry_tex_path, "w", encoding="utf-8") as f:
         if has_cert:
             try:
@@ -312,9 +327,12 @@ def write_telemetry_tex(
             f.write(
                 f"\\newcommand{{\\TelemetryEngineVersion}}{{{cert.get('engine_version', 'unknown')}}}\n"
             )
-            f.write(
-                f"\\newcommand{{\\TelemetryCommitHash}}{{{cert.get('commit_hash', 'unknown')}}}\n"
+            commit_hash_val = (
+                existing_commit_hash
+                if existing_commit_hash
+                else cert.get("commit_hash", "unknown")
             )
+            f.write(f"\\newcommand{{\\TelemetryCommitHash}}{{{commit_hash_val}}}\n")
 
             bounds_exceeded = tel.get("bounds_exceeded", False)
             if bounds_exceeded:

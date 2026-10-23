@@ -358,11 +358,7 @@ pub fn phase4_exact_ray_casting(
     // Overflow-free modular reduction for a = (2 * n_L) mod s_L
     let r = prefix.n_l % prefix.s_l;
     let s_minus_r = prefix.s_l - r;
-    let a_uint = if r < s_minus_r {
-        r + r
-    } else {
-        r - s_minus_r
-    };
+    let a_uint = if r < s_minus_r { r + r } else { r - s_minus_r };
     let a = a_uint.as_int();
     let s_l_int = prefix.s_l.as_int();
 
