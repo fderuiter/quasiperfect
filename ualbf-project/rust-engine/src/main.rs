@@ -879,6 +879,7 @@ fn main() {
     let phase2_start = std::time::Instant::now();
     let mut explored_ranges_out = Vec::new();
     let telemetry_data;
+    let mut controller_is_complete = true;
 
     let mut controller_state: Option<crate::distributed::ControllerExecutionState> = None;
 
@@ -888,7 +889,7 @@ fn main() {
             distributed::generate_work_units(&valid_components, &target_bound, depth_limit);
         let addr = config.controller_addr.clone();
         match distributed::run_controller(&addr, work_units) {
-            Ok((tel, mut ranges)) => {
+            Ok((tel, mut ranges, is_complete)) => {
                 ranges.sort_by(|a, b| {
                     a.start_bound
                         .cmp(&b.start_bound)
@@ -896,7 +897,12 @@ fn main() {
                 });
                 telemetry_data = tel;
                 explored_ranges_out = ranges;
-                controller_state = Some(crate::distributed::ControllerExecutionState::Completed);
+                controller_is_complete = is_complete;
+                controller_state = Some(if is_complete {
+                    crate::distributed::ControllerExecutionState::Completed
+                } else {
+                    crate::distributed::ControllerExecutionState::Failed
+                });
             }
             Err(e) => {
                 eprintln!("Controller initialization or execution failed: {}", e);
@@ -1031,6 +1037,11 @@ fn main() {
 
     if skip_cert {
         println!("=== Certificate Generation Skipped due to custom bounds ===");
+        return;
+    }
+
+    if mode == "controller" && !controller_is_complete {
+        println!("=== Certificate Generation Skipped due to incomplete distributed search ===");
         return;
     }
 
