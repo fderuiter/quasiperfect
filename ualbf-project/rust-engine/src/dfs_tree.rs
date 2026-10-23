@@ -3319,7 +3319,7 @@ mod tests {
             let (tx, rx) = crossbeam_channel::bounded(10);
             let _ = crate::trace::send_trace_event(&tx, event_padded);
             let received = rx.recv().expect("Failed to receive trace event");
-            let json = serde_json::to_string(&received.reason).unwrap_or_default();
+            let _json = format!("{:?}", received.reason);
             // Verify PruneReason pattern matching and trace event tail_padded tracking
             if let crate::trace::PruneReason::DynamicStarvation { tail_padded, .. } =
                 received.reason

@@ -808,16 +808,25 @@ def _generate_manifest_impl():
                     existing_entries[thm["name"]] = thm
                     if "file" in thm:
                         existing_registered_files.add(thm["file"])
+                        if thm["file"].startswith("lean4-proofs/"):
+                            existing_registered_files.add(
+                                thm["file"][len("lean4-proofs/") :]
+                            )
                 for pf in old_manifest.get("proof_files", []):
                     if "file" in pf:
                         existing_registered_files.add(pf["file"])
+                        if pf["file"].startswith("lean4-proofs/"):
+                            existing_registered_files.add(
+                                pf["file"][len("lean4-proofs/") :]
+                            )
         except Exception:
             pass
 
     # Discover physical proof source files on disk
     disk_proof_files = []
-    if os.path.exists(cwd):
-        for root, _, files in os.walk(cwd):
+    proof_dir = os.path.join(repo_root, "lean4-proofs")
+    if os.path.exists(proof_dir):
+        for root, _, files in os.walk(proof_dir):
             if ".lake" in root:
                 continue
             for file in files:
@@ -828,7 +837,7 @@ def _generate_manifest_impl():
                     and file != "Validator.lean"
                 ):
                     full_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(full_path, cwd)
+                    rel_path = os.path.relpath(full_path, proof_dir)
                     disk_proof_files.append(rel_path)
 
     # Gate: Fail immediately if any unmanifested source file exists on disk
@@ -1246,7 +1255,11 @@ def _generate_manifest_impl():
 
         if not found_file or found_file == "UALBF.lean":
             for pf in disk_proof_files:
-                pf_path = os.path.join(cwd, pf)
+                pf_path = (
+                    os.path.join(proof_dir, pf)
+                    if os.path.exists(os.path.join(proof_dir, pf))
+                    else os.path.join(cwd, pf)
+                )
                 if os.path.exists(pf_path):
                     try:
                         with open(pf_path, "r", encoding="utf-8") as f:
@@ -1299,7 +1312,11 @@ def _generate_manifest_impl():
 
         if not found_file or found_file == "UALBF.lean":
             for pf in disk_proof_files:
-                pf_path = os.path.join(cwd, pf)
+                pf_path = (
+                    os.path.join(proof_dir, pf)
+                    if os.path.exists(os.path.join(proof_dir, pf))
+                    else os.path.join(cwd, pf)
+                )
                 if os.path.exists(pf_path):
                     try:
                         with open(pf_path, "r", encoding="utf-8") as f:
@@ -1366,20 +1383,22 @@ def _generate_manifest_impl():
 
     # Scan and hash all 23 proof files
     proof_files = []
-    for root, _, files in os.walk(cwd):
-        if ".lake" in root:
-            continue
-        for file in files:
-            if (
-                file.endswith(".lean")
-                and file != "lakefile.lean"
-                and file != "find_axioms.lean"
-                and file != "Validator.lean"
-            ):
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, cwd)
-                checksum = hash_util.hash_file_bounded(full_path)
-                proof_files.append({"file": rel_path, "checksum": checksum})
+    proof_dir = os.path.join(repo_root, "lean4-proofs")
+    if os.path.exists(proof_dir):
+        for root, _, files in os.walk(proof_dir):
+            if ".lake" in root:
+                continue
+            for file in files:
+                if (
+                    file.endswith(".lean")
+                    and file != "lakefile.lean"
+                    and file != "find_axioms.lean"
+                    and file != "Validator.lean"
+                ):
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, proof_dir)
+                    checksum = hash_util.hash_file_bounded(full_path)
+                    proof_files.append({"file": rel_path, "checksum": checksum})
     manifest["proof_files"] = sorted(proof_files, key=lambda x: x["file"])
 
     # Compute bounds_manifest.json hash and validate trial_division_limit against ManifestConstants.lean
@@ -1857,6 +1876,7 @@ def check_documentation(manifest, repo_root=None):
         pass
 
     ignore_symbols = {
+        "profile.json",
         "null",
         "path",
         "boolean",
@@ -2008,6 +2028,12 @@ def check_documentation(manifest, repo_root=None):
                     ):
                         target = bt.split("#")[0].split(":")[0]
                         if not target:
+                            continue
+                        if (
+                            target in ignore_symbols
+                            or bt in ignore_symbols
+                            or os.path.basename(target) in ignore_symbols
+                        ):
                             continue
                         if not resolve_target_path(doc_path, target):
                             errors.append(

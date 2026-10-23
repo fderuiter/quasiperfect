@@ -2837,3 +2837,153 @@ class TestMathInterruptionsZeroEnforcement:
         with pytest.raises(ValueError) as exc_info:
             verification_lib.validate_certificate(json.dumps(cert), pub_key)
         assert "math_interruptions" in str(exc_info.value)
+
+
+class TestCandidateCertificateDiscovery:
+    def test_discover_candidate_certificates_helper(self, tmp_path):
+        from verify_cert import discover_candidate_certificates
+
+        (tmp_path / "meta_certificate.json").write_text("{}")
+        (tmp_path / "certificate_node1.json").write_text("{}")
+        (tmp_path / "custom_cert.json").write_text("{}")
+        (tmp_path / "proof_manifest.json").write_text("{}")
+        (tmp_path / "unrelated.txt").write_text("hello")
+
+        candidates = discover_candidate_certificates(str(tmp_path))
+        assert candidates == [
+            "certificate_node1.json",
+            "custom_cert.json",
+            "meta_certificate.json",
+        ]
+        assert "proof_manifest.json" not in candidates
+
+    def test_cli_auto_discover_single_candidate(self, tmp_path):
+        verify_cert_script = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "verify_cert.py",
+        )
+        manifest = make_manifest()
+        cert = build_cert("placeholder")
+
+        bounds_content = b'{"dummy": "bounds"}'
+        (tmp_path / "bounds_manifest.json").write_bytes(bounds_content)
+        write_mock_manifest_files(str(tmp_path), manifest)
+        manifest["bounds_manifest_hash"] = hashlib.sha256(bounds_content).hexdigest()
+        manifest_content = json.dumps(manifest)
+        manifest_hash = hashlib.sha256(manifest_content.encode("utf-8")).hexdigest()
+        cert["manifest_hash"] = manifest_hash
+
+        tel = cert["telemetry"]
+        map_obj = {
+            "manifest_hash": manifest_hash,
+            "verified_logic_hash": cert["verified_logic_hash"],
+            "total_branches_searched": tel["total_branches_searched"],
+            "target_min_log10": tel.get("target_min_log10", 35),
+            "target_max_log10": tel["target_max_log10"],
+            "trace_hash": tel.get("trace_hash", ""),
+            "factorization_depth": tel.get("factorization_depth", 0),
+        }
+        if "path_ranges" in tel:
+            map_obj["path_ranges"] = tel["path_ranges"]
+        payload = json.dumps(map_obj, separators=(",", ":"), sort_keys=True)
+        pub_hex, sig_hex = sign_payload(payload)
+        cert["signature"] = sig_hex
+        cert["public_key"] = pub_hex
+
+        (tmp_path / "meta_certificate.json").write_text(json.dumps(cert))
+        (tmp_path / "proof_manifest.json").write_text(manifest_content)
+
+        env = os.environ.copy()
+        env["UALBF_TRUSTED_PUBLIC_KEY"] = pub_hex
+
+        proc = subprocess.run(
+            [
+                sys.executable,
+                verify_cert_script,
+                "--allow-missing-sources",
+                "--allow-logic-mismatch",
+            ],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+        assert (
+            proc.returncode == 0
+        ), f"Process failed with stderr:\n{proc.stderr}\nstdout:\n{proc.stdout}"
+        assert (
+            "Notice: Default certificate 'formal_certificate.json' not found."
+            in proc.stdout
+        )
+        assert (
+            "Auto-discovered candidate certificate: 'meta_certificate.json'"
+            in proc.stdout
+        )
+
+    def test_cli_multiple_candidates_lists_and_shows_usage(self, tmp_path):
+        verify_cert_script = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "verify_cert.py",
+        )
+        (tmp_path / "cert1_cert.json").write_text("{}")
+        (tmp_path / "cert2_cert.json").write_text("{}")
+
+        proc = subprocess.run(
+            [sys.executable, verify_cert_script],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode != 0
+        assert (
+            "ERROR: Default certificate 'formal_certificate.json' not found."
+            in proc.stderr
+        )
+        assert (
+            "Multiple candidate certificate files found in working directory:"
+            in proc.stderr
+        )
+        assert "- cert1_cert.json" in proc.stderr
+        assert "- cert2_cert.json" in proc.stderr
+        assert "Usage: python3 verify_cert.py --cert <path_to_cert>" in proc.stderr
+
+    def test_cli_zero_candidates_shows_diagnostic_and_help(self, tmp_path):
+        verify_cert_script = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "verify_cert.py",
+        )
+        proc = subprocess.run(
+            [sys.executable, verify_cert_script],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode != 0
+        assert (
+            "ERROR: Default certificate 'formal_certificate.json' not found and no candidate certificate files exist"
+            in proc.stderr
+        )
+        assert "Usage: python3 verify_cert.py --cert <path_to_cert>" in proc.stderr
+
+    def test_cli_explicit_cert_bypasses_candidate_discovery(self, tmp_path):
+        verify_cert_script = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "verify_cert.py",
+        )
+        (tmp_path / "meta_certificate.json").write_text("{}")
+
+        proc = subprocess.run(
+            [sys.executable, verify_cert_script, "--cert", "custom_missing.json"],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+        )
+
+        assert proc.returncode != 0
+        assert "Auto-discovered candidate certificate" not in proc.stdout
+        assert (
+            "custom_missing.json" in proc.stdout or "custom_missing.json" in proc.stderr
+        )
